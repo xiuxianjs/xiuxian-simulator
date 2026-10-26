@@ -343,7 +343,6 @@ export type RobotBusinessOperation =
   | 'referral.invitees'
   | 'gift-codes.hub'
   | 'gift-codes.redeem'
-  | 'gift-codes.old-game-issue'
   | 'emails.delete'
   | 'emails.delete-all'
   | 'emails.claim'

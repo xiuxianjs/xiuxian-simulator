@@ -18,7 +18,7 @@ test('下架商城、活动充值和海外仙岛旧指令不调用业务接口',
   const { app, requests } = await gameFixture(t, () => { throw new Error('retired feature reached the API'); });
   await app.mount({ responseRouter: router });
   for (const prefix of ['/', '#', '＃', '']) {
-    for (const command of ['赞助', '赞助购买 30', '活动商城', '活动商店', '海岛', '限时活动 商店', '限时活动 任务', '限时活动 特惠', '活动购买 1 1', '活动充值', '活动充值购买 1 2', '活动充值领取 1 2', '海外仙岛', '海外仙岛 测试 货品', '海外仙岛 测试 记录', '海外仙岛 测试 转盘 10']) {
+    for (const command of ['领取回归礼包', '领取回归礼包 OLD', '领取测试礼包', '领取测试礼包 OLD', '凡人修仙礼包码', '赞助', '赞助购买 30', '活动商城', '活动商店', '海岛', '限时活动 商店', '限时活动 任务', '限时活动 特惠', '活动购买 1 1', '活动充值', '活动充值购买 1 2', '活动充值领取 1 2', '海外仙岛', '海外仙岛 测试 货品', '海外仙岛 测试 记录', '海外仙岛 测试 转盘 10']) {
       for (const privateChat of [false, true]) {
         const event = privateChat
           ? app.events.privateMessage({ text: prefix + command, platform: 'qq-bot' })
@@ -95,7 +95,7 @@ for (const staged of [false, true]) {
 test('通用服务端提示移除下架导航按钮和建议，保留其他导航', async t => {
   const { app } = await gameFixture(t, () => { throw new Error('no API expected'); });
   const result = await app.runHandler(async event => sendMiddlewareReply(event, {
-    ...reply, text: '请选择功能', buttons: [{ label: '活动充值', command: '/活动充值' }, { label: '充值', command: '/充值' }],
+    ...reply, text: '请选择功能', buttons: [{ label: '活动充值', command: '/活动充值' }, { label: '充值', command: '/充值' }, { label: '回归礼包', command: '/领取回归礼包' }, { label: '测试礼包', command: '/领取测试礼包' }, { label: '凡人修仙礼包码', command: '/凡人修仙礼包码' }, { label: '回归签到', command: '/回归签到' }],
     advice: [{ command: '/海外仙岛', description: '海岛' }, { command: '/限时活动 商店', description: '兑换' }, { command: '/我的活动', description: '活动' }]
   }), app.events.privateMessage({ text: '/充值', platform: 'qq-bot' }));
   assert.equal(result.messages.length, 1);
@@ -104,6 +104,8 @@ test('通用服务端提示移除下架导航按钮和建议，保留其他导�
   const view = inspectMessage(message.nodes);
   assert.ok(view.commands.includes('/充值'));
   assert.ok(view.commands.includes('/我的活动'));
+  assert.ok(view.commands.includes('/回归签到'));
+  assert.doesNotMatch(JSON.stringify(message.nodes), /回归礼包|测试礼包|凡人修仙礼包码/);
   assert.doesNotMatch(JSON.stringify(message.nodes), retired);
 });
 

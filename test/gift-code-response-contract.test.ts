@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { redeemBackendGiftCode, redeemBackendExternalGiftCode } from '../src/api/bot/gift-code-redeem';
+import { redeemBackendGiftCode } from '../src/api/bot/gift-code-redeem';
 import { BackendAPIError } from '../src/api/bot/client';
 import { mockBackendConfig } from './backend-config-helper';
 
@@ -68,9 +68,7 @@ test('actual gift code receipts, replay and API failures preserve robot boundari
         await assert.rejects(() => run(replay), /礼包码兑换响应不完整/);
       }
     }
-    // This compatibility branch belongs only to local persisted gift receipts.
     payload = { data: replay.data };
-    await assert.rejects(() => redeemBackendExternalGiftCode('bid', 1, 'LIVE', 'test', { requestId: replay.requestId, idempotencyKey: replay.requestId }), /远端礼包码兑换响应不完整/);
     for (const invalid of [null, 1, {}, ['奖励', 1]]) {
       payload = { data: { ...fixtures.first.data, rewardSummary: invalid } };
       await assert.rejects(() => run(fixtures.first), /礼包码兑换奖励响应不完整/);

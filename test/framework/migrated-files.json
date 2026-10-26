@@ -225,7 +225,7 @@
   },
   {
     "file": "gift-codes-presentation.test.mjs",
-    "mode": "adapter"
+    "mode": "direct"
   },
   {
     "file": "glossary-actions-presentation.test.mjs",

@@ -1554,50 +1554,6 @@ export const rewardsOperationDefinitions = {
       }
     ]
   },
-  post_players_id_external_gift_codes_redeem: {
-    method: 'POST',
-    path: '/api/v1/players/{id}/external-gift-codes/redeem',
-    security: [
-      {
-        RobotBearer: [],
-        RobotBid: []
-      },
-      {
-        UserBearer: []
-      }
-    ],
-    requestContentType: 'application/json',
-    bodyRequired: true,
-    responseKind: 'json',
-    responseEnvelope: true,
-    pathParams: [
-      {
-        schema: {
-          type: 'integer',
-          minimum: 1
-        },
-        name: 'id',
-        required: true,
-        style: 'simple',
-        explode: false
-      }
-    ],
-    queryParams: [],
-    headerParams: [
-      {
-        name: 'Idempotency-Key',
-        required: false,
-        style: 'simple',
-        explode: false
-      },
-      {
-        name: 'X-Request-ID',
-        required: false,
-        style: 'simple',
-        explode: false
-      }
-    ]
-  },
   get_players_id_referral: {
     method: 'GET',
     path: '/api/v1/players/{id}/referral',
@@ -2234,22 +2190,6 @@ export const rewardsOperationDefinitions = {
         style: 'simple',
         explode: false
       }
-    ]
-  },
-
-  post_players_id_old_game_comeback_code_issue: {
-    method: 'POST',
-    path: '/api/v1/players/{id}/old-game-comeback-code/issue',
-    security: [{ RobotBearer: [], RobotBid: [] }, { UserBearer: [] }],
-    requestContentType: 'application/json',
-    bodyRequired: true,
-    responseKind: 'json',
-    responseEnvelope: true,
-    pathParams: [{ schema: { type: 'integer', minimum: 1 }, name: 'id', required: true, style: 'simple', explode: false }],
-    queryParams: [],
-    headerParams: [
-      { name: 'Idempotency-Key', required: false, style: 'simple', explode: false },
-      { name: 'X-Request-ID', required: false, style: 'simple', explode: false }
     ]
   }
 } as const;

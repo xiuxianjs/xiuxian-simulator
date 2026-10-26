@@ -99,9 +99,6 @@ export function createRewardsApi(client: APIClient) {
     post_players_id_gift_codes_redeem: (...args: RequestArguments<'post_players_id_gift_codes_redeem'>) => {
       return client.request('post_players_id_gift_codes_redeem', ...args);
     },
-    post_players_id_external_gift_codes_redeem: (...args: RequestArguments<'post_players_id_external_gift_codes_redeem'>) => {
-      return client.request('post_players_id_external_gift_codes_redeem', ...args);
-    },
     get_players_id_referral: (...args: RequestArguments<'get_players_id_referral'>) => {
       return client.request('get_players_id_referral', ...args);
     },

@@ -1,3 +1,4 @@
+import { gameFixture } from './framework/fixture';
 import { logger } from 'alemonjs';
 import { startTransportEvent } from '../src/utils/transportTiming';
 import {registerHooks} from 'node:module';
@@ -42,7 +43,7 @@ import {parseBackendTeamMatchStart} from '../src/api/bot/team-match-start';
 import {parseNativeComebackOverview,parseNativeComebackClaim} from '../src/api/bot/native-comeback';
 import {referralBindArguments,parseRobotReferralBind,parseRobotReferralClaim} from '../src/api/bot/referral-actions-robot-query';
 import {parseRobotReferralCode,referralRuleDecoder,referralInviteesArguments,referralInviteesDecoder} from '../src/api/bot/referral-robot-query';
-import {giftCodeArguments,parseRobotGiftCode,parseRobotGiftHub,parseRobotOldGameCode} from '../src/api/bot/gift-code-robot-query';
+import {giftCodeArguments,parseRobotGiftCode,parseRobotGiftHub} from '../src/api/bot/gift-code-robot-query';
 import {emailActionArguments,emailDeleteDecoder,emailClaimDecoder,parseEmailDeleteAll,parseEmailClaimAll} from '../src/api/bot/email-actions-robot-query';
 import {emailListArguments,emailDetailArguments,emailDetailDecoder,parseRobotEmailList,parseRobotEmailDetail} from '../src/api/bot/email-robot-query';
 import { dungeonChallengeArguments, parseRobotDungeonChallenge } from '../src/api/bot/dungeon-challenge-robot-query';
@@ -619,7 +620,6 @@ test('actual router never retries or calls another game API on combined transpor
     paths.length = 0;
     for (const [text, path] of [
       ['/我的资料', '/api/v2/robot/home-overview'],
-      ['/凡人修仙礼包码', '/api/v2/robot/business/gift-codes.old-game-issue'],
       ['/邀请码', '/api/v2/robot/business/referral.code'],
       ['/邀请人数奖励', '/api/v2/robot/business/referral.rules-count'],
       ['/邀请境界奖励', '/api/v2/robot/business/referral.rules-realm'],
@@ -2602,54 +2602,30 @@ test('email actions keep confirmations and partial commits with one API for ever
 test('gift code hub and redeem keep fallback inside one API for all admission branches',async t=>{
   const output=execFileSync('go',['test','./internal/httpapi','-run','^TestRobotBusinessGiftCodesSettlementFallbackRemoteProtocolAndReplay$','-v','-count=1'],{cwd:fileURLToPath(new URL('../../xiuxian-game-server/',import.meta.url)),encoding:'utf8',maxBuffer:8*1024*1024});
   const receipts=[...output.matchAll(/ROBOT_GIFT_CODE_RESPONSE=([^|]+)\|player\|(.+)/g)].map(m=>({op:m[1],result:JSON.parse(m[2]).data}));
-  assert.ok(receipts.some(r=>r.result.success&&r.result.data.kind==='test'));
-  assert.ok(receipts.some(r=>r.result.success&&r.result.data.kind==='comeback'));
+  assert.ok(receipts.some(r=>r.result.success&&r.result.data.kind==='custom'));
   let answer:unknown;
-  const calls=transport(t,()=>response(answer));
+  const { app, requests: calls } = await gameFixture(t, () => answer);
+  await app.mount({ responseRouter: router });
   for(const [op,text,args,decode] of [
     ['gift-codes.hub','/兑换码',{},parseRobotGiftHub],
     ['gift-codes.redeem','/礼包码',{code:''},parseRobotGiftCode],
     ['gift-codes.redeem','/礼品码 li ve gift',{code:'LIVEGIFT'},parseRobotGiftCode],
-    ['gift-codes.redeem','/领取回归礼包 LIVEGIFT',{code:'LIVEGIFT'},parseRobotGiftCode],
-    ['gift-codes.redeem','/领取测试礼包 LIVEGIFT',{code:'LIVEGIFT'},parseRobotGiftCode]
   ] as const){
     for(const result of [...receipts.filter(r=>r.op===op).map(r=>r.result),muted,handled,rejected]){
       parseRobotBusinessEnvelope<unknown>(result,'player',decode);
       calls.length=0;answer=result;
-      const e=event(text);
-      await dispatchRouterEvent(e,async()=>{throw new Error('gift code escaped fallback');});
+      const e=app.events.groupMessage({ text, userId: 'player', platform: 'qq-bot' }) as GameEvent;
+      const run = await app.dispatch(e);
+      assert.deepEqual(run.errors, []);
       assert.equal(e.__res,undefined);assert.equal(e.uid,1);
-      assert.deepEqual(calls.map(c=>new URL(c.url).pathname),[`/api/v2/robot/business/${op}`]);
-      assert.deepEqual(JSON.parse(calls[0].data!).arguments,args);
+      assert.deepEqual(calls.map(c=>c.path),[`/api/v2/robot/business/${op}`]);
+      assert.deepEqual(calls[0].body.arguments,args);
     }
   }
   assert.deepEqual(giftCodeArguments('/礼包码 a\tb\n c'),{code:'ABC'});
   assert.throws(()=>parseRobotGiftCode({outcome:'result',kind:'test',data:{message:'ok',rewardSummary:[1]}}));
   assert.throws(()=>parseRobotGiftCode({outcome:'result',kind:'other',data:{message:'ok'}}));
   assert.throws(()=>parseRobotGiftHub({outcome:'usage'}));
-});
-
-
-test('old-game issue routes business and middleware receipts through one v2 request', async t => {
-  const output = execFileSync('go', ['test', './internal/httpapi', '-run', '^TestRobotBusinessOldGameIssueTrustedIdentityReplayAndAdmission$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 });
-  const receipts = [...output.matchAll(/ROBOT_OLD_GAME_ISSUE_RESPONSE=([^|]+)\|(.+)/g)].map(m => ({ bid: m[1], result: JSON.parse(m[2]).data }));
-  assert.ok(receipts.some(r => r.result.success && r.result.branch === 'business'));
-  assert.ok(receipts.some(r => !r.result.success));
-  let answer: unknown;
-  const calls = transport(t, () => response(answer));
-  for (const row of receipts) {
-    parseRobotBusinessEnvelope(row.result, row.bid, parseRobotOldGameCode);
-    calls.length = 0; answer = row.result;
-    const e = { ...event('/凡人修仙礼包码'), UserId: row.bid } as GameEvent;
-    await dispatchRouterEvent(e, async () => { throw new Error('issue escaped fallback'); });
-    assert.equal(e.__res, undefined);
-    assert.equal(e.uid, row.bid === 'player' ? 1 : undefined);
-    assert.deepEqual(calls.map(c => new URL(c.url).pathname), ['/api/v2/robot/business/gift-codes.old-game-issue']);
-    assert.deepEqual(JSON.parse(calls[0].data!).arguments, {});
-  }
-  for (const malformed of [null, [], {}, { giftCode: 1 }]) {
-    assert.throws(() => parseRobotOldGameCode(malformed), /响应不完整/);
-  }
 });
 
 

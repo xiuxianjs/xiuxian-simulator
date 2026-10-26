@@ -60,12 +60,9 @@ const classificationRules: Array<{
   { pattern: /^(!|！|\/|#|＃)?我的反馈/, feature_name: '我的反馈', feature_category: '日常系统' },
   { pattern: /^(!|！|\/|#|＃)?反馈/, feature_name: '反馈', feature_category: '日常系统' },
   { pattern: /^(!|！|\/|#|＃)?(兑换码|礼包码|礼品码)/, feature_name: '兑换码', feature_category: '日常系统' },
-  { pattern: /^(!|！|\/|#|＃)?领取回归礼包/, feature_name: '领取回归礼包', feature_category: '日常系统' },
-  { pattern: /^(!|！|\/|#|＃)?领取测试礼包/, feature_name: '领取测试礼包', feature_category: '日常系统' },
   { pattern: /^(!|！|\/|#|＃)?回归奖励/, feature_name: '回归奖励', feature_category: '日常系统' },
   { pattern: /^(!|！|\/|#|＃)?领取回归奖励/, feature_name: '领取回归奖励', feature_category: '日常系统' },
   { pattern: /^(!|！|\/|#|＃)?回归签到/, feature_name: '回归签到', feature_category: '日常系统' },
-  { pattern: /^(!|！|\/|#|＃)?凡人修仙礼包码/, feature_name: '凡人修仙礼包码', feature_category: '日常系统' },
 
   // ==================== 修炼系统 ====================
   { pattern: /^(!|！|\/|#|＃)?打坐结束/, feature_name: '打坐结束', feature_category: '修炼系统' },

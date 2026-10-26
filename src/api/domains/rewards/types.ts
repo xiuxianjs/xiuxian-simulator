@@ -272,13 +272,6 @@ export interface RewardsOperations {
     body: { code: string };
     response: unknown;
   };
-  post_players_id_external_gift_codes_redeem: {
-    path: { id: number };
-    query: never;
-    headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
-    body: { code: string; giftType: 'test' | 'comeback'; platformUserId: string };
-    response: unknown;
-  };
   get_players_id_referral: { path: { id: number }; query: never; headers: { 'X-Request-ID'?: string }; body: never; response: unknown };
   post_players_id_referral_sync: {
     path: { id: number };
@@ -363,13 +356,6 @@ export interface RewardsOperations {
     query: never;
     headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
     body: never;
-    response: unknown;
-  };
-  post_players_id_old_game_comeback_code_issue: {
-    path: { id: number };
-    query: never;
-    headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
-    body: { platformUserId: string };
     response: unknown;
   };
 }

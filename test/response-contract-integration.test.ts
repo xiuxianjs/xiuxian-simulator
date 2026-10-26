@@ -153,7 +153,7 @@ import { claimBackendEmail } from '../src/api/bot/email-claim';
 import { claimAllBackendEmails } from '../src/api/bot/email-claim-all';
 import { dailyBackendCheckIn, newcomerBackendCheckIn } from '../src/api/bot/daily-checkin';
 import { claimBackendCelestialCheckIn } from '../src/api/bot/celestial-checkin';
-import { redeemBackendGiftCode, redeemBackendExternalGiftCode } from '../src/api/bot/gift-code-redeem';
+import { redeemBackendGiftCode } from '../src/api/bot/gift-code-redeem';
 import { claimBackendActivityReward, claimAllBackendActivityRewards } from '../src/api/bot/activity-points-claim';
 import { bindBackendReferralCode, claimBackendReferralRewards } from '../src/api/bot/referral-actions';
 import { claimBackendWeeklyRebate } from '../src/api/bot/weekly-rebate-claim';
@@ -1412,7 +1412,6 @@ test('actual Go omitempty and nil-slice JSON passes robot SDK and adapters', asy
     { key: 'newcomerCheckinEmpty', run: () => newcomerBackendCheckIn('contract-player', 1, request) },
     ...['celestialCheckinCapped', 'celestialCheckinReward'].map(key => ({ key, run: () => claimBackendCelestialCheckIn('contract-player', 1, request) })),
     { key: 'giftCodeRedeemed', run: () => redeemBackendGiftCode('contract-player', 1, 'test', request) },
-    { key: 'externalGiftCodeRedeemed', run: () => redeemBackendExternalGiftCode('contract-player', 1, 'test', 'comeback', request) },
     ...['activityClaimed', 'activityEmptyReward'].map(key => ({ key, run: () => claimBackendActivityReward('contract-player', 1, 'daily', key === 'activityClaimed' ? 20 : 40, request) })),
     ...['activityAllClaimed', 'activityAllPartial'].map(key => ({ key, run: () => claimAllBackendActivityRewards('contract-player', 1, 'daily', request) })),
     { key: 'referralBoundEmpty', run: () => bindBackendReferralCode('contract-player', 1, 'tt-2', request) },
@@ -2258,7 +2257,7 @@ test('actual Go omitempty and nil-slice JSON passes robot SDK and adapters', asy
       if (entry.key === 'emailAllEmpty') assert.equal(result.total, 0);
       if (entry.key === 'emailAllPartial') assert.deepEqual({ ...result }, { claimed: 1, skipped: 1, total: 4 });
       if (entry.key.startsWith('celestialCheckin')) assert.equal((result.issued as Record<string, unknown>[])[0].amount, entry.key === 'celestialCheckinCapped' ? 0 : 10);
-      if (entry.key === 'giftCodeRedeemed' || entry.key === 'externalGiftCodeRedeemed') assert.deepEqual(result.rewardSummary, fixtures[entry.key].rewardSummary);
+      if (entry.key === 'giftCodeRedeemed') assert.deepEqual(result.rewardSummary, fixtures[entry.key].rewardSummary);
       if (entry.key === 'activityEmptyReward' || entry.key === 'referralEmptyReward') assert.deepEqual(result.issued, []);
       if (entry.key.startsWith('activityAll')) {
         assert.equal(result.partial, entry.key === 'activityAllPartial');

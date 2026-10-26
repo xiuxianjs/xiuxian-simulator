@@ -13,18 +13,12 @@ export function parseRobotGiftCode(value: unknown) {
   if (row.outcome === 'usage') {
     return { code: 'NO_CODE' as const };
   }
-  if (row.outcome !== 'result' || !['custom', 'comeback', 'test'].includes(String(row.kind))) {
+  if (row.outcome !== 'result' || row.kind !== 'custom') {
     throw new Error('礼包码响应不完整');
   }
-  const data = parseGiftCodeRedeemResult(row.data, row.kind === 'custom' ? '礼包码兑换' : '远端礼包码兑换');
-  const detail = row.data as Record<string, unknown>;
+  const data = parseGiftCodeRedeemResult(row.data, '礼包码兑换');
 
-  if (detail.pendingConfirm !== undefined && typeof detail.pendingConfirm !== 'boolean') {
-    throw new Error('礼包码核销状态不完整');
-  }
-  const code = row.kind === 'custom' ? ('CUSTOM_SUCCESS' as const) : row.kind === 'comeback' ? ('COMEBACK_SUCCESS' as const) : ('TEST_SUCCESS' as const);
-
-  return { code, displayMsg: data.message, rewardSummary: data.rewardSummary, pendingConfirm: row.kind !== 'custom' && detail.pendingConfirm === true };
+  return { code: 'CUSTOM_SUCCESS' as const, displayMsg: data.message, rewardSummary: data.rewardSummary };
 }
 export function parseRobotGiftHub(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || (value as Record<string, unknown>).outcome !== 'menu') {
@@ -32,18 +26,4 @@ export function parseRobotGiftHub(value: unknown) {
   }
 
   return { outcome: 'menu' as const };
-}
-
-export function parseRobotOldGameCode(value: unknown) {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    typeof (value as Record<string, unknown>).giftCode !== 'string' ||
-    !(value as { giftCode: string }).giftCode.trim()
-  ) {
-    throw new Error('凡人修仙礼包码响应不完整');
-  }
-
-  return { giftCode: (value as { giftCode: string }).giftCode };
 }

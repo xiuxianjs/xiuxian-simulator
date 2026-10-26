@@ -30,7 +30,11 @@ app.res({ events: commandEvents, regular: /^[!！]/ }, () => import('@src/respon
 
 // 下架指令在进入游戏分组前终止，避免旧按钮落入限时活动等前缀路由。
 app.res(
-  { events: commandEvents, regular: /^\s*[/#＃]?(?:赞助|活动(?:商城|商店|购买|充值)|海外仙岛|海岛|限时活动\s+(?:商店|任务|特惠))(?:\s|$|购买|领取)/ },
+  {
+    events: commandEvents,
+    regular:
+      /^\s*[/#＃]?(?:领取回归礼包|领取测试礼包|凡人修仙礼包码|赞助|活动(?:商城|商店|购买|充值)|海外仙岛|海岛|限时活动\s+(?:商店|任务|特惠))(?:\s|$|购买|领取)/
+  },
   () => import('@src/response/commandError/ignore/res')
 );
 
@@ -555,7 +559,6 @@ app.res(
   xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
   xiuxian.use('活动任务', () => import('@src/response/limitedEvent/tasks/res'));
   xiuxian.use('活动道具', () => import('@src/response/limitedEvent/tokens/res'));
-  // xiuxian.use('凡人修仙礼包码', () => import('@src/response/comeback/oldGameCode/res'));
 
   {
     // 验证码
@@ -1033,7 +1036,7 @@ app.res(
         seclusion.use('切换战技', () => import('@src/response/skillBook/switch/res').then(m => ({ default: m.switchBattleSkill })));
         seclusion.use('切换被动技', () => import('@src/response/skillBook/switch/res').then(m => ({ default: m.switchPassiveSkill })));
         seclusion.use('兑换码', () => import('@src/response/redeemCode/res'));
-        seclusion.use(['礼包码', '礼品码', '领取回归礼包', '领取测试礼包'], () => import('@src/response/redeemCode/claim/res'));
+        seclusion.use(['礼包码', '礼品码'], () => import('@src/response/redeemCode/claim/res'));
         seclusion.use('领取邀请奖励', () => import('@src/response/referral/claimReward/res'));
         seclusion.use(['回归奖励', '回归签到'], () => import('@src/response/comeback/native/res'));
         seclusion.use('领取回归奖励', () => import('@src/response/comeback/nativeClaim/res'));

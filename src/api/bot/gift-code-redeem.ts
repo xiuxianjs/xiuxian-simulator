@@ -1,4 +1,4 @@
-import { BackendAPIError, requestBackend, writeContext } from './client';
+import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 export type GiftCodeRedeemResult = { message: string; rewardSummary: string[] };
@@ -70,27 +70,4 @@ export async function redeemBackendGiftCode(
   }
 
   return parseGiftCodeRedeemResult(row, '礼包码兑换');
-}
-
-export async function redeemBackendExternalGiftCode(
-  bid: string | undefined,
-  uid: number,
-  rawCode: string,
-  giftType: 'comeback' | 'test',
-  request?: BackendRequestContext
-): Promise<GiftCodeRedeemResult> {
-  const { bid: platformID, code } = input(bid, uid, rawCode);
-
-  return parseGiftCodeRedeemResult(
-    await requestBackend(platformID, 'post_players_id_external_gift_codes_redeem', {
-      path: { id: uid },
-      body: { code, giftType, platformUserId: platformID },
-      ...writeContext(request)
-    }),
-    '远端礼包码兑换'
-  );
-}
-
-export function isBackendNotFound(error: unknown): boolean {
-  return error instanceof BackendAPIError && error.status === 404;
 }
