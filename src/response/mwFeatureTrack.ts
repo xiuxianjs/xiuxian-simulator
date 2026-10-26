@@ -1,9 +1,10 @@
-import type { GameEvent } from '@src/types/event';
 import { setTrackContext, trackFeatureEvent } from '@src/analytics';
+import type { GameEvent } from '@src/types/event';
 
 /** Consume the aggregate identity; game addresses are saved by middleware-entry. */
 export default (event: GameEvent) => {
   const trackCtx = {
+    appid: event.Platform === 'qq-bot' ? String(event.BotId ?? '') : '',
     scene: (event.isPrivate ?? false) ? 'private' : 'public',
     channelId: String(event.ChannelId ?? ''),
     platform: String(event.Platform ?? 'unknown')

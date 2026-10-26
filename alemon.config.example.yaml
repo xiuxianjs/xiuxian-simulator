@@ -23,3 +23,9 @@ xiuxian-game:
   # 可选：两项均配置才会上报；不要使用游戏 API 地址。
   # analytics_api_url: 'https://xiuxian-logap.alemonjs.com'
   # analytics_api_key: ''
+
+  # 统计归属的 QQ AppID：QQ 事件自动读取当前机器人的 BotId，通常无需填写。
+  # 无 QQ 事件上下文的上报需显式填写；填写后必须与实际机器人及 channel_bot_id 一致。
+  # 官服机器人示例为 102062268；运营商必须使用各自机器人的 AppID，不能照抄官服。
+  # analytics_appid: '102062268'
+  # analytics_api_key 使用 logap 中该 AppID 对应的上报密钥，不是游戏 BOT-TOKEN。

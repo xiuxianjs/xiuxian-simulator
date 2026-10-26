@@ -12,76 +12,96 @@
  * 位于 `src/analytics/` 而不是 `src/model/`：这里只做面向第三方分析平台的
  * 埋点上报（fire-and-forget HTTP），不读写任何游戏状态，也不依赖 `@src/db`。
  */
-import { logger } from 'alemonjs';
+import { getCurrentEvent, logger } from 'alemonjs';
 import { getAppConfig } from '../utils/appConfig';
 import { getBackendConfig } from '../api/bot/config';
 import { classifyFeature } from './classifier';
 
 // ==================== 公共基础设施 ====================
 
-/** 读取分析平台配置 */
-function getAnalyticsConfig(): { apiUrl: string; apiKey: string } {
-  const xiuxian = getAppConfig();
-  const apiUrl = String(xiuxian.analytics_api_url ?? '')
-    .trim()
-    .replace(/\/+$/, '');
-  const gameApiUrl = getBackendConfig().url;
+/** 事件上下文只属于当前异步请求，不能沿用上一台机器人的信息。 */
+export interface TrackContext {
+  appid?: string;
+  scene?: string;
+  channelId?: string;
+  platform?: string;
+}
+
+const contexts = new WeakMap<object, TrackContext>();
+
+export function setTrackContext(ctx: TrackContext): void {
+  const event = getCurrentEvent<'message.create'>();
+
+  if (event) {
+    contexts.set(event, ctx);
+  }
+}
+
+function currentContext(): TrackContext {
+  const event = getCurrentEvent<'message.create'>();
+
+  if (!event) {
+    return {};
+  }
 
   return {
-    apiUrl: apiUrl && apiUrl !== gameApiUrl ? apiUrl : '',
-    apiKey: String(xiuxian.analytics_api_key ?? '').trim()
+    appid: event.Platform === 'qq-bot' ? String(event.BotId ?? '') : '',
+    scene: event.IsPrivate ? 'private' : 'public',
+    channelId: String(event.ChannelId ?? ''),
+    platform: String(event.Platform ?? ''),
+    ...contexts.get(event)
   };
 }
 
-/** 事件上下文（场景/频道/平台），由中间件设置，所有事件自动携带 */
-export interface TrackContext {
-  scene?: string; // 'private' | 'public'
-  channelId?: string; // 频道/群 ID
-  platform?: string; // 平台标识
-}
+/** 在入队时捕获配置，定时发送时不再读取其他机器人的运行上下文。 */
+function getAnalyticsConfig(ctx: TrackContext = currentContext()) {
+  const config = getAppConfig();
+  const apiUrl = String(config.analytics_api_url ?? '')
+    .trim()
+    .replace(/\/+$/, '');
+  const apiKey = String(config.analytics_api_key ?? '').trim();
 
-/** 模块级上下文，中间件每次请求更新 */
-let _ctx: TrackContext = {};
+  if (!apiUrl || !apiKey) {
+    return null;
+  }
+  const backend = getBackendConfig();
 
-/** 设置当前请求的埋点上下文（由中间件调用） */
-export function setTrackContext(ctx: TrackContext): void {
-  _ctx = ctx;
-}
+  if (apiUrl === backend.url) {
+    return null;
+  }
+  const configured = String(config.analytics_appid ?? '').trim();
+  const channel = backend.channelMode ? backend.channelBotId : '';
+  const ids = [ctx.appid, configured, channel].filter((id): id is string => Boolean(id));
+  const appid = ids[0];
 
-function ctxScene(): string {
-  return _ctx.scene ?? '';
-}
-function ctxChannel(): string {
-  return _ctx.channelId ?? '';
-}
-function ctxPlatform(): string {
-  return _ctx.platform ?? '';
+  if (!appid || !/^[1-9]\d*$/.test(appid) || ids.some(id => id !== appid)) {
+    logger.error('[logap] AppID 缺失、格式错误或与机器人不一致，本次不上报');
+
+    return null;
+  }
+
+  return { apiUrl, apiKey, appid };
 }
 
 // ==================== 通用批量发送器 ====================
 
 function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: number) {
-  const buffer: T[] = [];
-  let timer: ReturnType<typeof setTimeout> | null = null;
+  type Route = NonNullable<ReturnType<typeof getAnalyticsConfig>>;
+  type Queue = { route: Route; buffer: T[]; timer?: ReturnType<typeof setTimeout> };
+  const queues = new Map<string, Queue>();
 
-  async function flush(): Promise<void> {
-    if (buffer.length === 0) {
-      return;
+  async function flush(key: string, queue: Queue): Promise<void> {
+    queues.delete(key);
+    if (queue.timer) {
+      clearTimeout(queue.timer);
     }
-    const { apiUrl, apiKey } = getAnalyticsConfig();
-
-    if (!apiUrl || !apiKey) {
-      buffer.length = 0;
-
-      return;
-    }
-    const batch = buffer.splice(0);
+    const { apiUrl, apiKey, appid } = queue.route;
 
     try {
-      const res = await fetch(`${apiUrl}${endpoint}`, {
+      const res = await fetch(`${apiUrl}${endpoint}?appid=${encodeURIComponent(appid)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-        body: JSON.stringify({ events: batch }),
+        body: JSON.stringify({ appid, events: queue.buffer }),
         signal: AbortSignal.timeout(10000)
       });
 
@@ -93,26 +113,30 @@ function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: num
     }
   }
 
-  function schedule(): void {
-    if (buffer.length >= bufferSize) {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
-      }
-      void flush();
-
-      return;
-    }
-    timer ??= setTimeout(() => {
-      timer = null;
-      void flush();
-    }, flushMs);
-  }
-
   return {
-    push(item: T) {
-      buffer.push(item);
-      schedule();
+    push(item: T, ctx: TrackContext = currentContext()) {
+      const route = getAnalyticsConfig(ctx);
+
+      if (!route) {
+        return;
+      }
+      const key = JSON.stringify([route.apiUrl, route.appid, route.apiKey]);
+      let queue = queues.get(key);
+
+      if (!queue) {
+        queue = { route, buffer: [] };
+        queues.set(key, queue);
+      }
+      queue.buffer.push(item);
+      const pending = queue;
+
+      if (queue.buffer.length >= bufferSize) {
+        void flush(key, pending);
+      } else {
+        queue.timer ??= setTimeout(() => {
+          void flush(key, pending);
+        }, flushMs);
+      }
     }
   };
 }
@@ -132,7 +156,7 @@ interface FeaturePayload {
   timestamp: string;
 }
 
-const featureSender = createBatchSender<FeaturePayload>('/api/v1/track/features', 50, 5000);
+const featureSender = createBatchSender<FeaturePayload>('/api/v2/track/features', 50, 5000);
 
 /**
  * 在埋点侧分类后入队，异步上报分析平台
@@ -141,7 +165,7 @@ const featureSender = createBatchSender<FeaturePayload>('/api/v1/track/features'
  * @param commandText 用户输入的原始文本
  * @param startTime 指令开始处理的时间戳
  * @param success 是否成功
- * @param ctx 可选上下文覆盖（不传则用模块级上下文）
+ * @param ctx 可选上下文覆盖（不传则用当前事件上下文）
  */
 export function trackFeatureEvent(_bid: string, uid: number, commandText: string, startTime?: number, success = true, ctx?: TrackContext): void {
   const responseTimeMs = startTime ? Date.now() - startTime : 0;
@@ -155,18 +179,23 @@ export function trackFeatureEvent(_bid: string, uid: number, commandText: string
       return;
     }
 
-    featureSender.push({
-      uid,
-      feature_name: classification.feature_name,
-      feature_category: classification.feature_category,
-      command_text: commandText.substring(0, 255),
-      response_time_ms: responseTimeMs,
-      success,
-      scene: ctx?.scene ?? ctxScene(),
-      channel_id: ctx?.channelId ?? ctxChannel(),
-      platform: ctx?.platform ?? ctxPlatform(),
-      timestamp
-    });
+    const context = { ...currentContext(), ...ctx };
+
+    featureSender.push(
+      {
+        uid,
+        feature_name: classification.feature_name,
+        feature_category: classification.feature_category,
+        command_text: commandText.substring(0, 255),
+        response_time_ms: responseTimeMs,
+        success,
+        scene: context.scene ?? '',
+        channel_id: context.channelId ?? '',
+        platform: context.platform ?? '',
+        timestamp
+      },
+      context
+    );
   } catch (error) {
     logger.error('[logap] 分类失败:', error);
   }
@@ -192,7 +221,7 @@ interface ActionPayload {
   timestamp: string;
 }
 
-const actionSender = createBatchSender<ActionPayload>('/api/v1/track/actions', 30, 8000);
+const actionSender = createBatchSender<ActionPayload>('/api/v2/track/actions', 30, 8000);
 
 /** 记录一条行为事件 */
 export function trackAction(
@@ -204,6 +233,8 @@ export function trackAction(
   detail: Record<string, unknown> = {}
 ): void {
   try {
+    const context = currentContext();
+
     actionSender.push({
       uid,
       action,
@@ -211,9 +242,9 @@ export function trackAction(
       result,
       value,
       detail: JSON.stringify(detail),
-      scene: ctxScene(),
-      channel_id: ctxChannel(),
-      platform: ctxPlatform(),
+      scene: context.scene ?? '',
+      channel_id: context.channelId ?? '',
+      platform: context.platform ?? '',
       timestamp: new Date().toISOString()
     });
   } catch {
@@ -309,17 +340,28 @@ export function trackAlchemy(
 }
 
 /** 登录/活跃事件（每用户 5 分钟内只上报一次） */
-const loginSeen = new Map<number, number>();
+const loginSeen = new Map<string, number>();
 const LOGIN_DEDUP_MS = 5 * 60 * 1000;
 
 export function trackLogin(uid: number): void {
   const now = Date.now();
-  const last = loginSeen.get(uid) ?? 0;
+  let route: ReturnType<typeof getAnalyticsConfig>;
+
+  try {
+    route = getAnalyticsConfig();
+  } catch {
+    return;
+  }
+  if (!route) {
+    return;
+  }
+  const key = JSON.stringify([route.apiUrl, route.appid, uid]);
+  const last = loginSeen.get(key) ?? 0;
 
   if (now - last < LOGIN_DEDUP_MS) {
     return;
   }
-  loginSeen.set(uid, now);
+  loginSeen.set(key, now);
 
   if (loginSeen.size > 1000) {
     for (const [k, v] of loginSeen) {
