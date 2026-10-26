@@ -1,0 +1,299 @@
+import { getBackendEquipmentDecomposeQuery } from '@src/api/bot/equipment-batch-decompose';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 一键分解装备指令处理器
+ * 指令格式:
+ *   /一键分解装备            → 展示品级选择面板
+ *   /一键分解装备 全部        → 预览待分解内容，需确认
+ *   /一键分解装备 <品级名>    → 预览待分解内容，需确认
+ */
+import App, { fetchGradeOptionsApp, previewApp } from '@src/response-apps/equipment/batchDecompose/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import type { GuiButton } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse, useSubscribe } from 'alemonjs';
+
+const COMMAND_KEYWORD = '一键分解装备';
+
+/** 确认超时时间（毫秒） */
+const CONFIRM_TIMEOUT_MS = 60 * 1000;
+
+/** 分解明细最大展示条数 */
+const MAX_DETAIL_DISPLAY = 20;
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const [subscribe] = useSubscribe(selects);
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const rawText = String(e.MessageText ?? '').trim();
+    const argPart = rawText.replace(/^(!|！|\/|#|＃)?一键分解装备\s*/, '').trim();
+
+    /** 获取品级选项（所有分支都需要） */
+    const query = await getBackendEquipmentDecomposeQuery(bid, uid, argPart);
+    const optionsResult = await fetchGradeOptionsApp(bid, uid, query.options);
+
+    if (optionsResult.code !== 'OK') {
+      const md = Format.createMarkdown();
+
+      md.addText(optionsResult.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const { totalCount, grades: sortedGrades } = optionsResult.data;
+
+    // 无可分解装备时提示
+    if (totalCount === 0) {
+      const md = Format.createMarkdown();
+
+      md.addText('暂无可分解的装备');
+      md.addNewline();
+      md.addNewline();
+      md.addText('💡 可分解的装备需满足：未装备、未锁定');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    /** 构建品级映射：品级名 → { id, name } */
+    const gradeMap = new Map<string, { id: number; name: string }>();
+
+    gradeMap.set('全部', { id: 0, name: '全部品级' });
+    for (const g of sortedGrades) {
+      gradeMap.set(g.name, { id: g.id, name: g.name });
+    }
+
+    // 无参数 → 展示品级选择面板
+    if (!argPart) {
+      const footerRows: GuiButton[][] = [];
+
+      footerRows.push([{ label: `全部 (${totalCount}件)`, command: `/${COMMAND_KEYWORD} 全部` }]);
+      for (let i = 0; i < sortedGrades.length; i += 3) {
+        const slice = sortedGrades.slice(i, i + 3);
+
+        footerRows.push(slice.map(g => ({ label: `${g.name} (${g.count}件)`, command: `/${COMMAND_KEYWORD} ${g.name}` })));
+      }
+
+      const md = Format.createMarkdown();
+
+      md.addBold(COMMAND_KEYWORD);
+      md.addNewline();
+      md.addText('选择分解范围，每次最多分解300件。');
+      md.addNewline();
+      md.addText('💡 已装备、已锁定的装备不会被分解');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: footerRows }));
+
+      return;
+    }
+
+    /** 在 gradeMap 中查找匹配的品级 */
+    const selectedGrade = gradeMap.get(argPart);
+
+    if (!selectedGrade) {
+      const footerRows: GuiButton[][] = [];
+
+      footerRows.push([{ label: `全部 (${totalCount}件)`, command: `/${COMMAND_KEYWORD} 全部` }]);
+      for (let i = 0; i < sortedGrades.length; i += 3) {
+        const slice = sortedGrades.slice(i, i + 3);
+
+        footerRows.push(slice.map(g => ({ label: `${g.name} (${g.count}件)`, command: `/${COMMAND_KEYWORD} ${g.name}` })));
+      }
+
+      const md = Format.createMarkdown();
+
+      md.addText(`❌ 无效的品级：${argPart}`);
+      md.addNewline();
+      md.addText('请从下方按钮选择品级：');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: footerRows }));
+
+      return;
+    }
+
+    const gradeId = selectedGrade.id === 0 ? undefined : selectedGrade.id;
+
+    // ===== 二次确认：先预览 =====
+    if (!query.preview) {
+      throw new Error('一键分解预览接口响应不完整');
+    }
+    const previewResult = await previewApp({ bid, uid, gradeId, prepared: query.preview });
+
+    if (previewResult.code !== 'OK') {
+      const failMd = Format.createMarkdown();
+
+      failMd.addText('❌ 预览失败');
+      failMd.addNewline();
+      failMd.addNewline();
+      failMd.addText(previewResult.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: failMd, footer: [{ label: `/${COMMAND_KEYWORD}`, command: `/${COMMAND_KEYWORD}` }] }));
+
+      return;
+    }
+
+    /** 构建预览信息 */
+    const previewMd = Format.createMarkdown();
+
+    previewMd.addBold('⚠️ 分解确认');
+    previewMd.addNewline();
+    previewMd.addText(`分解范围：${selectedGrade.name}`);
+    previewMd.addNewline();
+    previewMd.addText(`待分解总数：${previewResult.data.totalCount} 件`);
+    previewMd.addNewline();
+    previewMd.addNewline();
+    previewMd.addText(`本次分解：${previewResult.data.processCount} 件；剩余：${previewResult.data.remainingCount} 件`);
+    previewMd.addNewline();
+    previewMd.addBold('范围内品级分布：');
+    previewMd.addNewline();
+
+    for (const gb of previewResult.data.gradeBreakdown) {
+      previewMd.addText(`• ${gb.gradeName} ×${gb.count}`);
+      previewMd.addNewline();
+    }
+
+    previewMd.addNewline();
+    previewMd.addText(`📦 预估获得 矿石精华 ×${previewResult.data.totalYield}`);
+    previewMd.addNewline();
+    previewMd.addNewline();
+    previewMd.addText('请在60秒内回复【确认分解】或【取消】');
+
+    const confirmFooter: GuiButton[] = [
+      { label: '确认分解', command: '确认分解' },
+      { label: '取消', command: '取消' }
+    ];
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: previewMd, footer: [confirmFooter] }));
+
+    // 进入订阅等待确认
+    const sub = subscribe.mount(
+      async (event, next) => {
+        const [msg] = useMessage();
+        const choice = event.MessageText.trim();
+
+        if (choice === '确认分解') {
+          clearTimeout(timeout);
+
+          const result = await App({ bid, uid, gradeId, request: createBackendRequestContext(event) });
+
+          if (result.code !== 'OK') {
+            const failMd = Format.createMarkdown();
+
+            failMd.addText('❌ 分解失败');
+            failMd.addNewline();
+            failMd.addNewline();
+            failMd.addText(result.data.message);
+
+            void msg.send(
+              FormatGui({ isPrivate, bid, title: '', content: failMd, footer: [{ label: `/${COMMAND_KEYWORD}`, command: `/${COMMAND_KEYWORD}` }] })
+            );
+
+            return;
+          }
+
+          /** 构建分解成功信息 */
+          const okMd = Format.createMarkdown();
+
+          okMd.addBold('✅ 分解成功');
+          okMd.addNewline();
+          okMd.addText(`分解范围：${selectedGrade.name}`);
+          okMd.addNewline().addText(`分解数量：${result.data.decomposedCount} 件`);
+          if (result.data.remainingCount > 0) {
+            okMd.addNewline().addText(`数量过多，本次已分解${result.data.decomposedCount}件，剩余${result.data.remainingCount}件可分解。`);
+          }
+          okMd.addNewline();
+          okMd.addNewline();
+
+          const showDetails = result.data.details.slice(0, MAX_DETAIL_DISPLAY);
+
+          okMd.addBold('分解明细');
+          okMd.addNewline();
+
+          for (const detail of showDetails) {
+            okMd.addText(`• ${detail.name}(${detail.grade}) → 矿石精华 ×${detail.yield}`);
+            okMd.addNewline();
+          }
+
+          if (result.data.details.length > MAX_DETAIL_DISPLAY) {
+            okMd.addText(`...等共 ${result.data.details.length} 件装备`);
+            okMd.addNewline();
+          }
+
+          okMd.addNewline();
+          okMd.addText(`📦 共获得 矿石精华 ×${result.data.totalYield}`);
+          okMd.addNewline();
+
+          const okFooter = [
+            { label: '继续分解', command: `/${COMMAND_KEYWORD} ${argPart}` },
+            { label: '查看储物袋', command: '/我的储物袋 装备' }
+          ];
+
+          void msg.send(FormatGui({ isPrivate, bid, title: '', content: okMd, footer: okFooter }));
+
+          return;
+        }
+
+        if (choice === '取消') {
+          clearTimeout(timeout);
+          const cancelMd = Format.createMarkdown();
+
+          cancelMd.addText('已取消分解操作');
+          cancelMd.addNewline();
+          cancelMd.addText('💡 可以先锁定不想分解的装备，再使用一键分解');
+
+          void msg.send(
+            FormatGui({ isPrivate, bid, title: '', content: cancelMd, footer: [{ label: `/${COMMAND_KEYWORD}`, command: `/${COMMAND_KEYWORD}` }] })
+          );
+
+          return;
+        }
+
+        /** 提示回复确认或取消 */
+        const hintMd = Format.createMarkdown();
+        const hintFooter = [
+          { label: '确认分解', command: '确认分解' },
+          { label: '取消', command: '取消' }
+        ];
+
+        hintMd.addText('请回复【确认分解】或【取消】');
+
+        void msg.send(FormatGui({ isPrivate, bid, title: '', content: hintMd, footer: [hintFooter] }));
+
+        next();
+      },
+      ['UserId']
+    );
+
+    const timeout = setTimeout(() => {
+      try {
+        subscribe.cancel(sub);
+        const timeoutMd = Format.createMarkdown();
+
+        timeoutMd.addText('⏰ 确认超时，分解操作已自动取消');
+
+        void message.send(
+          FormatGui({ isPrivate, bid, title: '', content: timeoutMd, footer: [{ label: `/${COMMAND_KEYWORD}`, command: `/${COMMAND_KEYWORD}` }] })
+        );
+      } catch {
+        /* ignore */
+      }
+    }, CONFIRM_TIMEOUT_MS);
+  } catch (error) {
+    logger.error('一键分解装备失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('一键分解装备失败，请稍后再试或联系运营。');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});
+
+export default response;

@@ -1,0 +1,451 @@
+{
+  "date": "2026-10-20",
+  "frameworkVersion": "2.1.112",
+  "inventory": {
+    "migratedFiles": 205,
+    "legacyAdapterFiles": 202,
+    "directMigratedFiles": 3,
+    "goFixtureFiles": 176,
+    "noGoFixtureFiles": 29,
+    "directFrameworkFiles": 4,
+    "remainingDirectContextTests": []
+  },
+  "fullRun": {
+    "command": "yarn test:framework",
+    "tests": 700,
+    "pass": 663,
+    "fail": 37,
+    "cancelled": 0,
+    "skipped": 0,
+    "duration_ms": 506872.954416,
+    "failedFiles": 35
+  },
+  "offlineRun": {
+    "command": "yarn test",
+    "tests": 195,
+    "pass": 194,
+    "fail": 1,
+    "cancelled": 0,
+    "skipped": 0,
+    "failure": "cave-panel-ux.test.mjs: daily home exposes new land, local care and batch planting without advanced action clutter"
+  },
+  "checks": {
+    "projectTypes": "passed",
+    "frameworkTypes": "passed",
+    "sourceLint": "passed",
+    "testToolLint": "passed",
+    "migrationAudit": "passed"
+  },
+  "scope": "Historical runtime tests migrated; pure business/SDK tests and the Go-driven onboarding HTTP bridge keep their own verification scope.",
+  "baselineComparison": {
+    "level": "file",
+    "failedFilesAlsoFailingBeforeMigration": 35,
+    "note": "Pre-migration files were executed with original assertions and --test-force-exit solely for baseline assertion comparison. File-level comparison does not prove every current failed assertion has the same cause."
+  },
+  "failures": [
+    {
+      "name": "alchemy join/advance preserve native private/group bubbles and original steps, preview and advancement",
+      "file": "alchemy-progression-presentation.test.mjs"
+    },
+    {
+      "name": "test/alchemy-queries-presentation.test.mjs",
+      "file": "alchemy-queries-presentation.test.mjs"
+    },
+    {
+      "name": "attribute panel preserves original image, footer and failure bubbles",
+      "file": "attribute-panel-presentation.test.mjs"
+    },
+    {
+      "name": "test/battle-queries-presentation.test.mjs",
+      "file": "battle-queries-presentation.test.mjs"
+    },
+    {
+      "name": "books retain original stages, unlock text, categories and pagination bubbles",
+      "file": "books-presentation.test.mjs"
+    },
+    {
+      "name": "test/cave-action-presentation.test.mjs",
+      "file": "cave-action-presentation.test.mjs"
+    },
+    {
+      "name": "test/cave-cultivate-presentation.test.mjs",
+      "file": "cave-cultivate-presentation.test.mjs"
+    },
+    {
+      "name": "test/cave-formation-presentation.test.mjs",
+      "file": "cave-formation-presentation.test.mjs"
+    },
+    {
+      "name": "daily home exposes new land, local care and batch planting without advanced action clutter",
+      "file": "cave-panel-ux.test.mjs"
+    },
+    {
+      "name": "test/cave-plant-presentation.test.mjs",
+      "file": "cave-plant-presentation.test.mjs"
+    },
+    {
+      "name": "test/cave-social-presentation.test.mjs",
+      "file": "cave-social-presentation.test.mjs"
+    },
+    {
+      "name": "proposal/gift keep original private/group lists, choice buttons, successful mutations and refused bubbles",
+      "file": "companion-commands-presentation.test.mjs"
+    },
+    {
+      "name": "companion cultivation retains original private/group rewards, oath preview, confirmation and repeated feedback",
+      "file": "companion-cultivation-presentation.test.mjs"
+    },
+    {
+      "name": "companion info/tasks/gift records preserve native private/group bubbles and original page/claim behavior",
+      "file": "companion-queries-presentation.test.mjs"
+    },
+    {
+      "name": "ranking uses playerId directly and keeps self, nearby, empty and pagination states",
+      "file": "demon-tower-queries-presentation.test.mjs"
+    },
+    {
+      "name": "catalog preserves empty, paginated, cleared and team-specific action buttons",
+      "file": "dungeon-queries-presentation.test.mjs"
+    },
+    {
+      "name": "delete confirmation retains the original raw command and 60-second window",
+      "file": "email-actions-presentation.test.mjs"
+    },
+    {
+      "name": "guild logs preserve guild title, persisted dates, ordering and paging buttons",
+      "file": "guild-history-presentation.test.mjs"
+    },
+    {
+      "name": "own applications preserve membership, empty state and quoted cancel controls",
+      "file": "guild-history-presentation.test.mjs"
+    },
+    {
+      "name": "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies",
+      "file": "limited-event-payment-presentation.test.mjs"
+    },
+    {
+      "name": "market preserves original full bubbles, buttons, anonymity, guide and pagination with real backend data",
+      "file": "market-presentation.test.mjs"
+    },
+    {
+      "name": "public navigation preserves full original bubbles for guests, realm thresholds, muted users and pages",
+      "file": "navigation-presentation.test.mjs"
+    },
+    {
+      "name": "normal checkout retains original feedback, QR options, image props and removes the identity request",
+      "file": "normal-payment-presentation.test.mjs"
+    },
+    {
+      "name": "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies",
+      "file": "normal-payment-presentation.test.mjs"
+    },
+    {
+      "name": "notification history retains original page title, private/group bubbles and paging buttons",
+      "file": "notification-history-presentation.test.mjs"
+    },
+    {
+      "name": "test/other-leaderboards-presentation.test.mjs",
+      "file": "other-leaderboards-presentation.test.mjs"
+    },
+    {
+      "name": "profession dashboard preserves original private/group overview, lingzhi view and refusal bubbles",
+      "file": "profession-dashboard-presentation.test.mjs"
+    },
+    {
+      "name": "profession tools preserve original private/group list, replacement, refusal and repeat bubbles",
+      "file": "profession-tools-presentation.test.mjs"
+    },
+    {
+      "name": "proficiency usage, fractional/all consumption, pity and failures preserve original group/private bubbles",
+      "file": "skill-proficiency-presentation.test.mjs"
+    },
+    {
+      "name": "test/soul-grade-presentation.test.mjs",
+      "file": "soul-grade-presentation.test.mjs"
+    },
+    {
+      "name": "soul state preserves original panel, paths and material-source bubbles",
+      "file": "soul-path-state-presentation.test.mjs"
+    },
+    {
+      "name": "test/soul-upgrade-presentation.test.mjs",
+      "file": "soul-upgrade-presentation.test.mjs"
+    },
+    {
+      "name": "test/soul-wash-decision-presentation.test.mjs",
+      "file": "soul-wash-decision-presentation.test.mjs"
+    },
+    {
+      "name": "test/soul-wash-preview-presentation.test.mjs",
+      "file": "soul-wash-preview-presentation.test.mjs"
+    },
+    {
+      "name": "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies",
+      "file": "sponsor-payment-presentation.test.mjs"
+    },
+    {
+      "name": "test/storyline-ranking-presentation.test.mjs",
+      "file": "storyline-ranking-presentation.test.mjs"
+    },
+    {
+      "name": "test/storyline-sweep-presentation.test.mjs",
+      "file": "storyline-sweep-presentation.test.mjs"
+    }
+  ],
+  "baselineFiles": [
+    {
+      "file": "alchemy-progression-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "alchemy join/advance preserve native private/group bubbles and original steps, preview and advancement"
+      ]
+    },
+    {
+      "file": "alchemy-queries-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/alchemy-queries-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "attribute-panel-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "attribute panel preserves original image, footer and failure bubbles"
+      ]
+    },
+    {
+      "file": "battle-queries-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/battle-queries-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "books-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "books retain original stages, unlock text, categories and pagination bubbles"
+      ]
+    },
+    {
+      "file": "cave-action-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/cave-action-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "cave-cultivate-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/cave-cultivate-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "cave-formation-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/cave-formation-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "cave-panel-ux.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "daily home exposes new land, local care and batch planting without advanced action clutter"
+      ]
+    },
+    {
+      "file": "cave-plant-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/cave-plant-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "cave-social-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/cave-social-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "companion-commands-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "proposal/gift keep original private/group lists, choice buttons, successful mutations and refused bubbles"
+      ]
+    },
+    {
+      "file": "companion-cultivation-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "companion cultivation retains original private/group rewards, oath preview, confirmation and repeated feedback"
+      ]
+    },
+    {
+      "file": "companion-queries-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "companion info/tasks/gift records preserve native private/group bubbles and original page/claim behavior"
+      ]
+    },
+    {
+      "file": "demon-tower-queries-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "ranking uses playerId directly and keeps self, nearby, empty and pagination states"
+      ]
+    },
+    {
+      "file": "dungeon-queries-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "catalog preserves empty, paginated, cleared and team-specific action buttons"
+      ]
+    },
+    {
+      "file": "email-actions-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "delete confirmation retains the original raw command and 60-second window"
+      ]
+    },
+    {
+      "file": "guild-history-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "guild logs preserve guild title, persisted dates, ordering and paging buttons",
+        "own applications preserve membership, empty state and quoted cancel controls"
+      ]
+    },
+    {
+      "file": "limited-event-payment-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies"
+      ]
+    },
+    {
+      "file": "market-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "market preserves original full bubbles, buttons, anonymity, guide and pagination with real backend data"
+      ]
+    },
+    {
+      "file": "navigation-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "public navigation preserves full original bubbles for guests, realm thresholds, muted users and pages"
+      ]
+    },
+    {
+      "file": "normal-payment-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "normal checkout retains original feedback, QR options, image props and removes the identity request",
+        "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies"
+      ]
+    },
+    {
+      "file": "notification-history-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "notification history retains original page title, private/group bubbles and paging buttons"
+      ]
+    },
+    {
+      "file": "other-leaderboards-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/other-leaderboards-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "profession-dashboard-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "profession dashboard preserves original private/group overview, lingzhi view and refusal bubbles"
+      ]
+    },
+    {
+      "file": "profession-tools-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "profession tools preserve original private/group list, replacement, refusal and repeat bubbles"
+      ]
+    },
+    {
+      "file": "skill-proficiency-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "proficiency usage, fractional/all consumption, pity and failures preserve original group/private bubbles"
+      ]
+    },
+    {
+      "file": "soul-grade-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/soul-grade-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "soul-path-state-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "soul state preserves original panel, paths and material-source bubbles"
+      ]
+    },
+    {
+      "file": "soul-upgrade-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/soul-upgrade-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "soul-wash-decision-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/soul-wash-decision-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "soul-wash-preview-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/soul-wash-preview-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "sponsor-payment-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "each observation uses one API including receipt and timeout, while preserving original successful and terminal replies"
+      ]
+    },
+    {
+      "file": "storyline-ranking-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/storyline-ranking-presentation.test.mjs"
+      ]
+    },
+    {
+      "file": "storyline-sweep-presentation.test.mjs",
+      "baselineExitCode": 1,
+      "baselineFailedTests": [
+        "test/storyline-sweep-presentation.test.mjs"
+      ]
+    }
+  ],
+  "remainingCategories": [
+    "Historical snapshot imports reference exports removed from current source (for example rankingFooter).",
+    "Historical UI snapshots differ from current production messages/navigation.",
+    "Some Go parity fixtures fail in the current backend.",
+    "Cave home still exposes an acceleration action forbidden by the existing UX assertion."
+  ],
+  "validationBoundary": "No live QQ delivery or real production database settlement was verified."
+}

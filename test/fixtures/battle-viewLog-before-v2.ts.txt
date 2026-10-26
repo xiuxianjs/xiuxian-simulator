@@ -1,0 +1,57 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 查看战斗过程
+ * 指令：查看战斗过程 [战斗日志ID]
+ */
+
+import App from '@src/response-apps/battle/viewLog/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { Format, onResponse } from 'alemonjs';
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const regex = /^(!|！|\/|#|＃)?查看战斗过程\s+(.+)$/;
+  const messageText = e.MessageText ?? '';
+  const match = messageText.match(regex);
+
+  if (!match) {
+    return;
+  }
+
+  const logId = String(match[2]).trim();
+  const uid = e.uid as number;
+
+  const result = await App({ bid, uid, logId, messageText, request: createBackendRequestContext(e) });
+  const md = Format.createMarkdown();
+
+  switch (result.code) {
+    case 'MISSING_ID':
+      md.addText('请提供战斗日志ID');
+
+      break;
+    case 'NOT_FOUND':
+      md.addText(result.data.message);
+
+      break;
+    case 'FAIL':
+      md.addText(result.data.message);
+
+      break;
+    case 'MEMORY_ONLY':
+      md.addText('此记录可在战斗回忆中查看。');
+      void message.send(await BattleFormatGui({ isPrivate, bid, title: '战斗回忆', content: md }, [{ id: logId }]));
+
+      return;
+    case 'OK':
+      md.addCode(result.data.log, { language: 'markdown' });
+      void message.send(await BattleFormatGui({ isPrivate, bid, title: '战斗过程', content: md }, [{ id: logId }]));
+
+      return;
+  }
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

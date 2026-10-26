@@ -1,0 +1,126 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendSocialAccess } from '@src/api';
+import App, { type GiftRecordMode } from '@src/response-apps/companion/giftRecords/app';
+import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+import dayjs from 'dayjs';
+
+const parseQuery = (text: string): { mode: GiftRecordMode; page: number } => {
+  const normalized = (text ?? '').trim();
+  const match = normalized.match(/^[!！/#＃]?赠礼记录(?:\s+(送出|收到))?(?:\s+(\d+))?\s*$/);
+  const mode = match?.[1] === '送出' ? 'send' : match?.[1] === '收到' ? 'receive' : 'all';
+  const page = match?.[2] ? Math.max(1, Number(match[2])) : 1;
+
+  return { mode, page: Number.isFinite(page) ? Math.floor(page) : 1 };
+};
+
+const buildFilterButtons = () => [
+  { label: '全部', command: '/赠礼记录' },
+  { label: '送出', command: '/赠礼记录 送出' },
+  { label: '收到', command: '/赠礼记录 收到' }
+];
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const text = (e.MessageText ?? '').trim();
+
+  const fifthLayerAccess = await getBackendSocialAccess(bid, uid);
+
+  if (!fifthLayerAccess.ok) {
+    sendFifthLayerLockedPage({
+      bid,
+      isPrivate,
+      message,
+      title: '赠礼记录',
+      realmName: fifthLayerAccess.realmName
+    });
+
+    return;
+  }
+
+  if (!/^[!！/#＃]?赠礼记录(?:\s+(送出|收到))?(?:\s+\d+)?\s*$/.test(text)) {
+    return;
+  }
+
+  const query = parseQuery(text);
+  const result = await App({ uid, bid, mode: query.mode, page: query.page });
+
+  if (result.code === 'LOAD_FAILED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '赠礼记录', content: md }));
+
+    return;
+  }
+
+  const { data } = result;
+  const filterButtons = buildFilterButtons();
+
+  if (data.rows.length === 0) {
+    const md = Format.createMarkdown();
+
+    md.addText('暂无赠礼记录');
+    md.addNewline();
+    md.addText('可从好友页或赠送页进入赠礼流程。');
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: data.title,
+        content: md,
+        header: [{ label: '返回好友', command: '/我的好友' }],
+        footer: filterButtons
+      })
+    );
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  md.addBlockquote(Format.createMarkdown().addText(`筛选：${query.mode === 'send' ? '送出' : query.mode === 'receive' ? '收到' : '全部'}`));
+
+  for (const row of data.rows) {
+    const isSender = row.senderUid === uid;
+    const targetName = isSender ? row.receiverName : row.senderName;
+    const actionText = isSender ? '送给' : '收到';
+    const timeText = row.created_at ? dayjs(row.created_at).format('MM-DD HH:mm') : '未知时间';
+    const effectText = row.tongxinGained > 0 ? `灵契 +${row.intimacyGained} / 同心 +${row.tongxinGained}` : `灵契 +${row.intimacyGained}`;
+
+    md.addText(`${timeText}【${row.relationText}${row.premium ? '·珍礼' : ''}】`);
+    md.addNewline();
+    md.addBlockquote(
+      Format.createMarkdown()
+        .addText(`${actionText}：${targetName}`)
+        .addNewline()
+        .addText(`礼物：${row.giftName} x${row.quantity}`)
+        .addNewline()
+        .addText(`效果：${effectText}`)
+    );
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: data.title,
+      header: [{ label: '返回好友', command: '/我的好友' }],
+      content: md,
+      nav: {
+        current: data.currentPage,
+        total: data.totalPages,
+        count: data.total,
+        command: `${data.cmdPrefix} {page}`
+      },
+      footer: filterButtons
+    })
+  );
+});

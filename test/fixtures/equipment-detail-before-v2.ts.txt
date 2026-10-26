@@ -1,0 +1,106 @@
+import { useMessage } from '@src/utils/useMessage';
+import { recoveryEffectsMarkdown } from '@src/utils/resourceRecoveryDisplay';
+import { getEquipmentDetail, resolveTypeName } from '@src/response-apps/equipment/equipmentDetail/app';
+import { selects } from '@src/response/config';
+import { formatStatParts } from '@src/response/equipment/setEffectFormat';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+
+/**
+ * 我的{装备类型}指令
+ * 显示特定部位装备的详细信息
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  // 从消息中提取装备类型
+  const messageText = e.MessageText.trim();
+  const match = messageText.match(/^(!|！|\/|#|＃)?我的(武器|饰品|法袍|衣服|鞋子?|头饰|羽翼)$/);
+
+  if (!match?.[2]) {
+    const md = Format.createMarkdown();
+
+    md.addText('请指定装备类型，例如：我的武器');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const equipmentTypeName = match[2].trim();
+
+  // 兼容旧名称映射到数据库实际名称
+  const resolvedTypeName = resolveTypeName(equipmentTypeName);
+
+  try {
+    // 获取用户该类型的装备，传入uid
+    const { item: equippedItem, playerName } = await getEquipmentDetail(bid, Number(uid), resolvedTypeName);
+
+    if (!equippedItem) {
+      const md = Format.createMarkdown();
+
+      md.addText(`未装备任何${equipmentTypeName}`);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const md = Format.createMarkdown();
+
+    md.addText(`装备名称：${equippedItem.equipment.name}`);
+    md.addNewline();
+    md.addText(`品级：${equippedItem.equipment.grade?.name ?? '未知'}`);
+    md.addNewline();
+    md.addText(`装备ID：${equippedItem.id}`);
+    md.addNewline();
+
+    // 构建属性列表，只显示大于0的属性值
+    const attrs = formatStatParts(equippedItem, 'full', '：').map(s => `   ${s}`);
+
+    if (attrs.length > 0) {
+      md.addNewline();
+      md.addText('【属性信息】');
+      md.addNewline();
+      attrs.forEach(attr => {
+        md.addText(attr);
+        md.addNewline();
+      });
+    } else {
+      md.addNewline();
+      md.addText('【属性信息】');
+      md.addNewline();
+      md.addText('暂无属性加成');
+      md.addNewline();
+    }
+
+    md.addNewline();
+    md.addText(`状态：${equippedItem.isLocked ? '已锁定' : '未锁定'}`);
+    md.addNewline();
+
+    md.addNewline();
+
+    if (equippedItem.recoveryEffects?.length) {
+      md.addBlockquote(recoveryEffectsMarkdown(equippedItem.recoveryEffects));
+    }
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: `${playerName}的${equipmentTypeName}详情`,
+        content: md,
+        footer: [{ label: `卸下 ${equipmentTypeName}`, command: `/卸下 ${equipmentTypeName}` }]
+      })
+    );
+  } catch (error) {
+    logger.error('获取装备详情失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('获取装备详情失败，请稍后重试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

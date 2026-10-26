@@ -1,0 +1,72 @@
+import { useMessage } from '@src/utils/useMessage';
+import { DEFAULT_PAGE, EMPTY_STRING, FIRST_ARG_INDEX, MIN_PAGE } from '@src/constants/common';
+import { getMyHiddenSkillBooks } from '@src/response-apps/skillBook/hidden/app';
+import { selects } from '@src/response/config';
+import { parsePageNumber } from '@src/utils/commandParser';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { formatSkillBookListItem } from '@src/utils/skillBookHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  const messageText = (e.MessageText || EMPTY_STRING).replace(/^(!|！|\/|#|＃)?我的隐藏功法\s*/, EMPTY_STRING).trim();
+  const args = messageText ? messageText.split(/\s+/) : [];
+  const parseResult = parsePageNumber(args, FIRST_ARG_INDEX, DEFAULT_PAGE);
+  const page = parseResult.success ? parseResult.value! : DEFAULT_PAGE;
+
+  const result = await getMyHiddenSkillBooks({ bid, uid, page });
+
+  if (result.code === 'LOAD_FAILED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '我的隐藏功法', content: md }));
+
+    return;
+  }
+
+  const { items, total, totalPages, currentPage } = result.data;
+  const md = Format.createMarkdown();
+
+  if (total === 0) {
+    md.addText('暂无隐藏功法');
+    md.addNewline();
+    md.addNewline();
+    md.addText('💡可在 /我的功法 中使用 /隐藏功法 ID');
+  } else if (items.length === 0) {
+    md.addText('❌ 页码超出范围');
+    md.addNewline();
+    md.addNewline();
+    md.addText(`当前共有 ${total} 本隐藏功法，请输入 1-${totalPages} 之间的页码`);
+  } else {
+    items.forEach(item => {
+      md.addText(formatSkillBookListItem(item, item.id));
+
+      addOptions(md, [
+        { label: '显示', command: `/显示功法 ${item.id}` },
+        { label: '查看', command: `/查看功法 ${item.id}` }
+      ]);
+    });
+  }
+
+  const nav =
+    total > 0 ? { current: items.length === 0 ? MIN_PAGE : currentPage, total: totalPages, count: total, command: '/我的隐藏功法 {page}' } : undefined;
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '我的隐藏功法',
+      header: [{ label: '我的功法', command: '/我的功法' }],
+      content: md,
+      nav
+    })
+  );
+});
+
+export default response;

@@ -1,0 +1,61 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 双修指令
+ */
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/companion/dualCultivation/app';
+import { canAccessFifthLayerFeature, sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const request = createBackendRequestContext(e);
+  const fifthLayerAccess = await canAccessFifthLayerFeature(uid, bid);
+
+  if (!fifthLayerAccess.ok) {
+    sendFifthLayerLockedPage({ bid, isPrivate, message, title: '双修', realmName: fifthLayerAccess.realmName });
+
+    return;
+  }
+
+  const result = await App({ messageText: e.MessageText, uid, bid, request });
+
+  if (result.code === 'OK') {
+    const lines = [
+      '双修完成！',
+      `你获得经验 +${result.data.expGained}`,
+      `道侣获得经验 +${result.data.partnerExpGained}`,
+      `同心值 +${result.data.tongxinGained}`
+    ];
+
+    const md = Format.createMarkdown();
+
+    md.addText(lines.join('\n'));
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: [
+          { label: '道侣任务', command: '/道侣任务' },
+          { label: '我的道侣', command: '/我的道侣' }
+        ]
+      })
+    );
+  } else {
+    const md = Format.createMarkdown();
+    const repeatMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, request);
+
+    md.addText(repeatMsg);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

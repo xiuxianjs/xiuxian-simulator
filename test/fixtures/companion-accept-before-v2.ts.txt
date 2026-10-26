@@ -1,0 +1,74 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 同意道侣申请指令
+ */
+import App from '@src/response-apps/companion/accept/app';
+import { canAccessFifthLayerFeature, sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const fifthLayerAccess = await canAccessFifthLayerFeature(uid, bid);
+
+  if (!fifthLayerAccess.ok) {
+    sendFifthLayerLockedPage({ bid, isPrivate, message, title: '道侣申请', realmName: fifthLayerAccess.realmName });
+
+    return;
+  }
+
+  const text = e.MessageText?.trim() ?? '';
+  const match = text.match(/^[!！/#＃]?同意道侣\s+(.+)$/);
+
+  const proposerName = match?.[1]?.trim();
+
+  const request = createBackendRequestContext(e);
+  const result = await App({ messageText: e.MessageText, bid, uid, proposerName, request });
+
+  if (result.code === 'LIST') {
+    if (result.data.received.length === 0) {
+      const md = Format.createMarkdown();
+
+      md.addBold('【道侣申请】');
+      md.addNewline();
+      md.addText('暂无待处理的道侣申请');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const md = Format.createMarkdown();
+
+    md.addBold('【道侣申请】');
+    md.addNewline();
+    md.addText('待处理的道侣申请：');
+    md.addNewline();
+    for (let i = 0; i < result.data.received.length; i++) {
+      const p = result.data.received[i];
+
+      md.addText(`【${i + 1}】${p.fromName}（灵契值：${p.intimacy}）`);
+
+      addOptions(md, [
+        { label: '同意', command: `/同意道侣 ${p.fromName}` },
+        { label: '拒绝', command: `/拒绝道侣 ${p.fromName}` }
+      ]);
+    }
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+  const repeatMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, request);
+
+  md.addText(repeatMsg);
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

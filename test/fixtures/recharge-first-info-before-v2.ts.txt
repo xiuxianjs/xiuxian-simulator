@@ -1,0 +1,68 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getFirstRechargeInfoData } from '@src/response-apps/recharge/firstRechargeInfo/app';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+
+/**
+ * 礼包奖励信息指令
+ * 查看礼包奖励档位状态和领取进度
+ * 指令格式：/礼包奖励
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  try {
+    const result = await getFirstRechargeInfoData(uid, bid);
+
+    if (result.code === 'FAILED') {
+      const md = Format.createMarkdown();
+
+      md.addText('查询失败，请稍后再试。');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const md = Format.createMarkdown();
+
+    md.addBold('【礼包奖励】');
+    md.addNewline();
+    md.addBold('【奖励档位】');
+
+    for (const tier of result.tiers) {
+      md.addNewline();
+
+      if (tier.status === 'claimable') {
+        md.addText(`${tier.tierAmountYuan}元档 `);
+
+        addOptions(md, [{ label: '领取', command: `/领取礼包奖励 ${tier.tierAmountYuan}` }]);
+      } else if (tier.status === 'claimed') {
+        md.addText(`${tier.tierAmountYuan}元档 ✓已领取`);
+        md.addNewline();
+      } else {
+        md.addText(`${tier.tierAmountYuan}元档 未解锁`);
+        md.addNewline();
+      }
+
+      md.addText(`  ${tier.rewardText}`);
+    }
+
+    md.addNewline();
+    md.addText('💡礼包奖励根据首次充值的金额解锁对应档位，首次充值30元可解锁全部档位！');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  } catch (error) {
+    logger.error('查询礼包奖励信息失败:', error);
+
+    const md = Format.createMarkdown();
+
+    md.addText('查询失败，请稍后再试。');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

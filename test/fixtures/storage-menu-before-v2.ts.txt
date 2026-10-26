@@ -1,0 +1,35 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 新储物袋主入口处理器
+ * 路由: /储物袋
+ * 功能: 显示一级分类 tabs，点击直接进入对应分类
+ */
+
+import App from '@src/response-apps/storage/newBag/main/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+import { createPrimaryTabsBar } from '../tabs';
+
+const response = onResponse(selects, e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  const result = App();
+  const md = Format.createMarkdown();
+
+  md.addText(result.data.message);
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '储物袋',
+      content: md,
+      footer: createPrimaryTabsBar()
+    })
+  );
+});
+
+export default response;

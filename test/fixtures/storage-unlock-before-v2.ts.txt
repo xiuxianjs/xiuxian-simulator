@@ -1,0 +1,274 @@
+import { useMessage } from '@src/utils/useMessage';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { EMPTY_STRING, MIN_INDEX } from '@src/constants';
+import App from '@src/response-apps/storage/unlock/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, logger, onResponse } from 'alemonjs';
+
+// 支持的分类列表
+const SUPPORTED_CATEGORIES = [
+  // 一级分类
+  '材料',
+  '道具',
+  '装备',
+  '天工',
+  '功法',
+  // 材料子分类（带前缀，避免与道具子分类冲突）
+  '材料-草药',
+  '材料-经验材料',
+  '材料-经验',
+  '材料-其它',
+  // 道具子分类（带前缀）
+  '道具-丹药',
+  '道具-其它'
+];
+
+/**
+ * 解析解锁命令参数
+ * /解锁 材料 -> 解锁所有材料
+ * /解锁 材料 123 -> 解锁材料分类中ID为123的物品
+ * /解锁 灵草 -> 解锁名为"灵草"的物品
+ */
+const parseUnlockCommand = (msg: string): string[] => {
+  // 移除命令前缀，提取参数
+  const args = msg.replace(/^(!|！|\/|#|＃)?解锁\s*/, EMPTY_STRING).trim();
+
+  // 分割参数
+  return args ? args.split(/\s+/) : [];
+};
+
+/**
+ * 判断参数是否为支持的分类名
+ */
+const isSupportedCategory = (arg: string): boolean => {
+  if (SUPPORTED_CATEGORIES.includes(arg)) {
+    return true;
+  }
+
+  if (arg.startsWith('装备-')) {
+    return SUPPORTED_CATEGORIES.includes('装备');
+  }
+
+  if (arg.startsWith('天工-')) {
+    return SUPPORTED_CATEGORIES.includes('天工');
+  }
+
+  if (arg.startsWith('功法-')) {
+    return SUPPORTED_CATEGORIES.includes('功法');
+  }
+
+  if (arg === '本命') {
+    return true;
+  }
+
+  return false;
+};
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    // uid 已由中间件验证并设置
+    const uid = e.uid as number;
+
+    // 解析命令参数
+    const args = parseUnlockCommand(e.MessageText || EMPTY_STRING);
+
+    // 检查参数是否为空
+    if (args.length === 0) {
+      const md = Format.createMarkdown();
+
+      md.addText(
+        [
+          '❌ 参数错误',
+          '使用方法:',
+          '/解锁 [分类名/物品名]',
+          '/解锁 [分类名] [物品ID]',
+          '示例:',
+          '/解锁 材料        ← 解锁所有材料',
+          '/解锁 材料 123    ← 解锁材料分类中ID为123的物品',
+          '/解锁 灵草        ← 解锁名为"灵草"的物品',
+          '',
+          `可用分类: ${SUPPORTED_CATEGORIES.join('、')}`
+        ].join('\n')
+      );
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const firstArg = args[0];
+    const secondArg = args[1];
+    const thirdArg = args[2];
+
+    let result;
+
+    // 先尝试将前两个参数拼接为复合分类（支持空格分隔，如 /解锁 道具 丹药 → 道具-丹药）
+    // 但如果第二个参数是纯数字（物品ID），则不作为复合分类
+    const isSecondArgNumeric = secondArg && !isNaN(Number(secondArg));
+    const compoundCategory = secondArg && !isSecondArgNumeric ? `${firstArg}-${secondArg}` : null;
+    const isCompound = compoundCategory && isSupportedCategory(compoundCategory);
+
+    // 判断第一个参数是否为支持的分类名
+    if (isCompound) {
+      // 复合分类（如 道具 丹药 → 道具-丹药）
+      const categoryName = compoundCategory;
+
+      if (thirdArg) {
+        const itemId = parseInt(thirdArg, 10);
+
+        if (isNaN(itemId) || itemId < MIN_INDEX) {
+          const md = Format.createMarkdown();
+
+          md.addText(['❌ 参数错误', '', '物品ID必须是大于0的数字', '', '示例:', '/解锁 材料 123   ← 解锁材料分类中ID为123的物品'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+          return;
+        }
+
+        const appResult = await App({ bid, request: createBackendRequestContext(e), uid, mode: 'id', category: categoryName, itemId });
+
+        result = appResult.code === 'OK' ? appResult.data : { success: false, count: 0, message: appResult.data.message };
+
+        if (result.success && result.count > 0) {
+          const md = Format.createMarkdown();
+
+          md.addText(['✅ 解锁成功', '', `分类: ${categoryName}`, `物品ID: ${itemId}`, result.message].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        } else {
+          const categoryParts = categoryName.split('-');
+          const storageCommand = `/储物袋 ${categoryParts[0]} ${categoryParts[1]}`;
+          const buttonLabel = `储物袋${categoryParts[1]}`;
+
+          const md = Format.createMarkdown();
+
+          md.addText(['❌ 解锁失败', '', `分类: ${categoryName}`, result.message, '', '点击按钮查看物品列表:'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: buttonLabel, command: storageCommand }] }));
+        }
+      } else {
+        const appResult = await App({ bid, request: createBackendRequestContext(e), uid, mode: 'category', category: categoryName });
+
+        result = appResult.code === 'OK' ? appResult.data : { success: false, count: 0, message: appResult.data.message };
+
+        if (result.success && result.count > 0) {
+          const md = Format.createMarkdown();
+
+          md.addText(['✅ 解锁成功', '', `分类: ${categoryName}`, `数量: ${result.count} 件`].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        } else {
+          const md = Format.createMarkdown();
+
+          md.addText(
+            ['⚠️ 解锁失败', '', `分类“${categoryName}”中没有可解锁的物品`, '', '可能原因:', '1. 该分类下没有物品', '2. 所有物品已经被解锁'].join('\n')
+          );
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        }
+      }
+    } else if (isSupportedCategory(firstArg)) {
+      const categoryName = firstArg;
+
+      // 如果有第二个参数（物品ID）
+      if (secondArg) {
+        const itemId = parseInt(secondArg, 10);
+
+        // 验证物品ID
+        if (isNaN(itemId) || itemId < MIN_INDEX) {
+          const md = Format.createMarkdown();
+
+          md.addText(['❌ 参数错误', '', '物品ID必须是大于0的数字', '', '示例:', '/解锁 材料 123   ← 解锁材料分类中ID为123的物品'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+          return;
+        }
+
+        // 按 userItemId 解锁
+        const appResult = await App({ bid, request: createBackendRequestContext(e), uid, mode: 'id', category: categoryName, itemId });
+
+        result = appResult.code === 'OK' ? appResult.data : { success: false, count: 0, message: appResult.data.message };
+
+        if (result.success && result.count > 0) {
+          const md = Format.createMarkdown();
+
+          md.addText(['✅ 解锁成功', '', `分类: ${categoryName}`, `物品ID: ${itemId}`, result.message, '', '💡已解锁的物品可以正常使用和消耗'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        } else {
+          // 解析分类名，生成储物袋按钮
+          const categoryParts = categoryName.split('-');
+          const storageCommand = categoryParts.length > 1 ? `/储物袋 ${categoryParts[0]} ${categoryParts[1]}` : `/储物袋 ${categoryName}`;
+          const buttonLabel = categoryParts.length > 1 ? `储物袋${categoryParts[1]}` : `储物袋${categoryName}`;
+
+          const md = Format.createMarkdown();
+
+          md.addText(['❌ 解锁失败', '', `分类: ${categoryName}`, result.message, '', '点击按钮查看物品列表:'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: buttonLabel, command: storageCommand }] }));
+        }
+      } else {
+        // 如果只有分类名，按分类解锁所有
+        const appResult = await App({ bid, request: createBackendRequestContext(e), uid, mode: 'category', category: categoryName });
+
+        result = appResult.code === 'OK' ? appResult.data : { success: false, count: 0, message: appResult.data.message };
+
+        if (result.success && result.count > 0) {
+          const md = Format.createMarkdown();
+
+          md.addText(['✅ 解锁成功', '', `分类: ${categoryName}`, `数量: ${result.count} 件`, '', '💡已解锁的物品可以正常使用和消耗'].join('\n'));
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        } else {
+          const md = Format.createMarkdown();
+
+          md.addText(
+            ['⚠️ 解锁失败', '', `分类"${categoryName}"中没有可解锁的物品`, '', '可能原因:', '1. 该分类下没有物品', '2. 所有物品已经是解锁状态'].join('\n')
+          );
+
+          void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+        }
+      }
+    } else {
+      // 按物品名解锁（将所有参数合并为物品名，支持空格）
+      const itemName = args.join(' ');
+
+      const appResult = await App({ bid, request: createBackendRequestContext(e), uid, mode: 'name', itemName });
+
+      result = appResult.code === 'OK' ? appResult.data : { success: false, count: 0, message: appResult.data.message };
+
+      if (result.success && result.count > 0) {
+        const md = Format.createMarkdown();
+
+        md.addText(['✅ 解锁成功', '', `物品: ${itemName}`, result.message, '', '💡已解锁的物品可以正常使用和消耗'].join('\n'));
+
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+      } else {
+        const md = Format.createMarkdown();
+
+        md.addText(['❌ 解锁失败', '', result.message, '', '💡请检查物品名称是否正确'].join('\n'));
+
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+      }
+    }
+  } catch (error) {
+    logger.error('解锁物品失败:', error);
+    const md = Format.createMarkdown();
+
+    const failMsg = await withBackendRepeatDetection(bid, e.uid as number, '解锁物品', '解锁物品失败，请稍后再试或联系运营。', createBackendRequestContext(e));
+
+    md.addText(failMsg);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});
+
+export default response;

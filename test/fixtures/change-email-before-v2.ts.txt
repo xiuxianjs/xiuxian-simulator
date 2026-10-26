@@ -1,0 +1,46 @@
+import { requirePrivateAccountMessage } from '@src/utils/privateAccountMessage';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 更换邮箱指令
+ * 用法：/更换邮箱 <新邮箱地址>
+ * 发送验证码到旧邮箱后，用户发送 /验证 <6位数字> 完成更换。
+ */
+import { initiateChangeEmail } from '@src/response-apps/emailSecurity/changeEmail/app';
+import { createBackendRequestContext } from '@src/api';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  if (!(await requirePrivateAccountMessage(e))) {
+    return;
+  }
+  const [message] = useMessage();
+  const bid = e.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  const sendText = (text: string) => {
+    const md = Format.createMarkdown();
+
+    md.addText(text);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '更换邮箱', content: md }));
+  };
+
+  try {
+    const initResult = await initiateChangeEmail({ bid, messageText: e.MessageText, request: createBackendRequestContext(e) });
+
+    if (initResult.code === 'FAIL') {
+      sendText(initResult.data.message);
+
+      return;
+    }
+
+    const { oldEmail, newEmail } = initResult.data;
+
+    sendText(`验证码已发送至旧邮箱：【${oldEmail.split('').join(' ')}】\n新邮箱：【${newEmail.split('').join(' ')}】\n请在3分钟内发送：/验证 6位验证码`);
+  } catch (error) {
+    logger.error('更换邮箱指令处理失败:', error);
+    sendText('系统错误，请稍后再试或联系运营');
+  }
+});

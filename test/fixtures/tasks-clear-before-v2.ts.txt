@@ -1,0 +1,34 @@
+import type { GameEvent } from '@src/types/event';
+import { clearBackendTaskSlotWithLimits } from '@src/api/bot/task-slot-clear';
+import { getBackendRobotIdentity } from '@src/api/bot/identity';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { sendPage } from '@src/response/task/views';
+import type { Next } from 'alemonjs';
+import { Format } from 'alemonjs';
+
+export default async (e: GameEvent, next: Next) => {
+  const request = createBackendRequestContext(e);
+  const identity = await getBackendRobotIdentity(e.UserId, request);
+
+  if (identity.account.status !== 'registered') {
+    return next();
+  }
+  const uid = identity.account.playerId;
+  const slot = Number(e.__route?.params?.slot);
+
+  const result = await clearBackendTaskSlotWithLimits(e.UserId, uid, slot, request);
+
+  if (result.outcome === 'invalid_slot') {
+    const md = Format.createMarkdown();
+
+    md.addText(`槽位只能是1到${result.limits.slotCount}`);
+    sendPage(e, '任务清空', md);
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  md.addText(`第${slot}个任务已清空`);
+  sendPage(e, '任务清空', md);
+};

@@ -1,0 +1,166 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 功法分类处理器
+ * 路由:
+ *   /储物袋 功法 - 显示所有功法
+ *   /储物袋 功法 2 - 显示所有功法第2页
+ *   /储物袋 功法 战技 - 显示战技功法
+ *   /储物袋 功法 战技 2 - 显示战技第2页
+ *
+ * 注意：功法仍使用 userSkillBooks 表
+ */
+
+import { DEFAULT_PAGE, EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL, FIRST_ARG_INDEX, MIN_PAGE, SECOND_ARG_INDEX } from '@src/constants';
+import App from '@src/response-apps/storage/newBag/skillBooks/app';
+import { selects } from '@src/response/config';
+import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+import { renderSubTabs, SKILL_SUB_TABS } from '../tabs';
+import { skillBookItemActions, skillBookPageActions } from '../capabilities';
+
+/**
+ * 解析命令参数
+ */
+const parseCommand = (msg: string): { skillType: string | null; page: number } => {
+  // 移除命令前缀和"功法"
+  const args = msg.replace(/^(!|！|\/|#|＃)?(我的)?(储物袋|背包)\s+功法\s*/, EMPTY_STRING).trim();
+
+  if (!args) {
+    return { skillType: null, page: DEFAULT_PAGE };
+  }
+
+  const parts = args.split(/\s+/);
+  let skillType: string | null = null;
+  let page = DEFAULT_PAGE;
+
+  // 第一个参数可能是功法类型或页码
+  if (parts[FIRST_ARG_INDEX]) {
+    // 如果是数字，当作页码处理
+    if (!isNaN(Number(parts[FIRST_ARG_INDEX]))) {
+      page = Math.max(MIN_PAGE, Number(parts[FIRST_ARG_INDEX]));
+    } else {
+      // 否则当作功法类型
+      skillType = parts[FIRST_ARG_INDEX];
+      // 第二个参数是页码
+      if (parts[SECOND_ARG_INDEX] && !isNaN(Number(parts[SECOND_ARG_INDEX]))) {
+        page = Math.max(MIN_PAGE, Number(parts[SECOND_ARG_INDEX]));
+      }
+    }
+  }
+
+  return { skillType, page };
+};
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const uid = e.uid as number;
+    const { skillType, page } = parseCommand((e.MessageText || EMPTY_STRING).replace(/\s+操作(?=\s|$)/, ''));
+
+    const result = await App({ bid, uid, skillType, page });
+
+    if (result.code !== 'OK') {
+      throw new Error('查询功法失败，请稍后重试');
+    }
+
+    const baseCommand = skillType ? `/储物袋 功法 ${skillType}` : '/储物袋 功法';
+
+    if (/\s+操作(?:\s|$)/.test(e.MessageText ?? '')) {
+      const md = Format.createMarkdown().addText('选择批量操作；分解前会展示本批收益并要求确认，每次最多300本。');
+
+      void message.send(
+        FormatGui({
+          isPrivate,
+          bid,
+          title: '功法 · 批量处理',
+          content: md,
+          footer: [...skillBookPageActions(result.data.capabilities), { label: '返回功法', command: baseCommand }]
+        })
+      );
+
+      return;
+    }
+
+    const total = result.data.total;
+    const totalPages = result.data.totalPages;
+
+    // 如果总数为0，显示暂无物品
+    if (total === EMPTY_TOTAL) {
+      const md = Format.createMarkdown();
+
+      // 二级子类 tabs（内联 markdown）
+      renderSubTabs(
+        md,
+        SKILL_SUB_TABS.map(tab => ({ ...tab, label: `[${tab.label}]` }))
+      );
+
+      md.addText('该类型暂无功法');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '储物袋 · 功法', content: md }));
+
+      return;
+    }
+
+    const pageSkillBooks = result.data.items;
+
+    // 显示功法列表
+    const md = Format.createMarkdown();
+
+    // 二级子类 tabs（内联 markdown）
+    renderSubTabs(
+      md,
+      SKILL_SUB_TABS.map(tab => ({ ...tab, label: `[${tab.label}]` }))
+    );
+
+    md.addText('词条数值：当前 / 本功法上限').addNewline();
+    // 格式化功法显示（使用功法ID作为编号）
+    pageSkillBooks.forEach(item => {
+      const lines = [`【${item.id}】`];
+
+      lines.push(`「${item.displayName}」 ${item.displayGrade} · ${item.displaySkillType}`);
+      for (let i = 0; i < item.attributeParts.length; i += 2) {
+        lines.push(item.attributeParts.slice(i, i + 2).join(' ｜ '));
+      }
+      md.addText(lines[0]);
+      addOptions(md, skillBookItemActions(item));
+      md.addText(lines[1]).addNewline();
+      if (lines.length > 2) {
+        md.addBlockquote(createQuoteMarkdown(lines.slice(2)));
+      }
+      md.addNewline();
+    });
+
+    // 使用 FormatGui nav 分页
+    const pageBase = skillType ? `/储物袋 功法 ${skillType}` : '/储物袋 功法';
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '储物袋 · 功法',
+        content: md,
+        nav: {
+          current: page,
+          total: totalPages,
+          command: `${pageBase} {page}`
+        },
+        footer: [
+          { label: '我的功法', command: '/我的功法' },
+          { label: '批量处理', command: `${baseCommand} 操作` }
+        ]
+      })
+    );
+  } catch (error) {
+    logger.error('功法分类处理失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('查询功法失败，请稍后重试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '储物袋 · 功法', content: md }));
+  }
+});
+
+export default response;

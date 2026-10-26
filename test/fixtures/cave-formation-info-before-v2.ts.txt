@@ -1,0 +1,40 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendCaveFormations } from '@src/api/bot/cave-formation-queries';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const layoutCommand = '/储物袋 道具 其它';
+
+  const active = await getBackendCaveFormations(bid, e.uid as number);
+  const md = Format.createMarkdown();
+
+  if (active.length === 0) {
+    md.addText('暂无生效中的洞府阵法');
+  } else {
+    for (const item of active) {
+      const quote = Format.createMarkdown().addText(`【${item.categoryLabel}】${item.formationName}`);
+
+      quote.addText(' ').addButton('替换', { data: `${layoutCommand} 洞府阵法` });
+      quote.addText(' ').addButton('移除', { data: `/移除阵法 ${item.formationName}` });
+      quote.addNewline().addText(` 剩余 ${item.remainingText} `).addNewline().addText(` ${item.effectText} `);
+      md.addBlockquote(quote);
+    }
+  }
+
+  const footerButtons = [{ label: '背包', command: layoutCommand }];
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '洞府阵法',
+      content: md,
+      footer: footerButtons
+    })
+  );
+});

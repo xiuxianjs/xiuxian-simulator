@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const root = new URL('../', import.meta.url);
+const entries = JSON.parse(readFileSync(new URL('test/framework/migrated-files.json', root), 'utf8'));
+
+assert.equal(new Set(entries.map(entry => entry.file)).size, entries.length, 'Duplicate migration entry');
+const leftovers = [];
+let goFixtures = 0;
+
+for (const { file } of entries) {
+  const source = readFileSync(new URL(`test/${file}`, root), 'utf8');
+
+  assert.ok(/createPresentationHarness|createTestApp/.test(source), `${file}: missing framework harness`);
+  assert.ok(!/withEventContext/.test(source), `${file}: direct legacy context binding`);
+  assert.ok(!/export const useMessage\s*=/.test(source), `${file}: mocked message hook`);
+  if (/goTestFixture\s*\(|execFileSync\s*\(\s*['"]go['"]/.test(source)) { goFixtures++; }
+}
+for (const file of readdirSync(new URL('test/', root)).filter(file => !file.startsWith('.') && /\.test\.mjs$/.test(file))) {
+  const source = readFileSync(new URL(`test/${file}`, root), 'utf8');
+
+  if (/withEventContext/.test(source)) { leftovers.push(file); }
+}
+assert.deepEqual(leftovers, [], 'Runtime tests still using direct context binding');
+console.log(
+  JSON.stringify(
+    {
+      migratedFiles: entries.length,
+  legacyAdapterFiles: entries.filter(entry => entry.mode === 'adapter').length,
+  directMigratedFiles: entries.filter(entry => entry.mode === 'direct').length,
+      goFixtureFiles: goFixtures,
+      noGoFixtureFiles: entries.length - goFixtures,
+      directFrameworkFiles: readdirSync(new URL('test/framework/', root)).filter(file => file.endsWith('.test.ts')).length,
+      remainingDirectContextTests: leftovers,
+      root: fileURLToPath(root)
+    },
+    null,
+    2
+  )
+);

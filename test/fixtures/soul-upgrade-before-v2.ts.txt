@@ -1,0 +1,50 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 本命物升级指令（消耗筑灵石提升等级）
+ *
+ * 用法：本命物升级 [级数]
+ *   - 本命物升级      → 升 1 级
+ *   - 本命物升级 5    → 升 5 级
+ *   - 本命物升级 36   → 一键升到满级（36级）
+ */
+import App from '@src/response-apps/soulArtifact/upgrade/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  const text = e.MessageText?.trim() ?? '';
+  const match = text.match(/^[!！/#＃]?本命物升级\s*(\d+)?$/);
+  const levels = match?.[1] ? Math.max(1, Number(match[1])) : 1;
+
+  const result = await App({ bid, uid, levels, messageText: e.MessageText, request: createBackendRequestContext(e) });
+
+  const md = Format.createMarkdown();
+
+  const displayMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, createBackendRequestContext(e));
+
+  md.addText(displayMsg);
+  if (result.code === 'OK' && result.data.compareLines.length > 0) {
+    md.addNewline();
+    md.addNewline();
+    md.addText('升级前后');
+    md.addNewline();
+    md.addBlockquote(createQuoteMarkdown(result.data.compareLines.map(line => ` ${line}`)));
+  }
+  const actionMd = Format.createMarkdown().addText('继续升级： ');
+
+  actionMd.addButton('再升×1', { data: '/本命物升级' });
+  actionMd.addText(' ').addButton('再升×5', { data: '/本命物升级 5' });
+  actionMd.addText(' ').addButton('再升×36', { data: '/本命物升级 36' });
+  actionMd.addText(' ').addButton('我的本命物', { data: '/本命物信息' });
+  md.addBlockquote(actionMd);
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

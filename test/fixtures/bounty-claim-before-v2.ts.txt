@@ -1,0 +1,117 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 领赏
+ * 指令：/领赏 悬赏ID
+ *
+ * 领取已完成悬赏的赏金
+ */
+
+import { createBackendRequestContext } from '@src/api/bot';
+import App from '@src/response-apps/bounty/claim/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const bountyActionHeader = [
+  { label: '悬赏榜', command: '/悬赏榜' },
+  { label: '杀神榜', command: '/杀神榜' }
+];
+
+const bountyActionFooter = [
+  { label: '记录', command: '/打劫记录' },
+  { label: '悬赏', command: '/悬赏' },
+  { label: '仇人', command: '/仇人' },
+  { label: '煞气', command: '/煞气' },
+  { label: '金盆', command: '/消耗 金盆 1' }
+];
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const text = (e.MessageText ?? '').trim();
+
+  const match = text.match(/^(?:!|！|\/|#|＃)?领赏(?:\s+(\d+))?$/);
+
+  if (!match) {
+    const md = Format.createMarkdown();
+
+    md.addText('格式：/领赏 悬赏编号');
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '领赏',
+        content: md,
+        header: bountyActionHeader,
+        footer: bountyActionFooter
+      })
+    );
+
+    return;
+  }
+
+  const bountyId = match[1] ? parseInt(match[1], 10) : null;
+  const result = await App({ bid, uid, bountyId, request: createBackendRequestContext(e) });
+
+  const md = Format.createMarkdown();
+
+  switch (result.code) {
+    case 'LIST': {
+      const { pending } = result.data;
+
+      if (pending.length === 0) {
+        md.addText('暂无待领取的赏金');
+        md.addNewline();
+
+        md.addButton('悬赏榜', { data: '/悬赏榜' });
+      } else {
+        md.addText('待领赏金');
+        md.addNewline();
+
+        for (const p of pending) {
+          md.addBlockquote(
+            Format.createMarkdown()
+              .addText(`${p.bountyId} 目标：${p.targetName} · ${p.rewardAmount}灵晶 `)
+              .addButton(`领赏 #${p.bountyId}`, { data: `/领赏 ${p.bountyId}` })
+          );
+        }
+      }
+      break;
+    }
+    case 'INVALID_ID':
+      md.addText('悬赏编号无效');
+      break;
+    case 'INVALID_USER_STATUS':
+      md.addText('你的账号状态异常，无法领赏');
+      break;
+    case 'NOTHING_TO_CLAIM':
+      md.addText('没有可领取的赏金（未接赏或已领取）');
+      break;
+    case 'INVALID_REWARD_AMOUNT':
+      md.addText('赏金金额异常');
+      break;
+    case 'FAIL':
+      md.addText('领赏失败，请稍后再试');
+      break;
+    case 'OK':
+      md.addText('领赏成功！');
+      md.addNewline();
+      md.addNewline();
+      md.addText(`获得灵晶：${result.data.rewardAmount}`);
+      break;
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '领赏',
+      content: md,
+      header: bountyActionHeader,
+      footer: bountyActionFooter
+    })
+  );
+});

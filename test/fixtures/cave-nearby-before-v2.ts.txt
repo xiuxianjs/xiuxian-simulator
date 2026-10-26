@@ -1,0 +1,86 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendCaveNearby } from '@src/api/bot/cave-nearby-queries';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const HEADER = [
+  { label: '我的灵田', command: '/灵田' },
+];
+
+const FOOTER = [
+  { label: '洞府阵法', command: '/洞府阵法' },
+  { label: '灵田记录', command: '/灵田记录' },
+  { label: '我的好友', command: '/我的好友' }
+];
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const md = Format.createMarkdown();
+  const nearbyResult = await getBackendCaveNearby(bid, uid);
+  const pageRows = nearbyResult.players;
+  const total = pageRows.length;
+
+  if (pageRows.length === 0) {
+    md.addText(nearbyResult.message ?? '附近暂无可查看的玩家灵田。');
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '附近灵田',
+        header: HEADER,
+        footer: FOOTER,
+        content: md
+      })
+    );
+
+    return;
+  }
+
+  md.addText(`附近玩家灵田（共${total}位）`);
+  md.addNewline();
+  md.addNewline();
+
+  const viewOptions: { label: string; value: string }[] = [];
+  const stealOptions: { label: string; value: string }[] = [];
+
+  pageRows.forEach((row, index) => {
+    const quote = Format.createMarkdown().addText(`【${index + 1}】【${row.relationLabel}】${row.ownerName}`);
+
+    {
+      quote.addText(' ');
+      quote.addButton('[查看灵田]', { data: `/查看灵田 ${row.ownerId}` });
+      if (row.canSteal) {
+        quote.addText(' ');
+        quote.addButton('[偷药]', { data: `/偷药 ${row.ownerId}` });
+      }
+    }
+    quote.addNewline().addText(`灵气：${row.auraText}`).addNewline().addText(`状态：${row.stolenStatusText}`);
+    md.addBlockquote(quote);
+
+    if (index < pageRows.length - 1) {
+      md.addNewline();
+      md.addNewline();
+    }
+
+    viewOptions.push({ label: `查看 ${row.ownerName} 的灵田`, value: `/查看灵田 ${row.ownerId}` });
+    if (row.canSteal) {
+      stealOptions.push({ label: `偷药 ${row.ownerName}`, value: `/偷药 ${row.ownerId}` });
+    }
+  });
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '附近灵田',
+      header: HEADER,
+      footer: FOOTER,
+      content: md
+    })
+  );
+});

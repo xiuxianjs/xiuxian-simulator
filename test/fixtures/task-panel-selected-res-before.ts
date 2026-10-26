@@ -1,0 +1,152 @@
+import { useMessage } from '../../src/utils/useMessage';
+import { getBackendRobotIdentity } from '../../src/api/bot/identity';
+import { createBackendRequestContext } from '../../src/api/bot/context';
+/**
+ * 任务面板指令入口
+ * 展示任务面板文本与操作按钮
+ */
+import { getAllTabs } from './task-panel-selected-App-before';
+import { parseTabKey } from '../../src/response/taskPanel/parseTab';
+import { TAB_REGISTRY } from '../../src/response/taskPanel/constants';
+import type { TaskPanelItemView } from '../../src/api/schemas/task-panel-view';
+import { selects } from '../../src/response/config';
+import { FormatGui } from '../../src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+/**
+ * 构建 QQ 端文本消息
+ * @param tabName Tab 名称
+ * @param items 条目列表
+ * @returns Format Markdown 对象
+ */
+const buildQQContent = (tabName: string, items: TaskPanelItemView[]): ReturnType<typeof Format.createMarkdown> => {
+  const md = Format.createMarkdown();
+
+  md.addBold(tabName);
+  md.addNewline();
+  md.addNewline();
+
+  if (items.length === 0) {
+    md.addText('当前 Tab 暂无任务条目');
+
+    return md;
+  }
+
+  const statusIcon: Record<string, string> = {
+    ACTIONABLE: '●',
+    IN_PROGRESS: '●',
+    COMPLETED: '✓',
+    UNAVAILABLE: '○',
+    ERROR: '▲'
+  };
+
+  for (const item of items) {
+    const icon = statusIcon[item.status] ?? '○';
+
+    md.addText(`${icon} ${item.label} — ${item.statusText}`);
+    if (item.command) {
+      md.addButton(`[${item.label}]`, { data: item.command });
+    }
+    md.addNewline();
+  }
+
+  return md;
+};
+
+const response = onResponse(selects, async (e, next) => {
+  const text = String(e.MessageText ?? '')
+    .trim()
+    .replace(/^(!|！|\/|#|＃)\s*/, '');
+
+  /** 匹配 "任务面板" 或 "修仙面板" 开头的指令 */
+  const panelMatch = text.match(/^(?:任务面板|修仙面板)(?:\s+(.+))?$/);
+
+  if (!panelMatch) {
+    next();
+
+    return;
+  }
+
+  const bid = e.UserId;
+  const identity = await getBackendRobotIdentity(bid, createBackendRequestContext(e));
+  const uid = identity.account.status === 'registered' ? identity.account.playerId : null;
+
+  if (!uid) {
+    const [message] = useMessage();
+    const md = Format.createMarkdown();
+
+    md.addText('尚未踏入修仙界，请先创建角色');
+
+    {
+      const isPrivate = e.isPrivate ?? false;
+
+      void message.send(FormatGui({ isPrivate, bid, title: '任务面板', content: md }));
+    }
+
+    next();
+
+    return;
+  }
+
+  const [message] = useMessage();
+  const isPrivate = e.isPrivate ?? false;
+  const param = panelMatch[1] ?? '';
+
+  /** 获取所有 Tab 数据 */
+  const { tabs, defaultTabKey } = await getAllTabs(uid, bid);
+
+  /** 过滤不可见的 Tab（visible !== false 的保留） */
+  const hiddenTabKeys = new Set<string>(tabs.filter(t => t.visible === false).map(t => t.tabKey));
+  const visibleTabRegistry = TAB_REGISTRY.filter(tab => !hiddenTabKeys.has(tab.key));
+
+  /** 解析目标 Tab（未匹配到则使用动态首 Tab） */
+  const parsedKey = param ? parseTabKey(param) : null;
+
+  let targetTabKey = parsedKey ?? defaultTabKey;
+
+  /** 如果目标 Tab 被隐藏，回退到第一个可见 Tab */
+  const targetTab = tabs.find(t => t.tabKey === targetTabKey);
+
+  if (!targetTab || targetTab.visible === false) {
+    const firstVisibleTab = tabs.find(t => t.visible !== false);
+
+    targetTabKey = firstVisibleTab?.tabKey ?? '';
+  }
+
+  const currentTab = tabs.find(t => t.tabKey === targetTabKey && t.visible !== false);
+
+  if (!currentTab) {
+    const md = Format.createMarkdown();
+
+    md.addText('未找到对应的任务面板 Tab');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '任务面板', content: md }));
+
+    return;
+  }
+
+  /** 过滤可见条目 */
+  const visibleItems = currentTab.items.filter(item => item.visible);
+
+  {
+    /** QQ 端：文本消息 */
+    const md = buildQQContent(currentTab.tabName, visibleItems);
+    const tabButtons = visibleTabRegistry.map(tab => {
+      const name = tabs.find(row => row.tabKey === tab.key)?.tabName ?? tab.name;
+
+      return { label: tab.key === currentTab.tabKey ? `▸${name}` : name, command: `/任务面板 ${tab.commandAlias[0]}` };
+    });
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '任务面板',
+        header: tabButtons,
+        content: md
+      })
+    );
+  }
+});
+
+export default response;

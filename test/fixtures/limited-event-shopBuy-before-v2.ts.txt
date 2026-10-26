@@ -1,0 +1,59 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 限时活动 - 商店购买
+ * 指令：/活动购买 <商品ID> [数量]
+ */
+import App from '@src/response-apps/limitedEvent/shopBuy/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const md = Format.createMarkdown();
+
+  const text = (e.MessageText ?? '').trim();
+  const match = text.match(/活动购买\s+(\d+)(?:\s+(\d+))?/);
+
+  if (!match) {
+    md.addText('格式：/活动购买 <商品ID> [数量]');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '活动购买', content: md }));
+
+    return;
+  }
+
+  const productId = parseInt(match[1], 10);
+  const buyCount = parseInt(match[2] ?? '1', 10);
+
+  const result = await App({ uid, productId, buyCount, bid, request: createBackendRequestContext(e) });
+
+  if (result.code === 'LOAD_FAILED') {
+    md.addText(result.data.message);
+  } else if (!result.data.success) {
+    md.addText(result.data.message);
+  } else {
+    md.addText(`✅ ${result.data.message}`);
+    if (result.data.rewardText) {
+      md.addNewline();
+      md.addBlockquote(Format.createMarkdown().addText(`获得：${result.data.rewardText}`));
+    }
+  }
+
+  md.addNewline();
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '活动购买',
+      header: [{ label: '返回商店', command: '/限时活动 商店' }],
+      content: md,
+      footer: [{ label: '道具余额', command: '/活动道具' }]
+    })
+  );
+});

@@ -1,0 +1,98 @@
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 稻草人伤害测试
+ * 指令：挑战稻草人 [回合数]
+ */
+
+import App from '@src/response-apps/scarecrow/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  // 解析指令参数
+  const messageText = e.MessageText || '';
+  const match = messageText.match(/^(?:!|！|\/|#|＃)?挑战稻草人(?:\s+(\d+))?$/);
+
+  if (!match) {
+    return;
+  }
+
+  // 调用 app 层执行稻草人战斗
+  const result = await App({ bid: String(bid ?? ''), uid, roundsText: match[1], request: createBackendRequestContext(e) });
+
+  if (result.code === 'FAIL') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  // 格式化伤害统计摘要
+  const { summary, logId, rounds } = result.data;
+  const md = Format.createMarkdown();
+
+  md.addBold('稻草人伤害测试');
+  md.addNewline();
+  md.addText(`测试回合：${rounds} | 总伤害：${summary.totalDamage.toLocaleString()}`);
+  md.addNewline();
+  md.addNewline();
+
+  // 技能统计
+  md.addBold('技能统计');
+  md.addNewline();
+
+  for (const skill of summary.skills) {
+    md.addText(`${skill.skillName}：${skill.count}次 / ${skill.totalDamage.toLocaleString()}伤害 (${skill.damageShareText}%)`);
+    md.addNewline();
+  }
+
+  // Buff 伤害（仅当存在时显示）
+  if (summary.buffDamage > 0) {
+    md.addNewline();
+    md.addBold(`Buff伤害：${summary.buffDamage.toLocaleString()}`);
+    md.addNewline();
+    md.addText(`持续伤害(DOT)：${summary.buffDamage.toLocaleString()}伤害 (${summary.buffDamageShareText}%)`);
+    md.addNewline();
+  }
+
+  // 暴击统计
+  md.addNewline();
+  md.addBold('暴击统计');
+  md.addNewline();
+
+  md.addText(`暴击次数：${summary.critCount} / 攻击${summary.totalSkillAttacks}次 / 暴击率：${summary.critRateText}%`);
+  md.addNewline();
+
+  if (summary.maxSingleDamage > 0) {
+    md.addText(`最大单次伤害：${summary.maxSingleDamage.toLocaleString()}（回合${summary.maxSingleDamageRound} ${summary.maxSingleDamageSkill}）`);
+  }
+
+  // 双平台发送
+
+  void message.send(
+    await BattleFormatGui(
+      {
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: [
+          { label: '文字记录', command: `/查看战斗过程 ${logId}` },
+          { label: '再次挑战', command: '/挑战稻草人' }
+        ]
+      },
+      [{ id: logId }]
+    )
+  );
+});

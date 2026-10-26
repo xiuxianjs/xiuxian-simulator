@@ -1,0 +1,32 @@
+# Node dependencies
+node_modules
+/data/
+/lib/
+/logs/
+/public
+/build
+/dist
+/assets
+/index.html
+.alemon
+.alemonx-id
+*.log
+# .env.*
+alemon*.env
+alemon*.yaml
+!alemon.config.example.yaml
+*.logs.ts
+custom.properties
+mysql-connector-j-9.1.0
+/liquibase
+*.memory-card.json
+.data
+.eslintcache
+.env
+
+CLAUDE.md
+.omc
+
+/.playwright-cli
+/output
+/.tmp

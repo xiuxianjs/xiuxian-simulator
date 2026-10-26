@@ -1,0 +1,182 @@
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 比试
+ * 指令：比试 [玩家UID/@目标]
+ *
+ * 消耗：10 元力/次
+ * 每日上限：10 次
+ * 奖励：胜利获得 14 修为 + 概率提升功法熟练度，失败获得 10 修为
+ */
+
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/spar/app';
+import { sendSparLockedPage } from '@src/response/spar/access';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse, useMention } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid;
+  const isPrivate = e.isPrivate ?? false;
+
+  let UID = 0;
+  let targetBid: string | undefined;
+
+  const [mention] = useMention();
+
+  // 提取数字
+  const uidMatch = e.MessageText.match(/(\d+)/);
+
+  if (uidMatch) {
+    UID = Number(uidMatch[1]);
+  } else {
+    const user = await mention.findOne();
+
+    if (user.data && user.count) {
+      targetBid = user.data.UserId;
+    }
+  }
+
+  try {
+    const result = await App({
+      bid,
+      uid,
+      targetUid: UID,
+      targetBid,
+      request: createBackendRequestContext(e)
+    });
+
+    if (result.code !== 'OK') {
+      if (result.code === 'REALM_LOCKED') {
+        sendSparLockedPage({ bid, isPrivate, message, realmName: result.data.realmName });
+
+        return;
+      }
+      if (result.code === 'TARGET_NOT_FOUND' || result.code === 'NEED_TARGET') {
+        const md = Format.createMarkdown();
+
+        md.addText(result.data.message);
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+        return;
+      }
+      if (result.code === 'SELF_TARGET' || result.code === 'DAILY_LIMIT') {
+        const md = Format.createMarkdown();
+
+        md.addText(await withBackendRepeatDetection(bid, Number(uid), '比试', result.data.message, createBackendRequestContext(e)));
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+        return;
+      }
+      if (result.code === 'QI_NOT_ENOUGH') {
+        const md = Format.createMarkdown();
+
+        md.addText(result.data.message);
+        void message.send(
+          FormatGui({
+            isPrivate,
+            bid,
+            title: '',
+            content: md,
+            footer: result.data.qiPillCount > 0 ? [{ label: '服用元力丹', command: '/服用 元力丹 3' }] : undefined
+          })
+        );
+
+        return;
+      }
+      const md = Format.createMarkdown();
+      const failMsg = await withBackendRepeatDetection(bid, Number(uid), '比试', `比试失败：${result.data.message}`, createBackendRequestContext(e));
+
+      md.addText(failMsg);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    UID = result.data.targetUid;
+    const mdStart = Format.createMarkdown();
+
+    mdStart.addText('比试开始...');
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: mdStart }));
+
+    // 将旧式组件转为 md 内容（内联构建）
+    const md = Format.createMarkdown();
+    const sideACount = result.data.battleResult.finalState.sideA.length;
+    const sideBCount = result.data.battleResult.finalState.sideB.length;
+    const isTeamBattle = sideACount > 1 || sideBCount > 1;
+    const showWave = result.data.battleResult.totalWaves > 1;
+
+    md.addText('比试结果');
+    md.addNewline();
+    md.addNewline();
+    md.addBlockquote(
+      Format.createMarkdown()
+        .addText(`战斗类型：${sideACount}v${sideBCount}${isTeamBattle ? ' （队伍战）' : ''}`)
+        .addNewline()
+        .addText(`胜利方：${result.data.battleResult.winner === 'A' ? '你方' : result.data.battleResult.winner === 'B' ? '对方' : '平局'}`)
+        .addNewline()
+        .addText(`总回合数：${result.data.battleResult.totalRounds}`)
+    );
+    if (showWave) {
+      md.addBlockquote(Format.createMarkdown().addText(`总波次：${result.data.battleResult.totalWaves}`));
+    }
+    md.addBlockquote(
+      Format.createMarkdown().addText(`消耗元力：${result.data.hpCost}`).addNewline().addText(`今日次数：${result.data.newCount}/${result.data.dailyMax}`)
+    );
+
+    const isWin = result.data.battleResult.winner === 'A';
+
+    if (isWin) {
+      md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${result.data.expGain}${result.data.expBonusText}`));
+    } else {
+      md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${result.data.expGain}${result.data.expBonusText}`));
+    }
+
+    // 添加查看战斗过程按钮
+    md.addNewline();
+    // 比试后获取熟练点
+    if (result.data.proficiencyResult?.gained) {
+      md.addNewline();
+      md.addText(`📖 比试参悟，获得 ${result.data.proficiencyResult.points} 点熟练点`);
+
+      md.addText(' ');
+      md.addButton('[功法]', { data: '/我的功法' });
+
+      md.addNewline();
+    }
+
+    void message.send(
+      await BattleFormatGui(
+        {
+          isPrivate,
+          bid,
+          title: '',
+          content: md,
+          footer: [
+            { label: '文字记录', command: `/查看战斗过程 ${result.data.logId}` },
+            { label: '继续比试', command: `/比试 ${UID}` },
+          ]
+        },
+        [{ id: result.data.logId }]
+      )
+    );
+  } catch (error) {
+    const md = Format.createMarkdown();
+    const failMsg = await withBackendRepeatDetection(
+      bid,
+      Number(uid),
+      '比试',
+      `比试失败：${error instanceof Error ? error.message : '未知错误'}`,
+      createBackendRequestContext(e)
+    );
+
+    md.addText(failMsg);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

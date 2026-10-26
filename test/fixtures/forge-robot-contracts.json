@@ -1,0 +1,3386 @@
+{
+  "advance-stage": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "available": true,
+      "reason": "",
+      "joined": true,
+      "level": 1,
+      "title": "测试匠师",
+      "exp": 0,
+      "expRequired": 100,
+      "assessmentDone": 0,
+      "assessmentRequired": 0,
+      "canAdvance": false,
+      "advanceReason": "已达到最高锻造阶段",
+      "nextTitle": "",
+      "entryRealm": "炼气",
+      "canJoin": false,
+      "recipes": [
+        {
+          "attributes": [
+            {
+              "key": "physicalAttack",
+              "name": "物理攻击",
+              "unit": "",
+              "min": 950,
+              "max": 1000
+            },
+            {
+              "key": "magicAttack",
+              "name": "法术攻击",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefense",
+              "name": "物理防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefense",
+              "name": "法术防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hp",
+              "name": "生命",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "speed",
+              "name": "速度",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalAttackPercent",
+              "name": "物理攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicAttackPercent",
+              "name": "法术攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefensePercent",
+              "name": "物理防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefensePercent",
+              "name": "法术防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hpPercent",
+              "name": "生命加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "critRate",
+              "name": "暴击率",
+              "unit": "%",
+              "min": 4.75,
+              "max": 5
+            },
+            {
+              "key": "critDamage",
+              "name": "暴击伤害",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            }
+          ],
+          "tradeable": false,
+          "id": 1,
+          "name": "测试图纸",
+          "equipment": {
+            "id": 1,
+            "createdAt": "2026-10-15T13:16:54.423464+08:00",
+            "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+            "deletedAt": null,
+            "name": "测试作品",
+            "equipmentTypeId": 1,
+            "gradeId": 1,
+            "setId": null,
+            "permission": 5,
+            "physicalAttack": 1000,
+            "magicAttack": 0,
+            "physicalDefense": 0,
+            "magicDefense": 0,
+            "hp": 0,
+            "physicalAttackPercent": 0,
+            "magicAttackPercent": 0,
+            "physicalDefensePercent": 0,
+            "magicDefensePercent": 0,
+            "hpPercent": 0,
+            "speed": 0,
+            "critRate": 5,
+            "critDamage": 0,
+            "basePrice": 100
+          },
+          "grade": "测试品级",
+          "type": "测试武器",
+          "requiredRealm": "炼气",
+          "canEquip": true,
+          "requiredLevel": 0,
+          "learned": true,
+          "assessment": true,
+          "completed": false,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 7,
+              "listed": 4,
+              "locked": false
+            }
+          ],
+          "canCraft": true,
+          "reason": "",
+          "toolType": "",
+          "toolGrade": 0
+        }
+      ]
+    }
+  },
+  "before-join": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "available": true,
+      "reason": "",
+      "joined": false,
+      "level": 0,
+      "title": "测试学徒",
+      "exp": 0,
+      "expRequired": 20,
+      "assessmentDone": 0,
+      "assessmentRequired": 1,
+      "canAdvance": false,
+      "advanceReason": "请先完成锻造入门",
+      "nextTitle": "测试匠师",
+      "entryRealm": "炼气",
+      "canJoin": true,
+      "recipes": [
+        {
+          "attributes": [
+            {
+              "key": "physicalAttack",
+              "name": "物理攻击",
+              "unit": "",
+              "min": 950,
+              "max": 1000
+            },
+            {
+              "key": "magicAttack",
+              "name": "法术攻击",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefense",
+              "name": "物理防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefense",
+              "name": "法术防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hp",
+              "name": "生命",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "speed",
+              "name": "速度",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalAttackPercent",
+              "name": "物理攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicAttackPercent",
+              "name": "法术攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefensePercent",
+              "name": "物理防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefensePercent",
+              "name": "法术防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hpPercent",
+              "name": "生命加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "critRate",
+              "name": "暴击率",
+              "unit": "%",
+              "min": 4.75,
+              "max": 5
+            },
+            {
+              "key": "critDamage",
+              "name": "暴击伤害",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            }
+          ],
+          "tradeable": false,
+          "id": 1,
+          "name": "测试图纸",
+          "equipment": {
+            "id": 1,
+            "createdAt": "2026-10-15T13:16:54.423464+08:00",
+            "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+            "deletedAt": null,
+            "name": "测试作品",
+            "equipmentTypeId": 1,
+            "gradeId": 1,
+            "setId": null,
+            "permission": 5,
+            "physicalAttack": 1000,
+            "magicAttack": 0,
+            "physicalDefense": 0,
+            "magicDefense": 0,
+            "hp": 0,
+            "physicalAttackPercent": 0,
+            "magicAttackPercent": 0,
+            "physicalDefensePercent": 0,
+            "magicDefensePercent": 0,
+            "hpPercent": 0,
+            "speed": 0,
+            "critRate": 5,
+            "critDamage": 0,
+            "basePrice": 100
+          },
+          "grade": "测试品级",
+          "type": "测试武器",
+          "requiredRealm": "炼气",
+          "canEquip": true,
+          "requiredLevel": 0,
+          "learned": false,
+          "assessment": true,
+          "completed": false,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 10,
+              "listed": 4,
+              "locked": false
+            }
+          ],
+          "canCraft": false,
+          "reason": "请先完成锻造入门",
+          "toolType": "",
+          "toolGrade": 0
+        }
+      ]
+    }
+  },
+  "cancel-delivered": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "id": 1,
+      "ownerId": 2,
+      "ownerName": "委托修士",
+      "crafterId": 1,
+      "crafterName": "修士",
+      "status": "delivered",
+      "expiresAt": 1792127814,
+      "name": "测试作品",
+      "fee": 7,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 9,
+          "listed": 0,
+          "locked": false
+        }
+      ],
+      "refundPending": false,
+      "canAccept": false,
+      "canCancel": false,
+      "result": {
+        "crafterId": 1,
+        "comparisons": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "value": 992,
+            "current": 0,
+            "delta": 992
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "value": 4.85,
+            "current": 0,
+            "delta": 4.85
+          }
+        ],
+        "currentEquipment": "当前部位空缺",
+        "canEquip": true,
+        "craftId": 3,
+        "recipeId": 1,
+        "name": "测试作品",
+        "crafter": "修士",
+        "equipment": {
+          "id": 3,
+          "createdAt": "2026-10-15T13:16:54.458951+08:00",
+          "updatedAt": "2026-10-15T13:16:54.458951+08:00",
+          "deletedAt": null,
+          "userId": 2,
+          "equipmentId": 1,
+          "crafterName": "修士",
+          "permission": 5,
+          "physicalAttack": 992,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 4.85,
+          "critDamage": 0,
+          "antiCritRate": 0,
+          "hitRate": 0,
+          "dodgeRate": 0,
+          "isEquipped": 0,
+          "isLocked": 0
+        },
+        "expGained": 0,
+        "assessmentNew": false,
+        "tutorial": false,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 9,
+            "listed": 0,
+            "locked": false
+          }
+        ],
+        "createdAt": "2026-10-15T13:16:54.459265+08:00",
+        "replayed": false
+      }
+    }
+  },
+  "history-crafter": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "items": [
+        {
+          "result": {
+            "crafterId": 1,
+            "comparisons": [
+              {
+                "key": "physicalAttack",
+                "name": "物理攻击",
+                "unit": "",
+                "value": 992,
+                "current": 0,
+                "delta": 992
+              },
+              {
+                "key": "critRate",
+                "name": "暴击率",
+                "unit": "%",
+                "value": 4.85,
+                "current": 0,
+                "delta": 4.85
+              }
+            ],
+            "currentEquipment": "当前部位空缺",
+            "canEquip": true,
+            "craftId": 3,
+            "recipeId": 1,
+            "name": "测试作品",
+            "crafter": "修士",
+            "equipment": {
+              "id": 3,
+              "createdAt": "2026-10-15T13:16:54.458951+08:00",
+              "updatedAt": "2026-10-15T13:16:54.458951+08:00",
+              "deletedAt": null,
+              "userId": 2,
+              "equipmentId": 1,
+              "crafterName": "修士",
+              "permission": 5,
+              "physicalAttack": 992,
+              "magicAttack": 0,
+              "physicalDefense": 0,
+              "magicDefense": 0,
+              "hp": 0,
+              "physicalAttackPercent": 0,
+              "magicAttackPercent": 0,
+              "physicalDefensePercent": 0,
+              "magicDefensePercent": 0,
+              "hpPercent": 0,
+              "speed": 0,
+              "critRate": 4.85,
+              "critDamage": 0,
+              "antiCritRate": 0,
+              "hitRate": 0,
+              "dodgeRate": 0,
+              "isEquipped": 0,
+              "isLocked": 0
+            },
+            "expGained": 0,
+            "assessmentNew": false,
+            "tutorial": false,
+            "spiritStoneCost": 5,
+            "materials": [
+              {
+                "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+                "itemId": 72,
+                "name": "测试矿石",
+                "required": 3,
+                "available": 9,
+                "listed": 0,
+                "locked": false
+              }
+            ],
+            "createdAt": "2026-10-15T13:16:54.459265+08:00",
+            "replayed": false
+          },
+          "owned": false,
+          "exists": true
+        },
+        {
+          "result": {
+            "crafterId": 1,
+            "comparisons": [
+              {
+                "key": "physicalAttack",
+                "name": "物理攻击",
+                "unit": "",
+                "value": 958,
+                "current": 0,
+                "delta": 958
+              },
+              {
+                "key": "critRate",
+                "name": "暴击率",
+                "unit": "%",
+                "value": 4.82,
+                "current": 0,
+                "delta": 4.82
+              }
+            ],
+            "currentEquipment": "当前部位空缺",
+            "canEquip": true,
+            "craftId": 2,
+            "recipeId": 1,
+            "name": "测试作品",
+            "crafter": "修士",
+            "equipment": {
+              "id": 2,
+              "createdAt": "2026-10-15T13:16:54.446558+08:00",
+              "updatedAt": "2026-10-15T13:16:54.446558+08:00",
+              "deletedAt": null,
+              "userId": 1,
+              "equipmentId": 1,
+              "crafterName": "修士",
+              "permission": 5,
+              "physicalAttack": 958,
+              "magicAttack": 0,
+              "physicalDefense": 0,
+              "magicDefense": 0,
+              "hp": 0,
+              "physicalAttackPercent": 0,
+              "magicAttackPercent": 0,
+              "physicalDefensePercent": 0,
+              "magicDefensePercent": 0,
+              "hpPercent": 0,
+              "speed": 0,
+              "critRate": 4.82,
+              "critDamage": 0,
+              "antiCritRate": 0,
+              "hitRate": 0,
+              "dodgeRate": 0,
+              "isEquipped": 0,
+              "isLocked": 0
+            },
+            "expGained": 20,
+            "assessmentNew": true,
+            "tutorial": false,
+            "spiritStoneCost": 5,
+            "materials": [
+              {
+                "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+                "itemId": 72,
+                "name": "测试矿石",
+                "required": 3,
+                "available": 10,
+                "listed": 4,
+                "locked": false
+              }
+            ],
+            "createdAt": "2026-10-15T13:16:54.446691+08:00",
+            "replayed": false
+          },
+          "owned": true,
+          "exists": true
+        },
+        {
+          "result": {
+            "tutorialTool": {
+              "templateId": 9001,
+              "name": "测试基础台",
+              "type": "测试基础台",
+              "grade": "测试品级",
+              "gradeLevel": 1,
+              "permission": 4,
+              "instanceId": 1,
+              "equipped": true
+            },
+            "crafterId": 1,
+            "comparisons": [
+              {
+                "key": "physicalAttack",
+                "name": "物理攻击",
+                "unit": "",
+                "value": 981,
+                "current": 0,
+                "delta": 981
+              },
+              {
+                "key": "critRate",
+                "name": "暴击率",
+                "unit": "%",
+                "value": 4.88,
+                "current": 0,
+                "delta": 4.88
+              }
+            ],
+            "currentEquipment": "当前部位空缺",
+            "canEquip": true,
+            "craftId": 1,
+            "recipeId": 1,
+            "name": "测试作品",
+            "crafter": "修士",
+            "equipment": {
+              "id": 1,
+              "createdAt": "2026-10-15T13:16:54.438164+08:00",
+              "updatedAt": "2026-10-15T13:16:54.438164+08:00",
+              "deletedAt": null,
+              "userId": 1,
+              "equipmentId": 1,
+              "crafterName": "修士",
+              "permission": 5,
+              "physicalAttack": 981,
+              "magicAttack": 0,
+              "physicalDefense": 0,
+              "magicDefense": 0,
+              "hp": 0,
+              "physicalAttackPercent": 0,
+              "magicAttackPercent": 0,
+              "physicalDefensePercent": 0,
+              "magicDefensePercent": 0,
+              "hpPercent": 0,
+              "speed": 0,
+              "critRate": 4.88,
+              "critDamage": 0,
+              "antiCritRate": 0,
+              "hitRate": 0,
+              "dodgeRate": 0,
+              "isEquipped": 0,
+              "isLocked": 0
+            },
+            "expGained": 0,
+            "assessmentNew": false,
+            "tutorial": true,
+            "spiritStoneCost": 0,
+            "materials": [],
+            "createdAt": "2026-10-15T13:16:54.438274+08:00",
+            "replayed": false
+          },
+          "owned": true,
+          "exists": true
+        }
+      ],
+      "page": 1,
+      "hasMore": false
+    }
+  },
+  "learn-recipes": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "available": true,
+      "reason": "",
+      "joined": true,
+      "level": 0,
+      "title": "测试学徒",
+      "exp": 0,
+      "expRequired": 20,
+      "assessmentDone": 0,
+      "assessmentRequired": 1,
+      "canAdvance": false,
+      "advanceReason": "职业经验不足",
+      "nextTitle": "测试匠师",
+      "entryRealm": "炼气",
+      "canJoin": false,
+      "recipes": [
+        {
+          "attributes": [
+            {
+              "key": "physicalAttack",
+              "name": "物理攻击",
+              "unit": "",
+              "min": 950,
+              "max": 1000
+            },
+            {
+              "key": "magicAttack",
+              "name": "法术攻击",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefense",
+              "name": "物理防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefense",
+              "name": "法术防御",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hp",
+              "name": "生命",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "speed",
+              "name": "速度",
+              "unit": "",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalAttackPercent",
+              "name": "物理攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicAttackPercent",
+              "name": "法术攻击加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "physicalDefensePercent",
+              "name": "物理防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "magicDefensePercent",
+              "name": "法术防御加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "hpPercent",
+              "name": "生命加成",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            },
+            {
+              "key": "critRate",
+              "name": "暴击率",
+              "unit": "%",
+              "min": 4.75,
+              "max": 5
+            },
+            {
+              "key": "critDamage",
+              "name": "暴击伤害",
+              "unit": "%",
+              "min": 0,
+              "max": 0
+            }
+          ],
+          "tradeable": false,
+          "id": 1,
+          "name": "测试图纸",
+          "equipment": {
+            "id": 1,
+            "createdAt": "2026-10-15T13:16:54.423464+08:00",
+            "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+            "deletedAt": null,
+            "name": "测试作品",
+            "equipmentTypeId": 1,
+            "gradeId": 1,
+            "setId": null,
+            "permission": 5,
+            "physicalAttack": 1000,
+            "magicAttack": 0,
+            "physicalDefense": 0,
+            "magicDefense": 0,
+            "hp": 0,
+            "physicalAttackPercent": 0,
+            "magicAttackPercent": 0,
+            "physicalDefensePercent": 0,
+            "magicDefensePercent": 0,
+            "hpPercent": 0,
+            "speed": 0,
+            "critRate": 5,
+            "critDamage": 0,
+            "basePrice": 100
+          },
+          "grade": "测试品级",
+          "type": "测试武器",
+          "requiredRealm": "炼气",
+          "canEquip": true,
+          "requiredLevel": 0,
+          "learned": true,
+          "assessment": true,
+          "completed": false,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 10,
+              "listed": 4,
+              "locked": false
+            }
+          ],
+          "canCraft": true,
+          "reason": "",
+          "toolType": "",
+          "toolGrade": 0
+        }
+      ]
+    }
+  },
+  "muted-forge": {
+    "success": true,
+    "branch": "middleware",
+    "middleware": {
+      "outcome": "reject",
+      "reason": "MUTED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [
+        {
+          "title": "",
+          "heading": "",
+          "text": "你的修仙功能已被禁言，限制将于2026-10-15 13:17:54解除。",
+          "buttons": [],
+          "advice": []
+        }
+      ],
+      "contextWarnings": [],
+      "mute": {
+        "muted": true,
+        "claimed": true,
+        "replyCount": 1,
+        "muteTtlSeconds": 60,
+        "replyTtlSeconds": 60,
+        "muteUnlockTime": "2026-10-15 13:17:54"
+      }
+    }
+  },
+  "notjoined-refusal": {
+    "success": false,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [
+        {
+          "blocks": [
+            {
+              "text": "请先完成锻造入门",
+              "quoted": false
+            }
+          ],
+          "title": "锻造提示",
+          "heading": "",
+          "text": "请先完成锻造入门",
+          "buttons": [],
+          "advice": []
+        }
+      ],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": true,
+        "resourcesSettled": true
+      }
+    }
+  },
+  "order-accept": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "id": 1,
+      "ownerId": 2,
+      "ownerName": "委托修士",
+      "crafterId": 1,
+      "crafterName": "修士",
+      "status": "delivered",
+      "expiresAt": 1792127814,
+      "name": "测试作品",
+      "fee": 7,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 9,
+          "listed": 0,
+          "locked": false
+        }
+      ],
+      "refundPending": false,
+      "canAccept": false,
+      "canCancel": false,
+      "result": {
+        "crafterId": 1,
+        "comparisons": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "value": 992,
+            "current": 0,
+            "delta": 992
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "value": 4.85,
+            "current": 0,
+            "delta": 4.85
+          }
+        ],
+        "currentEquipment": "当前部位空缺",
+        "canEquip": true,
+        "craftId": 3,
+        "recipeId": 1,
+        "name": "测试作品",
+        "crafter": "修士",
+        "equipment": {
+          "id": 3,
+          "createdAt": "2026-10-15T13:16:54.458951+08:00",
+          "updatedAt": "2026-10-15T13:16:54.458951+08:00",
+          "deletedAt": null,
+          "userId": 2,
+          "equipmentId": 1,
+          "crafterName": "修士",
+          "permission": 5,
+          "physicalAttack": 992,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 4.85,
+          "critDamage": 0,
+          "antiCritRate": 0,
+          "hitRate": 0,
+          "dodgeRate": 0,
+          "isEquipped": 0,
+          "isLocked": 0
+        },
+        "expGained": 0,
+        "assessmentNew": false,
+        "tutorial": false,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 9,
+            "listed": 0,
+            "locked": false
+          }
+        ],
+        "createdAt": "2026-10-15T13:16:54.459265+08:00",
+        "replayed": false
+      }
+    }
+  },
+  "order-create": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "id": 1,
+      "ownerId": 2,
+      "ownerName": "委托修士",
+      "crafterId": 1,
+      "crafterName": "修士",
+      "status": "pending",
+      "expiresAt": 1792127814,
+      "name": "测试作品",
+      "fee": 7,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 9,
+          "listed": 0,
+          "locked": false
+        }
+      ],
+      "refundPending": false,
+      "canAccept": false,
+      "canCancel": true,
+      "result": null
+    }
+  },
+  "order-preview": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": true,
+        "resourcesSettled": true
+      }
+    },
+    "data": {
+      "token": "eyJjIjoxLCJmIjo3LCJ1IjoyLCJyIjoxLCJpIjoiOTE3NDgxYjczNjA5MjEyYWVmM2U0NDI3ZDQxZDNhZDAzMmZmMzgyNyIsInYiOiJlZDAxODU1ZmNlODllOWIzNzk5MDZiOGE2YTc3MDJkOTgyNWQ0ZWE2OWYyNmE1OTgwNzI1Yjg3NGUzN2Y2MTY3IiwidCI6ZmFsc2UsImUiOjE3OTIwNDE3MTR9.hgs8EmCFrrjC-FhlcstMHDYe6xWu2AUQhKFVavqy-b0",
+      "expiresAt": 1792041714,
+      "tutorial": false,
+      "recipe": {
+        "attributes": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "min": 950,
+            "max": 1000
+          },
+          {
+            "key": "magicAttack",
+            "name": "法术攻击",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefense",
+            "name": "物理防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefense",
+            "name": "法术防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hp",
+            "name": "生命",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "speed",
+            "name": "速度",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalAttackPercent",
+            "name": "物理攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicAttackPercent",
+            "name": "法术攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefensePercent",
+            "name": "物理防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefensePercent",
+            "name": "法术防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hpPercent",
+            "name": "生命加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "min": 4.75,
+            "max": 5
+          },
+          {
+            "key": "critDamage",
+            "name": "暴击伤害",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          }
+        ],
+        "tradeable": false,
+        "id": 1,
+        "name": "测试图纸",
+        "equipment": {
+          "id": 1,
+          "createdAt": "2026-10-15T13:16:54.423464+08:00",
+          "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+          "deletedAt": null,
+          "name": "测试作品",
+          "equipmentTypeId": 1,
+          "gradeId": 1,
+          "setId": null,
+          "permission": 5,
+          "physicalAttack": 1000,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 5,
+          "critDamage": 0,
+          "basePrice": 100
+        },
+        "grade": "测试品级",
+        "type": "测试武器",
+        "requiredRealm": "炼气",
+        "canEquip": true,
+        "requiredLevel": 0,
+        "learned": true,
+        "assessment": true,
+        "completed": true,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 9,
+            "listed": 0,
+            "locked": false
+          }
+        ],
+        "canCraft": true,
+        "reason": "",
+        "toolType": "",
+        "toolGrade": 0
+      },
+      "expGained": 0,
+      "assessmentNew": false,
+      "crafterId": 1,
+      "crafterName": "修士",
+      "fee": 7,
+      "lifetimeSeconds": 86400
+    }
+  },
+  "orders-crafter": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "items": [
+        {
+          "id": 1,
+          "ownerId": 2,
+          "ownerName": "委托修士",
+          "crafterId": 1,
+          "crafterName": "修士",
+          "status": "pending",
+          "expiresAt": 1792127814,
+          "name": "测试作品",
+          "fee": 7,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 9,
+              "listed": 0,
+              "locked": false
+            }
+          ],
+          "refundPending": false,
+          "canAccept": true,
+          "canCancel": false,
+          "result": null
+        }
+      ],
+      "page": 1,
+      "hasMore": false
+    }
+  },
+  "ordinary-confirm": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "crafterId": 1,
+      "comparisons": [
+        {
+          "key": "physicalAttack",
+          "name": "物理攻击",
+          "unit": "",
+          "value": 958,
+          "current": 0,
+          "delta": 958
+        },
+        {
+          "key": "critRate",
+          "name": "暴击率",
+          "unit": "%",
+          "value": 4.82,
+          "current": 0,
+          "delta": 4.82
+        }
+      ],
+      "currentEquipment": "当前部位空缺",
+      "canEquip": true,
+      "craftId": 2,
+      "recipeId": 1,
+      "name": "测试作品",
+      "crafter": "修士",
+      "equipment": {
+        "id": 2,
+        "createdAt": "2026-10-15T13:16:54.446558+08:00",
+        "updatedAt": "2026-10-15T13:16:54.446558+08:00",
+        "deletedAt": null,
+        "userId": 1,
+        "equipmentId": 1,
+        "crafterName": "修士",
+        "permission": 5,
+        "physicalAttack": 958,
+        "magicAttack": 0,
+        "physicalDefense": 0,
+        "magicDefense": 0,
+        "hp": 0,
+        "physicalAttackPercent": 0,
+        "magicAttackPercent": 0,
+        "physicalDefensePercent": 0,
+        "magicDefensePercent": 0,
+        "hpPercent": 0,
+        "speed": 0,
+        "critRate": 4.82,
+        "critDamage": 0,
+        "antiCritRate": 0,
+        "hitRate": 0,
+        "dodgeRate": 0,
+        "isEquipped": 0,
+        "isLocked": 0
+      },
+      "expGained": 20,
+      "assessmentNew": true,
+      "tutorial": false,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 10,
+          "listed": 4,
+          "locked": false
+        }
+      ],
+      "createdAt": "2026-10-15T13:16:54.446691+08:00",
+      "replayed": false
+    }
+  },
+  "ordinary-preview": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "token": "eyJ1IjoxLCJyIjoxLCJpIjoiYmE4NWYwNDJiMWI2NTg4NzNkNzE5NjcxZTRhNDNhNjlkMDhhMjhhMyIsInYiOiI5NDVhYjE5MDZiNTZkMzc5MTFmZGU4ODYyNGRhYWQ4ZGIzMmRhNDNlM2FkZDYzYWYzZTg5Y2UzYWQzNDNhZGE3IiwidCI6ZmFsc2UsImUiOjE3OTIwNDE3MTR9.61GBj4s1A7Y2YSuLCikV84F5TuIvT40QoszNutwWHwo",
+      "expiresAt": 1792041714,
+      "tutorial": false,
+      "recipe": {
+        "attributes": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "min": 950,
+            "max": 1000
+          },
+          {
+            "key": "magicAttack",
+            "name": "法术攻击",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefense",
+            "name": "物理防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefense",
+            "name": "法术防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hp",
+            "name": "生命",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "speed",
+            "name": "速度",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalAttackPercent",
+            "name": "物理攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicAttackPercent",
+            "name": "法术攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefensePercent",
+            "name": "物理防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefensePercent",
+            "name": "法术防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hpPercent",
+            "name": "生命加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "min": 4.75,
+            "max": 5
+          },
+          {
+            "key": "critDamage",
+            "name": "暴击伤害",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          }
+        ],
+        "tradeable": false,
+        "id": 1,
+        "name": "测试图纸",
+        "equipment": {
+          "id": 1,
+          "createdAt": "2026-10-15T13:16:54.423464+08:00",
+          "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+          "deletedAt": null,
+          "name": "测试作品",
+          "equipmentTypeId": 1,
+          "gradeId": 1,
+          "setId": null,
+          "permission": 5,
+          "physicalAttack": 1000,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 5,
+          "critDamage": 0,
+          "basePrice": 100
+        },
+        "grade": "测试品级",
+        "type": "测试武器",
+        "requiredRealm": "炼气",
+        "canEquip": true,
+        "requiredLevel": 0,
+        "learned": true,
+        "assessment": true,
+        "completed": false,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 10,
+            "listed": 4,
+            "locked": false
+          }
+        ],
+        "canCraft": true,
+        "reason": "",
+        "toolType": "",
+        "toolGrade": 0
+      },
+      "expGained": 20,
+      "assessmentNew": true
+    }
+  },
+  "outsider-cancel": {
+    "success": false,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-outsider",
+        "account": {
+          "status": "registered",
+          "playerId": 3
+        }
+      },
+      "replies": [
+        {
+          "blocks": [
+            {
+              "text": "无权操作该委托",
+              "quoted": false
+            }
+          ],
+          "title": "锻造提示",
+          "heading": "",
+          "text": "无权操作该委托",
+          "buttons": [],
+          "advice": []
+        }
+      ],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": true,
+        "resourcesSettled": true
+      }
+    }
+  },
+  "refund-complete": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "id": 2,
+      "ownerId": 2,
+      "ownerName": "委托修士",
+      "crafterId": 1,
+      "crafterName": "修士",
+      "status": "expired",
+      "expiresAt": 1792041354,
+      "name": "测试作品",
+      "fee": 7,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 6,
+          "listed": 0,
+          "locked": false
+        }
+      ],
+      "refundPending": false,
+      "canAccept": false,
+      "canCancel": false,
+      "result": null
+    }
+  },
+  "refund-create": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "id": 2,
+      "ownerId": 2,
+      "ownerName": "委托修士",
+      "crafterId": 1,
+      "crafterName": "修士",
+      "status": "pending",
+      "expiresAt": 1792127814,
+      "name": "测试作品",
+      "fee": 7,
+      "spiritStoneCost": 5,
+      "materials": [
+        {
+          "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+          "itemId": 72,
+          "name": "测试矿石",
+          "required": 3,
+          "available": 6,
+          "listed": 0,
+          "locked": false
+        }
+      ],
+      "refundPending": false,
+      "canAccept": false,
+      "canCancel": true,
+      "result": null
+    }
+  },
+  "refund-pending-crafter": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "items": [
+        {
+          "id": 2,
+          "ownerId": 2,
+          "ownerName": "委托修士",
+          "crafterId": 1,
+          "crafterName": "修士",
+          "status": "pending",
+          "expiresAt": 1792041354,
+          "name": "测试作品",
+          "fee": 7,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 6,
+              "listed": 0,
+              "locked": false
+            }
+          ],
+          "refundPending": true,
+          "canAccept": false,
+          "canCancel": false,
+          "result": null
+        },
+        {
+          "id": 1,
+          "ownerId": 2,
+          "ownerName": "委托修士",
+          "crafterId": 1,
+          "crafterName": "修士",
+          "status": "delivered",
+          "expiresAt": 1792127814,
+          "name": "测试作品",
+          "fee": 7,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 9,
+              "listed": 0,
+              "locked": false
+            }
+          ],
+          "refundPending": false,
+          "canAccept": false,
+          "canCancel": false,
+          "result": {
+            "crafterId": 1,
+            "comparisons": [
+              {
+                "key": "physicalAttack",
+                "name": "物理攻击",
+                "unit": "",
+                "value": 992,
+                "current": 0,
+                "delta": 992
+              },
+              {
+                "key": "critRate",
+                "name": "暴击率",
+                "unit": "%",
+                "value": 4.85,
+                "current": 0,
+                "delta": 4.85
+              }
+            ],
+            "currentEquipment": "当前部位空缺",
+            "canEquip": true,
+            "craftId": 3,
+            "recipeId": 1,
+            "name": "测试作品",
+            "crafter": "修士",
+            "equipment": {
+              "id": 3,
+              "createdAt": "2026-10-15T13:16:54.458951+08:00",
+              "updatedAt": "2026-10-15T13:16:54.458951+08:00",
+              "deletedAt": null,
+              "userId": 2,
+              "equipmentId": 1,
+              "crafterName": "修士",
+              "permission": 5,
+              "physicalAttack": 992,
+              "magicAttack": 0,
+              "physicalDefense": 0,
+              "magicDefense": 0,
+              "hp": 0,
+              "physicalAttackPercent": 0,
+              "magicAttackPercent": 0,
+              "physicalDefensePercent": 0,
+              "magicDefensePercent": 0,
+              "hpPercent": 0,
+              "speed": 0,
+              "critRate": 4.85,
+              "critDamage": 0,
+              "antiCritRate": 0,
+              "hitRate": 0,
+              "dodgeRate": 0,
+              "isEquipped": 0,
+              "isLocked": 0
+            },
+            "expGained": 0,
+            "assessmentNew": false,
+            "tutorial": false,
+            "spiritStoneCost": 5,
+            "materials": [
+              {
+                "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+                "itemId": 72,
+                "name": "测试矿石",
+                "required": 3,
+                "available": 9,
+                "listed": 0,
+                "locked": false
+              }
+            ],
+            "createdAt": "2026-10-15T13:16:54.459265+08:00",
+            "replayed": false
+          }
+        }
+      ],
+      "page": 1,
+      "hasMore": false
+    }
+  },
+  "refund-pending-owner": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "items": [
+        {
+          "id": 2,
+          "ownerId": 2,
+          "ownerName": "委托修士",
+          "crafterId": 1,
+          "crafterName": "修士",
+          "status": "pending",
+          "expiresAt": 1792041354,
+          "name": "测试作品",
+          "fee": 7,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 6,
+              "listed": 0,
+              "locked": false
+            }
+          ],
+          "refundPending": true,
+          "canAccept": false,
+          "canCancel": true,
+          "result": null
+        },
+        {
+          "id": 1,
+          "ownerId": 2,
+          "ownerName": "委托修士",
+          "crafterId": 1,
+          "crafterName": "修士",
+          "status": "delivered",
+          "expiresAt": 1792127814,
+          "name": "测试作品",
+          "fee": 7,
+          "spiritStoneCost": 5,
+          "materials": [
+            {
+              "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+              "itemId": 72,
+              "name": "测试矿石",
+              "required": 3,
+              "available": 9,
+              "listed": 0,
+              "locked": false
+            }
+          ],
+          "refundPending": false,
+          "canAccept": false,
+          "canCancel": false,
+          "result": {
+            "crafterId": 1,
+            "comparisons": [
+              {
+                "key": "physicalAttack",
+                "name": "物理攻击",
+                "unit": "",
+                "value": 992,
+                "current": 0,
+                "delta": 992
+              },
+              {
+                "key": "critRate",
+                "name": "暴击率",
+                "unit": "%",
+                "value": 4.85,
+                "current": 0,
+                "delta": 4.85
+              }
+            ],
+            "currentEquipment": "当前部位空缺",
+            "canEquip": true,
+            "craftId": 3,
+            "recipeId": 1,
+            "name": "测试作品",
+            "crafter": "修士",
+            "equipment": {
+              "id": 3,
+              "createdAt": "2026-10-15T13:16:54.458951+08:00",
+              "updatedAt": "2026-10-15T13:16:54.458951+08:00",
+              "deletedAt": null,
+              "userId": 2,
+              "equipmentId": 1,
+              "crafterName": "修士",
+              "permission": 5,
+              "physicalAttack": 992,
+              "magicAttack": 0,
+              "physicalDefense": 0,
+              "magicDefense": 0,
+              "hp": 0,
+              "physicalAttackPercent": 0,
+              "magicAttackPercent": 0,
+              "physicalDefensePercent": 0,
+              "magicDefensePercent": 0,
+              "hpPercent": 0,
+              "speed": 0,
+              "critRate": 4.85,
+              "critDamage": 0,
+              "antiCritRate": 0,
+              "hitRate": 0,
+              "dodgeRate": 0,
+              "isEquipped": 0,
+              "isLocked": 0
+            },
+            "expGained": 0,
+            "assessmentNew": false,
+            "tutorial": false,
+            "spiritStoneCost": 5,
+            "materials": [
+              {
+                "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+                "itemId": 72,
+                "name": "测试矿石",
+                "required": 3,
+                "available": 9,
+                "listed": 0,
+                "locked": false
+              }
+            ],
+            "createdAt": "2026-10-15T13:16:54.459265+08:00",
+            "replayed": false
+          }
+        }
+      ],
+      "page": 1,
+      "hasMore": false
+    }
+  },
+  "refund-preview": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "token": "eyJjIjoxLCJmIjo3LCJ1IjoyLCJyIjoxLCJpIjoiNTc2NDRhN2JiZGMxOGQyMDNjYTNiZmQ5NWRhNDM3ZWU5OGFiZmYxMiIsInYiOiJlZDAxODU1ZmNlODllOWIzNzk5MDZiOGE2YTc3MDJkOTgyNWQ0ZWE2OWYyNmE1OTgwNzI1Yjg3NGUzN2Y2MTY3IiwidCI6ZmFsc2UsImUiOjE3OTIwNDE3MTR9.Dlwo8kyFVB0KZNjb6yWUTwwWW5BeN1_dRMT697aCJOs",
+      "expiresAt": 1792041714,
+      "tutorial": false,
+      "recipe": {
+        "attributes": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "min": 950,
+            "max": 1000
+          },
+          {
+            "key": "magicAttack",
+            "name": "法术攻击",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefense",
+            "name": "物理防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefense",
+            "name": "法术防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hp",
+            "name": "生命",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "speed",
+            "name": "速度",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalAttackPercent",
+            "name": "物理攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicAttackPercent",
+            "name": "法术攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefensePercent",
+            "name": "物理防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefensePercent",
+            "name": "法术防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hpPercent",
+            "name": "生命加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "min": 4.75,
+            "max": 5
+          },
+          {
+            "key": "critDamage",
+            "name": "暴击伤害",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          }
+        ],
+        "tradeable": false,
+        "id": 1,
+        "name": "测试图纸",
+        "equipment": {
+          "id": 1,
+          "createdAt": "2026-10-15T13:16:54.423464+08:00",
+          "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+          "deletedAt": null,
+          "name": "测试作品",
+          "equipmentTypeId": 1,
+          "gradeId": 1,
+          "setId": null,
+          "permission": 5,
+          "physicalAttack": 1000,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 5,
+          "critDamage": 0,
+          "basePrice": 100
+        },
+        "grade": "测试品级",
+        "type": "测试武器",
+        "requiredRealm": "炼气",
+        "canEquip": true,
+        "requiredLevel": 0,
+        "learned": true,
+        "assessment": true,
+        "completed": true,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 6,
+            "listed": 0,
+            "locked": false
+          }
+        ],
+        "canCraft": true,
+        "reason": "",
+        "toolType": "",
+        "toolGrade": 0
+      },
+      "expGained": 0,
+      "assessmentNew": false,
+      "crafterId": 1,
+      "crafterName": "修士",
+      "fee": 7,
+      "lifetimeSeconds": 86400
+    }
+  },
+  "tutorial-confirm": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "tutorialTool": {
+        "templateId": 9001,
+        "name": "测试基础台",
+        "type": "测试基础台",
+        "grade": "测试品级",
+        "gradeLevel": 1,
+        "permission": 4,
+        "instanceId": 1,
+        "equipped": true
+      },
+      "crafterId": 1,
+      "comparisons": [
+        {
+          "key": "physicalAttack",
+          "name": "物理攻击",
+          "unit": "",
+          "value": 981,
+          "current": 0,
+          "delta": 981
+        },
+        {
+          "key": "critRate",
+          "name": "暴击率",
+          "unit": "%",
+          "value": 4.88,
+          "current": 0,
+          "delta": 4.88
+        }
+      ],
+      "currentEquipment": "当前部位空缺",
+      "canEquip": true,
+      "craftId": 1,
+      "recipeId": 1,
+      "name": "测试作品",
+      "crafter": "修士",
+      "equipment": {
+        "id": 1,
+        "createdAt": "2026-10-15T13:16:54.438164+08:00",
+        "updatedAt": "2026-10-15T13:16:54.438164+08:00",
+        "deletedAt": null,
+        "userId": 1,
+        "equipmentId": 1,
+        "crafterName": "修士",
+        "permission": 5,
+        "physicalAttack": 981,
+        "magicAttack": 0,
+        "physicalDefense": 0,
+        "magicDefense": 0,
+        "hp": 0,
+        "physicalAttackPercent": 0,
+        "magicAttackPercent": 0,
+        "physicalDefensePercent": 0,
+        "magicDefensePercent": 0,
+        "hpPercent": 0,
+        "speed": 0,
+        "critRate": 4.88,
+        "critDamage": 0,
+        "antiCritRate": 0,
+        "hitRate": 0,
+        "dodgeRate": 0,
+        "isEquipped": 0,
+        "isLocked": 0
+      },
+      "expGained": 0,
+      "assessmentNew": false,
+      "tutorial": true,
+      "spiritStoneCost": 0,
+      "materials": [],
+      "createdAt": "2026-10-15T13:16:54.438274+08:00",
+      "replayed": false
+    }
+  },
+  "tutorial-new-message": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "tutorialTool": {
+        "templateId": 9001,
+        "name": "测试基础台",
+        "type": "测试基础台",
+        "grade": "测试品级",
+        "gradeLevel": 1,
+        "permission": 4,
+        "instanceId": 1,
+        "equipped": true
+      },
+      "crafterId": 1,
+      "comparisons": [
+        {
+          "key": "physicalAttack",
+          "name": "物理攻击",
+          "unit": "",
+          "value": 981,
+          "current": 0,
+          "delta": 981
+        },
+        {
+          "key": "critRate",
+          "name": "暴击率",
+          "unit": "%",
+          "value": 4.88,
+          "current": 0,
+          "delta": 4.88
+        }
+      ],
+      "currentEquipment": "当前部位空缺",
+      "canEquip": true,
+      "craftId": 1,
+      "recipeId": 1,
+      "name": "测试作品",
+      "crafter": "修士",
+      "equipment": {
+        "id": 1,
+        "createdAt": "2026-10-15T13:16:54.438164+08:00",
+        "updatedAt": "2026-10-15T13:16:54.438164+08:00",
+        "deletedAt": null,
+        "userId": 1,
+        "equipmentId": 1,
+        "crafterName": "修士",
+        "permission": 5,
+        "physicalAttack": 981,
+        "magicAttack": 0,
+        "physicalDefense": 0,
+        "magicDefense": 0,
+        "hp": 0,
+        "physicalAttackPercent": 0,
+        "magicAttackPercent": 0,
+        "physicalDefensePercent": 0,
+        "magicDefensePercent": 0,
+        "hpPercent": 0,
+        "speed": 0,
+        "critRate": 4.88,
+        "critDamage": 0,
+        "antiCritRate": 0,
+        "hitRate": 0,
+        "dodgeRate": 0,
+        "isEquipped": 0,
+        "isLocked": 0
+      },
+      "expGained": 0,
+      "assessmentNew": false,
+      "tutorial": true,
+      "spiritStoneCost": 0,
+      "materials": [],
+      "createdAt": "2026-10-15T13:16:54.438274+08:00",
+      "replayed": true
+    }
+  },
+  "tutorial-preview": {
+    "success": true,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "player",
+        "account": {
+          "status": "registered",
+          "playerId": 1
+        }
+      },
+      "replies": [],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    },
+    "data": {
+      "tutorialTool": {
+        "templateId": 9001,
+        "name": "测试基础台",
+        "type": "测试基础台",
+        "grade": "测试品级",
+        "gradeLevel": 1,
+        "permission": 4
+      },
+      "token": "eyJ1IjoxLCJyIjoxLCJpIjoiMGYxOTA5MmFmZWNmZmE4MWE0MDY1M2Y4ZmU5MzhjMDFhNWU1OTkxNiIsInYiOiI4ZGViODc2MDc2YTFmODIzMjA1OWU1ZGEzOThhNmU5ODkwMGViN2ZhNWFmYTExYTQ0ODA1YTRmOTY4NDFmM2Y3IiwidCI6dHJ1ZSwiZSI6MTc5MjA0MTcxNH0.LuSPakF0EVz50wOe8kRDClUtR2_2IHxCEg4f0B2sqk8",
+      "expiresAt": 1792041714,
+      "tutorial": true,
+      "recipe": {
+        "attributes": [
+          {
+            "key": "physicalAttack",
+            "name": "物理攻击",
+            "unit": "",
+            "min": 950,
+            "max": 1000
+          },
+          {
+            "key": "magicAttack",
+            "name": "法术攻击",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefense",
+            "name": "物理防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefense",
+            "name": "法术防御",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hp",
+            "name": "生命",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "speed",
+            "name": "速度",
+            "unit": "",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalAttackPercent",
+            "name": "物理攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicAttackPercent",
+            "name": "法术攻击加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "physicalDefensePercent",
+            "name": "物理防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "magicDefensePercent",
+            "name": "法术防御加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "hpPercent",
+            "name": "生命加成",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          },
+          {
+            "key": "critRate",
+            "name": "暴击率",
+            "unit": "%",
+            "min": 4.75,
+            "max": 5
+          },
+          {
+            "key": "critDamage",
+            "name": "暴击伤害",
+            "unit": "%",
+            "min": 0,
+            "max": 0
+          }
+        ],
+        "tradeable": false,
+        "id": 1,
+        "name": "测试图纸",
+        "equipment": {
+          "id": 1,
+          "createdAt": "2026-10-15T13:16:54.423464+08:00",
+          "updatedAt": "2026-10-15T13:16:54.423464+08:00",
+          "deletedAt": null,
+          "name": "测试作品",
+          "equipmentTypeId": 1,
+          "gradeId": 1,
+          "setId": null,
+          "permission": 5,
+          "physicalAttack": 1000,
+          "magicAttack": 0,
+          "physicalDefense": 0,
+          "magicDefense": 0,
+          "hp": 0,
+          "physicalAttackPercent": 0,
+          "magicAttackPercent": 0,
+          "physicalDefensePercent": 0,
+          "magicDefensePercent": 0,
+          "hpPercent": 0,
+          "speed": 0,
+          "critRate": 5,
+          "critDamage": 0,
+          "basePrice": 100
+        },
+        "grade": "测试品级",
+        "type": "测试武器",
+        "requiredRealm": "炼气",
+        "canEquip": true,
+        "requiredLevel": 0,
+        "learned": false,
+        "assessment": true,
+        "completed": false,
+        "spiritStoneCost": 5,
+        "materials": [
+          {
+            "source": "分解未穿戴且未锁定的装备，按品级返还矿石精华；分解不可恢复。",
+            "itemId": 72,
+            "name": "测试矿石",
+            "required": 3,
+            "available": 10,
+            "listed": 4,
+            "locked": false
+          }
+        ],
+        "canCraft": true,
+        "reason": "",
+        "toolType": "",
+        "toolGrade": 0
+      },
+      "expGained": 0,
+      "assessmentNew": false
+    }
+  },
+  "unregistered-forge": {
+    "success": true,
+    "branch": "middleware",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "UNREGISTERED",
+      "identity": {
+        "bid": "unknown-forge",
+        "account": {
+          "status": "unregistered",
+          "playerId": null
+        }
+      },
+      "replies": [
+        {
+          "title": "踏入仙途",
+          "heading": "",
+          "text": "欢迎踏入修仙世界！\n请输入你的道号，开始修仙之旅。",
+          "buttons": [
+            {
+              "label": "我是",
+              "command": "/我是"
+            }
+          ],
+          "advice": []
+        }
+      ],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      }
+    }
+  },
+  "wrong-crafter": {
+    "success": false,
+    "branch": "business",
+    "middleware": {
+      "outcome": "allow",
+      "reason": "ALLOWED",
+      "identity": {
+        "bid": "forge-owner",
+        "account": {
+          "status": "registered",
+          "playerId": 2
+        }
+      },
+      "replies": [
+        {
+          "blocks": [
+            {
+              "text": "仅指定匠师可以接单",
+              "quoted": false
+            }
+          ],
+          "title": "锻造提示",
+          "heading": "",
+          "text": "仅指定匠师可以接单",
+          "buttons": [],
+          "advice": []
+        }
+      ],
+      "contextWarnings": [],
+      "mute": {
+        "muted": false,
+        "claimed": false,
+        "replyCount": 0,
+        "muteTtlSeconds": -2,
+        "replyTtlSeconds": -2,
+        "muteUnlockTime": ""
+      },
+      "entry": {
+        "agreementAccepted": false,
+        "agreements": [
+          {
+            "index": 1,
+            "type": "terms",
+            "title": "游戏使用协议许可及服务协议"
+          },
+          {
+            "index": 2,
+            "type": "privacy",
+            "title": "游戏隐私政策"
+          },
+          {
+            "index": 3,
+            "type": "children",
+            "title": "游戏儿童个人信息保护规则及监护人须知"
+          }
+        ],
+        "maintenance": {
+          "disabled": false
+        },
+        "routeAllowed": true,
+        "nativeComebackProcessed": false,
+        "resourcesSettled": false
+      }
+    }
+  }
+}

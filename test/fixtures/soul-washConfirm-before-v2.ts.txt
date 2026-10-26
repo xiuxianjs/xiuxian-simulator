@@ -1,0 +1,31 @@
+import { useMessage } from '@src/utils/useMessage';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/soulArtifact/washConfirm/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const result = await App({ bid, uid, request: createBackendRequestContext(e) });
+  const md = Format.createMarkdown();
+
+  if (!result.success) {
+    md.addText(result.message);
+  } else {
+    md.addBold('【本命物洗涤已保留】');
+    md.addNewline();
+    md.addText(result.message);
+    if (result.pending?.results?.length) {
+      md.addNewline();
+      md.addBlockquote(Format.createMarkdown().addText('可使用 /本命物信息 查看最新面板'));
+    }
+  }
+
+  md.addBlockquote(Format.createMarkdown().addText('查看面板： ').addButton('本命物信息', { data: '/本命物信息' }));
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

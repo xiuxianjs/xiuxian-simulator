@@ -1,0 +1,82 @@
+import { useMessage } from '@src/utils/useMessage';
+import App, { parseDecomposeCommand } from '@src/response-apps/equipment/decompose/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { Format, logger, onResponse } from 'alemonjs';
+
+/**
+ * 分解装备指令处理器
+ * 指令格式: /分解装备 {装备实例ID}
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  const equipmentId = parseDecomposeCommand(e.MessageText);
+
+  if (equipmentId === null) {
+    const md = Format.createMarkdown();
+
+    md.addText(`❌ 参数错误
+
+使用方法:
+/分解装备 [装备ID]
+
+示例:
+/分解装备 123   ← 分解储物袋中ID为123的装备
+
+💡装备ID为储物袋中装备的编号
+💡已装备或已锁定的装备无法分解
+💡分解后可获得【矿石精华】`);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  if (equipmentId === -1) {
+    const md = Format.createMarkdown();
+
+    md.addText('❌ 装备ID必须是大于0的数字');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  try {
+    const request = createBackendRequestContext(e);
+    const result = await App({ messageText: e.MessageText, bid, uid, equipmentId, request });
+
+    if (result.code === 'FAIL') {
+      const md = Format.createMarkdown();
+
+      const displayMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, request);
+
+      md.addText(`❌ ${displayMsg}`);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const md = Format.createMarkdown();
+
+    md.addText(`✅ ${result.data.message}`);
+
+    md.addNewline();
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '查看储物袋', command: '/我的储物袋 装备' }] }));
+  } catch (error) {
+    logger.error('分解装备失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('分解装备失败，请稍后再试或联系运营。');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

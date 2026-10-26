@@ -1,0 +1,62 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import axios from 'axios';
+import { mockBackendConfig } from './backend-config-helper';
+import promotion from '../src/response-apps/promotion/perform/app';
+import { executeBackendSeclusionCommand } from '../src/api/bot/seclusion-command';
+import { confirmBackendTribulationQuery } from '../src/api/bot/tribulation-confirmation-query';
+import { executeBackendCaveCommand } from '../src/api/bot/cave-command';
+const request = { requestId: 'cultivation-query-test', idempotencyKey: 'cultivation-message' };
+test('promotion failure and each seclusion branch consume one aggregate response', async t => {
+  mockBackendConfig(t, { api_url: 'https://cultivation.test', robot_auth_token: 'test-token' });
+  const calls: Array<{ url: string; data: string }> = [];
+  let receipt: object = {};
+  t.mock.method(axios, 'create', () => ({ request: async (config: { url: string; data: string }) => {
+    calls.push(config);
+    return { status: 200, headers: {}, data: JSON.stringify({ data: receipt }) };
+  } }));
+  receipt = { mode: 'promotion', result: { success: false, message: '材料不足' }, overview: { promotion: { nextRealm: { name: '筑基' }, materials: [{ itemName: '筑基丹', currentQuantity: 0, requiredQuantity: 1 }] } } };
+  const result = await promotion({ bid: 'one', uid: 1, request });
+  assert.equal(result.code, 'FAILED');
+  if (result.code === 'FAILED') assert.deepEqual(result.data.requirementLines, ['晋级目标：筑基', '筑基丹：可用 0 / 需要 1（还缺 1）', '晋级仅计未锁定材料']);
+  assert.equal(calls.length, 1);
+  const status = { inSeclusion: false, startAvailable: true, canEnd: false, availableDungeons: [], earlyExitPolicy: { settleBlockHours: 4, refundBeforeHours: 1, penaltyBeforeHours: 4, penaltyRate: 0.1 } };
+  receipt = { access: { canUseSoulPath: true }, code: 'OK', data: { status } };
+  assert.equal((await executeBackendSeclusionCommand('one', 1, 'view')).result.code, 'OK');
+  receipt = { access: { canUseSoulPath: true }, code: 'OK', data: { status, dungeon: { id: 7, name: '桃花镇', startOptions: [] } } };
+  assert.equal((await executeBackendSeclusionCommand('one', 1, 'select', { dungeonName: '桃花镇' })).result.code, 'OK');
+  receipt = { access: { canUseSoulPath: true }, code: 'OK', data: { dungeon: { id: 7, name: '桃花镇' }, record: { duration: 48, spiritCost: 20 } } };
+  assert.equal((await executeBackendSeclusionCommand('one', 1, 'start', { dungeonName: '桃花镇', duration: 48 }, request)).result.code, 'OK');
+  assert.equal(calls.length, 4);
+  assert.ok(calls.slice(1).every(call => call.url.endsWith('/players/1/seclusion/command')));
+  assert.deepEqual(calls.slice(1).map(call => JSON.parse(call.data).action), ['view', 'select', 'start']);
+});
+test('tribulation confirmation includes names and cave mention sends real platform identity in one request', async t => {
+  mockBackendConfig(t, { api_url: 'https://cultivation.test', robot_auth_token: 'test-token' });
+  const unit = { Name: '修士', HP: 100, MP: 50, PhysicalAttack: 20, MagicAttack: 20, PhysicalDefense: 5, MagicDefense: 5, Speed: 10 };
+  const confirmation = { eventId: 7, grade: 'high', attackMultiplier: 1.2, conditionVersion: 'a'.repeat(64), rewardScope: 'current', experienceBefore: 100, successExperienceCost: 0, failureExperienceAfter: 40, progress: { successful: 1, requiredAttempts: 3, attackBonusPercent: 0.5, completed: false }, materials: [{ itemId: 10, quantity: 1 }], battle: { mode: 'continuous_layers_v1', name: '四九雷劫', player: unit, layers: [{ layer: 2, enemies: [unit] }] } };
+  const calls: Array<{ url: string; data: string }> = [];
+  let receipt: object = { confirmation, materialNames: { 10: '渡劫石' } };
+  t.mock.method(axios, 'create', () => ({ request: async (config: { url: string; data: string }) => { calls.push(config); return { status: 200, headers: {}, data: JSON.stringify({ data: receipt }) }; } }));
+  const query = await confirmBackendTribulationQuery('one', 1, 7, 'high', request);
+  assert.deepEqual(query.confirmation, confirmation);
+  assert.equal(query.materialNames[10], '渡劫石');
+  assert.equal(calls.length, 1);
+  receipt = { message: '格式错误，示例：/偷药 123、/偷药 @目标 或 /偷药 123 2' };
+  const cave = await executeBackendCaveCommand('one', 1, { action: 'steal', ownerBid: 'actual-platform-user' }, request);
+  assert.equal(cave.visit, null);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(JSON.parse(calls[1].data), { action: 'steal', ownerBid: 'actual-platform-user' });
+});
+test('seclusion aggregate failure preserves original branch messages without an extra repair or retry request', async t => {
+  mockBackendConfig(t, { api_url: 'https://cultivation.test', robot_auth_token: 'test-token' });
+  let calls = 0;
+  t.mock.method(axios, 'create', () => ({ request: async () => {
+    calls++;
+    return { status: 503, headers: {}, data: JSON.stringify({ error: { code: 'SERVICE_UNAVAILABLE', message: '闭关服务暂不可用' } }) };
+  } }));
+  assert.deepEqual((await executeBackendSeclusionCommand('one', 1, 'view')).result, { code: 'LOAD_FAILED', data: { message: '查看闭关状态失败，请稍后再试' } });
+  assert.deepEqual((await executeBackendSeclusionCommand('one', 1, 'select', { dungeonName: '桃花镇' })).result, { code: 'LOAD_FAILED', data: { message: '查看失败，请稍后再试' } });
+  assert.deepEqual((await executeBackendSeclusionCommand('one', 1, 'start', { dungeonName: '桃花镇', duration: 48 }, request)).result, { code: 'LOAD_FAILED', data: { message: '闭关服务暂不可用' } });
+  assert.equal(calls, 3);
+});

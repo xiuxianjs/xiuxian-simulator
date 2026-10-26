@@ -1,0 +1,155 @@
+[
+  {
+    "path": "任务设置",
+    "schema": {
+      "args": [
+        {
+          "name": "slot",
+          "rules": [
+            {
+              "type": "number",
+              "min": 1
+            }
+          ]
+        },
+        {
+          "name": "step",
+          "rules": [
+            {
+              "type": "number",
+              "min": 1
+            }
+          ]
+        },
+        {
+          "name": "content",
+          "rules": [
+            {
+              "type": "rest"
+            }
+          ]
+        }
+      ],
+      "usage": "/任务设置 <槽位> <步骤> <内容>",
+      "messages": {
+        "tooManyArgs": "任务设置参数过多，请使用：/任务设置 <槽位> <步骤> <内容>"
+      }
+    },
+    "description": "设置任务槽位中某一步的执行内容。"
+  },
+  {
+    "path": "任务别名",
+    "schema": {
+      "args": [
+        {
+          "name": "slot",
+          "rules": [
+            {
+              "type": "number",
+              "min": 1
+            }
+          ]
+        },
+        {
+          "name": "alias",
+          "rules": [
+            {
+              "type": "rest"
+            }
+          ]
+        }
+      ],
+      "usage": "/任务别名 <槽位> <名称>"
+    },
+    "description": "为任务槽位设置一个更易识别的别名。"
+  },
+  {
+    "path": "任务清空",
+    "schema": {
+      "args": [
+        {
+          "name": "slot",
+          "rules": [
+            {
+              "required": true,
+              "message": "请提供要清空的槽位"
+            },
+            {
+              "type": "number",
+              "min": 1,
+              "message": "任务清空的槽位必须是数字"
+            }
+          ]
+        }
+      ],
+      "usage": "/任务清空 <槽位>"
+    },
+    "description": "清空指定任务槽位中的内容。"
+  },
+  {
+    "path": "任务执行",
+    "schema": {
+      "args": [
+        {
+          "name": "slot",
+          "rules": [
+            {
+              "required": true,
+              "message": "请提供要执行的槽位"
+            },
+            {
+              "type": "number",
+              "min": 1,
+              "message": "任务执行的槽位必须是数字"
+            }
+          ]
+        }
+      ],
+      "usage": "/任务执行 <槽位>"
+    },
+    "description": "执行指定任务槽位中已保存的任务链。"
+  },
+  {
+    "path": "加入宗门",
+    "schema": {
+      "args": [
+        {
+          "name": "guildId",
+          "rules": [
+            {
+              "type": "number",
+              "min": 1,
+              "message": "宗门ID必须是大于 0 的数字"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "path": "升级誓约",
+    "schema": {
+      "args": [
+        {
+          "name": "confirm",
+          "rules": [
+            {
+              "type": "enum",
+              "enum": [
+                "确认"
+              ],
+              "normalizeMap": {
+                "是": "确认",
+                "yes": "确认",
+                "Yes": "确认",
+                "YES": "确认"
+              },
+              "message": "升级誓约只接受可选参数 确认"
+            }
+          ]
+        }
+      ],
+      "usage": "/升级誓约 [确认]"
+    }
+  }
+]

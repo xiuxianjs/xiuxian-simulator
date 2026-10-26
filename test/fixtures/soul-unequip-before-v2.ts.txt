@@ -1,0 +1,89 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 分离本命物指令
+ * /分离      → 显示确认提示
+ * /分离 确认 → 执行分离
+ */
+import App from '@src/response-apps/soulArtifact/unequip/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const text = (e.MessageText ?? '').trim();
+  const isConfirmed = /确认/.test(text);
+
+  // A level-zero artifact executes immediately on the first command, so carry
+  // the platform write identity for both branches.  The App only consumes it
+  // when it actually invokes the mutation.
+  const result = await App({ messageText: e.MessageText, bid, uid, confirmed: isConfirmed, request: createBackendRequestContext(e) });
+
+  if (result.code === 'NOT_EQUIPPED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  if (result.code === 'CONFIRM') {
+    const md = Format.createMarkdown();
+
+    md.addText('⚠️ 分离本命物确认');
+    md.addNewline();
+    md.addNewline();
+    md.addText(`本命物：${result.data.name}`);
+    md.addNewline();
+    md.addText(`当前等级：Lv.${result.data.level}`);
+    md.addNewline();
+    md.addText(`投入筑灵石：${result.data.totalCost}`);
+    md.addNewline();
+    md.addText(`退还筑灵石：${result.data.refundQty}（60%）`);
+    md.addNewline();
+    md.addNewline();
+    md.addText('分离后等级将重置为 Lv.0，品级和洗涤附加保留');
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: [
+          { label: '确认分离', command: '/分离 确认' },
+          { label: '取消', command: '/储物袋 本命' }
+        ]
+      })
+    );
+
+    return;
+  }
+
+  if (result.code === 'LOAD_FAILED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  const displayMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, createBackendRequestContext(e));
+
+  md.addText(displayMsg);
+  md.addNewline();
+  md.addButton('储物袋 · 本命', { data: '/储物袋 本命' });
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

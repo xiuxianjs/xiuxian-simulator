@@ -1,0 +1,35 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 本命物升品指令（消耗同名同品级本命物，仅 1 次机会）
+ */
+import App from '@src/response-apps/soulArtifact/gradeUp/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const text = e.MessageText?.trim() ?? '';
+  const match = text.match(/^[!！/#＃]?本命物升品\s*(\d+)?$/);
+  const instanceId = match?.[1] ? Number(match[1]) : undefined;
+
+  const result = await App({ bid, uid, instanceId, request: createBackendRequestContext(e) });
+
+  const md = Format.createMarkdown();
+
+  md.addText(result.data.message);
+  md.addText(' ');
+
+  if (instanceId) {
+    md.addButton('返回详情', { data: `/本命物详情 ${instanceId}` });
+    md.addText(' ');
+  }
+
+  md.addButton('本命物信息', { data: '/本命物信息' });
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

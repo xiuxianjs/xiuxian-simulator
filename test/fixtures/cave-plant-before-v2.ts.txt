@@ -1,0 +1,77 @@
+import { useMessage } from '@src/utils/useMessage';
+import { executeBackendCaveCommand, getBackendCavePlantQuery, sendCaveCommandFallback } from '@src/api/bot/cave-command';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { presentBackendCavePlots } from '@src/response/cavePlot/info/res';
+import { sendPlantSeedPromptPage, sendSelfCavePlotPage } from '@src/response/cavePlot/render';
+import { selects } from '@src/response/config';
+import { onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const match = (e.MessageText ?? '').trim().match(/播种(?:\s+(\d+))?(?:\s+(.+))?$/);
+  const plotIndex = match?.[1] ? Number(match[1]) : undefined;
+  const seedName = match?.[2]?.trim();
+
+  if (!seedName) {
+    const { options, overview } = await getBackendCavePlantQuery(String(bid), uid, plotIndex);
+
+    sendPlantSeedPromptPage({
+      title: '播种灵种',
+      bid,
+      isPrivate,
+      message,
+      plots: presentBackendCavePlots(overview.plots),
+      leadText: options.options.length > 0 ? '请选择要播种的灵种。' : '当前没有可播种的灵种。',
+      targetLabel: options.plotIndex > 0 ? `第${options.plotIndex}块灵田` : '全部空闲灵田',
+      remainingPlots: options.remainingPlots,
+      commandPrefix: options.plotIndex > 0 ? `/播种 ${options.plotIndex}` : '/播种',
+      options: options.options
+    });
+
+    return;
+  }
+
+  const result = await executeBackendCaveCommand(String(bid), uid, { action: 'plant', plotIndex, seedName }, createBackendRequestContext(e));
+  const overview = result.overview;
+
+  if (!overview || result.snapshotError) {
+    sendCaveCommandFallback(result, bid, isPrivate, message, '播种灵种');
+
+    return;
+  }
+
+  if (result.needsSeedSelection) {
+    const options = result.options;
+
+    if (!options) {
+      throw new Error('播种选项缺失');
+    }
+
+    sendPlantSeedPromptPage({
+      title: '播种灵种',
+      bid,
+      isPrivate,
+      message,
+      plots: presentBackendCavePlots(overview.plots),
+      leadText: result.message,
+      targetLabel: options.plotIndex > 0 ? `第${options.plotIndex}块灵田` : '全部空闲灵田',
+      remainingPlots: options.remainingPlots,
+      commandPrefix: options.plotIndex > 0 ? `/播种 ${options.plotIndex}` : '/播种',
+      options: options.options
+    });
+
+    return;
+  }
+
+  sendSelfCavePlotPage({
+    title: '播种灵种',
+    bid,
+    isPrivate,
+    message,
+    plots: presentBackendCavePlots(overview.plots),
+    leadText: result.message
+  });
+});

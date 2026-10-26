@@ -1,0 +1,84 @@
+import { useMessage } from '@src/utils/useMessage';
+import { disableBackendGroupSubscription } from '@src/api/bot/group-subscription-disable';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { enableSubscription } from '@src/response-apps/groupSubscription/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+type SubscriptionAction = 'enable' | 'disable';
+
+const getAction = (messageText: string): SubscriptionAction | null => {
+  const text = messageText.trim().replace(/^[!！/#＃]/, '');
+
+  if (text === '开启群订阅') {
+    return 'enable';
+  }
+  if (text === '关闭群订阅') {
+    return 'disable';
+  }
+
+  return null;
+};
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const action = getAction(e.MessageText ?? '');
+
+  if (!action) {
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  if (isPrivate || !e.ChannelId) {
+    md.addText('请在需要接收通知的群内使用此功能。');
+    void message.send(FormatGui({ isPrivate, bid, title: '我的设置', content: md }));
+
+    return;
+  }
+
+  const userId = Number(e.uid);
+
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    md.addText('未找到玩家存档，请先踏入仙途。');
+    void message.send(FormatGui({ isPrivate, bid, title: '我的设置', content: md }));
+
+    return;
+  }
+
+  if (action === 'enable') {
+    const result = await enableSubscription(
+      bid,
+      userId,
+      String(e.Platform ?? ''),
+      String(e.ChannelId),
+      e.BotId,
+      e.Target?.scope === 'channel' || e.SpaceId?.startsWith('GUILD:') ? 'channel' : 'group',
+      createBackendRequestContext(e)
+    );
+
+    md.addText(result.switched ? '已将订阅群切换至本群。' : '已在本群开启通知订阅。');
+    md.addNewline();
+    md.addText('后续通知优先在本群 @ 你；群权限关闭时保留订阅，恢复授权后自动恢复。');
+    md.addNewline();
+    md.addText('通知均可通过 /我的通知 回看；开启订阅不代表平台已允许主动发言。');
+  } else if (action === 'disable') {
+    const disabled = await disableBackendGroupSubscription(bid, userId, createBackendRequestContext(e));
+
+    md.addText(disabled ? '已关闭群通知订阅。' : '你当前未开启群通知订阅。');
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      mention: false,
+      title: '我的设置',
+      content: md,
+      footer: [{ label: '返回我的设置', command: '/我的设置' }]
+    })
+  );
+});

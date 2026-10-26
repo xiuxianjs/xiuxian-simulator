@@ -1,0 +1,57 @@
+import { requirePrivateAccountMessage } from '@src/utils/privateAccountMessage';
+import { Format, onResponse } from 'alemonjs';
+import { selects } from '@src/response/config';
+import { useMessage } from '@src/utils/useMessage';
+import { FormatGui, createQuoteMarkdown } from '@src/utils/messageHelper';
+import { getLoginWindowData } from '@src/response-apps/emailSecurity/login/app';
+import { createBackendRequestContext } from '@src/api';
+
+export function createLoginReply(result: Awaited<ReturnType<typeof getLoginWindowData>>, isPrivate: boolean, bid: string) {
+  const content =
+    result.code === 'OK'
+      ? `UID：${result.data.playerId}\n临时密码：${result.data.temporaryPassword}\n有效期：${result.data.expiresIn / 60} 分钟`
+      : result.message;
+  const md = Format.createMarkdown();
+
+  const quoteMd = createQuoteMarkdown(content.split('\n'));
+
+  md.addBlockquote(quoteMd);
+  const reply = FormatGui({ isPrivate, bid, title: '网页登录', content: md });
+
+  if (result.code === 'OK') {
+    const url = new URL('https://tatian-online.alemonjs.com/login');
+
+    url.searchParams.set('temporaryPassword', result.data.temporaryPassword);
+    url.searchParams.set('UID', String(result.data.playerId));
+    const buttons = Format.createButtonGroup();
+
+    buttons.addButton('临时进入', url.toString(), { type: 'link' });
+    const emailURL = new URL('https://tatian-online.alemonjs.com/login');
+
+    emailURL.searchParams.set('UID', String(result.data.playerId));
+    emailURL.searchParams.set('loginMethod', 'email');
+    if (result.data.email) {
+      emailURL.searchParams.set('email', result.data.email);
+    }
+    buttons.addButton('邮箱进入', emailURL.toString(), { type: 'link' });
+    reply.format.addButtonGroup(buttons);
+  } else if (result.code === 'PASSWORD_NOT_SET') {
+    const buttons = Format.createButtonGroup();
+
+    buttons.addButton('设置密码', '/设置密码 ', { type: 'command' });
+    reply.format.addButtonGroup(buttons);
+  }
+
+  return reply;
+}
+
+export default onResponse(selects, async e => {
+  if (!(await requirePrivateAccountMessage(e))) {
+    return;
+  }
+  const [message] = useMessage();
+  const isPrivate = e.isPrivate ?? false;
+  const result = await getLoginWindowData(e.uid as number, e.UserId, isPrivate, createBackendRequestContext(e));
+
+  await message.send(createLoginReply(result, isPrivate, e.UserId));
+});

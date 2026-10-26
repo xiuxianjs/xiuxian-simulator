@@ -1,0 +1,87 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 煞气查看
+ * 指令：/煞气
+ *
+ * 展示当前煞气值、称号、是否在杀神榜、消除途径
+ */
+
+import App from '@src/response-apps/shaQi/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  const result = await App({ bid, uid });
+
+  if (result.code !== 'OK') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '煞气',
+        content: md,
+        header: [
+          { label: '悬赏榜', command: '/悬赏榜' },
+          { label: '杀神榜', command: '/杀神榜' }
+        ],
+        footer: [
+          { label: '记录', command: '/打劫记录' },
+          { label: '悬赏', command: '/悬赏' },
+          { label: '仇人', command: '/仇人' },
+          { label: '煞气', command: '/煞气' },
+          { label: '金盆', command: '/消耗 金盆 1' }
+        ]
+      })
+    );
+
+    return;
+  }
+
+  const info = result.data;
+  const md = Format.createMarkdown();
+
+  md.addText(`当前煞气：${info.shaQi}`);
+  md.addNewline();
+
+  if (info.onKillGodList) {
+    md.addNewline();
+    md.addText(`⚠️ 你已上杀神榜（煞气≥${info.killGodThreshold}）`);
+    md.addNewline();
+  }
+
+  md.addNewline();
+  md.addText('消除途径：');
+  md.addNewline();
+  md.addText(`· 每日自然衰减 -${info.dailyDecayAmount}`);
+  md.addNewline();
+  md.addText(`· 金盆：消耗 1 个金盆，减少 ${info.jinpenReduceAmount} 点煞气`);
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '煞气',
+      header: [
+        { label: '悬赏榜', command: '/悬赏榜' },
+        { label: '杀神榜', command: '/杀神榜' }
+      ],
+      footer: [
+        { label: '记录', command: '/打劫记录' },
+        { label: '悬赏', command: '/悬赏' },
+        { label: '仇人', command: '/仇人' },
+        { label: '煞气', command: '/煞气' },
+        { label: '金盆', command: '/消耗 金盆 1' }
+      ],
+      content: md
+    })
+  );
+});

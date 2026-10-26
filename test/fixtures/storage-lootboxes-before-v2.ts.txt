@@ -1,0 +1,100 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 礼盒分类处理器
+ * 路由:
+ *   /储物袋 礼盒 - 显示礼盒列表
+ *   /储物袋 礼盒 2 - 显示礼盒第2页
+ */
+
+import { DEFAULT_PAGE, EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL, FIRST_ARG_INDEX, MIN_PAGE } from '@src/constants';
+import App from '@src/response-apps/storage/newBag/lootboxes/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+import { createPrimaryTabsBar } from '../tabs';
+import { lootboxActions } from './capabilities';
+
+/**
+ * 解析命令参数
+ */
+const parseCommand = (msg: string): { page: number } => {
+  const args = msg.replace(/^(!|！|\/|#|＃)?(我的)?(储物袋|背包)\s+礼盒\s*/, EMPTY_STRING).trim();
+
+  if (!args) {
+    return { page: DEFAULT_PAGE };
+  }
+
+  const parts = args.split(/\s+/);
+  let page = DEFAULT_PAGE;
+
+  if (parts[FIRST_ARG_INDEX] && !isNaN(Number(parts[FIRST_ARG_INDEX]))) {
+    page = Math.max(MIN_PAGE, Number(parts[FIRST_ARG_INDEX]));
+  }
+
+  return { page };
+};
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const uid = e.uid as number;
+    const { page } = parseCommand(e.MessageText ?? EMPTY_STRING);
+
+    const result = await App({ bid: e.UserId, uid, page });
+
+    if (result.code !== 'OK') {
+      throw new Error('查询礼盒失败，请稍后重试');
+    }
+
+    const md = Format.createMarkdown();
+
+    if (result.data.total === EMPTY_TOTAL) {
+      md.addText('暂无礼盒');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: createPrimaryTabsBar() }));
+
+      return;
+    }
+
+    result.data.items.forEach(item => {
+      const lootboxMd = Format.createMarkdown().addText(` 🎁 ${item.name} x${item.quantity}`);
+
+      lootboxActions(item).forEach(action => {
+        lootboxMd.addText(' ');
+        lootboxMd.addButton(`[${action.label}]`, { data: action.command });
+      });
+      md.addBlockquote(lootboxMd);
+      md.addNewline();
+      if (item.description) {
+        md.addBlockquote(Format.createMarkdown().addText(` ${item.description}`));
+      }
+    });
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '礼盒',
+        content: md,
+        nav: {
+          current: page,
+          total: Math.ceil(result.data.total / result.data.pageSize),
+          command: '/储物袋 礼盒 {page}'
+        },
+        footer: createPrimaryTabsBar()
+      })
+    );
+  } catch (error) {
+    logger.error('礼盒分类处理失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('查询礼盒失败，请稍后重试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: createPrimaryTabsBar() }));
+  }
+});
+
+export default response;

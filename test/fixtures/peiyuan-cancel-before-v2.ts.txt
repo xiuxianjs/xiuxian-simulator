@@ -1,0 +1,61 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 取消培元丹效果
+ * 指令：/取消培元丹
+ */
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/peiyuanDan/cancel/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const request = createBackendRequestContext(e);
+  const result = await App({ bid: String(e.UserId), uid: Number(e.uid), request });
+
+  if (result.code === 'INVALID_USER') {
+    const md = Format.createMarkdown();
+
+    md.addText('未找到用户信息，请先踏入仙途');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  if (result.code === 'CANCEL_FAILED') {
+    const md = Format.createMarkdown();
+
+    const failMsg = await withBackendRepeatDetection(bid, result.uid, '取消培元丹', `❤ ${result.message}`, request);
+
+    md.addText(failMsg);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  md.addText('⚠️ 培元丹效果已取消');
+  md.addNewline();
+  md.addNewline();
+  md.addText(result.data.message);
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '',
+      content: md,
+      footer: [
+        { label: '查看属性', command: '/属性面板' },
+        { label: '继续服用', command: '/服用 培元丹 1' }
+      ]
+    })
+  );
+});

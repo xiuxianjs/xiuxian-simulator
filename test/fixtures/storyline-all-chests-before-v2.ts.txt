@@ -1,0 +1,71 @@
+import { useMessage } from '@src/utils/useMessage';
+import App from '@src/response-apps/storyline/claimAllChests/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, logger, onResponse } from 'alemonjs';
+
+/**
+ * 一键领取所有章节宝箱
+ * /一键领取宝箱
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+
+  try {
+    const resultMd = Format.createMarkdown();
+    const request = createBackendRequestContext(e);
+    const result = await App({ uid, bid, request });
+
+    if (result.code === 'LOAD_FAILED') {
+      throw new Error(result.data.message);
+    }
+
+    if (result.data.success) {
+      resultMd.addText(`🎁 ${result.data.message}`);
+      resultMd.addNewline();
+      resultMd.addNewline();
+
+      for (const detail of result.data.details) {
+        resultMd.addText(`第${detail.chapterNumber}章 ${detail.chapterName}：宝箱×${detail.claimed.length}，灵晶×${detail.reward}`);
+        resultMd.addNewline();
+      }
+    } else {
+      const failMsg = await withBackendRepeatDetection(bid, uid, '一键领取宝箱', `❌ ${result.data.message}`, request);
+
+      resultMd.addText(failMsg);
+    }
+
+    void message.send(
+      FormatGui({
+        isPrivate: e.isPrivate ?? false,
+        bid,
+        title: '副本 - 一键领取宝箱',
+        header: [
+          { label: '返回', command: '/查看主线' },
+          { label: '秘境', command: '/查看秘境' }
+        ],
+        content: resultMd
+      })
+    );
+  } catch (_error) {
+    logger.error('一键领取宝箱失败:', _error);
+
+    const errMd = Format.createMarkdown();
+
+    errMd.addText('❌ 领取失败，请稍后重试');
+
+    void message.send(
+      FormatGui({
+        isPrivate: e.isPrivate ?? false,
+        bid,
+        title: '副本 - 一键领取宝箱',
+        header: [{ label: '返回', command: '/查看主线' }],
+        content: errMd
+      })
+    );
+  }
+});

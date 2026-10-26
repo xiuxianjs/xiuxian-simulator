@@ -1,0 +1,164 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 天工分类处理器
+ * 路由:
+ *   /储物袋 天工 - 显示天工工具类型按钮（火焰/丹炉/炼器台）
+ *   /储物袋 天工 火焰 - 显示火焰列表
+ *   /储物袋 天工 火焰 2 - 显示火焰第2页
+ *
+ * 注意：天工物品使用独立的 user_profession_tools 表
+ */
+
+import { DEFAULT_PAGE, EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL, FIRST_ARG_INDEX, MIN_PAGE, SECOND_ARG_INDEX } from '@src/constants';
+import App, { type TiangongBagCapability, type TiangongBagItem } from '@src/response-apps/storage/newBag/tiangong/app';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+import { renderSubTabs } from '../tabs';
+
+const itemAction = (kind: TiangongBagCapability, item: TiangongBagItem): { label: string; command: string } => {
+  switch (kind) {
+    case 'replace':
+      return { label: '替换', command: `/替换 ${item.id}` };
+    case 'unlock':
+      return { label: '解锁', command: `/解锁 天工 ${item.id}` };
+    case 'lock':
+      return { label: '锁定', command: `/锁定 天工 ${item.id}` };
+    case 'viewDetail':
+      return { label: '详情', command: `/物品详情 ${item.name}` };
+    default:
+      throw new Error(`天工接口返回无效物品能力: ${kind}`);
+  }
+};
+
+const pageAction = (kind: TiangongBagCapability, activeType: string): { label: string; command: string } => {
+  switch (kind) {
+    case 'lockAll':
+      return { label: '一键锁定', command: `/锁定 天工 ${activeType}` };
+    case 'unlockAll':
+      return { label: '一键解锁', command: `/解锁 天工 ${activeType}` };
+    default:
+      throw new Error(`天工接口返回无效页面能力: ${kind}`);
+  }
+};
+
+/**
+ * 解析命令参数
+ */
+const parseCommand = (msg: string): { equipmentType: string | null; page: number } => {
+  // 移除命令前缀和"天工"
+  const args = msg.replace(/^(!|！|\/|#|＃)?(我的)?(储物袋|背包)\s+天工\s*/, EMPTY_STRING).trim();
+
+  if (!args) {
+    return { equipmentType: null, page: DEFAULT_PAGE };
+  }
+
+  const parts = args.split(/\s+/);
+  let equipmentType: string | null = null;
+  let page = DEFAULT_PAGE;
+
+  // 第一个参数可能是装备类型或页码
+  if (parts[FIRST_ARG_INDEX]) {
+    // 如果是数字，当作页码处理
+    if (!isNaN(Number(parts[FIRST_ARG_INDEX]))) {
+      page = Math.max(MIN_PAGE, Number(parts[FIRST_ARG_INDEX]));
+    } else {
+      // 否则当作装备类型
+      equipmentType = parts[FIRST_ARG_INDEX];
+      // 第二个参数是页码
+      if (parts[SECOND_ARG_INDEX] && !isNaN(Number(parts[SECOND_ARG_INDEX]))) {
+        page = Math.max(MIN_PAGE, Number(parts[SECOND_ARG_INDEX]));
+      }
+    }
+  }
+
+  return { equipmentType, page };
+};
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const uid = e.uid as number;
+    const { equipmentType, page } = parseCommand(e.MessageText || EMPTY_STRING);
+
+    const result = await App({ bid, uid, equipmentType, page });
+
+    if (result.code !== 'OK') {
+      throw new Error('查询天工工具失败，请稍后重试');
+    }
+
+    const { types, activeType, total, totalPages, items, capabilities } = result.data;
+    const pageTools = items;
+
+    const md = Format.createMarkdown();
+
+    // 二级子类 tabs（动态，内联 markdown）
+    const subTabs = types.map(t => ({ label: t, command: `/储物袋 天工 ${t}` }));
+
+    renderSubTabs(md, subTabs);
+
+    if (!activeType) {
+      md.addText('暂无天工类型');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    // 如果总数为0，显示暂无物品
+    if (total === EMPTY_TOTAL) {
+      md.addText('该类型暂无天工工具');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    // 格式化天工工具显示，添加快捷按钮
+    pageTools.forEach(item => {
+      const lockIcon = item.isLocked ? '🔒' : '';
+
+      // 基础信息和操作按钮
+      md.addText(`【${item.id}】 ${lockIcon}${item.name}-${item.grade}`);
+
+      addOptions(
+        md,
+        item.capabilities.map(kind => itemAction(kind, item))
+      );
+
+      md.addNewline();
+
+      // 图片面板行
+    });
+
+    // 操作按钮放入 bar
+    md.addNewline();
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        nav: {
+          current: page,
+          total: totalPages,
+          command: `/储物袋 天工 ${activeType} {page}`
+        },
+        footer: capabilities.map(kind => pageAction(kind, activeType))
+      })
+    );
+  } catch (error) {
+    logger.error('天工分类处理失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('查询天工工具失败，请稍后重试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});
+
+export default response;

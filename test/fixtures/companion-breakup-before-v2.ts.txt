@@ -1,0 +1,79 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 解除道侣指令
+ * - /解除道侣          → 提示再次发送带「确认」的指令完成解除
+ * - /解除道侣 确认     → 直接执行解除
+ */
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { checkBreakup, confirmBreakup } from '@src/response-apps/companion/breakup/app';
+import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const rawText = (e.MessageText ?? '').trim();
+  const confirmed = /^[!！/#＃]?解除道侣\s+确认$/.test(rawText);
+
+  const request = createBackendRequestContext(e);
+  const checkResult = await checkBreakup({ messageText: e.MessageText, bid, uid, confirmed, request });
+  const fifthLayerAccess = checkResult.data.access;
+
+  if (!fifthLayerAccess.ok) {
+    sendFifthLayerLockedPage({ bid, isPrivate, message, title: '解除道侣', realmName: fifthLayerAccess.realmName });
+
+    return;
+  }
+
+  if (checkResult.code === 'NO_COMPANION') {
+    const md = Format.createMarkdown();
+
+    md.addText(checkResult.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const { partnerName } = checkResult.data;
+
+  if (!confirmed) {
+    const md = Format.createMarkdown();
+
+    md.addText(`确定要与「${partnerName}」解除道侣关系吗？`);
+    md.addNewline();
+    md.addText('解除后将降为普通好友，灵契值保留。');
+    md.addNewline();
+    md.addText('请发送：/解除道侣 确认');
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: [{ label: '确认解除', command: '/解除道侣 确认' }]
+      })
+    );
+
+    return;
+  }
+
+  const result = checkResult.data.settledResult ?? (await confirmBreakup({ bid, uid, request }));
+  const md = Format.createMarkdown();
+  const repeatMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, request);
+
+  md.addText(repeatMsg);
+
+  if (result.code === 'OK') {
+    md.addNewline();
+    md.addBlockquote(Format.createMarkdown().addText(result.data.narrativeText));
+  }
+
+  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+});

@@ -1,0 +1,50 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getSponsorInfoData } from '@src/response-apps/recharge/sponsor/info';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const result = await getSponsorInfoData(uid, isPrivate, bid);
+
+  if (result.code === 'PRIVATE_ONLY') {
+    const md = Format.createMarkdown().addText('⚠️ 赞助仅支持私聊查看和操作');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '赞助', content: md }));
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  md.addText('赞助支持任意整数金额，仅生效VIP经验，不触发普通充值、限时活动临时套餐、双倍返利等机制。');
+  md.addNewline();
+  md.addNewline();
+  md.addBlockquote(
+    Format.createMarkdown()
+      .addText(`当前累计赞助：${result.sponsor.totalYuan}元`)
+      .addNewline()
+      .addText(`主题权限门槛：${result.sponsor.thresholdYuan}元`)
+      .addNewline()
+      .addText(`距离开启主题权限：${result.sponsor.remainingYuan}元`)
+      .addNewline()
+      .addText(`主题权限状态：${result.sponsor.hasThemePermission ? '已开启' : '未开启'}`)
+  );
+  md.addText('手动输入：/赞助购买 <整数金额>');
+  md.addNewline();
+
+  const quickMd = Format.createMarkdown().addText('快捷赞助： ');
+
+  quickMd.addButton('赞助30', { data: '/赞助购买 30' });
+  quickMd.addText(' ').addButton('赞助68', { data: '/赞助购买 68' });
+  quickMd.addText(' ').addButton('赞助128', { data: '/赞助购买 128' });
+  quickMd.addText(' ').addButton('赞助328', { data: '/赞助购买 328' });
+  quickMd.addText(' ').addButton('赞助648', { data: '/赞助购买 648' });
+  md.addBlockquote(quickMd);
+
+  void message.send(FormatGui({ isPrivate, bid, title: '赞助', content: md }));
+});

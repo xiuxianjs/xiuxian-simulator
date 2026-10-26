@@ -1,0 +1,72 @@
+import type { GameEvent } from '@src/types/event';
+import { getBackendTaskConfigPage } from '@src/api/bot/task-config';
+import { setBackendTaskSlotStep } from '@src/api/bot/task-config-action';
+import { getBackendRobotIdentity } from '@src/api/bot/identity';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { renderOverview, renderSlot, sendPage } from '@src/response/task/views';
+import type { Next } from 'alemonjs';
+import { Format } from 'alemonjs';
+
+export default async (e: GameEvent, next: Next) => {
+  const request = createBackendRequestContext(e);
+  const identity = await getBackendRobotIdentity(e.UserId, request);
+
+  if (identity.account.status !== 'registered') {
+    return next();
+  }
+
+  const uid = identity.account.playerId;
+  const slot = Number(e.__route?.params?.slot);
+  const step = Number(e.__route?.params?.step);
+  const content = String(e.__route?.params?.content ?? '').trim();
+
+  if (!slot) {
+    const { config, limits } = await getBackendTaskConfigPage(e.UserId, uid, request);
+
+    renderOverview(e, config.slots, limits);
+
+    return;
+  }
+
+  if (!step || !content) {
+    // Let Go judge the slot even when this is the editor-opening form. The
+    // invalid-step result for a valid slot is intentionally read-only.
+    const intent = await setBackendTaskSlotStep(e.UserId, uid, slot, 0, '', request);
+
+    const { config, limits } = intent.page ?? (await getBackendTaskConfigPage(e.UserId, uid, request));
+
+    if (intent.outcome === 'invalid_slot') {
+      const md = Format.createMarkdown();
+
+      md.addText(`槽位只能是1到${limits.slotCount}`);
+      sendPage(e, '任务设置', md);
+
+      return;
+    }
+    renderSlot(e, slot, config.slots[slot - 1].steps, limits.maxSteps, config.slots[slot - 1].alias);
+
+    return;
+  }
+
+  const result = await setBackendTaskSlotStep(e.UserId, uid, slot, step, content, request);
+
+  const { config, limits } = result.page ?? (await getBackendTaskConfigPage(e.UserId, uid, request));
+
+  if (result.outcome !== 'saved') {
+    const messages: Record<string, string> = {
+      invalid_slot: `槽位只能是1到${limits.slotCount}`,
+      invalid_step: `步骤只能是1到${limits.maxSteps}`,
+      empty: '任务指令不能为空',
+      too_long: '单条任务指令不能超过50个字',
+      nested: '任务内不能再嵌套 /任务 指令',
+      out_of_order: `请先设置第${result.steps.length + 1}步`
+    };
+    const md = Format.createMarkdown();
+
+    md.addText(messages[result.outcome] ?? '任务设置失败');
+    sendPage(e, `任务设置 ${slot}`, md);
+
+    return;
+  }
+  renderSlot(e, slot, result.steps, limits.maxSteps, config.slots[slot - 1].alias);
+};

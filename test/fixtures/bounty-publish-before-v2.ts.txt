@@ -1,0 +1,145 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 悬赏
+ * 指令：/悬赏 UID/@目标 金额 [人数]
+ *
+ * 对指定目标悬赏，扣除灵晶（含20%手续费）
+ */
+
+import { createBackendRequestContext } from '@src/api/bot';
+import { getBackendBountyPublishPolicy } from '@src/api/bot/bounty-actions';
+import App from '@src/response-apps/bounty/publish/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { resolveTargetUidFromArg } from '@src/utils/targetUid';
+import { Format, onResponse, useMention } from 'alemonjs';
+
+const bountyHeader = [
+  { label: '悬赏榜', command: '/悬赏榜' },
+  { label: '杀神榜', command: '/杀神榜' }
+];
+
+const bountyFooter = [
+  { label: '记录', command: '/打劫记录' },
+  { label: '悬赏', command: '/悬赏' },
+  { label: '仇人', command: '/仇人' },
+  { label: '煞气', command: '/煞气' },
+  { label: '金盆', command: '/消耗 金盆 1' }
+];
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const [mention] = useMention();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const text = (e.MessageText ?? '').trim();
+
+  const match = text.match(/^(?:!|！|\/|#|＃)?悬赏\s+(\S+)\s+(\d+)(?:\s+(\d+))?$/);
+
+  if (!match) {
+    const helpMd = Format.createMarkdown();
+
+    try {
+      const policy = await getBackendBountyPublishPolicy(bid);
+
+      helpMd.addNewline();
+      helpMd.addNewline();
+      helpMd.addText('格式：/悬赏 目标UID/@目标 金额 [人数]');
+      helpMd.addNewline();
+      helpMd.addText(`金额上限：${policy.maxAmount} 灵晶（每人至少 ${policy.minPerPerson} 灵晶）`);
+      helpMd.addNewline();
+      helpMd.addText(`人数范围：${policy.minCompletions}~${policy.maxCompletions}（默认${policy.defaultCompletions}）`);
+      helpMd.addNewline();
+      helpMd.addText(`手续费：${policy.feePercent}%（发布即扣，不退还）`);
+      helpMd.addNewline();
+      helpMd.addText(`有效期：${policy.validHours}小时`);
+      helpMd.addNewline();
+      helpMd.addNewline();
+      helpMd.addText('示例：/悬赏 123 1000 2');
+    } catch {
+      helpMd.addText('悬赏规则加载失败，请稍后再试');
+    }
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '悬赏',
+        content: helpMd,
+        header: bountyHeader,
+        footer: bountyFooter
+      })
+    );
+
+    return;
+  }
+
+  const targetUid = await resolveTargetUidFromArg(match[1], mention);
+  const amount = parseInt(match[2], 10);
+  const maxCompletions = match[3] ? parseInt(match[3], 10) : undefined;
+
+  if (!targetUid) {
+    const helpMd = Format.createMarkdown();
+
+    helpMd.addText('请提供有效的目标UID，或直接 @目标');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '悬赏', content: helpMd, header: bountyHeader, footer: bountyFooter }));
+
+    return;
+  }
+
+  const result = await App({ bid, uid, targetUid, amount, maxCompletions, request: createBackendRequestContext(e) });
+  const md = Format.createMarkdown();
+
+  switch (result.code) {
+    case 'INVALID_PARAMS':
+      md.addText('输入数值过大，请检查参数');
+      break;
+    case 'FAIL':
+      md.addText(result.data.message);
+      break;
+    case 'OK': {
+      const d = result.data;
+
+      md.addText('悬赏发布成功');
+      md.addNewline();
+      md.addNewline();
+      md.addText(`悬赏编号：#${d.bountyId}`);
+      md.addNewline();
+      md.addBlockquote(
+        Format.createMarkdown()
+          .addText(`支付灵晶：${d.totalCost},手续费：${d.fee}`)
+          .addNewline()
+          .addText(`赏金池：${d.rewardPool},每人赏金：${d.rewardPerPerson}`)
+          .addNewline()
+          .addText(`允许完成：${d.maxCompletions}人,有效期：${d.validHours}小时`)
+      );
+      break;
+    }
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '悬赏',
+      header: bountyHeader,
+      footer: bountyFooter,
+      content: md
+    })
+  );
+
+  // ── 悬赏发布群播报 ──
+  if (!isPrivate && result.code === 'OK' && result.data.targetName) {
+    const f = Format.create();
+    const broadcastMd = Format.createMarkdown();
+
+    broadcastMd.addText(`🎯 有人悬赏 ${result.data.targetName} 的项上人头，赏金 ${result.data.rewardPool} 灵晶！`);
+    f.addMarkdown(broadcastMd);
+
+    void message.send({
+      format: f
+    });
+  }
+});

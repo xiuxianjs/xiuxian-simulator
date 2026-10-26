@@ -1,0 +1,202 @@
+import { useMessage } from '@src/utils/useMessage';
+import { SKILL_TYPE_BATTLE, SKILL_TYPE_MYSTIC, SKILL_TYPE_PASSIVE } from '@src/constants';
+import { DEFAULT_PAGE, EMPTY_STRING, FIRST_ARG_INDEX, MIN_PAGE } from '@src/constants/common';
+import App from '@src/response-apps/skillBook/mySkillBooks/app';
+import { selects } from '@src/response/config';
+import { parsePageNumber } from '@src/utils/commandParser';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { formatSkillBookListItem } from '@src/utils/skillBookHelper';
+import { Format, onResponse } from 'alemonjs';
+// 常量定义
+const EMPTY_TOTAL = 0; // 空总数量
+
+// 功法槽位类型列表
+const SKILL_SLOTS = [SKILL_TYPE_BATTLE, SKILL_TYPE_MYSTIC, SKILL_TYPE_PASSIVE] as const;
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  // uid 已由中间件验证并设置
+  const uid = e.uid as number;
+
+  // 解析命令参数（移除命令前缀）
+  const messageText = (e.MessageText || EMPTY_STRING).replace(/^(!|！|\/|#|＃)?我的功法\s*/, EMPTY_STRING).trim();
+  const args = messageText ? messageText.split(/\s+/) : [];
+
+  // 解析页码
+  const parseResult = parsePageNumber(args, FIRST_ARG_INDEX, DEFAULT_PAGE);
+  const page = parseResult.success ? parseResult.value! : DEFAULT_PAGE;
+
+  // 调用数据层
+  const result = await App({ bid, uid, page: Math.max(MIN_PAGE, page - 1) });
+
+  if (result.code === 'LOAD_FAILED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '我的功法',
+        header: [{ label: '返回', command: '/属性面板' }],
+        content: md,
+        footer: [
+          { label: '一键学习', command: '/一键学习功法' },
+          { label: '功法书', command: '/储物袋 功法' }
+        ]
+      })
+    );
+
+    return;
+  }
+
+  const { inUseBooks, items, total, totalPages, currentPage, proficiencyPoints } = result.data;
+
+  // 构建当前装备功法槽位显示
+  const slotContent = Format.createMarkdown();
+
+  slotContent.addText(`持有熟练点：${proficiencyPoints}`);
+  slotContent.addNewline();
+  slotContent.addNewline();
+
+  SKILL_SLOTS.forEach(slotType => {
+    const equipped = inUseBooks.find(book => book.skillType === slotType);
+
+    if (equipped) {
+      const actionMd = Format.createMarkdown().addText(`${slotType}：${equipped.slotText} `);
+
+      actionMd.addButton('选择', { data: `/切换${slotType}` });
+      actionMd.addText(' ');
+      actionMd.addButton('查看', { data: `/查看功法 ${equipped.id}` });
+      actionMd.addText(' ');
+      actionMd.addButton('换下', { data: `/换下${slotType}` });
+      slotContent.addBlockquote(actionMd);
+    } else {
+      slotContent.addBlockquote(
+        Format.createMarkdown()
+          .addText(`${slotType}：空 `)
+          .addButton('选择', { data: `/切换${slotType}` })
+      );
+    }
+  });
+
+  // 首页展示使用槽位，功法列表从第二页开始。
+  if (page === MIN_PAGE) {
+    if (total === EMPTY_TOTAL) {
+      slotContent.addText('💡暂无已学习的功法').addNewline();
+    }
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '我的功法',
+        header: [{ label: '返回', command: '/属性面板' }],
+        content: slotContent,
+        footer: [
+          ...(total > EMPTY_TOTAL ? [{ label: '功法列表', command: '/我的功法 2' }] : []),
+          ...(result.data.canUseFifthLayerFeature ? [{ label: '战斗模板', command: '/战斗模板' }] : []),
+          { label: '一键学习', command: '/一键学习功法' },
+          { label: '功法书', command: '/储物袋 功法' },
+          { label: '隐藏列表', command: '/我的隐藏功法' }
+        ],
+        ...(total > EMPTY_TOTAL ? { nav: { current: MIN_PAGE, total: totalPages + 1, command: '/我的功法 {page}' } } : {})
+      })
+    );
+
+    return;
+  }
+
+  // 如果没有功法
+  if (total === EMPTY_TOTAL) {
+    slotContent.addText('💡暂无已学习的功法');
+    slotContent.addNewline();
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '我的功法',
+        header: [{ label: '返回', command: '/属性面板' }],
+        content: slotContent,
+        footer: [
+          { label: '一键学习', command: '/一键学习功法' },
+          { label: '功法书', command: '/储物袋 功法' }
+        ]
+      })
+    );
+
+    return;
+  }
+
+  // 如果页码超出范围
+  if (items.length === EMPTY_TOTAL && total > EMPTY_TOTAL) {
+    slotContent.addText('❌ 页码超出范围');
+    slotContent.addNewline();
+    slotContent.addText(`总功法数: ${total}，请选择 2-${totalPages + 1} 之间的页码`);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '我的功法',
+        header: [{ label: '返回', command: '/属性面板' }],
+        content: slotContent,
+        nav: { current: MIN_PAGE + 1, total: totalPages + 1, count: total, command: '/我的功法 {page}' },
+        footer: [
+          { label: '一键学习', command: '/一键学习功法' },
+          { label: '功法书', command: '/储物袋 功法' }
+        ]
+      })
+    );
+
+    return;
+  }
+
+  // 构建功法列表
+  const skillBookItems = items.map(skillBook => ({
+    id: skillBook.id,
+    text: formatSkillBookListItem(skillBook, skillBook.id),
+    attrText: skillBook.attributeSummary
+  }));
+
+  const listContent = Format.createMarkdown();
+
+  listContent.addText('已学功法').addNewline();
+
+  skillBookItems.forEach(item => {
+    const lines = [item.text];
+
+    if (item.attrText) {
+      lines.push(item.attrText);
+    }
+    listContent.addBlockquote(
+      createQuoteMarkdown(lines, [
+        { label: '查看', command: `/查看功法 ${item.id}` },
+        { label: '连续升级', command: `/升级功法 ${item.id} 选择` }
+      ])
+    );
+  });
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '我的功法',
+      header: [{ label: '返回', command: '/我的功法' }],
+      content: listContent,
+      footer: [
+        ...(result.data.canUseFifthLayerFeature ? [{ label: '战斗模板', command: '/战斗模板' }] : []),
+        { label: '一键学习', command: '/一键学习功法' },
+        { label: '一键分解预览', command: '/一键分解功法' },
+        { label: '隐藏列表', command: '/我的隐藏功法' }
+      ],
+      nav: { current: currentPage + 1, total: totalPages + 1, count: total, command: '/我的功法 {page}' }
+    })
+  );
+});
+
+export default response;

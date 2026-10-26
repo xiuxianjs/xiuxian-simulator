@@ -1,0 +1,69 @@
+import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
+import { adviceRenderer } from '@src/response/feedbackRenderer';
+import { equipmentRecoveryTips } from '@src/response/equipmentRecovery';
+import { useMessage } from '@src/utils/useMessage';
+import { parseBackendEquipmentDecompose } from '@src/api/bot/equipment-decompose';
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse, useEvent } from 'alemonjs';
+
+/**
+ * 分解装备指令处理器
+ * 指令格式: /分解装备 {装备实例ID}
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const [, next] = useEvent();
+  const isPrivate = e.isPrivate ?? false;
+
+  const rawId =
+    e.MessageText.replace(/^(!|！|\/|#|＃)?分解装备\s*/, '')
+      .trim()
+      .split(/\s+/)[0] || null;
+
+  try {
+    const result = await runRobotBusiness(
+      e,
+      'equipment.decompose',
+      { instanceId: rawId },
+      parseBackendEquipmentDecompose,
+      next,
+      adviceRenderer(async reply => {
+        const md = Format.createMarkdown();
+
+        md.addText(reply.text);
+        if (reply.quote) {
+          md.addBlockquote(Format.createMarkdown().addText(reply.quote));
+        }
+        appendMiddlewareBlocks(
+          md,
+          reply.blocks?.filter(block => block.text !== reply.text || block.inlineButtons?.length)
+        );
+        appendMiddlewareAdvice(md, reply.advice);
+        await message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: reply.buttons.length ? reply.buttons : undefined }));
+      })
+    );
+
+    if (result.handled) {
+      return;
+    }
+    const data = result.data;
+    const md = Format.createMarkdown();
+
+    md.addText(`✅ 分解成功！【${data.equipmentName}】(${data.equipmentGrade}) → ${data.yieldItemName} ×${data.yieldQuantity}`);
+
+    md.addNewline();
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '查看储物袋', command: '/我的储物袋 装备' }] }));
+  } catch (error) {
+    logger.error('分解装备失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('分解装备失败，请稍后再试或联系运营。');
+    appendMiddlewareAdvice(md, equipmentRecoveryTips('equipment.decompose', '结果未确认'));
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

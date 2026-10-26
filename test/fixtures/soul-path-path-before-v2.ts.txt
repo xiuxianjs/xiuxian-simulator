@@ -1,0 +1,95 @@
+import { useMessage } from '@src/utils/useMessage';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { loadSoulPathDetails, parseSoulPathInput } from '@src/response-apps/soulPath/app';
+import { selects } from '@src/response/config';
+import { addSoulQuote, getCommandArgument, sendSoulGui } from '@src/response/soulPath/shared';
+import type { GuiButton, GuiFooter } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const result = await loadSoulPathDetails(e.UserId, e.uid as number, createBackendRequestContext(e));
+  const md = Format.createMarkdown();
+
+  if (!result.success) {
+    md.addText(result.message);
+    await message.send(sendSoulGui(e, '元婴道途', md));
+
+    return;
+  }
+  const state = result.data;
+  const input = getCommandArgument(e.MessageText, '元婴道途') || getCommandArgument(e.MessageText, '道途详情');
+  const requested = parseSoulPathInput(input);
+  const selected = requested ?? state.pathKey;
+  const selectedPath = selected ? state.paths.find(entry => entry.key === selected) : null;
+
+  if (state.paths.length !== 3 || state.paths.some(path => path.nodes.length !== 3) || (selected && !selectedPath)) {
+    md.addText('神魂状态响应不完整');
+    await message.send(sendSoulGui(e, '元婴道途', md));
+
+    return;
+  }
+  const pathTabs: GuiButton[] = state.paths.map(path => ({
+    label: path.name,
+    command: state.pathKey ? `/元婴道途 ${path.name.replace('道', '')}` : `/选择道途 ${path.name.replace('道', '')}`
+  }));
+
+  for (const tab of pathTabs) {
+    md.addButton(`[${tab.label}]`, { data: tab.command });
+    md.addText(' ');
+  }
+  md.addNewline();
+  if (state.panel.allComplete) {
+    md.addBold('三道圆融');
+    md.addNewline();
+  }
+  if (state.effectsMaintenance) {
+    addSoulQuote(md, '维护中：战斗加成暂停，养成进度保留。');
+  }
+  if (!selected) {
+    addSoulQuote(md, '首次立道免费 · 切换冷却7天');
+    for (const path of state.paths) {
+      md.addNewline();
+      md.addBold(path.name);
+      md.addNewline();
+      addSoulQuote(md, path.nodes[0].description);
+      addSoulQuote(md, `圆融：${path.nodes[2].description}`);
+    }
+  } else {
+    const path = selectedPath!;
+    const next = path.nodes.find(node => !node.unlocked);
+
+    md.addBold(`${path.name} · ${path.stage}${path.active ? '（当前）' : ''}`);
+    if (!path.active) {
+      md.addText(' ');
+      md.addButton('[转修]', { data: `/切换道途 ${path.name.replace('道', '')}` });
+    }
+    md.addNewline();
+    md.addText(`熟练 ${path.proficiency}`);
+    md.addNewline();
+    for (const node of path.nodes) {
+      md.addNewline();
+      md.addBold(`${node.unlocked ? '✓' : '○'} ${node.name}`);
+      if (node.canAdvance && node.key === next?.key) {
+        md.addText(' ');
+        md.addButton('[道途突破]', { data: '/道途突破' });
+      }
+      md.addNewline();
+      addSoulQuote(md, node.description);
+      if (!node.unlocked) {
+        addSoulQuote(md, node.requirementText);
+      }
+    }
+    md.addNewline();
+    if (state.panel.switchCooldownActive && state.pathSwitchAvailableAt) {
+      addSoulQuote(md, `转修冷却至 ${new Date(state.pathSwitchAvailableAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })}`);
+    }
+    addSoulQuote(md, '感悟、熟练不扣除；仅当前道途生效。');
+  }
+  const footer: GuiFooter = [
+    { label: '元婴神魂', command: '/元婴神魂' },
+    { label: '道途印证', command: '/道途印证' }
+  ];
+
+  await message.send(sendSoulGui(e, '元婴道途', md, footer));
+});

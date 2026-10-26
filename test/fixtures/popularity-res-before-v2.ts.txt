@@ -1,0 +1,87 @@
+import { rankingView, rankingFooter } from '@src/response/leaderboard/view';
+import { useMessage } from '@src/utils/useMessage';
+import App from '@src/response-apps/leaderboard/popularity/app';
+import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const msg = e.MessageText || '';
+  const result = await App({ bid, uid: e.uid as number });
+
+  if (result.code === 'LOAD_FAILED') {
+    const md = Format.createMarkdown();
+
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '人气排行榜', content: md }));
+
+    return;
+  }
+
+  if (!result.data.canUseFifthLayerFeature) {
+    sendFifthLayerLockedPage({ bid, isPrivate, message, title: '人气排行榜', realmName: result.data.realmName });
+
+    return;
+  }
+
+  const match = msg.match(/^(!|！|\/|#|＃)?人气排行榜(?:\s*(\d+|榜首|附近|我的))?$/);
+
+  if (!match) {
+    return;
+  }
+
+  const pageRaw = match[2];
+  let page = pageRaw ? Number(pageRaw) : 1;
+
+  if (!Number.isFinite(page) || page < 1) {
+    page = 1;
+  }
+
+  const list = result.data.list;
+  const view = rankingView(msg, result.data.self !== null);
+  const total = list.length;
+  const totalPages = Math.max(1, Math.ceil(total / 5));
+
+  page = Math.min(view.page, totalPages);
+  const slice = view.nearby ? result.data.nearby : list.slice((page - 1) * 5, page * 5);
+
+  const md = Format.createMarkdown();
+
+  md.addText(result.data.self ? `我的排名：第${result.data.self.rank}名 · 人气${result.data.self.popularity}` : '尚未收到点赞，暂无个人排名');
+  md.addNewline();
+
+  if (slice.length === 0) {
+    md.addText('暂无人气排行数据');
+  } else {
+    for (const item of slice) {
+      const icon = item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : `【${item.rank}】`;
+
+      md.addBlockquote(
+        createQuoteMarkdown([`${icon} ${item.name}`, `ID:${item.uid} 人气：${item.popularity}`], [{ label: '查看', command: `/查看信息 ${item.uid}` }])
+      );
+    }
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '人气排行榜',
+      content: md,
+      footer: rankingFooter('/人气排行榜'),
+      nav:
+        !view.nearby && totalPages > 1
+          ? {
+              current: page,
+              total: totalPages,
+              count: total,
+              command: '/人气排行榜 {page}'
+            }
+          : undefined
+    })
+  );
+});

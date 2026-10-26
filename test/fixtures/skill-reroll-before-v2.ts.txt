@@ -1,0 +1,174 @@
+import { useMessage } from '@src/utils/useMessage';
+import { EMPTY_STRING, FIRST_ARG_INDEX } from '@src/constants';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { cancelApp, confirmApp, previewApp } from '@src/response-apps/skillBook/reroll/app';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const buildUsageMd = () => {
+  const md = Format.createMarkdown();
+
+  md.addText('❌ 参数错误');
+  md.addNewline();
+  md.addNewline();
+  md.addText('使用方法:');
+  md.addNewline();
+  md.addText('/换词 功法ID');
+  md.addNewline();
+  md.addText('/换词 功法ID 词条名');
+  md.addNewline();
+  md.addText('/确认换词 功法ID');
+  md.addNewline();
+  md.addText('/取消换词');
+
+  return md;
+};
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const text = (e.MessageText || EMPTY_STRING).trim();
+
+  if (/^(!|！|\/|#|＃)?取消换词$/.test(text)) {
+    const result = await cancelApp({ bid, uid, request: createBackendRequestContext(e) });
+    const md = Format.createMarkdown();
+
+    md.addText(result.success ? result.message : `❌ ${result.message}`);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '功法换词', content: md }));
+
+    return;
+  }
+
+  const confirmMatch = text.match(/^(!|！|\/|#|＃)?确认换词\s+(\d+)$/);
+
+  if (confirmMatch) {
+    const skillBookId = Number(confirmMatch[2]);
+    const result = await confirmApp({ bid, uid, skillBookId, request: createBackendRequestContext(e) });
+    const md = Format.createMarkdown();
+
+    md.addText(result.success ? result.message : `❌ ${result.message}`);
+    if (result.success && result.pending) {
+      md.addNewline();
+      md.addNewline();
+      md.addText(`功法：【${result.pending.skillBookName}】【${result.pending.gradeName}】【${result.pending.realmName}】`);
+      md.addNewline();
+      md.addText(`已替换：${result.pending.sourceLabel} -> ${result.pending.targetLabel}`);
+    }
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '功法换词',
+        content: md,
+        footer: result.success ? [{ label: '查看功法', command: `/查看功法 ${skillBookId}` }] : undefined
+      })
+    );
+
+    return;
+  }
+
+  const rerollText = text.replace(/^(!|！|\/|#|＃)?换词\s*/, '').trim();
+  const args = rerollText ? rerollText.split(/\s+/) : [];
+  const skillBookIdStr = args[FIRST_ARG_INDEX];
+
+  if (!skillBookIdStr) {
+    const md = buildUsageMd();
+
+    void message.send(FormatGui({ isPrivate, bid, title: '功法换词', content: md }));
+
+    return;
+  }
+
+  const skillBookId = Number(skillBookIdStr);
+
+  if (!Number.isFinite(skillBookId) || skillBookId <= 0) {
+    const md = buildUsageMd();
+
+    void message.send(FormatGui({ isPrivate, bid, title: '功法换词', content: md }));
+
+    return;
+  }
+
+  const attrLabel = args.slice(1).join('').trim() || undefined;
+  const result = await previewApp({ bid, uid, skillBookId, attrLabel, request: createBackendRequestContext(e) });
+  const md = Format.createMarkdown();
+
+  if (!result.success) {
+    md.addText(`❌ ${result.message}`);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '功法换词', content: md }));
+
+    return;
+  }
+
+  if (result.mode === 'list') {
+    md.addBold('换词');
+    md.addNewline();
+    md.addText(`功法：【${result.skillBook.name}】【${result.skillBook.grade}】【${result.skillBook.realm}】`);
+    md.addNewline();
+    md.addText(`当前持有：换词符 ${result.ownedCount} 张`);
+    md.addNewline();
+    md.addNewline();
+    md.addText('可替换词条');
+    md.addNewline();
+
+    for (const attr of result.availableAttrs) {
+      md.addBlockquote(
+        addOptions(Format.createMarkdown().addText(`${attr.label}：${attr.currentText} / 上限 ${attr.maxText}`), [
+          { label: attr.label, command: `/换词 ${skillBookId} ${attr.label}` }
+        ])
+      );
+
+      md.addNewline();
+    }
+
+    md.addNewline();
+    md.addBlockquote(Format.createMarkdown().addText('目标词条优先从当前为0的词条中抽取，已激活词条概率较低'));
+
+    void message.send(FormatGui({ isPrivate, bid, title: '功法换词', content: md }));
+
+    return;
+  }
+
+  const pending = result.pending;
+
+  md.addBold('换词预览');
+  md.addNewline();
+  md.addText(`功法：【${pending.skillBookName}】【${pending.gradeName}】【${pending.realmName}】`);
+  md.addNewline();
+  md.addText('消耗：换词符×1（取消不返还）');
+  md.addNewline();
+  md.addNewline();
+  md.addText(`替换词条：${pending.sourceLabel} -> ${pending.targetLabel}`);
+  md.addNewline();
+  md.addText(`目标池：${pending.targetPool === 'zero' ? '未激活词条池' : '已激活词条池'}`);
+  md.addNewline();
+  if (pending.targetWasActive) {
+    md.addBlockquote(Format.createMarkdown().addText('注意：目标词条当前已存在，确认后已激活词条数量会减少1条'));
+  }
+  md.addNewline();
+  md.addText(`替换前：${pending.sourceLabel} ${pending.sourceCurrentText} / 上限 ${pending.sourceMaxText}`);
+  md.addNewline();
+  md.addText(`替换后：${pending.targetLabel} ${pending.targetCurrentText} / 上限 ${pending.targetMaxText}`);
+  md.addNewline();
+  md.addNewline();
+  md.addText(`确认指令：/确认换词 ${skillBookId}`);
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '功法换词',
+      content: md,
+      footer: [
+        { label: '确认', command: `/确认换词 ${skillBookId}` },
+        { label: '取消', command: '/取消换词' }
+      ]
+    })
+  );
+});

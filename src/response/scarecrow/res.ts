@@ -1,0 +1,103 @@
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 稻草人伤害测试
+ * 指令：挑战稻草人 [回合数]
+ */
+
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { parseBackendScarecrow } from '@src/api/bot/scarecrow';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse, useEvent } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  // 解析指令参数
+  const messageText = e.MessageText || '';
+  const match = messageText.match(/^(?:!|！|\/|#|＃)?挑战稻草人(?:\s+(\d+))?$/);
+
+  // Forward invalid arguments too; the same backend request rejects them
+  // after task/admission handling, without accidentally running a default battle.
+  const roundsText = match ? (match[1] ?? null) : messageText.replace(/^(?:!|！|\/|#|＃)?挑战稻草人/, '').trim() || null;
+
+  const [, next] = useEvent();
+  const sendFailure = async (text: string) => {
+    await message.send(FormatGui({ isPrivate, bid, title: '', content: Format.createMarkdown().addText(text) }));
+  };
+  let result;
+
+  try {
+    result = await runRobotBusiness(e, 'scarecrow.challenge', { roundsText }, parseBackendScarecrow, next, async reply => {
+      await sendFailure(reply.text);
+    });
+  } catch (error) {
+    await sendFailure(error instanceof Error ? error.message : '稻草人测试失败');
+
+    return;
+  }
+  if (result.handled) {
+    return;
+  }
+
+  // 格式化伤害统计摘要
+  const { summary, logId, rounds } = result.data;
+  const md = Format.createMarkdown();
+
+  md.addBold('稻草人伤害测试');
+  md.addNewline();
+  md.addText(`测试回合：${rounds} | 总伤害：${summary.totalDamage.toLocaleString()}`);
+  md.addNewline();
+  md.addNewline();
+
+  // 技能统计
+  md.addBold('技能统计');
+  md.addNewline();
+
+  for (const skill of summary.skills) {
+    md.addText(`${skill.skillName}：${skill.count}次 / ${skill.totalDamage.toLocaleString()}伤害 (${skill.damageShareText}%)`);
+    md.addNewline();
+  }
+
+  // Buff 伤害（仅当存在时显示）
+  if (summary.buffDamage > 0) {
+    md.addNewline();
+    md.addBold(`Buff伤害：${summary.buffDamage.toLocaleString()}`);
+    md.addNewline();
+    md.addText(`持续伤害(DOT)：${summary.buffDamage.toLocaleString()}伤害 (${summary.buffDamageShareText}%)`);
+    md.addNewline();
+  }
+
+  // 暴击统计
+  md.addNewline();
+  md.addBold('暴击统计');
+  md.addNewline();
+
+  md.addText(`暴击次数：${summary.critCount} / 攻击${summary.totalSkillAttacks}次 / 暴击率：${summary.critRateText}%`);
+  md.addNewline();
+
+  if (summary.maxSingleDamage > 0) {
+    md.addText(`最大单次伤害：${summary.maxSingleDamage.toLocaleString()}（回合${summary.maxSingleDamageRound} ${summary.maxSingleDamageSkill}）`);
+  }
+
+  // 双平台发送
+
+  void message.send(
+    await BattleFormatGui(
+      {
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: [
+          { label: '文字记录', command: `/查看战斗过程 ${logId}` },
+          { label: '再次挑战', command: '/挑战稻草人' }
+        ]
+      },
+      [{ id: logId }]
+    )
+  );
+});

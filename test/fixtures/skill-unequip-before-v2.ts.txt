@@ -1,0 +1,82 @@
+import { useMessage } from '@src/utils/useMessage';
+import { SKILL_TYPE_MAP } from '@src/constants';
+import App from '@src/response-apps/skillBook/unequip/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { Format, onResponse } from 'alemonjs';
+
+/**
+ * 创建换下功法指令处理器
+ * @param skillTypeName 技能类型名称（战技、被动技、神通）
+ */
+const createUnequipHandler = (skillTypeName: string) => {
+  return onResponse(selects, async e => {
+    const [message] = useMessage();
+    const bid = e?.UserId;
+    const isPrivate = e.isPrivate ?? false;
+
+    const uid = e.uid as number;
+
+    // 调用数据层
+    const result = await App({ messageText: e.MessageText, bid, uid, skillTypeName, request: createBackendRequestContext(e) });
+
+    switch (result.code) {
+      case 'FAILED': {
+        const md = Format.createMarkdown();
+
+        const displayMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, createBackendRequestContext(e));
+
+        md.addText('❌ 换下失败');
+        md.addNewline();
+        md.addNewline();
+        md.addText(displayMsg);
+
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+        return;
+      }
+
+      case 'LOAD_FAILED': {
+        const md = Format.createMarkdown();
+
+        md.addText(result.data.message);
+
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+        return;
+      }
+
+      case 'OK': {
+        const { result: unequipResult } = result.data;
+
+        // 构建成功消息
+        const successMessage = [
+          '✅ 换下成功',
+          '',
+          `【${unequipResult.skillBook?.name}】`,
+          `类型: ${unequipResult.skillBook?.skillType}`,
+          '',
+          '💡可通过 /我的功法 查看功法状态'
+        ].join('\n');
+
+        const md = Format.createMarkdown();
+
+        md.addText(successMessage);
+
+        md.addNewline();
+
+        void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '查看我的功法', command: '/我的功法' }] }));
+      }
+    }
+  });
+};
+
+// 导出三种类型的换下处理器
+export const unequipBattleSkill = createUnequipHandler(SKILL_TYPE_MAP['战技']);
+export const unequipPassiveSkill = createUnequipHandler(SKILL_TYPE_MAP['被动技']);
+export const unequipMysticSkill = createUnequipHandler(SKILL_TYPE_MAP['神通']);
+
+// 默认导出战技换下处理器
+export default unequipBattleSkill;

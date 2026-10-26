@@ -1,0 +1,35 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendSoulPathComparison } from '@src/api/bot/battle-attributes';
+import { getBackendRealmAccess } from '@src/api/bot/realm-access-queries';
+import { selects } from '@src/response/config';
+import { addSoulEffectChanges, addSoulQuote, sendSoulGui } from '@src/response/soulPath/shared';
+import { Format, logger, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const md = Format.createMarkdown();
+
+  try {
+    if (!e?.UserId || !e.uid || !(await getBackendRealmAccess(e.UserId)).canUseSoulPath) {
+      md.addText('元婴及以上方可进行道途印证。');
+      await message.send(sendSoulGui(e, '道途印证', md));
+
+      return;
+    }
+    const { changes, emptyMessage, quote } = await getBackendSoulPathComparison(e?.UserId, e.uid as number);
+
+    md.addBold('道途加成');
+    md.addNewline();
+    addSoulEffectChanges(md, changes, emptyMessage);
+    addSoulQuote(md, quote);
+  } catch (error) {
+    logger.error('[道途印证] 属性计算失败', error);
+    md.addText('属性暂时无法计算，请稍后重试。');
+  }
+  await message.send(
+    sendSoulGui(e, '道途印证', md, [
+      { label: '返回道途', command: '/元婴道途' },
+      { label: '本命物', command: '/我的本命物' }
+    ])
+  );
+});

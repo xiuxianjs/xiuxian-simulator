@@ -1,0 +1,160 @@
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 打劫
+ * 指令：/打劫 UID 或 /打劫 @目标
+ *
+ * 消耗：15 元力/次
+ * 每日上限：5 次
+ * 胜利：从被劫者扣除灵石×100 + 灵晶×10，转移给打劫者 + 煞气+1
+ * 失败：无奖励
+ */
+
+import App from '@src/response-apps/robbery/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { resolveTargetUid } from '@src/utils/targetUid';
+import { Format, onResponse, useMention } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const [mention] = useMention();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const targetUid = await resolveTargetUid(e.MessageText, mention);
+
+    if (!targetUid || targetUid <= 0) {
+      const md = Format.createMarkdown();
+
+      md.addText('请正确输入指令，示例：/打劫 UID 或 /打劫 @目标');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const appResult = await App({ bid, uid, targetUid, request: createBackendRequestContext(e) });
+
+    if (appResult.code !== 'OK') {
+      const md = Format.createMarkdown();
+
+      md.addText(appResult.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const result = appResult.data;
+    // 战斗完成，展示结果
+    const md = Format.createMarkdown();
+    const br = result.battleView;
+    const sideACount = br.finalState.sideA.length;
+    const sideBCount = br.finalState.sideB.length;
+
+    md.addText(`目标：${result.targetName}`);
+    md.addNewline();
+    md.addText(`胜负：${result.winner === 'A' ? '✅ 打劫成功' : '❌ 打劫失败'}`);
+    md.addNewline();
+    md.addBlockquote(
+      Format.createMarkdown()
+        .addText(`战斗类型：${sideACount}v${sideBCount},回合数：${br.totalRounds}`)
+        .addNewline()
+        .addText(`消耗元力：${result.qiCost},今日剩余：${result.remaining}/${result.dailyMax}`)
+    );
+
+    if (result.winner === 'A') {
+      md.addNewline();
+      const loot: string[] = [];
+
+      if (result.stoneReward) {
+        loot.push(`灵石+${result.stoneReward}`);
+      }
+      if (result.crystalReward) {
+        loot.push(`灵晶+${result.crystalReward}`);
+      }
+      md.addText(loot.length > 0 ? `💰 ${loot.join(',')}` : '💰 对方身无分文');
+      md.addNewline();
+      md.addText(`😈 煞气：+${result.shaQiChange}（当前${result.currentShaQi}）`);
+      md.addNewline();
+
+      if (result.bonusText) {
+        md.addBlockquote(Format.createMarkdown().addText(result.bonusText));
+      }
+
+      if (result.droppedItem) {
+        md.addText(`🎁 掉落：${result.droppedItem.name}×${result.droppedItem.quantity}（${result.droppedItem.category}）`);
+        md.addNewline();
+      }
+    }
+
+    // 无论胜败显示修为
+    if (result.experience && result.experience > 0) {
+      md.addText(`📖 获得修为：+${result.experience}`);
+      md.addNewline();
+    }
+
+    // 连败提示
+    if (result.losingStreakText) {
+      md.addText(result.losingStreakText);
+      md.addNewline();
+    }
+
+    // 底部按钮
+    md.addNewline();
+
+    void message.send(
+      await BattleFormatGui(
+        {
+          isPrivate,
+          bid,
+          title: '打劫',
+          content: md,
+          footer: [
+            { label: '文字记录', command: `/查看战斗过程 ${result.battleLogId}` },
+            { label: '打劫记录', command: '/打劫记录' },
+          ]
+        },
+        [{ id: result.battleLogId }]
+      )
+    );
+
+    // ── 群播报（纯MD，不@用户，不带按钮）──
+    if (!isPrivate && result.winner === 'A') {
+      const broadcastMd = Format.createMarkdown();
+      const lootParts: string[] = [];
+
+      if (result.stoneReward) {
+        lootParts.push(`灵石×${result.stoneReward}`);
+      }
+      if (result.crystalReward) {
+        lootParts.push(`灵晶×${result.crystalReward}`);
+      }
+      if (result.droppedItem) {
+        lootParts.push(`${result.droppedItem.name}×${result.droppedItem.quantity}`);
+      }
+      const lootText = lootParts.length > 0 ? lootParts.join('、') : '一无所获';
+
+      broadcastMd.addText(`⚔️ ${result.attackerName} 打劫了 ${result.targetName}，掠夺了${lootText}！`);
+      void message.send({
+        format: (() => {
+          const f = Format.create();
+
+          f.addMarkdown(broadcastMd);
+
+          return f;
+        })()
+      });
+    }
+  } catch {
+    const md = Format.createMarkdown();
+
+    md.addText('打劫失败，请稍后再试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

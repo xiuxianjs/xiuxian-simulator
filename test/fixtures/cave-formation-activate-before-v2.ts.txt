@@ -1,0 +1,60 @@
+import { useMessage } from '@src/utils/useMessage';
+import { activateBackendCaveFormation } from '@src/api/bot/cave-formation-actions';
+import { BackendAPIError } from '@src/api/bot/client';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+function activationMessage(error: unknown, keyword: string): string {
+  if (error instanceof BackendAPIError) {
+    if (error.code === 'NOT_FOUND' || error.code === 'CAVE_FORMATION_INVALID_KEYWORD') {
+      return '未找到可激活的阵盘，请输入阵盘名称，例如：/激活阵盘 隐息阵盘';
+    }
+    if (error.code === 'CAVE_FORMATION_INVALID_TEMPLATE') {
+      return `【${keyword}】不是可激活的阵盘。`;
+    }
+  }
+
+  return error instanceof Error && error.message ? error.message : '激活阵盘失败，请稍后重试';
+}
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const keyword = (e.MessageText || '').replace(/^(!|！|\/|#|＃)?激活阵盘\s*/, '').trim();
+
+  const md = Format.createMarkdown();
+
+  if (!keyword) {
+    md.addText('用法：/激活阵盘 阵盘名称');
+    md.addNewline();
+    md.addText('示例：/激活阵盘 隐息阵盘');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '激活阵盘', content: md, footer: [{ label: '洞府阵法', command: '/洞府阵法' }] }));
+
+    return;
+  }
+
+  const footer = [
+    { label: '洞府阵法', command: '/洞府阵法' },
+    { label: '万宝楼', command: '/商店 万宝楼' }
+  ];
+
+  try {
+    const result = await activateBackendCaveFormation(bid, e.uid as number, keyword, createBackendRequestContext(e));
+    const messageText =
+      result.outcome === 'refreshed'
+        ? `你重新布下【${result.formation.formationName}】，持续时间已刷新为 ${result.durationHours} 小时。`
+        : result.outcome === 'replaced'
+          ? `你以【${result.formation.formationName}】替换了同类阵法【${result.replacedFormationName}】，新阵持续 ${result.durationHours} 小时。`
+          : `你成功布下【${result.formation.formationName}】，持续 ${result.durationHours} 小时。`;
+
+    md.addText(messageText);
+    void message.send(FormatGui({ isPrivate, bid, title: '激活成功', content: md, footer }));
+  } catch (error) {
+    md.addText(activationMessage(error, keyword));
+    void message.send(FormatGui({ isPrivate, bid, title: '激活失败', content: md, footer }));
+  }
+});

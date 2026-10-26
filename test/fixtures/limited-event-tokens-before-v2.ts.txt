@@ -1,0 +1,61 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 限时活动 - 道具余额查看
+ * 指令：/活动道具
+ */
+import App from '@src/response-apps/limitedEvent/tokens/app';
+import { selects } from '@src/response/config';
+import { EVENT_FOOTER, EVENT_HEADER } from '@src/response/limitedEvent/nav';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const md = Format.createMarkdown();
+
+  const result = await App({ uid, bid });
+
+  if (result.code === 'LOAD_FAILED') {
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '活动道具', header: EVENT_HEADER, content: md }));
+
+    return;
+  }
+
+  const tokens = result.data.tokens;
+
+  if (!tokens.length) {
+    md.addText('当前没有进行中的限时活动');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '活动道具', header: EVENT_HEADER, content: md }));
+
+    return;
+  }
+
+  md.addText('🎒 活动道具余额');
+  md.addNewline();
+  md.addNewline();
+
+  for (const t of tokens) {
+    md.addText(`📌 ${t.eventTitle}`);
+    md.addNewline();
+    md.addBlockquote(
+      Format.createMarkdown().addText(`${t.paidTokenName}（充值获得）：${t.paidToken}`).addNewline().addText(`${t.freeTokenName}（任务获得）：${t.freeToken}`)
+    );
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '活动道具',
+      header: EVENT_HEADER,
+      content: md,
+      footer: EVENT_FOOTER
+    })
+  );
+});

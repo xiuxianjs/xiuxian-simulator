@@ -1,0 +1,89 @@
+import { rankingView, rankingFooter } from '@src/response/leaderboard/view';
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 主线排行榜
+ * 指令：/主线排行榜 [页码]
+ * 按历史累计最高🌟排名前50
+ */
+import App from '@src/response-apps/storyline/leaderboard/app';
+import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const currentUid = e.uid as number;
+  const msg = e.MessageText || '';
+  const match = msg.match(/^(!|！|\/|#|＃)?主线排行榜(?:\s*(\d+|榜首|附近|我的))?$/);
+
+  if (!match) {
+    return;
+  }
+
+  const pageRaw = match[2];
+  let page = pageRaw ? Number(pageRaw) : 1;
+
+  if (!Number.isFinite(page) || page < 1) {
+    page = 1;
+  }
+
+  const result = await App({ bid, uid: currentUid, page });
+
+  if (result.code === 'LOCKED') {
+    sendFifthLayerLockedPage({ bid, isPrivate, message, title: '主线排行榜', realmName: result.data.realmName });
+
+    return;
+  }
+
+  const md = Format.createMarkdown();
+
+  if (result.code !== 'OK') {
+    md.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '主线排行榜', content: md }));
+
+    return;
+  }
+
+  const view = rankingView(msg, result.data.self !== null);
+  const items = view.nearby ? result.data.nearby : result.data.items;
+
+  md.addText(result.data.self ? `我的排名：第${result.data.self.rank}名 · ${result.data.self.totalStars}🌟` : '尚无主线记录，完成主线挑战后参与排名');
+  md.addNewline();
+  if (items.length === 0) {
+    md.addText('暂无排行数据');
+  } else {
+    for (const item of items) {
+      const icon = item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : `【${item.rank}】`;
+
+      const btns: { label: string; command: string }[] = [{ label: '查看', command: `/查看信息 ${item.uid}` }];
+
+      if (currentUid && currentUid !== item.uid) {
+        btns.push({ label: '点赞', command: `/点赞人气 ${item.uid} storyline` });
+      }
+
+      md.addBlockquote(createQuoteMarkdown([`${icon} ${item.name}${item.uid === currentUid ? ' 👈我' : ''}`, `ID:${item.uid} 星数:${item.totalStars}`], btns));
+    }
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '主线排行榜',
+      content: md,
+      footer: rankingFooter('/主线排行榜'),
+      nav:
+        !view.nearby && result.data.totalPages > 1
+          ? {
+              current: result.data.page,
+              total: result.data.totalPages,
+              count: result.data.total,
+              command: '/主线排行榜 {page}'
+            }
+          : undefined
+    })
+  );
+});

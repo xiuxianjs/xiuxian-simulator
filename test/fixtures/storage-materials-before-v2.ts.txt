@@ -1,0 +1,148 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 材料分类处理器
+ * 路由:
+ *   /储物袋 材料 - 显示二级分类
+ *   /储物袋 材料 草药 - 显示草药列表
+ *   /储物袋 材料 草药 2 - 显示草药第2页
+ *   /储物袋 材料 经验 - 显示经验材料列表
+ *   /储物袋 材料 其它 - 显示其它材料列表
+ */
+
+import { DEFAULT_PAGE, EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL, FIRST_ARG_INDEX, MIN_PAGE, SECOND_ARG_INDEX } from '@src/constants';
+import { MATERIAL_SUBCATEGORIES, SUBCATEGORY_CODE_MAP } from '@src/constants/newStorage';
+import App from '@src/response-apps/storage/newBag/materials/app';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { createBackendRequestContext } from '@src/api';
+import { Format, logger, onResponse } from 'alemonjs';
+import { MATERIAL_SUB_TABS, renderSubTabs } from '../tabs';
+import { inventoryItemActions, inventoryPageActions } from '../capabilities';
+
+/**
+ * 解析命令参数
+ */
+const parseCommand = (msg: string): { subcategory: string | null; page: number } => {
+  // 移除命令前缀和"材料"
+  const args = msg.replace(/^(!|！|\/|#|＃)?(我的)?(储物袋|背包)\s+材料\s*/, EMPTY_STRING).trim();
+
+  if (!args) {
+    return { subcategory: null, page: DEFAULT_PAGE };
+  }
+
+  const parts = args.split(/\s+/);
+  let subcategory: string | null = null;
+  let page = DEFAULT_PAGE;
+
+  // 第一个参数可能是二级分类或页码
+  if (parts[FIRST_ARG_INDEX]) {
+    // 检查是否是已知的二级分类（支持中英文）
+    let subcategoryCode = parts[FIRST_ARG_INDEX];
+
+    // 如果输入是中文，转换为英文代码
+    if (SUBCATEGORY_CODE_MAP[subcategoryCode]) {
+      subcategoryCode = SUBCATEGORY_CODE_MAP[subcategoryCode];
+    }
+
+    if (MATERIAL_SUBCATEGORIES.includes(subcategoryCode)) {
+      subcategory = subcategoryCode;
+      // 第二个参数是页码
+      if (parts[SECOND_ARG_INDEX] && !isNaN(Number(parts[SECOND_ARG_INDEX]))) {
+        page = Math.max(MIN_PAGE, Number(parts[SECOND_ARG_INDEX]));
+      }
+    } else if (!isNaN(Number(parts[FIRST_ARG_INDEX]))) {
+      // 第一个参数是页码
+      page = Math.max(MIN_PAGE, Number(parts[FIRST_ARG_INDEX]));
+    }
+  }
+
+  return { subcategory, page };
+};
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const uid = e.uid as number;
+    const { subcategory, page } = parseCommand(e.MessageText ?? EMPTY_STRING);
+
+    const result = await App({ uid, subcategory, page, bid, request: createBackendRequestContext(e) });
+
+    if (result.code !== 'OK') {
+      throw new Error('查询材料失败，请稍后重试');
+    }
+
+    const activeSubcategory = result.data.activeSubcategory;
+
+    // 映射英文代码到中文名称
+    const subcategoryNameMap: Record<string, string> = {
+      herb: '草药',
+      exp: '经验材料',
+      other: '其它'
+    };
+
+    const subcategoryName = subcategoryNameMap[activeSubcategory] || activeSubcategory;
+
+    const md = Format.createMarkdown();
+
+    // 二级子类 tabs（内联 markdown）
+    renderSubTabs(md, MATERIAL_SUB_TABS);
+
+    // 如果总数为0，显示暂无物品
+    if (result.data.total === EMPTY_TOTAL) {
+      md.addText('该分类暂无物品');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    // 显示物品列表
+
+    // 格式化每个物品（使用物品ID作为编号）
+
+    result.data.items.forEach(item => {
+      const lockIcon = item.isLocked ? '🔒' : '';
+      const gradeName = item.grade?.name ?? '未知';
+      const realmName = item.realm?.name ?? '未知';
+
+      md.addBlockquote(
+        createQuoteMarkdown(
+          [` 【${item.id}】${lockIcon}${item.name} x${item.quantity}`, ` 品级: ${gradeName} | 境界: ${realmName}`],
+          inventoryItemActions(item)
+        )
+      );
+
+      md.addNewline();
+    });
+
+    // 操作按钮放入 bar
+    md.addNewline();
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        nav: {
+          current: result.data.page,
+          total: Math.ceil(result.data.total / result.data.pageSize),
+          command: `/储物袋 材料 ${subcategoryName} {page}`
+        },
+        footer: inventoryPageActions(result.data.capabilities, '材料', subcategoryName)
+      })
+    );
+  } catch (error) {
+    logger.error('材料分类处理失败:', error);
+    const md = Format.createMarkdown();
+
+    md.addText('查询材料失败，请稍后重试');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});
+
+export default response;

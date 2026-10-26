@@ -1,0 +1,56 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getFirstRechargeClaimData } from '@src/response-apps/recharge/firstRechargeClaim/app';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, logger, onResponse } from 'alemonjs';
+
+/**
+ * 礼包奖励领取指令
+ * 领取指定档位的礼包奖励
+ * 指令格式：/领取礼包奖励 1 或 /领取礼包奖励 6 或 /领取礼包奖励 30
+ */
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  try {
+    const result = await getFirstRechargeClaimData(uid, String(bid ?? ''), e.MessageText, createBackendRequestContext(e));
+    const md = Format.createMarkdown();
+
+    switch (result.code) {
+      case 'NO_MATCH':
+        md.addText('请指定要领取的档位金额，例如：领取礼包奖励 1');
+        break;
+      case 'INVALID_TIER':
+        md.addText(`无效的档位金额，有效档位：${result.validTiers.join('、')}元`);
+        break;
+      case 'FAILED': {
+        const failMsg = await withBackendRepeatDetection(bid, uid, '领取礼包奖励', result.error, createBackendRequestContext(e));
+
+        md.addText(failMsg);
+        break;
+      }
+      case 'SUCCESS':
+        md.addBold('【礼包奖励】');
+        md.addNewline();
+        md.addText(`解锁${result.tierYuan}元档奖励！`);
+        md.addNewline();
+        md.addText(`获得：${result.rewardText}`);
+        break;
+    }
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  } catch (error) {
+    logger.error('领取礼包奖励失败:', error);
+
+    const md = Format.createMarkdown();
+
+    md.addText('领取失败，请稍后再试。');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});

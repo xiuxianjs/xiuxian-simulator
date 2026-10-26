@@ -1,0 +1,782 @@
+[
+  {
+    "file": "activity-hub-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "activity-points-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "attribute-panel-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "battle-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "battle-templates-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "bind-email-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "books-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "bounty-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "bounty-publish-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "business-fallback-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-action-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-cultivate-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-formation-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-logs-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-nearby-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-panel-ux.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-plant-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-social-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-view-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "cave-visit-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "checkin-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-commands-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-cultivation-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-rewards-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "companion-shop-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-bets-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-member-add-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-reward-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "competition-team-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "daily-fortune-entry.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "demon-tower-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "demon-tower-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "demon-tower-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "dungeon-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "dungeon-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "dungeon-sweeps-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "email-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "email-change-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "email-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "encyclopedia-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "equipment-batch-decompose-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "equipment-decompose-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "equipment-equip-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "equipment-loadout-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "equipment-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "event-checkin-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "feedback-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "final-entries-business.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "first-recharge-claim-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "flymail-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "forge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "forge-routing.test.mjs",
+    "mode": "direct"
+  },
+  {
+    "file": "gift-codes-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "glossary-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "glossary-query-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "group-subscription-business-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-activity-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-application-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-auto-refresh-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-claims-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-content-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-content-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-daily-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-directory-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-history-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-kick-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-leadership-end-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-leave-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-membership-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-red-packet-send-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-red-packets-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-role-action-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-role-query-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-roster-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-settings-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-shop-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-storyline-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-storyline-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-training-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "guild-upgrade-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "leaderboard-display.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "leaderboard-menu-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "learned-books-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "legacy-archive.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "limited-event-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "limited-event-writes-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "lingzhi-guide-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "login-window-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "market-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "market-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "market-sell-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "master-decision-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "master-target-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "meditation-acceleration-entry.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "meditation-auto-boost-entry.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "meditation-error-feedback.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "membership-claim-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "meridian-phase-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "native-comeback-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "navigation-module-return.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "navigation-native-panel.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "navigation-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "newcomer-activity-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "newcomer-recharge-claim-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "normal-payment-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "notification-history-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "onboarding-followup.test.mjs",
+    "mode": "direct"
+  },
+  {
+    "file": "onboarding-runtime.test.mjs",
+    "mode": "direct"
+  },
+  {
+    "file": "other-leaderboards-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "peiyuan-cancel-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "personal-history-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "pk-management-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "pk-report-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "player-shop-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "player-shop-visit-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "profession-dashboard-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "profession-tools-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "profile-spirit-root-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "pvp-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "pvp-records-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "ranking-query-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "realm-overview-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "recharge-catalog-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "recharge-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "referral-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "referral-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "registration-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "robbery-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "route-validation-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "scarecrow-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "secret-realm-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "secret-realm-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "security-center-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "set-password-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "signin-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-batch-decompose-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-batch-learn-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-batch-upgrade-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-decompose-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-detail-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-learn-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-proficiency-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-reroll-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-reset-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-switch-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-unequip-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-visibility-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "skill-wudao-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-compare-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-confirm-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-grade-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-nurture-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-overview-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-path-state-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-preview-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-supply-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-unequip-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-upgrade-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-wash-decision-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "soul-wash-preview-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "spar-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "spirit-root-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-bag-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-equipment-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-lock-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-lootboxes-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-profession-tools-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-skill-books-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storage-soul-artifacts-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-all-chests-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-catalog-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-chapter-chests-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-ranking-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "storyline-sweep-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "task-actions-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "task-config-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "task-panel-business-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "task-panel-subscription-reminder.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "task-settings-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "tasks-continue-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "tasks-overview-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "team-application-cancel-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "team-match-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "tianjiao-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "verify-email-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "weekly-rebate-claim-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "world-boss-challenge-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "world-boss-claim-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "world-boss-queries-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
+    "file": "world-milestone-presentation.test.mjs",
+    "mode": "adapter"
+  }
+]

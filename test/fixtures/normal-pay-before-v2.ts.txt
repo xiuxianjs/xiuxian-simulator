@@ -1,0 +1,291 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 充值购买指令
+ * 选择套餐 → 生成支付二维码 → 轮询支付状态 → 超时5分钟取消
+ *
+ * 指令格式：/充值购买 <套餐ID>
+ */
+import { createBackendRequestContext } from '@src/api/bot/context';
+import PayQrCode from '@src/img/views/PayQrCode';
+import { cancelBackendSponsorPayment, getBackendNormalPaymentSettlement, getBackendSponsorPayment } from '@src/api/bot/sponsor-payment';
+import { getPayData } from '@src/response-apps/recharge/pay/app';
+import { selects } from '@src/response/config';
+import { renderCachedImage } from '@src/utils/imageRender';
+import type { GuiButton } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+/** 轮询间隔（毫秒） */
+const POLL_INTERVAL_MS = 10 * 1000;
+
+/** 超时时间（毫秒） */
+const TIMEOUT_MS = 5 * 60 * 1000;
+
+const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeof getBackendNormalPaymentSettlement>>) => {
+  const successMd = Format.createMarkdown();
+
+  successMd.addText('✅ 充值成功！');
+  successMd.addNewline();
+  successMd.addNewline();
+
+  if (!payResult) {
+    successMd.addText('订单已由系统处理完成，请优先查看邮箱、背包或权益状态。');
+
+    return successMd;
+  }
+
+  const packageMilk = payResult.packageRewards?.spiritMilk ?? 0;
+  const bonusMilk = payResult.bonusSpiritMilk;
+  const totalMilk = packageMilk + bonusMilk;
+  const hasPackageRewards = Boolean(
+    payResult.packageRewards &&
+    (payResult.packageRewards.spiritMilk > 0 ||
+      payResult.packageRewards.spiritStone > 0 ||
+      payResult.packageRewards.spiritCrystal > 0 ||
+      payResult.packageRewards.items.length > 0 ||
+      payResult.packageRewards.equipments.length > 0 ||
+      payResult.packageRewards.skills.length > 0)
+  );
+  const hasDetail =
+    totalMilk > 0 ||
+    hasPackageRewards ||
+    Boolean(payResult.vipUpgrade) ||
+    payResult.newcomerDayGranted !== null ||
+    payResult.monthCardExtended ||
+    payResult.seclusionPassActivated;
+
+  if (!hasDetail) {
+    successMd.addText('订单已由系统处理完成，请优先查看邮箱、背包或权益状态。');
+
+    return successMd;
+  }
+
+  if (totalMilk > 0) {
+    successMd.addText(`获得道晶：${totalMilk}`);
+
+    if (bonusMilk > 0) {
+      successMd.addText(`（赠送 ${packageMilk} + 双倍奖励 ${bonusMilk}）`);
+    }
+
+    successMd.addNewline();
+  }
+
+  if (payResult.vipUpgrade) {
+    successMd.addText(`🎉 VIP升级：${payResult.vipUpgrade.oldLevel} → ${payResult.vipUpgrade.newLevel}`);
+    successMd.addNewline();
+  }
+
+  if (payResult.newcomerDayGranted) {
+    successMd.addText(`🎁 新人返利第${payResult.newcomerDayGranted}天奖励已发放`);
+    successMd.addNewline();
+  }
+
+  if (payResult.monthCardExtended) {
+    successMd.addText('📅 月卡已激活/续期');
+    successMd.addNewline();
+  }
+
+  if (payResult.seclusionPassActivated) {
+    successMd.addText('🧘 闭关卡已激活/续期');
+    successMd.addNewline();
+  }
+
+  if (payResult.packageRewards) {
+    const pr = payResult.packageRewards;
+
+    if (pr.spiritStone > 0) {
+      successMd.addText(`💎 灵石 +${pr.spiritStone}`);
+      successMd.addNewline();
+    }
+
+    if (pr.spiritCrystal > 0) {
+      successMd.addText(`💠 灵晶 +${pr.spiritCrystal}`);
+      successMd.addNewline();
+    }
+
+    if (pr.items.length > 0) {
+      successMd.addText(`📦 物品 ×${pr.items.length}种`);
+      successMd.addNewline();
+    }
+
+    if (pr.skills.length > 0) {
+      successMd.addText(`📖 功法 ×${pr.skills.length}种`);
+      successMd.addNewline();
+    }
+  }
+
+  return successMd;
+};
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    const result = await getPayData(e.MessageText, isPrivate, String(e.UserId), createBackendRequestContext(e));
+
+    switch (result.code) {
+      case 'PRIVATE_ONLY':
+        {
+          void message.send(
+            FormatGui({
+              isPrivate,
+              bid,
+              title: '充值购买',
+              content: Format.createMarkdown().addText('⚠️ 充值购买仅支持私聊操作')
+            })
+          );
+        }
+
+        return;
+
+      case 'NO_MATCH_LIST_EMPTY':
+        {
+          void message.send(
+            FormatGui({
+              isPrivate,
+              bid,
+              title: '充值购买',
+              content: Format.createMarkdown().addText('暂无可购买的充值套餐')
+            })
+          );
+        }
+
+        return;
+
+      case 'NO_MATCH_LIST': {
+        const md = Format.createMarkdown();
+
+        md.addText('请选择充值套餐：');
+        md.addNewline();
+        md.addNewline();
+        md.addText('首充双倍: 仅普通充值生效，且只对有双倍档位的套餐显示标记。');
+        md.addNewline();
+        md.addText('⚠️⚠️⚠️限时活动临时套餐请使用 /活动充值；普通充值不会触发限时活动规则。');
+        md.addNewline();
+        md.addNewline();
+
+        const footer: GuiButton[] = [];
+
+        md.addNewline();
+
+        for (const pkg of result.packages) {
+          const rewardText = pkg.grantSpiritMilk > 0 ? `，赠送${pkg.grantSpiritMilk}道晶` : '';
+          const doubleText = pkg.isAvailableDouble ? '，首充双倍' : pkg.isClaimedDouble ? '' : '';
+
+          md.addText(`${pkg.id}、${pkg.name}（${pkg.yuan}元${rewardText}${doubleText}）`);
+          md.addNewline();
+          footer.push({ label: `${pkg.yuan}元`, command: `/充值购买 ${pkg.id}` });
+        }
+
+        void message.send(FormatGui({ isPrivate, bid, title: '充值购买', content: md, footer }));
+
+        return;
+      }
+
+      case 'ORDER_FAILED':
+        {
+          void message.send(
+            FormatGui({
+              isPrivate,
+              bid,
+              title: '充值购买',
+              content: Format.createMarkdown().addText(`❌ ${result.error}`)
+            })
+          );
+        }
+
+        return;
+
+      case 'ORDER_CREATED': {
+        const { uid, orderNo, qrCodeBuffer, packageName, yuan } = result;
+
+        // 将二维码 Buffer 转为 base64 data URL
+        const qrCodeDataUrl = `data:image/png;base64,${qrCodeBuffer.toString('base64')}`;
+
+        // 渲染支付卡片组件
+        const payImg = await renderCachedImage(PayQrCode, { qrCodeDataUrl, packageName, yuan, orderNo, theme: 'default' }, 'panel:recharge:pay');
+
+        if (!payImg || typeof payImg === 'boolean') {
+          void message.send(
+            FormatGui({
+              isPrivate,
+              bid,
+              title: '充值购买',
+              content: Format.createMarkdown().addText('⚠️ 支付页面渲染失败，请稍后重试')
+            })
+          );
+
+          return;
+        }
+
+        const payFormat = Format.create();
+
+        payFormat.addImage(payImg);
+        void message.send({ format: payFormat });
+
+        // 启动轮询检查支付状态
+        let pollCount = 0;
+        const maxPolls = Math.ceil(TIMEOUT_MS / POLL_INTERVAL_MS);
+        const processing = false;
+
+        const pollTimer = setInterval(() => {
+          pollCount++;
+
+          void (async () => {
+            if (processing) {
+              return;
+            }
+
+            try {
+              const status = (await getBackendSponsorPayment(String(e.UserId), uid, orderNo)).status;
+
+              if (status === 'SUCCESS') {
+                clearInterval(pollTimer);
+                const receipt = await getBackendNormalPaymentSettlement(String(e.UserId), uid, orderNo);
+
+                void message.send(FormatGui({ isPrivate, bid, title: '充值成功', content: buildRechargeSuccessContent(receipt) }));
+
+                return;
+              }
+
+              if (status !== 'PENDING' && status !== 'PAID') {
+                clearInterval(pollTimer);
+
+                return;
+              }
+
+              if (pollCount >= maxPolls) {
+                clearInterval(pollTimer);
+
+                await cancelBackendSponsorPayment(String(e.UserId), uid, orderNo, createBackendRequestContext(e));
+
+                void message.send(
+                  FormatGui({
+                    isPrivate,
+                    bid,
+                    title: '充值购买',
+                    content: Format.createMarkdown().addText('⏰ 支付超时（5分钟），订单已取消。\n如已支付请联系客服处理。')
+                  })
+                );
+              }
+            } catch (err) {
+              logger.error(`[Pay] 轮询支付状态异常: orderNo=${orderNo}`, err);
+            }
+          })();
+        }, POLL_INTERVAL_MS);
+      }
+    }
+  } catch (err) {
+    logger.error('[Pay] 充值购买异常', err);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '充值购买',
+        content: Format.createMarkdown().addText('⚠️ 充值购买异常，请稍后重试')
+      })
+    );
+  }
+});

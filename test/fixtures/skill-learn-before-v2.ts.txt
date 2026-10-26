@@ -1,0 +1,222 @@
+import { useMessage } from '@src/utils/useMessage';
+import { CONFIRM_KEYWORD, EMPTY_STRING, FIRST_ARG_INDEX, MIN_SKILL_BOOK_ID, SECOND_ARG_INDEX } from '@src/constants';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/skillBook/learn/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { withBackendRepeatDetection } from '@src/utils/backendRepeatDetector';
+import { Format, onResponse } from 'alemonjs';
+
+/**
+ * 学习功法指令处理器
+ * 指令格式: /学习功法 {物品ID}
+ */
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  const uid = e.uid as number;
+
+  // 解析命令参数（移除命令前缀）
+  const messageText = (e.MessageText || EMPTY_STRING).replace(/^(!|！|\/|#|＃)?学习功法\s*/, EMPTY_STRING).trim();
+  const args = messageText ? messageText.split(/\s+/) : [];
+  const skillBookIdStr = args[FIRST_ARG_INDEX];
+  const confirmArg = args[SECOND_ARG_INDEX];
+
+  // 验证物品ID参数
+  if (!skillBookIdStr || skillBookIdStr === EMPTY_STRING) {
+    const md = Format.createMarkdown();
+
+    md.addText('❌ 参数错误');
+    md.addNewline();
+    md.addNewline();
+    md.addText('使用方法:');
+    md.addNewline();
+    md.addText('/学习功法 [物品ID]');
+    md.addNewline();
+    md.addNewline();
+    md.addText('示例:');
+    md.addNewline();
+    md.addText('/学习功法 123   ← 学习储物袋中ID为123的功法');
+    md.addNewline();
+    md.addNewline();
+    md.addText('💡物品ID为储物袋中功法的编号');
+    md.addNewline();
+    md.addText('💡功法获得后可直接查看词条和学习');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  const skillBookId = parseInt(skillBookIdStr, 10);
+
+  if (isNaN(skillBookId) || skillBookId < MIN_SKILL_BOOK_ID) {
+    const md = Format.createMarkdown();
+
+    md.addText('❌ 参数错误');
+    md.addNewline();
+    md.addNewline();
+    md.addText('物品ID必须是大于0的数字');
+    md.addNewline();
+    md.addNewline();
+    md.addText('示例:');
+    md.addNewline();
+    md.addText('/学习功法 123   ← 学习储物袋中ID为123的功法');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+    return;
+  }
+
+  // 调用数据层
+  const request = createBackendRequestContext(e);
+  const forceReplace = confirmArg === CONFIRM_KEYWORD;
+  const result = await App({ messageText: e.MessageText, bid, uid, skillBookId, forceReplace, request });
+
+  switch (result.code) {
+    case 'NO_SKILL_BOOKS': {
+      const md = Format.createMarkdown();
+
+      md.addText('储物袋中没有功法');
+      md.addNewline();
+
+      void message.send(FormatGui({ isPrivate, bid, title: '❌', content: md, footer: [{ label: '储物袋', command: '/我的储物袋 功法' }] }));
+
+      return;
+    }
+
+    case 'NOT_FOUND': {
+      const md = Format.createMarkdown();
+
+      md.addText('❌ 物品ID错误');
+      md.addNewline();
+      md.addNewline();
+      md.addText(result.data.message);
+      md.addNewline();
+      md.addNewline();
+      md.addText('💡请使用 /我的储物袋 功法 查看功法ID');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'UNIDENTIFIED': {
+      const md = Format.createMarkdown();
+
+      md.addText('❌ 学习失败');
+      md.addNewline();
+      md.addNewline();
+      md.addText(result.data.message);
+      md.addNewline();
+      md.addNewline();
+      md.addText('💡请重新打开功法背包，再尝试学习');
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'LOCKED': {
+      const md = Format.createMarkdown();
+
+      md.addText('❌ 学习失败');
+      md.addNewline();
+      md.addNewline();
+      md.addText(result.data.message);
+      md.addNewline();
+      md.addNewline();
+      md.addText(`💡请先使用 /解锁 功法 ${result.data.skillBookId} 解锁后再学习`);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'NEED_CONFIRM': {
+      const md = Format.createMarkdown();
+
+      md.addText(`⚠️ ${result.data.message}`);
+
+      md.addNewline();
+
+      void message.send(
+        FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '确认替换', command: `/学习功法 ${result.data.actualSkillBookId} 确认` }] })
+      );
+
+      return;
+    }
+
+    case 'FAILED': {
+      const md = Format.createMarkdown();
+
+      const displayMsg = await withBackendRepeatDetection(bid, uid, e.MessageText, result.data.message, request);
+
+      md.addText('❌ 学习失败');
+      md.addNewline();
+      md.addNewline();
+      md.addText(displayMsg);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'LOAD_FAILED': {
+      const md = Format.createMarkdown();
+
+      md.addText(result.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'OK': {
+      const { result: learnResult } = result.data;
+
+      // 构建成功消息
+      let successMessage = `✅ 学习成功
+
+【${learnResult.skillBook?.name}】
+类型: ${learnResult.skillBook?.skillType}`;
+
+      // 如果是替换，添加替换提示和返还残页信息
+      if (learnResult.replaced && learnResult.refundInfo) {
+        successMessage += '\n\n已替换旧功法';
+
+        // 返还详情
+        const refundInfo = learnResult.refundInfo;
+
+        successMessage += `\n熟练度继承: ${refundInfo.transferredProficiency}%`;
+
+        successMessage += `\n\n📦 折算经验: ${refundInfo.totalExp}`;
+        successMessage += `\n├─ 基础返还: ${refundInfo.baseExp}`;
+
+        if (refundInfo.upgradeCount > 0) {
+          successMessage += `\n└─ 升级经验: ${refundInfo.upgradeExp} (${refundInfo.upgradeCount}次升级)`;
+        }
+
+        // 返还的功法残页
+        if (refundInfo.items && refundInfo.items.length > 0) {
+          successMessage += '\n\n获得功法残页:';
+          refundInfo.items.forEach((item: any) => {
+            successMessage += `\n  • ${item.name} x${item.quantity} (${item.expValue}经验/个)`;
+          });
+        }
+      }
+
+      const md = Format.createMarkdown();
+
+      md.addText(successMessage);
+
+      md.addNewline();
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '我的功法', command: '/我的功法' }] }));
+    }
+  }
+});
+
+export default response;

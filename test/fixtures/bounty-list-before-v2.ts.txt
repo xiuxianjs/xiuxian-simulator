@@ -1,0 +1,93 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 悬赏榜
+ * 指令：/悬赏榜
+ *
+ * 展示当前活跃的悬赏列表
+ */
+
+import App from '@src/response-apps/bounty/list/app';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+const bountyHeader = [
+  { label: '悬赏榜', command: '/悬赏榜' },
+  { label: '杀神榜', command: '/杀神榜' }
+];
+
+const bountyFooter = [
+  { label: '记录', command: '/打劫记录' },
+  { label: '悬赏', command: '/悬赏' },
+  { label: '仇人', command: '/仇人' },
+  { label: '煞气', command: '/煞气' },
+  { label: '金盆', command: '/消耗 金盆 1' }
+];
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const text = (e.MessageText ?? '').trim();
+
+  const pageMatch = text.match(/(?:悬赏榜)\s*(\d+)?$/);
+  const page = pageMatch?.[1] ? parseInt(pageMatch[1], 10) : 1;
+
+  const result = await App({ page, bid });
+  const { list, total, totalPages } = result.data;
+
+  const md = Format.createMarkdown();
+
+  if (list.length === 0) {
+    md.addText('当前没有进行中的悬赏');
+    md.addNewline();
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '悬赏榜',
+        content: md,
+        header: bountyHeader,
+        footer: bountyFooter
+      })
+    );
+
+    return;
+  }
+
+  for (const b of list) {
+    md.addNewline();
+    md.addBlockquote(
+      createQuoteMarkdown(
+        [
+          `${b.id} 目标：${b.targetName}(UID:${b.targetUid})`,
+          `赏金：${b.rewardPerCompletion}灵晶/人 · 剩余${b.remainingSlots}/${b.maxCompletions}人 · ${b.hoursLeft}h`
+        ],
+        [
+          { label: '查看', command: `/查看信息 ${b.targetUid}` },
+          { label: '接赏', command: `/接赏 ${b.id}` }
+        ]
+      )
+    );
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '悬赏榜',
+      content: md,
+      nav:
+        totalPages > 1
+          ? {
+              current: result.data.page,
+              total: totalPages,
+              count: total,
+              command: '/悬赏榜 {page}'
+            }
+          : undefined,
+      header: bountyHeader,
+      footer: bountyFooter
+    })
+  );
+});

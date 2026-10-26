@@ -1,0 +1,47 @@
+import { runRobotBusiness } from './robotBusiness';
+import { useMessage } from '@src/utils/useMessage';
+import imageURL from '@src/assets/images/guild.png';
+import { selects } from '@src/response/config';
+import { StaticFileBytesCache } from '@src/utils/staticFileBytes';
+import { measureTransportStage } from '@src/utils/transportTiming';
+import { Format, onResponse, useEvent } from 'alemonjs';
+
+const imageSource = /$file:/.test(imageURL) ? imageURL : `file://${imageURL}`;
+const imageBytes = new StaticFileBytesCache(imageSource.replace(/^file:\/\//, ''));
+
+export default onResponse(selects, async e => {
+  const [, next] = useEvent();
+  const result = await runRobotBusiness(
+    e,
+    'navigation.strategy',
+    {},
+    value => {
+      if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length) {
+        throw new Error('攻略响应不完整');
+      }
+
+      return value;
+    },
+    next
+  );
+
+  if (result.handled) {
+    return;
+  }
+  const [message] = useMessage();
+
+  const format = Format.create();
+  let image: string | Buffer = imageSource;
+
+  if (e.Platform === 'qq-bot' && (e.Target?.scope === 'group' || e.Target?.scope === 'c2c')) {
+    try {
+      image = await measureTransportStage('image.file_load', () => imageBytes.load(), e);
+    } catch {
+      // Keep the original sender's file/error handling when the asset cannot be prepared.
+    }
+  }
+
+  format.addImage(image);
+
+  void message.send({ format });
+});

@@ -1,0 +1,247 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 充值信息指令
+ * 展示所有充值套餐、货币说明、VIP 体系等信息
+ * 数据从 DB 读取，保证与后台配置一致
+ */
+import { getRechargeInfoData } from '@src/response-apps/recharge/info/app';
+import { getBackendRealmAccess } from '@src/api/bot/realm-access-queries';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  try {
+    const result = await getRechargeInfoData(uid, isPrivate, bid);
+
+    if (result.code === 'PRIVATE_ONLY') {
+      void message.send(
+        FormatGui({
+          isPrivate,
+          bid,
+          title: '充值',
+          content: Format.createMarkdown().addText('⚠️ 为了保护您的账号安全，活动充值相关信息仅在私聊中展示，请私聊发送指令查看')
+        })
+      );
+
+      return;
+    }
+
+    if (result.code === 'FAILED') {
+      void message.send(
+        FormatGui({
+          isPrivate,
+          bid,
+          title: '充值',
+          content: Format.createMarkdown().addText('⚠️ 读取充值信息失败，请稍后重试')
+        })
+      );
+
+      return;
+    }
+
+    const md = Format.createMarkdown();
+
+    // ── 普通充值 ──
+    md.addBold('🧴 普通充值');
+    md.addNewline();
+    md.addBlockquote(Format.createMarkdown().addText('普通充值仅走常规充值规则，不触发限时活动临时套餐逻辑。'));
+
+    if (result.normalPackages.length > 0) {
+      for (const pkg of result.normalPackages) {
+        md.addBlockquote(
+          addOptions(Format.createMarkdown().addText(`${pkg.name} (${pkg.yuan}¥${pkg.doubleText}${pkg.limitText}) `), [
+            { label: '购买', command: `/充值购买 ${pkg.id}` }
+          ])
+        );
+
+        if (pkg.description) {
+          md.addBlockquote(Format.createMarkdown().addText(`${pkg.description}`));
+        }
+
+        if (pkg.rewardParts.length > 0) {
+          md.addBlockquote(Format.createMarkdown().addText(`${pkg.rewardParts.join(' + ')}`));
+        }
+      }
+    } else {
+      md.addBlockquote(Format.createMarkdown().addText(' 暂无套餐上架'));
+    }
+
+    md.addNewline();
+
+    md.addBold('🎐 限时活动充值');
+    md.addNewline();
+
+    if (result.activityPackages.length > 0) {
+      md.addBlockquote(Format.createMarkdown().addText('活动套餐为临时套餐，仅有奖励和VIP经验。'));
+
+      for (const activity of result.activityPackages) {
+        md.addBlockquote(Format.createMarkdown().addText(`${activity.eventTitle} - ${activity.subTitle}`));
+
+        for (const pkg of activity.packages) {
+          md.addBlockquote(
+            addOptions(Format.createMarkdown().addText(`档${pkg.tierLevel}：${pkg.yuan}¥${pkg.limitText}`), [
+              { label: '购买', command: `/活动充值购买 ${activity.subActivityId} ${pkg.tierLevel}` }
+            ])
+          );
+
+          if (pkg.rewardParts.length > 0) {
+            for (const rewardPart of pkg.rewardParts) {
+              md.addBlockquote(Format.createMarkdown().addText(`${rewardPart}`));
+            }
+          } else {
+            md.addBlockquote(Format.createMarkdown().addText('暂无奖励配置'));
+          }
+
+          md.addNewline();
+        }
+      }
+    } else {
+      md.addBlockquote(Format.createMarkdown().addText('当前没有进行中的活动临时充值套餐'));
+    }
+
+    md.addNewline();
+
+    md.addBold('🌸 赞助');
+    md.addNewline();
+    md.addBlockquote(
+      Format.createMarkdown()
+        .addText(result.benefitView.sponsorIntro)
+        .addNewline()
+        .addText(`当前累计：${result.sponsor.totalYuan}元，距离主题权限还差${result.sponsor.remainingYuan}元`)
+        .addNewline()
+        .addText(`主题权限：${result.sponsor.hasThemePermission ? '已开启' : '未开启'}`)
+    );
+
+    // ── 月卡 ──
+    md.addBold('📅 月卡');
+    md.addNewline();
+
+    if (result.monthCard) {
+      const mc = result.monthCard.package;
+
+      md.addBlockquote(addOptions(Format.createMarkdown().addText(`${mc.name} (${mc.yuan}¥) `), [{ label: '购买', command: `/充值购买 ${mc.id}` }]));
+
+      md.addNewline();
+
+      if (mc.description) {
+        md.addBlockquote(Format.createMarkdown().addText(`${mc.description}`));
+      }
+
+      if (result.monthCard.instantRewards.length > 0) {
+        md.addBlockquote(
+          Format.createMarkdown()
+            .addText('立即获得')
+            .addNewline()
+            .addText(`${result.monthCard.instantRewards.join(' + ')}`)
+        );
+      }
+
+      const benefits = Format.createMarkdown().addText('月卡特权');
+
+      for (const line of result.benefitView.monthCardPrivilegeLines) {
+        benefits.addNewline().addText(line);
+      }
+      md.addBlockquote(benefits);
+    } else {
+      md.addBlockquote(Format.createMarkdown().addText(' 月卡暂未开放'));
+    }
+
+    md.addNewline();
+
+    // ── 闭关卡 ──
+    md.addBold('😴闭关卡');
+    md.addNewline();
+
+    if (result.seclusionPass) {
+      const sp = result.seclusionPass.package;
+
+      md.addBlockquote(addOptions(Format.createMarkdown().addText(`${sp.name} (${sp.yuan}¥) `), [{ label: '购买', command: `/充值购买 ${sp.id}` }]));
+
+      md.addNewline();
+
+      if (sp.description) {
+        md.addBlockquote(Format.createMarkdown().addText(`${sp.description}`));
+      }
+
+      if (result.seclusionPass.instantRewards.length > 0) {
+        md.addBlockquote(
+          Format.createMarkdown()
+            .addText('立即获得')
+            .addNewline()
+            .addText(`${result.seclusionPass.instantRewards.join(' + ')}`)
+        );
+      }
+
+      const benefits = Format.createMarkdown().addText('专属权益');
+
+      for (const line of result.benefitView.seclusionPassPrivilegeLines) {
+        benefits.addNewline().addText(line);
+      }
+      md.addBlockquote(benefits);
+    } else {
+      md.addBlockquote(Format.createMarkdown().addText(result.benefitView.seclusionPassFallbackLine));
+    }
+
+    md.addNewline();
+
+    if (result.firstChargePackages.length > 0) {
+      md.addBold('🎁 优惠礼包');
+      md.addNewline();
+
+      for (const pkg of result.firstChargePackages) {
+        md.addBlockquote(
+          addOptions(Format.createMarkdown().addText(`${pkg.name} (${pkg.yuan}¥${pkg.limitText}) `), [{ label: '购买', command: `/充值购买 ${pkg.id}` }])
+        );
+
+        if (pkg.description) {
+          md.addBlockquote(Format.createMarkdown().addText(`${pkg.description}`));
+        }
+
+        if (pkg.rewardParts.length > 0) {
+          md.addBlockquote(Format.createMarkdown().addText(`${pkg.rewardParts.join(' + ')}`));
+        } else {
+          md.addBlockquote(Format.createMarkdown().addText('暂无奖励配置'));
+        }
+
+        md.addNewline();
+      }
+
+      md.addNewline();
+    }
+
+    const access = await getBackendRealmAccess(bid);
+    const visible = new Set([...access.moreVisibleCommands, ...access.foldVisibleCommands]);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '充值',
+        content: md,
+        footer: [
+          { label: '查看活动充值', command: '/活动充值' },
+          { label: '赞助', command: '/赞助' },
+          ...(visible.has('/新人返利') ? [{ label: '新人返利', command: '/新人返利' }] : []),
+          ...(visible.has('/我的权益') ? [{ label: '周周返利', command: '/周周返利' }] : [])
+        ]
+      })
+    );
+  } catch (err) {
+    logger.error('充值信息渲染失败', err);
+
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '充值',
+        content: Format.createMarkdown().addText('⚠️ 读取充值信息失败，请稍后重试')
+      })
+    );
+  }
+});

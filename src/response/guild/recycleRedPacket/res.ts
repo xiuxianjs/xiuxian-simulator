@@ -1,0 +1,41 @@
+import { useMessage } from '@src/utils/useMessage';
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { parseGuildRedPacketSettlement } from '@src/api/bot/guild-red-packet-mutations';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse, useEvent } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const [, next] = useEvent();
+  const match = (e.MessageText ?? '').match(/^[!！/#＃]?回收红包\s+(\d+)\s*$/);
+
+  const parsedPacketId = Number(match?.[1] ?? 0);
+  const packetId = Number.isFinite(parsedPacketId) ? parsedPacketId : null;
+  const send = async (text: string) => {
+    await message.send(
+      FormatGui({ isPrivate, bid, title: '', content: Format.createMarkdown().addText(text), footer: [{ label: '我发的红包', command: '/我发的红包' }] })
+    );
+  };
+  const loaded = await runRobotBusiness(
+    e,
+    'guild.red-packet-recycle',
+    { packetId },
+    value => parseGuildRedPacketSettlement(value, '回收'),
+    next,
+    async reply => {
+      await send(reply.text);
+    }
+  ).catch(async error => {
+    await send(error instanceof Error ? error.message : '回收红包失败，请稍后再试。');
+
+    return { handled: true as const };
+  });
+
+  if (loaded.handled) {
+    return;
+  }
+  await send(loaded.data.message);
+});

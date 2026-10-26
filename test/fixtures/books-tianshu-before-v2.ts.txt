@@ -1,0 +1,91 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendTianshuContent, type TianshuStage } from '@src/api/bot/tianshu-content';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, logger, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  if (!e.MessageText.match(/^(!|！|\/|#|＃)?天书$/)) {
+    return;
+  }
+
+  const md = Format.createMarkdown();
+  let content;
+
+  try {
+    content = await getBackendTianshuContent(bid);
+  } catch (error) {
+    logger.error('查询天书失败:', error);
+    md.addText('天书暂时不可用，请稍后重试。');
+    void message.send(FormatGui({ isPrivate, bid, title: '天书', content: md }));
+
+    return;
+  }
+
+  md.addText(content.intro);
+  md.addNewline();
+  md.addNewline();
+
+  const addStage = (stage: TianshuStage, current: boolean) => {
+    md.addBold(`${current ? '当前大境界' : '下一大境界'}：${stage.stageName}`);
+    md.addNewline();
+    if (stage.unlocks.length === 0) {
+      md.addText('暂无明确的新功能解锁。');
+      md.addNewline();
+    }
+    for (const item of stage.unlocks) {
+      md.addText(`${current ? (item.unlocked ? '已开放' : '待开放') + ' · ' : ''}${item.realm}`);
+      md.addNewline();
+      for (const feature of item.features) {
+        md.addBlockquote(Format.createMarkdown().addText(`- ${feature}`));
+      }
+    }
+    md.addNewline();
+  };
+
+  if (content.currentStage || content.nextStage) {
+    md.addText(content.currentStage ? `当前境界：${content.currentStage.realmName ?? content.currentStage.stageName}` : '当前暂无境界资料。');
+    md.addNewline();
+    md.addNewline();
+
+    if (content.currentStage) {
+      addStage(content.currentStage, true);
+    }
+    if (content.nextStage) {
+      addStage(content.nextStage, false);
+    } else {
+      md.addText('暂无下一大境界资料。');
+    }
+  } else {
+    // During rollout, older backends still return the original full catalogue.
+    for (const item of content.realmUnlocks) {
+      md.addBold(item.realm);
+      md.addNewline();
+
+      for (const feature of item.features) {
+        md.addBlockquote(Format.createMarkdown().addText(`- ${feature}`));
+      }
+
+      md.addNewline();
+    }
+
+    md.addBold('附加条件');
+    md.addNewline();
+    for (const note of content.notes) {
+      md.addBlockquote(Format.createMarkdown().addText(`${note}`));
+    }
+  }
+
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '天书',
+      content: md
+    })
+  );
+});

@@ -1,0 +1,95 @@
+import { useMessage } from '@src/utils/useMessage';
+import { EMPTY_STRING } from '@src/constants/common';
+import App from '@src/response-apps/skillBook/detail/app';
+import { selects } from '@src/response/config';
+import { extractArgs, parseSkillBookIndex } from '@src/utils/commandParser';
+import { FormatGui } from '@src/utils/messageHelper';
+import { buildFailureMessage, formatSkillBookDetail } from '@src/utils/skillBookHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  try {
+    // uid 已由中间件验证并设置
+    const uid = e.uid as number;
+
+    // 解析命令参数
+    const args = extractArgs(e.MessageText || EMPTY_STRING, /^(!|！|\/|#|＃)?查看功法\s*/);
+    const parseResult = parseSkillBookIndex(args);
+
+    if (!parseResult.success) {
+      const md = Format.createMarkdown();
+
+      md.addText(
+        buildFailureMessage(
+          '参数错误',
+          `${parseResult.errorMessage}\n\n` +
+            '使用方法:\n' +
+            '/查看功法 [功法ID]\n\n' +
+            '示例:\n' +
+            '/查看功法 123   ← 查看ID为123的功法详情\n\n' +
+            '💡功法ID为【我的功法】中功法前面的数字'
+        )
+      );
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    const skillBookId = parseResult.value!;
+
+    const result = await App({ bid, uid, skillBookId });
+
+    if (result.code === 'OK') {
+      const md = formatSkillBookDetail(result.data.skillBook, result.data.skillBookId, result.data.proficiencyPoints);
+      const view = result.data.skillBook.detailDisplay!;
+      const visibilityCommands = { SHOW: '/显示功法', HIDE: '/隐藏功法' } as const;
+      const footer = [
+        { label: '返回', command: '/我的功法' },
+        { label: '升级', command: `/升级功法 ${result.data.skillBookId}` },
+        { label: '换词', command: `/换词 ${result.data.skillBookId}` },
+        ...(view.visibilityAction !== 'NONE'
+          ? [
+              {
+                label: view.visibilityLabel!,
+                command: `${visibilityCommands[view.visibilityAction]} ${result.data.skillBookId}`
+              }
+            ]
+          : []),
+        ...(view.canReset ? [{ label: '重制', command: `/重制功法 ${result.data.skillBookId}` }] : [])
+      ];
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer }));
+    } else if (result.code === 'NO_SKILL_BOOKS') {
+      const md = Format.createMarkdown();
+
+      md.addText(buildFailureMessage('暂无已学习的功法', '💡可通过 /学习功法 学习功法秘籍'));
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+    } else if (result.code === 'NOT_FOUND') {
+      const md = Format.createMarkdown();
+
+      md.addText(buildFailureMessage('功法ID错误', `找不到ID为 ${result.data.skillBookId} 的已学功法\n\n💡请使用 /我的功法 查看功法ID`));
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+    } else {
+      const md = Format.createMarkdown();
+
+      md.addText(result.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+    }
+  } catch {
+    const md = Format.createMarkdown();
+
+    md.addText('查看功法详情失败，请稍后再试或联系运营。');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  }
+});
+
+export default response;

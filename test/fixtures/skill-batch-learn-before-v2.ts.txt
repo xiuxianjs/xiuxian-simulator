@@ -1,0 +1,198 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 一键学习功法指令处理器
+ * 指令格式: /一键学习功法
+ *          /一键学习功法 确认
+ *          /取消一键学习功法
+ * 自动学习储物袋中所有未锁定、未学习的功法
+ * 跳过：已有同技能的已学/使用中功法（避免需要确认替换的冲突）
+ */
+import { CONFIRM_KEYWORD, EMPTY_STRING, FIRST_ARG_INDEX } from '@src/constants';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/skillBook/batchLearn/app';
+import { selects } from '@src/response/config';
+import { FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+const response = onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+
+  const uid = e.uid as number;
+  const rawText = (e.MessageText || EMPTY_STRING).trim();
+  const isCancel = /^(!|！|\/|#|＃)?取消一键学习功法$/.test(rawText);
+
+  if (isCancel) {
+    const md = Format.createMarkdown();
+
+    md.addText('已取消一键学习功法');
+    md.addNewline();
+    md.addNewline();
+    md.addText('💡如需继续，请重新发送 /一键学习功法');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '一键学习功法', content: md, footer: [{ label: '我的储物袋', command: '/我的储物袋 功法' }] }));
+
+    return;
+  }
+
+  const messageText = rawText.replace(/^(!|！|\/|#|＃)?一键学习功法\s*/, EMPTY_STRING).trim();
+  const args = messageText ? messageText.split(/\s+/) : [];
+  const isConfirm = args[FIRST_ARG_INDEX] === CONFIRM_KEYWORD;
+
+  // 调用数据层
+  const result = await App({ bid, uid, previewOnly: !isConfirm, request: isConfirm ? createBackendRequestContext(e) : undefined });
+
+  switch (result.code) {
+    case 'NOT_REGISTERED': {
+      const md = Format.createMarkdown();
+
+      md.addText(result.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'PREVIEW': {
+      const { learnList, skippedConflicts } = result.data;
+      const md = Format.createMarkdown();
+
+      md.addBold('⚠️ 一键学习确认');
+      md.addNewline();
+      md.addNewline();
+      md.addText(`预计学习 ${learnList.length} 本功法：`);
+      md.addNewline();
+
+      for (const item of learnList) {
+        md.addText(`• 【${item.name}】${item.skillType}`);
+        md.addNewline();
+      }
+
+      if (skippedConflicts.length > 0) {
+        md.addNewline();
+        md.addText(`⏭ 将跳过 ${skippedConflicts.length} 本同技能功法`);
+        md.addNewline();
+      }
+
+      md.addNewline();
+      md.addText('确认后将直接学习，取消则不执行。');
+
+      void message.send(
+        FormatGui({
+          isPrivate,
+          bid,
+          title: '一键学习功法',
+          content: md,
+          footer: [
+            { label: '确认学习', command: '/一键学习功法 确认' },
+            { label: '取消', command: '/取消一键学习功法' }
+          ]
+        })
+      );
+
+      return;
+    }
+
+    case 'NO_AVAILABLE': {
+      const md = Format.createMarkdown();
+
+      md.addText(result.data.message);
+      md.addNewline();
+      md.addNewline();
+      md.addText('💡 可学习的功法需满足：未锁定、未学习');
+
+      md.addNewline();
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '我的储物袋', command: '/我的储物袋 功法' }] }));
+
+      return;
+    }
+
+    case 'LOAD_FAILED': {
+      const md = Format.createMarkdown();
+
+      md.addText(result.data.message);
+
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+
+      return;
+    }
+
+    case 'OK': {
+      const { successList, failList, skippedConflicts } = result.data;
+
+      // 构建结果消息
+      const md = Format.createMarkdown();
+
+      if (successList.length > 0) {
+        md.addBold(`✅ 成功学习 ${successList.length} 本功法`);
+        md.addNewline();
+
+        for (const item of successList) {
+          md.addText(`• 【${item.name}】${item.skillType}`);
+          md.addNewline();
+        }
+      } else {
+        md.addBold('没有新功法可学习');
+        md.addNewline();
+      }
+
+      if (skippedConflicts.length > 0) {
+        md.addNewline();
+        md.addText(`⏭ 跳过 ${skippedConflicts.length} 本（已有同技能功法）：`);
+        md.addNewline();
+
+        // 合并同名同类型的跳过项，显示为 ×N
+        const skippedMap = new Map<string, number>();
+        const skippedOrder: string[] = [];
+
+        for (const item of skippedConflicts) {
+          const key = `${item.name}|${item.skillType}`;
+          const prev = skippedMap.get(key) ?? 0;
+
+          if (prev === 0) {
+            skippedOrder.push(key);
+          }
+          skippedMap.set(key, prev + 1);
+        }
+
+        for (const key of skippedOrder) {
+          const [name, skillType] = key.split('|');
+          const count = skippedMap.get(key)!;
+
+          md.addText(`• 【${name}】${skillType}${count > 1 ? ` ×${count}` : ''}`);
+          md.addNewline();
+        }
+      }
+
+      if (failList.length > 0) {
+        md.addNewline();
+        md.addText(`❌ 失败 ${failList.length} 本：`);
+        md.addNewline();
+
+        for (const item of failList) {
+          md.addText(`• 【${item.name}】${item.reason}`);
+          md.addNewline();
+        }
+      }
+
+      md.addNewline();
+
+      void message.send(
+        FormatGui({
+          isPrivate,
+          bid,
+          title: '一键学习功法',
+          content: md,
+          footer: [
+            { label: '查看我的功法', command: '/我的功法' },
+            { label: '储物袋', command: '/我的储物袋 功法' }
+          ]
+        })
+      );
+    }
+  }
+});
+
+export default response;

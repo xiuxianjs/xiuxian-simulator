@@ -1,0 +1,79 @@
+import { useMessage } from '@src/utils/useMessage';
+import { getBackendCaveView } from '@src/api/bot/cave-command';
+import type { CaveOverviewPlot } from '@src/api/schemas/cave-overview-query';
+import { ownPlotActions } from '@src/response/cavePlot/capabilities';
+import { sendLingzhiGuidePromptPage, sendProfessionAndCaveLockedPage, sendSelfCavePlotPage } from '@src/response/cavePlot/render';
+import { selects } from '@src/response/config';
+import { onResponse } from 'alemonjs';
+
+type CavePlotPresentation = {
+  plotIndex: number;
+  plotState: 'cultivated' | 'unlockable' | 'locked';
+  title: string;
+  detail: string;
+  actionLabel?: string;
+  actionCommand?: string;
+  actions: Array<{ label: string; command: string }>;
+};
+
+// Plot title, state description and command eligibility are authoritative Go
+// display facts. The bot only selects its Markdown layout.
+function plotPresentation(plot: CaveOverviewPlot): CavePlotPresentation {
+  return {
+    plotIndex: plot.plotIndex,
+    plotState: plot.plotState,
+    title: plot.title,
+    detail: plot.detail,
+    actionLabel: ownPlotActions(plot)[0]?.label,
+    actionCommand: ownPlotActions(plot)[0]?.command,
+    actions: ownPlotActions(plot)
+  };
+}
+
+export function presentBackendCavePlots(plots: CaveOverviewPlot[]): CavePlotPresentation[] {
+  return plots.map(plotPresentation);
+}
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+  const { access, overview } = await getBackendCaveView(String(bid), uid);
+
+  if (!access.canUseCave) {
+    sendProfessionAndCaveLockedPage({
+      title: '洞府灵田',
+      bid,
+      isPrivate,
+      message,
+      leadText: access.lockedMessage
+    });
+
+    return;
+  }
+  if (!access.hasCavePlot) {
+    sendLingzhiGuidePromptPage({ title: '洞府灵田', bid, isPrivate, message });
+
+    return;
+  }
+  if (!overview) {
+    throw new Error('洞府概览缺失');
+  }
+
+  sendSelfCavePlotPage({
+    title: '洞府灵田',
+    bid,
+    isPrivate,
+    message,
+    showOperations: /(?:我的灵田|灵田|我的洞府|洞府)\s+操作\s*$/.test(e.MessageText ?? ''),
+    showManagement: /(?:我的灵田|灵田|我的洞府|洞府)\s+经营\s*$/.test(e.MessageText ?? ''),
+    selectedPlotIndex: (() => {
+      const match = (e.MessageText ?? '').match(/\s+地块\s+(\d+)\s*$/);
+
+      return match ? Number(match[1]) : undefined;
+    })(),
+    plots: presentBackendCavePlots(overview.plots),
+    stasisFormation: overview.stasisFormation ?? undefined
+  });
+});

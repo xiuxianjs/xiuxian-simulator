@@ -1,0 +1,85 @@
+import { useMessage } from '@src/utils/useMessage';
+/**
+ * 本命物洗涤指令（消耗洗涤石）
+ *
+ * 用法：本命物洗涤
+ */
+import { createBackendRequestContext } from '@src/api/bot/context';
+import App from '@src/response-apps/soulArtifact/wash/app';
+import { selects } from '@src/response/config';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { Format, onResponse } from 'alemonjs';
+
+export default onResponse(selects, async e => {
+  const [message] = useMessage();
+  const bid = e?.UserId;
+  const isPrivate = e.isPrivate ?? false;
+  const uid = e.uid as number;
+
+  const text = e.MessageText?.trim() ?? '';
+  const match = text.match(/^[!！/#＃]?本命物洗涤\s*(\d+)?$/);
+
+  if (match?.[1]) {
+    const errMd = Format.createMarkdown();
+
+    errMd.addText('本命物洗涤仅支持单次，请直接发送 /本命物洗涤');
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: errMd }));
+
+    return;
+  }
+
+  const times = 1;
+
+  const result = await App({ bid, uid, times, request: createBackendRequestContext(e) });
+
+  if (result.code !== 'PENDING') {
+    const errMd = Format.createMarkdown();
+
+    errMd.addText(result.data.message);
+
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: errMd }));
+
+    return;
+  }
+
+  const { totalSuccess, results, message: previewMessage } = result.data;
+
+  const md = Format.createMarkdown();
+
+  if (times <= 3 && totalSuccess > 0) {
+    const allLines: string[] = [];
+
+    results.forEach((r, i) => {
+      if (r.success && r.details?.length) {
+        const actionName = r.action === 'add' ? '新增' : r.action === 'replace' ? '替换' : '升级';
+
+        allLines.push(`第${i + 1}次 · ${actionName}`, ...r.details, '');
+      }
+    });
+
+    if (allLines.length > 0) {
+      md.addText(allLines.join('\n'));
+    }
+  } else if (totalSuccess > 0) {
+    md.addText(`已生成 ${totalSuccess} 次洗涤预览`);
+    md.addNewline();
+    md.addBlockquote(Format.createMarkdown().addText('请确认是否保留本次结果'));
+  }
+
+  md.addNewline();
+  md.addText(previewMessage);
+  md.addNewline();
+  md.addBlockquote(
+    createQuoteMarkdown(
+      ['确认：保留本次洗涤结果', '取消：放弃本次洗涤结果，洗涤石不返还'],
+      [
+        { label: '确认保留', command: '/确认本命物洗涤' },
+        { label: '放弃结果', command: '/取消本命物洗涤' },
+        { label: '本命物信息', command: '/本命物信息' }
+      ]
+    )
+  );
+
+  void message.send(FormatGui({ isPrivate, bid, title: '本命物洗涤预览', content: md }));
+});

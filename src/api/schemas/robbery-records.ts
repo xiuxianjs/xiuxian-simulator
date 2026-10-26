@@ -1,0 +1,28 @@
+export type RobberyRecordData = {
+  id: number;
+  attackerUid: number;
+  attackerName: string | null;
+  isWin: boolean;
+  stoneReward: number;
+  crystalReward: number;
+  droppedItemName: string | null;
+  droppedItemQty: number;
+  targetShaQi: number;
+  isCounterAttack: boolean;
+  isBounty: boolean;
+  createdAt: string;
+  attackerDisplayName: string;
+  typeText: string;
+  resultText: string;
+  lossText: string;
+  dropText: string;
+  canCounterAttack: boolean;
+  pkEventId?: number;
+  pkState?: string;
+  pkDeliveryState?: string;
+  counterDeadline?: string;
+  counterStatusText?: string;
+  battleLogId?: string;
+};
+export type RobberyRecordPage = { records: RobberyRecordData[]; currentPage: number; totalPages: number; total: number };
+export type RobberyNotificationsReadResult = { updated: number };

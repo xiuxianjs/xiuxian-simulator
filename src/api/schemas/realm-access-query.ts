@@ -1,0 +1,20 @@
+export type RealmAccessQuery = {
+  registered: boolean;
+  moreVisibleCommands: string[];
+  foldVisibleCommands: string[];
+  canUseSoulPath: boolean;
+  realmLevel: number;
+  stageLevel: number;
+  canUseSecondLayerFeature: boolean;
+  canUseFifthLayerFeature: boolean;
+  canUseSpar: boolean;
+  canAccessOverseasIsland: boolean;
+  canUseMeridian: boolean;
+  canUseProfessionAndCave: boolean;
+  canUseSoulArtifact: boolean;
+  canAdvanceSoulArtifact: boolean;
+  canJoinAlchemyGuide: boolean;
+  canUseRobberyLikePvp: boolean;
+  canJoinMasterAsDisciple: boolean;
+  canAcceptDisciple: boolean;
+};

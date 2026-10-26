@@ -1,0 +1,231 @@
+import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { useMessage } from '@src/utils/useMessage';
+import App from '@src/response-apps/storyline/challenge/app';
+import { displayCurrencyText } from '@src/constants/currency';
+import { readBackendStorylineManualBattle, submitBackendStorylineManualChoice, type StorylineManualBattleState } from '@src/api/bot/storyline-manual-battle';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { selects } from '@src/response/config';
+import { addOptions, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { Format, onResponse, useSubscribe } from 'alemonjs';
+
+type ParsedCommand = { chapterNumber: number; stageNumber: number } | { error: string } | null;
+const parseCommand = (text: string): ParsedCommand => {
+  const command = (text ?? '').trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
+
+  if (!command.startsWith('主线挑战')) {
+    return null;
+  }
+  const match = command.match(/^主线挑战\s+(\d+)\s*[-－]\s*(\d+)$/);
+
+  if (!match) {
+    return { error: '格式错误，正确用法：/主线挑战 章-关（如 /主线挑战 1-1）' };
+  }
+  const chapterNumber = Number(match[1]),
+    stageNumber = Number(match[2]);
+
+  return Number.isSafeInteger(chapterNumber) && Number.isSafeInteger(stageNumber)
+    ? { chapterNumber, stageNumber }
+    : { error: '格式错误，正确用法：/主线挑战 章-关（如 /主线挑战 1-1）' };
+};
+const routeChoice = (text: string): string | null => {
+  const command = text.trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
+
+  return (
+    ({ 普攻: 'normal', 普通攻击: 'normal', 战技: 'battle', 神通: 'divine', 自动: '自动', 切换自动: '自动', 逃跑: '逃跑' } as Record<string, string>)[command] ??
+    null
+  );
+};
+
+export default onResponse(selects, e => {
+  const [message] = useMessage();
+  const [subscribe] = useSubscribe(selects);
+  const bid = String(e?.UserId ?? '');
+  const uid = e.uid as number;
+  const isPrivate = e.isPrivate ?? false;
+  const parsed = parseCommand(e.MessageText ?? '');
+
+  if (!parsed) {
+    return;
+  }
+  if ('error' in parsed) {
+    void message.send(FormatGui({ isPrivate, bid, title: '主线挑战', content: Format.createMarkdown().addText(parsed.error) }));
+
+    return;
+  }
+
+  const render = async (state: StorylineManualBattleState) => {
+    const md = Format.createMarkdown();
+
+    if (state.finished) {
+      const settlement = (state.settlement ?? {}) as Record<string, unknown>;
+      const won = state.winner === 'A';
+      const stageLabel = typeof settlement.stageLabel === 'string' ? settlement.stageLabel : '';
+      const stars = typeof settlement.stars === 'number' ? settlement.stars : 0;
+      const exp = typeof settlement.experienceGained === 'number' ? settlement.experienceGained : 0;
+      const stones = typeof settlement.spiritStoneGained === 'number' ? settlement.spiritStoneGained : 0;
+      const spiritCost = typeof settlement.spiritCostPaid === 'number' ? settlement.spiritCostPaid : 0;
+      const monsterName = typeof settlement.monsterName === 'string' ? settlement.monsterName : '';
+      const drops = Array.isArray(settlement.drops) ? settlement.drops : [];
+      const chapterNumber = typeof settlement.chapterNumber === 'number' ? settlement.chapterNumber : 0;
+      const stageNumber = typeof settlement.stageNumber === 'number' ? settlement.stageNumber : 0;
+      const topRowButtons: GuiButton[] = [];
+      const actionRowButtons: GuiButton[] = [];
+
+      if (settlement.teamId) {
+        md.addNewline();
+        md.addBlockquote(Format.createMarkdown().addText('📢 仅队长消耗精力与结算奖励，队友不消耗不结算'));
+      }
+      md.addNewline();
+      const battleRounds = (settlement.battle as { Rounds?: unknown } | undefined)?.Rounds;
+      const outcome = Format.createMarkdown()
+        .addText(`对手：${monsterName}`)
+        .addNewline()
+        .addText(`结果：${won ? '胜利' : '失败'}`);
+
+      if (typeof battleRounds === 'number') {
+        outcome.addNewline().addText(`回合数：${battleRounds}`);
+      }
+      md.addBlockquote(outcome.addNewline().addText(`消耗精力：${spiritCost}`));
+      if (won) {
+        md.addBlockquote(
+          Format.createMarkdown()
+            .addText(`星级评价：${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0, 3 - stars))}`)
+            .addNewline()
+            .addText(`修为获得：+${exp}${typeof settlement.expBonusText === 'string' ? settlement.expBonusText : ''}`)
+        );
+        if (stones > 0) {
+          md.addBlockquote(Format.createMarkdown().addText(`灵石获得：+${stones}`));
+        }
+      }
+      if (won && drops.length > 0) {
+        md.addBlockquote(Format.createMarkdown().addText('额外掉落：'));
+        for (const value of drops) {
+          const drop = value as { name?: unknown; amount?: unknown; itemId?: unknown; currencyCode?: unknown };
+
+          if (typeof drop.amount === 'number') {
+            const line = Format.createMarkdown().addText(
+              `${typeof drop.name === 'string' ? displayCurrencyText(drop.name) : typeof drop.currencyCode === 'string' ? displayCurrencyText(drop.currencyCode) : '奖励'}×${drop.amount} `
+            );
+
+            md.addBlockquote(typeof drop.itemId === 'number' ? addOptions(line, [{ label: '详情', command: `/物品详情 道具 ${drop.itemId}` }]) : line);
+          }
+        }
+      }
+      if (state.logId) {
+        topRowButtons.push({ label: '文字记录', command: `/查看战斗过程 ${state.logId}` });
+      }
+      if (chapterNumber > 0) {
+        topRowButtons.push({ label: '打开章节', command: `/查看主线 ${chapterNumber}` });
+      }
+      if (chapterNumber > 0 && stageNumber > 0) {
+        if (settlement.showPrevStage === true) {
+          actionRowButtons.push({ label: '上一关', command: `/主线挑战 ${chapterNumber}-${stageNumber - 1}` });
+        }
+        actionRowButtons.push({ label: '再次挑战', command: `/主线挑战 ${chapterNumber}-${stageNumber}` });
+        if (settlement.showNextStage === true) {
+          actionRowButtons.push({ label: '下一关', command: `/主线挑战 ${chapterNumber}-${stageNumber + 1}` });
+        } else if (settlement.showNextChapter === true) {
+          actionRowButtons.push({ label: '下一章', command: `/查看主线 ${chapterNumber + 1}` });
+        }
+      }
+      void message.send(
+        await BattleFormatGui(
+          {
+            isPrivate,
+            bid,
+            title: `主线结算 ${stageLabel}`,
+            content: md,
+            footer: [topRowButtons, actionRowButtons].filter(row => row.length > 0)
+          },
+          [{ id: state.logId }]
+        )
+      );
+
+      return;
+    }
+    if (!state.choice) {
+      return;
+    }
+    for (const event of state.events) {
+      const row = event as { actorName?: string; skillName?: string };
+
+      if (row.actorName || row.skillName) {
+        md.addText(`${row.actorName ?? '单位'} 使用 ${row.skillName ?? '技能'}\n`);
+      }
+    }
+    md.addText(`第${state.choice.round}回合：${state.choice.unitName}请选择技能\n`);
+    for (const skill of state.choice.availableSkills) {
+      md.addText(`${skill.available ? '✅' : '⬜'} ${skill.name || skill.type}${skill.reason ? `（${skill.reason}）` : ''}\n`);
+    }
+    md.addText('回复：普攻 / 战技 / 神通 / 自动 / 逃跑');
+    void message.send(FormatGui({ isPrivate, bid, title: '主线挑战', content: md }));
+    let handled = false;
+    let refresh: ReturnType<typeof setTimeout>;
+    const pollSettlement = () => {
+      if (handled) {
+        return;
+      }
+      void readBackendStorylineManualBattle(bid, uid, state.sessionId)
+        .then(next => {
+          if (handled) {
+            return;
+          }
+          if (next.finished) {
+            handled = true;
+            subscribe.cancel(subscription);
+
+            return render(next);
+          } else {
+            refresh = setTimeout(pollSettlement, 3_000);
+          }
+        })
+        .catch(() => {
+          if (!handled) {
+            refresh = setTimeout(pollSettlement, 3_000);
+          }
+        });
+    };
+
+    refresh = setTimeout(pollSettlement, 31_000);
+    const subscription = subscribe.mount(
+      (event: any) => {
+        const choice = routeChoice(String(event.MessageText ?? ''));
+
+        if (!choice) {
+          return;
+        }
+        handled = true;
+        clearTimeout(refresh);
+        subscribe.cancel(subscription);
+        void submitBackendStorylineManualChoice(bid, uid, state.sessionId, choice, createBackendRequestContext(event))
+          .then(render)
+          .catch(error => {
+            // Invalid or expired choices are explained by Go. Read its current
+            // projection before accepting another reply so the robot never
+            // restores a stale local choice list.
+            void readBackendStorylineManualBattle(bid, uid, state.sessionId)
+              .then(render)
+              .catch(() => {
+                void message.send(
+                  FormatGui({
+                    isPrivate,
+                    bid,
+                    title: '主线挑战',
+                    content: Format.createMarkdown().addText(error instanceof Error ? error.message : '技能提交失败')
+                  })
+                );
+              });
+          });
+      },
+      ['UserId']
+    );
+  };
+
+  void App({ bid, uid, ...parsed, request: createBackendRequestContext(e) }).then(result => {
+    if (result.code === 'OK') {
+      return render(result.data);
+    } else {
+      void message.send(FormatGui({ isPrivate, bid, title: '主线挑战', content: Format.createMarkdown().addText(result.data.message) }));
+    }
+  });
+});
