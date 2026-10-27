@@ -1,3 +1,4 @@
+import { getBackendConfig } from '../api/bot/config';
 import { claimNextChatNotice, finishChatNotice, type ChatClaim, type ChatReceipt, type ChatScope } from '@src/api/bot/chat';
 import { getAppConfig } from '@src/utils/appConfig';
 import { getConfigValue, logger, Ok, useMessage } from 'alemonjs';
@@ -181,7 +182,10 @@ const configuredBots = () => {
   const values = getConfigValue() ?? {};
   const config = { ...values['qq-bot'], ...values['@alemonjs/qq-bot'] };
 
-  return config.bots ? Object.keys(config.bots) : config.app_id ? [String(config.app_id)] : [];
+  const ids = config.bots ? Object.keys(config.bots) : config.app_id ? [String(config.app_id)] : [];
+  const backend = getBackendConfig();
+
+  return backend.channelMode ? ids.filter(id => id === backend.channelBotId) : ids;
 };
 let dispatcher = new ChatNoticeDispatcher(configuredBots);
 

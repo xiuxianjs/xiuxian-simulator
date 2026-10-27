@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { getBackendConfig } from '../api/bot/config';
 import { logger, type Events } from 'alemonjs';
 import { resolve } from 'node:path';
 import { observeChatContacts, type ChatContact, type ChatContactObservation, type ChatGroup } from '@src/api/bot/chat';
@@ -238,7 +240,18 @@ export const observeChatContact = (event: Events[keyof Events]) => observer.obse
 export const cachedChatContacts = () => observer.snapshot();
 export const resetChatContactObserver = async () => {
   await observer.dispose();
-  observer = new ChatContactObserver();
+  const config = getBackendConfig();
+  const directory = config.channelMode
+    ? resolve(
+        'data/robot-chat-outbox',
+        `channel-${createHash('sha256')
+          .update(JSON.stringify([config.url, config.channelBotId]))
+          .digest('hex')
+          .slice(0, 24)}`
+      )
+    : resolve('data/robot-chat-outbox');
+
+  observer = new ChatContactObserver(undefined, Date.now, directory);
   observer.start();
 };
 export const stopChatContactObserver = () => observer.dispose();

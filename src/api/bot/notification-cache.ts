@@ -1,3 +1,4 @@
+import { notificationRequestError } from './notification-error';
 import type { NotificationDelivery, NotificationTarget, PermissionState } from '@src/types/notification';
 import axios from 'axios';
 import { getNotificationBackendConfig } from './config';
@@ -16,9 +17,17 @@ function cacheClient() {
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const response = await cacheClient().post<{ data: T }>(`/api/v1/internal/notification-relay/cache${path}`, body);
+  const endpoint = `/api/v1/internal/notification-relay/cache${path}`;
 
-  return response.data.data;
+  const client = cacheClient();
+
+  try {
+    const response = await client.post<{ data: T }>(endpoint, body);
+
+    return response.data.data;
+  } catch (error) {
+    throw notificationRequestError(endpoint, error);
+  }
 }
 
 export async function readPlatformPermission(target: NotificationTarget): Promise<{ state: PermissionState | null; raw: string }> {

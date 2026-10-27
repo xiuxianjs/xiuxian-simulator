@@ -40,6 +40,7 @@ test('channel player notification uses native destination, real platform receipt
     assert.deepEqual(options?.headers, { Authorization: 'Bearer merchant-token' });
     return { post: async (path: string, body: Record<string, unknown>) => {
       let data: unknown = null;
+      if (path.endsWith('/claim-next')) return { data: { claim: null, pending: false } };
       if (path.endsWith('/retry')) throw new Error(String(body.error));
       if (path.endsWith('/claim')) {
         assert.equal(body.eventType, 'player.notification.dispatch');
@@ -83,7 +84,7 @@ test('channel player notification uses native destination, real platform receipt
   assert.deepEqual(acknowledgements, [{ route: 'private', reason: 'sent' }]);
 });
 
-test('channel SSE wakes only player and selected-bot community queues using BOT_TOKEN', async t => {
+test('channel SSE wakes player, selected-bot community and scoped chat queues using BOT_TOKEN', async t => {
   const app = createTestApp({ config });
   t.after(() => app.dispose());
   t.after(() => stopNotificationStream());
@@ -93,6 +94,10 @@ test('channel SSE wakes only player and selected-bot community queues using BOT_
   t.mock.method(axios, 'create', options => {
     assert.deepEqual(options?.headers, { Authorization: 'Bearer merchant-token' });
     return { post: async (path: string, body: Record<string, unknown>) => {
+      if (path.endsWith('/claim-next')) {
+        assert.equal(body.botId, '100017');
+        return { data: { claim: null, pending: false } };
+      }
       if (path.endsWith('/community/claim')) {
         assert.equal(body.botId, '100017');
         seen.add('community');
@@ -134,6 +139,7 @@ test('扫码期间不请求；框架配置更新后自动启动 SSE 并认领通
   let wake!: () => void;
   const claimed = new Promise<void>(resolve => { wake = resolve; });
   t.mock.method(axios, 'create', () => ({ post: async (path: string) => {
+    if (path.endsWith('/claim-next')) return { data: { claim: null, pending: false } };
     requests.push(path);
     if (requests.length === 3) wake();
     return { data: { data: path.endsWith('/community/claim') ? null : { event: null } } };

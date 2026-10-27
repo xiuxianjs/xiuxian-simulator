@@ -24,7 +24,7 @@ test('channel relay and cache use BOT_TOKEN and the configured AppID without Wor
     assert.equal(config?.maxRedirects, 0);
     return { post: async (path: string, body: Record<string, unknown>) => {
       requests.push({ path, body });
-      return { data: { data: path.endsWith('/claim') ? { event: null } : path.endsWith('/legacy-sent-ids') ? { ids: [] } : null } };
+      return { data: path.startsWith('/chat/') ? null : { data: path.endsWith('/claim') ? { event: null } : path.endsWith('/legacy-sent-ids') ? { ids: [] } : null } };
     } } as never;
   });
   assert.equal(await claimNotificationRelay('player.notification.dispatch', 'consumer'), null);
@@ -35,8 +35,9 @@ test('channel relay and cache use BOT_TOKEN and the configured AppID without Wor
   assert.equal(requests.find(row => row.path.endsWith('/recipient'))?.body.botId, '100017');
   const count = requests.length;
   await assert.rejects(scanLegacyNotificationPool(), /尚未支持渠道/);
-  await assert.rejects(claimChatNotice('100017'), /尚未支持渠道/);
   assert.equal(requests.length, count);
+  assert.equal(await claimChatNotice('100017'), null);
+  assert.equal(requests.at(-1)?.path, '/chat/internal/claim');
 });
 
 test('channel origin and platform event must belong to the configured robot', t => {

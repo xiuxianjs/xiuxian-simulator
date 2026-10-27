@@ -39,11 +39,7 @@ async function startReadyServices(): Promise<void> {
   stopWaitingForAppId?.();
   stopWaitingForAppId = undefined;
   servicesStarted = true;
-  if (!getBackendConfig().channelMode) {
-    await resetChatContactObserver();
-  } else {
-    logger.warn('渠道模式：聊天运营接口尚未接入，暂停聊天观察与投递。');
-  }
+  await resetChatContactObserver();
   try {
     await startFeatureVisibility();
   } catch {
@@ -74,9 +70,7 @@ export default defineChildren({
       event.UserId = normalizeRobotBid(event.UserId);
     }
     observePlayerGroupActivity(event);
-    if (!getBackendConfig().channelMode) {
-      await observeChatContact(event);
-    }
+    await observeChatContact(event);
     // 记录事件处理阶段的时间戳。
     startTransportEvent(event);
   },

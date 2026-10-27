@@ -232,7 +232,7 @@ async function dispatchWorkerMessages(loadLegacyIDs: LoadLegacyIDs): Promise<voi
 let running = false;
 let pending = false;
 
-const dispatchStandardMessages = async (): Promise<void> => {
+export const dispatchStandardMessages = async (): Promise<void> => {
   pending = true;
   if (running) {
     return;

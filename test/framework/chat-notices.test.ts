@@ -9,21 +9,21 @@ import { sendChatNotice } from '../../src/notification/chat';
 import type { ChatClaim, ChatReceipt } from '../../src/api/bot/chat';
 
 after(() => shutdownLogger());
-const claim: ChatClaim = { noticeId: 'notice', contactId: 1, botId: 'bot', openId: 'private-openid', token: 'claim-token', content: '# 版本更新\n\n**欢迎道友回来。**', mode: 'wakeup' };
+const claim: ChatClaim = { noticeId: 'notice', contactId: 1, botId: '100017', openId: 'private-openid', token: 'claim-token', content: '# 版本更新\n\n**欢迎道友回来。**', mode: 'wakeup' };
 
 for (const { scope, mode } of [{scope:'c2c',mode:'wakeup'}, {scope:'c2c',mode:'proactive'}, {scope:'group',mode:'proactive'}] as const) {
   test(`消息管理 ${scope}/${mode} 经真实框架与 QQ 适配器发送单个原生 Markdown 气泡`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
     t.after(() => app.dispose());
     t.mock.method(axios, 'create', () => ({ async post(path: string) {
       return { data: { data: path.endsWith('/availability/read') ? null : { state: null, raw: '' } } };
     } }));
     const sends: Array<{ scope: string; id: string; body: Record<string, unknown> }> = [];
     const client = Object.assign(new EventEmitter(), { async usersOpenMessages(id: string, body: Record<string, unknown>) { sends.push({ scope: 'c2c', id, body }); return { id: 'qq-receipt' }; }, async groupOpenMessages(id: string, body: Record<string, unknown>) { sends.push({ scope: 'group', id, body }); return { id: 'qq-receipt' }; } });
-    const registration = app.run(() => register(client as unknown as Parameters<typeof register>[0], { botId: 'bot', bindActions: false, cbp: { send() {} } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp'] }));
+    const registration = app.run(() => register(client as unknown as Parameters<typeof register>[0], { botId: '100017', bindActions: false, cbp: { send() {} } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp'] }));
     app.actions.on('message.send', request => new Promise((resolve, reject) => { registration.onAction(request, resolve).catch(reject); }));
     let receipt: ChatReceipt | undefined;
-    const result = await app.runHandler(onResponse('message.create', async () => { receipt = await sendChatNotice({ ...claim, scope, mode }); }), app.events.groupMessage({ platform: 'qq-bot' }));
+    const result = await app.runHandler(onResponse('message.create', async () => { receipt = await sendChatNotice({ ...claim, scope, mode }); }), app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
     assert.deepEqual(result.errors, []);
     assert.equal(result.actions.length, 1);
     assert.equal(result.actions[0].results?.[0].data.id, 'qq-receipt');
@@ -43,7 +43,7 @@ for (const { scope, mode } of [{scope:'c2c',mode:'wakeup'}, {scope:'c2c',mode:'p
 
 for (const outcome of ['rejected', 'no-friend', 'refused', 'timeout', 'missing', 'blocked', 'disabled']) {
   test(`消息管理保存 ${outcome} 的真实结果且不重发`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { close_proactive_message: outcome === 'disabled', backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { close_proactive_message: outcome === 'disabled', backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
     t.after(() => app.dispose());
     t.mock.method(axios, 'create', () => ({ async post(path: string) { return { data: { data: path.endsWith('/availability/read') ? null : { state: outcome === 'blocked' ? { state: 'blocked' } : null } } }; } }));
     let sends = 0;
@@ -54,10 +54,10 @@ for (const outcome of ['rejected', 'no-friend', 'refused', 'timeout', 'missing',
       if (outcome === 'timeout') throw new Error('socket timeout');
       return {};
     } });
-    const registration = app.run(() => register(client as unknown as Parameters<typeof register>[0], { botId: 'bot', bindActions: false, cbp: { send() {} } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp'] }));
+    const registration = app.run(() => register(client as unknown as Parameters<typeof register>[0], { botId: '100017', bindActions: false, cbp: { send() {} } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp'] }));
     app.actions.on('message.send', request => new Promise((resolve, reject) => { registration.onAction(request, resolve).catch(reject); }));
     let receipt: ChatReceipt | undefined;
-    const result = await app.runHandler(onResponse('message.create', async () => { receipt = await sendChatNotice(claim); }), app.events.groupMessage({ platform: 'qq-bot' }));
+    const result = await app.runHandler(onResponse('message.create', async () => { receipt = await sendChatNotice(claim); }), app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
     assert.deepEqual(result.errors, []);
     assert.equal(sends, outcome === 'blocked' || outcome === 'disabled' ? 0 : 1);
     assert.equal(receipt?.status, ['rejected', 'no-friend', 'refused'].includes(outcome) ? 'failed' : outcome === 'blocked' || outcome === 'disabled' ? 'skipped' : 'unknown');

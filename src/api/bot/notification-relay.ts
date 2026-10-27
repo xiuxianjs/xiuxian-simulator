@@ -1,3 +1,4 @@
+import { notificationRequestError } from './notification-error';
 import { measureTransportStage } from '../../utils/transportTiming';
 import axios from 'axios';
 import { getAppConfig } from '@src/utils/appConfig';
@@ -43,9 +44,17 @@ function relayClient() {
   });
 }
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const response = await relayClient().post<{ data: T }>(`/api/v1/internal/notification-relay${path}`, body);
+  const endpoint = `/api/v1/internal/notification-relay${path}`;
 
-  return response.data.data;
+  const client = relayClient();
+
+  try {
+    const response = await client.post<{ data: T }>(endpoint, body);
+
+    return response.data.data;
+  } catch (error) {
+    throw notificationRequestError(endpoint, error);
+  }
 }
 export async function claimNotificationRelay(eventType: string, consumer: string, lane?: 'flymail' | 'standard'): Promise<NotificationRelayEvent | null> {
   const data = await post<{ event: NotificationRelayEvent | null }>('/claim', { eventType, consumer, ...(lane ? { lane } : {}) });

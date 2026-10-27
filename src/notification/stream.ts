@@ -1,9 +1,11 @@
+import { notificationResponseError } from '../api/bot/notification-error';
 import { dispatchChatNotices, startChatNotices, stopChatNotices } from './chat';
 import { dispatchCommunityNotifications } from './communityDelivery';
-import { getBackendConfig, getNotificationBackendConfig } from '@src/api/bot/config';
+import { getNotificationBackendConfig } from '@src/api/bot/config';
 import { logger, onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from '../utils/qqBotIdentity';
-import { PushMessageTask } from '@src/task/pushMessageTask';
+import { PushFlyMailTask, dispatchStandardMessages } from '@src/task/pushMessageTask';
+import { NotificationDispatcher } from './dispatch';
 
 let started = false;
 let stopWaitingForAppId: (() => void) | undefined;
@@ -11,19 +13,9 @@ let generation = 0;
 let activeController: AbortController | undefined;
 let cancelReconnect: (() => void) | undefined;
 
-const dispatch = (controller: AbortController) => {
-  const jobs = [PushMessageTask(), dispatchCommunityNotifications()];
+let activeDispatcher: NotificationDispatcher | undefined;
 
-  if (!getBackendConfig().channelMode) {
-    jobs.push(dispatchChatNotices());
-  }
-  void Promise.all(jobs).catch(error => {
-    logger.error('通知 SSE 投递失败，重新连接后补领', error);
-    controller.abort();
-  });
-};
-
-const consume = async (body: ReadableStream<Uint8Array>, controller: AbortController): Promise<void> => {
+const consume = async (body: ReadableStream<Uint8Array>, controller: AbortController, dispatcher: NotificationDispatcher): Promise<void> => {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -56,7 +48,7 @@ const consume = async (body: ReadableStream<Uint8Array>, controller: AbortContro
           .trim();
 
         if (event === 'stream.ready' || event === 'notification.ready') {
-          dispatch(controller);
+          dispatcher.wake();
         }
         boundary = buffer.indexOf('\n\n');
       }
@@ -81,12 +73,16 @@ export const startNotificationStream = (): void => {
   }
   stopWaitingForAppId?.();
   stopWaitingForAppId = undefined;
-  const config = getBackendConfig();
-
   started = true;
-  if (!config.channelMode) {
-    startChatNotices();
-  }
+  const dispatcher = new NotificationDispatcher([
+    { name: '飞信', run: PushFlyMailTask },
+    { name: '玩家通知', run: dispatchStandardMessages },
+    { name: '群通知', run: dispatchCommunityNotifications },
+    { name: '运营消息', run: dispatchChatNotices }
+  ]);
+
+  activeDispatcher = dispatcher;
+  startChatNotices();
   const currentGeneration = ++generation;
 
   void (async () => {
@@ -119,9 +115,20 @@ export const startNotificationStream = (): void => {
           clearTimeout(connectionTimer);
         }
 
-        if (!response.ok || !response.body) {
+        if (!response.ok) {
+          const data = response.headers.get('content-type')?.includes('application/json') ? await response.json().catch(() => undefined) : undefined;
+
           void response.body?.cancel();
-          throw new Error(`通知 SSE 连接失败: HTTP ${response.status}`);
+          throw notificationResponseError('/api/v1/internal/notification-relay/events/stream', {
+            response: {
+              status: response.status,
+              data,
+              headers: { 'x-request-id': response.headers.get('x-request-id') }
+            }
+          });
+        }
+        if (!response.body) {
+          throw new Error('通知 SSE 响应缺少事件流');
         }
         const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
 
@@ -129,7 +136,7 @@ export const startNotificationStream = (): void => {
           void response.body.cancel();
           throw new Error(`通知 SSE 响应类型错误: HTTP ${response.status}, Content-Type ${contentType ?? '未提供'}`);
         }
-        await consume(response.body, controller);
+        await consume(response.body, controller, dispatcher);
       } catch (error) {
         if (currentGeneration === generation) {
           logger.error('通知 SSE 中断，准备重连', error);
@@ -167,6 +174,8 @@ export const stopNotificationStream = (): void => {
   stopWaitingForAppId?.();
   stopWaitingForAppId = undefined;
   stopChatNotices();
+  activeDispatcher?.stop();
+  activeDispatcher = undefined;
   generation++;
   activeController?.abort();
   cancelReconnect?.();

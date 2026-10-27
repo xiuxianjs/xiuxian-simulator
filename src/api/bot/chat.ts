@@ -1,5 +1,6 @@
+import { notificationRequestError } from './notification-error';
 import axios from 'axios';
-import { getWorkerBackendConfig } from './config';
+import { getBackendConfig, getNotificationBackendConfig, getWorkerBackendConfig } from './config';
 import { backendConnectionPools } from './connection-pools';
 
 export type ChatClaim = {
@@ -20,16 +21,24 @@ export type ChatReceipt = Pick<ChatClaim, 'noticeId' | 'contactId' | 'botId' | '
 };
 
 async function post<T>(path: string, data: unknown): Promise<T> {
-  const config = getWorkerBackendConfig();
+  const channel = getBackendConfig().channelMode;
+  const config = channel ? getNotificationBackendConfig() : getWorkerBackendConfig();
 
-  if (!config.url || !config.workerToken) {
+  if (!config.url || (!channel && !config.workerToken)) {
     throw new Error('消息管理 API 未配置');
   }
-  const response = await axios
-    .create({ ...backendConnectionPools, baseURL: config.url, timeout: config.timeoutMs, headers: { 'X-Worker-Token': config.workerToken } })
-    .post<T>(`/chat/internal/${path}`, data);
+  const endpoint = `/chat/internal/${path}`;
+  const headers = channel ? { Authorization: `Bearer ${config.robotAuthToken}` } : { 'X-Worker-Token': config.workerToken };
 
-  return response.data;
+  try {
+    const response = await axios
+      .create({ ...backendConnectionPools, baseURL: config.url, timeout: config.timeoutMs, headers, ...(channel ? { maxRedirects: 0 } : {}) })
+      .post<T>(endpoint, data);
+
+    return response.data;
+  } catch (error) {
+    throw notificationRequestError(endpoint, error);
+  }
 }
 
 export const rememberChatContact = (botId: string, openId: string, bid: string) => post('contact', { botId, openId, bid });
