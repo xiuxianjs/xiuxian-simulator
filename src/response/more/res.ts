@@ -89,7 +89,7 @@ export default onResponse(selects, async e => {
 
   const share = await me.share();
   const url = share?.data?.url;
-  const urlobj = url ? ({ label: '分享我', command: url, type: 'link' } as const) : undefined;
+  const urlobj = url ? ({ label: '分享我', command: url } as const) : undefined;
 
   const reply = FormatGui({
     isPrivate: e.isPrivate ?? false,
