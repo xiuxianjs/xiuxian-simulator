@@ -63,7 +63,7 @@ for (const action of ['consume_item', 'get_green_bottle_capacity', 'store_green_
       assert.equal(actual.result.outcome, data.outcome);
       assert.equal(actual.result.message, data.message);
       assert.equal(actual.result.remainingQuantity, data.remainingQuantity);
-      if (data.outcome === 'peiyuan_pending') assert.deepEqual(actual.result.peiyuanPending, { quantity: data.pending.quantity, view: data.pending.view });
+      if (data.outcome === 'peiyuan_pending') assert.deepEqual(actual.result.peiyuanPending, { quantity: data.pending.quantity, view: data.pending.view, ...(data.pending.snapshot ? { snapshot: data.pending.snapshot } : {}) });
       if (data.outcome === 'mingwu_select') assert.deepEqual(actual.result.mingwuSelection, data.pending);
     } else if (action === 'learn_skill_book') {
       outcomes.add(data.outcome);

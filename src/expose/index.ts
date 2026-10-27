@@ -1,4 +1,6 @@
 import { Expose } from 'alemonjs';
+import { peiyuanActions } from './peiyuan-actions';
+import { mingwuActions } from './mingwu-actions';
 import { achievementActions } from './achievement-actions';
 import { tongtianActions } from './tongtian-actions';
 import { growthActions } from './growth-actions';
@@ -62,9 +64,11 @@ type Attributes = { uid: number; daoName: string; realmName: string } & Record<(
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.20.0',
+  version: '1.22.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
+    ...peiyuanActions,
+    ...mingwuActions,
     ...achievementActions,
     ...tongtianActions,
     ...growthActions,

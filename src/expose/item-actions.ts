@@ -6,15 +6,20 @@ import { mutation } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const quantity = { type: 'integer' as const, minimum: 1, maximum: 2147483647 };
-const peiyuan = object({
-  quantity: integer,
-  view: object({
-    ...fields(text, 'headingText confirmPromptText'),
-    ...fields(boolean, 'hasChanges showRollDetails'),
-    changeLines: list(text),
-    rollLines: list(text)
-  })
-});
+
+export const peiyuanPendingSchema = object(
+  {
+    snapshot: { type: 'string', minLength: 64, maxLength: 64 },
+    quantity: integer,
+    view: object({
+      ...fields(text, 'headingText confirmPromptText'),
+      ...fields(boolean, 'hasChanges showRollDetails'),
+      changeLines: list(text),
+      rollLines: list(text)
+    })
+  },
+  ['snapshot']
+);
 const mingwu = object({
   ...fields(integer, 'quantity remainingCount'),
   guidanceText: text,
@@ -23,7 +28,7 @@ const mingwu = object({
 
 export const itemActions = {
   consume_item: mutation<{ itemName: string; quantity: number }>(
-    '按背包中的精确道具名称消耗库存；由服务端解释效果和数量。必须检查 outcome：rejected 未使用，peiyuan_pending/明悟 mingwu_select 尚需确认或选择，不能报告已完成培养。',
+    '按背包中的精确道具名称消耗库存，由服务端解释效果和数量。检查 outcome：rejected 未使用；peiyuan_pending 用原 snapshot 调用 get_peiyuan_confirmation，再以原 reference 确认或取消；mingwu_select 尚需选择。不能把待确认报告为已完成培养。',
     'items.consume',
     object({ itemName: { type: 'string', minLength: 1, maxLength: 64 }, quantity }),
     object(
@@ -31,7 +36,7 @@ export const itemActions = {
         outcome: { type: 'string', enum: ['consumed', 'rejected', 'formation_activated', 'tower_reset', 'peiyuan_pending', 'mingwu_select'] },
         message: text,
         remainingQuantity: integer,
-        peiyuanPending: peiyuan,
+        peiyuanPending: peiyuanPendingSchema,
         mingwuSelection: mingwu
       },
       ['remainingQuantity', 'peiyuanPending', 'mingwuSelection']

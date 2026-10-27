@@ -11,6 +11,7 @@ export type BackendConsumeResult = {
 };
 
 export type BackendPeiyuanPending = {
+  snapshot?: string;
   quantity: number;
   view: {
     headingText: string;
@@ -60,6 +61,10 @@ export function parsePeiyuanPending(value: unknown): BackendPeiyuanPending {
     (pending.quantity > 1 && view.headingText.length === 0)
   ) {
     throw new Error('培元丹待确认响应不完整');
+  }
+
+  if (pending.snapshot !== undefined && (typeof pending.snapshot !== 'string' || !/^[a-f0-9]{64}$/.test(pending.snapshot))) {
+    throw new Error('培元丹原预览摘要无效');
   }
 
   return pending as BackendPeiyuanPending;

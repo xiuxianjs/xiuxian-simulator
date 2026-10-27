@@ -15,7 +15,16 @@ const access = object({ canUseFifthLayerFeature: boolean, realmName: text });
 const guarded = (data: ExposeValueSchema) => object({ locked: boolean, realmName: text, data }, ['realmName', 'data']);
 const achievementPage = object({
   items: list(
-    object({ id: integer, ...fields(text, 'name description completedAt'), displayIndex: integer }, ['name', 'description', 'completedAt', 'displayIndex'])
+    object(
+      {
+        id: integer,
+        ...fields(text, 'name description completedAt category rewardText progressText'),
+        displayIndex: integer,
+        threshold: number,
+        ...fields(boolean, 'completed claimed')
+      },
+      ['name', 'description', 'completedAt', 'displayIndex', 'category', 'rewardText', 'progressText', 'threshold', 'completed', 'claimed']
+    )
   ),
   page: object(fields(integer, 'currentPage totalPages total'))
 });
@@ -28,6 +37,14 @@ function pageData(data: unknown, completed: boolean) {
   return data;
 }
 const combatCard = { ...fields(integer, 'id'), ...fields(text, 'name description rewardText'), threshold: number };
+const titleDefinition = object(
+  fields(
+    number,
+    'normalAttackCritRate skillCritRate ultimateCritRate allSkillCritRate physicalAttack magicAttack physicalDefense magicDefense hp speed critRate critDamage antiCritRate hitRate dodgeRate physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent speedPercent'
+  )
+);
+const titleFacts = { ...fields(text, 'type source sourceId grantedAt expireTime'), definition: titleDefinition };
+const optionalTitleFacts = ['type', 'source', 'sourceId', 'grantedAt', 'expireTime', 'definition'];
 const categories = ['general', 'storyline', 'lingzhi', 'combat_power', 'tower_shop_unlock', 'master'] as const;
 const categoryNames = { general: '通用', storyline: '主线', lingzhi: '灵田', combat_power: '战力', tower_shop_unlock: '妖塔奖励', master: '师门' } as const;
 
@@ -121,23 +138,32 @@ export const achievementActions = {
     object({
       moodText: text,
       titles: list(
-        object({ id: integer, ...fields(text, 'title description bonusSummary expireDate actionLabel actionCommand'), isActive: boolean }, [
+        object({ id: integer, ...fields(text, 'title description bonusSummary expireDate actionLabel actionCommand'), isActive: boolean, ...titleFacts }, [
           'description',
           'bonusSummary',
-          'expireDate'
+          'expireDate',
+          ...optionalTitleFacts
         ])
       )
     }),
     () => '/我的称号',
-    validateBackendTitleOverview
+    data => {
+      validateBackendTitleOverview(data);
+
+      return data;
+    }
   ),
   activate_title: mutation<{ titleId: number }>(
     '佩戴本人持有的有效称号，titleId 来自 get_titles 的 id；所有权和过期由服务端检查，返回实际佩戴回执。',
     'titles.activate',
     object({ titleId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
-    object({ id: integer, title: text, isActive: boolean }),
+    object({ id: integer, title: text, isActive: boolean, description: text, ...titleFacts }, ['description', ...optionalTitleFacts]),
     input => `/佩戴称号 ${input.titleId}`,
-    (data, input) => validateBackendActivatedTitle(data, input.titleId)
+    (data, input) => {
+      validateBackendActivatedTitle(data, input.titleId);
+
+      return data;
+    }
   ),
   deactivate_title: mutation(
     '卸下本人当前称号；removed=false 表示当前没有需要卸下的称号，不能报告已卸下一个称号。',

@@ -97,3 +97,19 @@ release
 | `deactivate_title`                | `{}`；卸下当前称号，`removed=false` 表示无称号需要卸下                                       |
 
 成就保留服务端的 `completed`、`claimed`、`reachable` 等不同状态，查询配置不等于已领取。`locked=true` 是资格受限，不等于空记录；未提供的名称、描述或日期按可选字段处理，不补造文本。战力领奖返回实际领取数和奖励文案。称号所有权、过期和佩戴互斥由服务端检查；重复操作使用原消息幂等键，越权与失效错误原样作为调用失败返回。
+
+### Expose 明悟丹选择与服用
+
+版本 `1.21.0` 增加 `use_mingwu_pill({skillBookId, quantity, expectedProficiency})`。先调用 `consume_item({itemName:"明悟丹", quantity:数量})` 获取 `mingwuSelection`，从 `canSelect=true` 的选项提取功法模板 `skillBookId` 和原 `proficiency`，再原样传入选中编号、数量与 `expectedProficiency`（0..59）。服务端在扣药事务的功法行锁内比较原熟练度；功法被卸下、归属不符、熟练度变化、库存或次数不足时拒绝，不自动更新选择。
+
+必须读取实际 `consumedCount`、`proficiencyGain`、`currentProficiency` 和 `remainingCount`；临近原有60%上限可能只消耗部分所选丹药。同一原消息重试使用原幂等键，新消息重复旧状态会被拒绝。该入口需配套发布服务端的 `expectedProficiency` 校验；旧聊天接口继续兼容。
+
+### Expose 培元丹原预览确认
+
+版本 `1.22.0` 增加 `get_peiyuan_confirmation({snapshot})`、`confirm_peiyuan_pill({reference})`、`cancel_peiyuan_pill({reference})`。
+
+先通过 `consume_item` 取得培元丹 `peiyuanPending.snapshot`，再将原摘要交给 `get_peiyuan_confirmation`。它返回完整原变化、原时限和服务端 `p` 类型引用；原摘要缺失或不匹配时不能自动改为最新记录。确认、取消均只传引用，保留原60秒期限，引用保留24小时用于已结算重试；重新获取引用不会延长原时限。旧服务端未返回摘要时，先核对原结果，不重发消耗请求。
+
+属性应用与原决定回执在现有 SQL 表同一事务提交；确认重试不重复应用，取消不返还已服用的丹药。同一原预览的不同引用共享唯一决定，确认与取消互斥；已处理引用的重试返回原结果，即使出现了新预览也不会处理或删除它。新操作要求原属性及当前上限仍支持原变化，状态变化时明确拒绝。Redis 清理失败时已提交回执仍有效，可用原引用重试清理，未清理的原待确认缓存至多保留其原时限。
+
+需配套发布服务端摘要、引用和结算支持。旧聊天确认与取消保留原入口，共用玩家操作锁；不新增数据库字段或迁移。

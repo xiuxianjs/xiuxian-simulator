@@ -64,7 +64,7 @@ for (const action of actions) test(`${action}: 真实服务端状态与结算回
         assert.equal(actual.result.data.claimedCount, data.data.claimedCount);
         assert.equal(actual.result.data.claimed.length, data.data.claimed.length);
         assert.equal(actual.result.data.claimed[0].achievementName, data.data.claimed[0].achievementName);
-        assert.equal(actual.result.data.claimed[0].rewardText, '灵石×5');
+        assert.equal(actual.result.data.claimed[0].rewardText, 'SPIRIT_STONE×5');
       } else assert.deepEqual(actual.result.data, clean(data.data));
     } else if (action === 'get_titles') {
       assert.deepEqual(actual.result, clean(data));
@@ -127,4 +127,49 @@ for (const [action, input] of [
   assert.deepEqual(run.errors, []);
   assert.equal(run.value.ok, false);
   if (!run.value.ok) assert.equal(run.value.error.code, 'INVALID_INPUT');
+});
+
+for (const defect of ['wrong-id', 'inactive', 'bad-definition', 'null-description'] as const) test(`activate_title: ${defect}`, async t => {
+  const fixture = fixtures.find(row => row.action === 'activate_title' && row.status === 200);
+  assert.ok(fixture);
+  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const envelope = structuredClone(fixture.envelope);
+  const data = envelope.data.data;
+  if (defect === 'wrong-id') data.id++;
+  else if (defect === 'inactive') data.isActive = false;
+  else if (defect === 'bad-definition') data.definition.hp = 'bad';
+  else data.description = null;
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(envelope) }) }));
+  const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'activate_title', fixture.input), 'ai-plugin');
+  assert.deepEqual(run.errors, []);
+  assert.deepEqual(run.messages, []);
+  assert.deepEqual(run.actions, []);
+  assert.equal(run.value.ok, defect === 'null-description');
+  if (run.value.ok) assert.equal((run.value.data as any).result.description, undefined);
+});
+
+test('成就列表保留原始空名称，不补造展示文案', async t => {
+  const fixture = fixtures.find(row => row.action === 'get_all_achievements' && row.envelope.data.data?.items?.length > 0);
+  assert.ok(fixture);
+  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const envelope = structuredClone(fixture.envelope);
+  envelope.data.data.items[0].name = null;
+  envelope.data.data.items[0].description = null;
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(envelope) }) }));
+  const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', fixture.action, fixture.input), 'ai-plugin');
+  assert.deepEqual(run.errors, []);
+  assert.deepEqual(run.messages, []);
+  assert.deepEqual(run.actions, []);
+  assert.equal(run.value.ok, true);
+  if (run.value.ok) {
+    const row = (run.value.data as any).result.items[0];
+    assert.equal(row.name, undefined);
+    assert.equal(row.description, undefined);
+    assert.equal(row.id, envelope.data.data.items[0].id);
+    assert.equal(row.category, envelope.data.data.items[0].category);
+  }
 });
