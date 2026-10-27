@@ -18,9 +18,14 @@ export async function getBackendInventory(
   bid: string,
   uid: number,
   query: { category: 'prop' | 'material'; subtype?: string; page: number },
-  request?: BackendRequestContext
+  request?: BackendRequestContext & { signal?: AbortSignal }
 ): Promise<BackendInventoryPage> {
-  const data = await requestBackend(bid, 'get_players_id_inventory', { path: { id: uid }, query: { ...query, view: 'bag' }, requestId: request?.requestId });
+  const data = await requestBackend(bid, 'get_players_id_inventory', {
+    path: { id: uid },
+    query: { ...query, view: 'bag' },
+    requestId: request?.requestId,
+    signal: request?.signal
+  });
 
   return parseBackendInventory(data);
 }

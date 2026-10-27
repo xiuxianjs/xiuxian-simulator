@@ -648,6 +648,30 @@ export const cultivationOperationDefinitions = {
       }
     ]
   },
+  get_players_id_spirit_root: {
+    method: 'GET',
+    path: '/api/v1/players/{id}/spirit-root',
+    security: [{ RobotBearer: [], RobotBid: [] }, { UserBearer: [] }],
+    requestContentType: null,
+    bodyRequired: false,
+    responseKind: 'json',
+    responseEnvelope: true,
+    pathParams: [{ schema: { type: 'integer', minimum: 1 }, name: 'id', required: true, style: 'simple', explode: false }],
+    queryParams: [],
+    headerParams: [{ name: 'X-Request-ID', required: false, style: 'simple', explode: false }]
+  },
+  get_players_id_spirit_root_materials: {
+    method: 'GET',
+    path: '/api/v1/players/{id}/spirit-root/materials',
+    security: [{ RobotBearer: [], RobotBid: [] }, { UserBearer: [] }],
+    requestContentType: null,
+    bodyRequired: false,
+    responseKind: 'json',
+    responseEnvelope: true,
+    pathParams: [{ schema: { type: 'integer', minimum: 1 }, name: 'id', required: true, style: 'simple', explode: false }],
+    queryParams: [],
+    headerParams: [{ name: 'X-Request-ID', required: false, style: 'simple', explode: false }]
+  },
   get_players_id_realm_overview: {
     method: 'GET',
     path: '/api/v1/players/{id}/realm/overview',

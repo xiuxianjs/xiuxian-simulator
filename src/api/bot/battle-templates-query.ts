@@ -26,11 +26,11 @@ export async function getBackendBattleTemplateAccess(bid: string | undefined, ui
   }
 }
 
-export async function getBackendBattleTemplates(bid: string | undefined, uid: number): Promise<BattleTemplatesQueryData> {
+export async function getBackendBattleTemplates(bid: string | undefined, uid: number, signal?: AbortSignal): Promise<BattleTemplatesQueryData> {
   if (!bid) {
     throw new Error('操作缺少平台身份');
   }
-  const data = await requestBackend(bid, 'get_players_id_battle_templates', { path: { id: uid } });
+  const data = await requestBackend(bid, 'get_players_id_battle_templates', { path: { id: uid }, signal });
 
   return parseBattleTemplates(data);
 }

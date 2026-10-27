@@ -48,7 +48,8 @@ for (const privateChat of [false, true]) {
     assert.ok(view.commands.includes('/我的功法 2'));
     assert.equal(requests.filter(r => r.path.endsWith('/skill-books.learned')).length, 1);
     assert.equal(requests.filter(r => r.path.includes('view=access')).length, 1);
-    const http = facts.find(f => f.operationId === 'post_v2_robot_business_operation');
+    assert.ok(!facts.some(f => f.operationId === 'post_v2_robot_business_operation'));
+    const http = facts.find(f => f.stage === 'api.http.wait' && f.durationMs === 1500);
     const access = facts.find(f => f.stage === 'presentation.access');
     const send = facts.find(f => f.stage === 'platform.send');
     assert.equal(http?.durationMs, 1500);

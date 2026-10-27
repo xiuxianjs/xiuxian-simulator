@@ -1,11 +1,11 @@
 import { defineRouter, Router, type Next } from 'alemonjs';
-import { isGameEventEnabled } from './utils/eventPolicy';
 import { withAccessFacts } from './api/bot/access-facts';
 import { withCommandCatalog } from './api/bot/catalog-query-reuse';
 import type { RobotCommandProfile } from './api/bot/command-entry';
 import { alchemyRoutes } from './response/alchemy/v2/commands';
 import { forgeReadEntries, forgeReadRoutes } from './response/profession/forge/commands';
 import type { GameEvent } from './types/event';
+import { isGameEventEnabled } from './utils/eventPolicy';
 import { measureTransportStage } from './utils/transportTiming';
 
 /**
@@ -88,6 +88,7 @@ app.res(
   /**
    * 无需身份、不用担心被用户知晓的，公共入口
    */
+  publicXiuxian.use('管理', () => import('@src/response/admins/res'));
   publicXiuxian.use(
     ['更多'],
     withAccessFacts(['realm'], () => import('@src/response/more/res'))

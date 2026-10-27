@@ -66,12 +66,10 @@ export function createBlackBoxContext(e: GameEvent, overviewCommand: '/黑盒拍
     const block = createQuoteMarkdown(lines.filter(Boolean));
 
     for (const button of buttons) {
-      block
-        .addText(' ')
-        .addButton(markdownButtonLabel(`${button.label}`), {
-          data: button.command,
-          ...(button.autoEnter === undefined ? {} : { autoEnter: button.autoEnter })
-        });
+      block.addText(' ').addButton(markdownButtonLabel(`${button.label}`), {
+        data: button.command,
+        ...(button.autoEnter === undefined ? {} : { autoEnter: button.autoEnter })
+      });
     }
     content.addBlockquote(block);
   };

@@ -165,6 +165,20 @@ export interface CultivationOperations {
     body: never;
     response: unknown;
   };
+  get_players_id_spirit_root: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string };
+    body: never;
+    response: unknown;
+  };
+  get_players_id_spirit_root_materials: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string };
+    body: never;
+    response: unknown;
+  };
   get_players_id_realm_overview: {
     path: { id: number };
     query: never;

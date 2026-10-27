@@ -12,7 +12,6 @@ xiuxian-game:
   # events:
   #   deny: ['guild.join', 'notice.create:join-request'] # 关闭被邀请入群后的处理和加群申请处理
   #   allow: ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] # 只处理消息和按钮
-
   backend:
     # 必填：online 统一 API origin，不要附加 /api/v1。
     api_url: 'https://xiuxian-simulator.alemonjs.com'
@@ -26,7 +25,7 @@ xiuxian-game:
     worker_token: ''
     # 单次请求超时（毫秒），默认 10000；战斗请求另有较长等待时间。
     api_timeout_ms: 60000
-    # 排查卡顿时开启每次 API 耗时日志；默认仅记录 >=1秒的请求，不记录凭证和请求体。
+    # 排查卡顿时设为 true 开启每次 API 耗时日志（含生产环境）；默认关闭，不记录凭证和请求体。
     log_api_timings: false
     # 图片渲染、上传和平台发送耗时；默认只记录 >=1秒的阶段。
     log_transport_timings: false

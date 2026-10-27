@@ -1,12 +1,6 @@
 import { getCurrentEvent, logger } from 'alemonjs';
 import { getCommandErrorMessage } from '../../utils/commandError';
-import {
-  isDetailedTimingEvent,
-  isLearnedBooksTimingEvent,
-  measureTransportStageSync,
-  recordTransportStage,
-  transportEventOffset
-} from '../../utils/transportTiming';
+import { isDetailedTimingEvent, measureTransportStageSync, recordTransportStage, transportEventOffset } from '../../utils/transportTiming';
 import { createClient, SDKError, type RequestArguments } from '../core';
 import { isParameterRecord } from '../core/helpers';
 import { operationDefinitions, type OperationId, type Operations } from '../registry';
@@ -145,10 +139,7 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
     }
 
     try {
-      if (
-        (process.env.NODE_ENV !== 'production' && (isDetailedTimingEvent(event) || config.logApiTimings || durationMs >= 2000)) ||
-        isLearnedBooksTimingEvent(event)
-      ) {
+      if (config.logApiTimings) {
         logger.info('[后端请求耗时]', {
           operationId,
           requestId,
