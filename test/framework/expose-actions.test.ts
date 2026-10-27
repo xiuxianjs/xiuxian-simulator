@@ -36,7 +36,22 @@ const guildDaily = { guildId: 1, guildName: '青云', contributionPoints: 100, d
 const guildWeekly = { guildId: 1, guildName: '青云', contributionPoints: 100, weeklyActivity: 40, weeklyActivityMax: 100, stipendThreshold: 40, stipendPreviewAmount: 100, stipendBaseAmount: 100, stipendGuildLevel: 1, stipendLevelMultiplier: 1, stipendActivityMultiplier: 1, weeklyCheckinCount: 1, weeklyMiningCount: 0, weeklyExchangeCount: 0, claimAllAvailable: true, weeklyTasks: ['checkin','mining','exchange'].map(key => ({ key, label: '任务', progress: 1, target: 3, unit: '次', activityReward: 1, bonusText: '奖励', completed: false })), milestones: [guildMilestone] };
 const guildExpected = { shopItemId: 1, itemId: 9, name: '药草', category: 'material', quantity: 2, priceContribution: 20 };
 const guildShop = { contributionPoints: 100, autoRefreshEnabled: false, isLeader: true, autoRefreshHours: [], autoRefreshStatusText: '未开启', refreshDailyLimit: 3, items: [{ id: 1, index: 1, itemId: 9, name: '药草', category: 'material', quantity: 2, priceContribution: 20, purchased: false, canExchange: true, statusText: '未兑换', itemType: 'material', itemSubtype: null }] };
+const teamFacts = { teamId: 8, exists: true, leaderName: '队长', memberCount: 1, maxMembers: 6, minRealmName: null, target: null, isMember: false, isLeader: false, ownMembershipLeader: false, members: [{ userId: 9, name: '队长', isLeader: true, position: 1 }], actions: { canApply: true, canInvite: false, canManageMembers: false, canReviewApplications: false, canUseTeamMail: false, canViewDungeon: false, canLeave: false, canDisband: false, canViewInvitations: false } };
 const cases = [
+  { action: 'get_my_team', operation: 'teams.overview', command: '/我的队伍', input: {}, data: { access: { ok: true, realmName: '炼气' }, team: null } },
+  { action: 'get_team_info', operation: 'teams.info', command: '/队伍信息 8', input: { teamId: 8 }, args: { teamId: '8' }, data: { access: { ok: false, realmName: null }, team: teamFacts } },
+  { action: 'get_team_list', operation: 'teams.list', command: '/队伍列表 1', input: {}, args: { page: 1, pageSize: 5 }, data: { items: [{ id: 8, leaderId: 9, leaderName: '队长', memberCount: 1, maxMembers: 6, minRealmName: null }], page: 1, pageSize: 5, total: 1 } },
+  { action: 'create_team', operation: 'teams.create', command: '/创建队伍', input: {}, data: { id: 8 } },
+  { action: 'apply_to_team', operation: 'teams.apply', command: '/加入队伍 8', input: { teamId: 8 }, args: { teamId: '8' }, data: { id: 2, teamId: 8, userId: 7, status: 0, createdAt: '2026-10-28' } },
+  { action: 'leave_team', operation: 'teams.leave', command: '/离开队伍', input: {}, data: { left: true } },
+  { action: 'disband_team', operation: 'teams.disband', command: '/解散队伍', input: {}, data: { disbanded: true } },
+  { action: 'get_team_applications', operation: 'teams.applications', command: '/队伍申请', input: {}, data: { teamId: 8, leaderName: '队长', applications: [{ id: 2, teamId: 8, userId: 7, userName: '申请人', status: 0, createdAt: '2026-10-28' }] } },
+  { action: 'approve_team_application', operation: 'teams.application-approve', command: '/队伍同意 2', input: { applicationId: 2 }, args: { applicationId: '2' }, data: { id: 8 } },
+  { action: 'reject_team_application', operation: 'teams.application-reject', command: '/队伍拒绝 2', input: { applicationId: 2 }, args: { applicationId: '2' }, data: { rejected: true } },
+  { action: 'get_team_match', operation: 'team-match.snapshot', command: '/匹配状态', input: {}, data: null },
+  { action: 'start_mainline_match', operation: 'team-match.start-mainline', command: '/匹配主线 7-3', input: { chapterNumber: 7, stageNumber: 3 }, data: { targetLabel: '主线 7-3' } },
+  { action: 'start_dungeon_match', operation: 'team-match.start-dungeon', command: '/匹配秘境 5', input: { dungeonId: 5 }, data: { targetLabel: '秘境 多人秘境' } },
+  { action: 'cancel_team_match', operation: 'team-match.cancel', command: '/取消匹配', input: {}, data: { cancelled: false, targetLabel: null } },
   { action: 'get_guild_daily', operation: 'guild.daily', command: '/宗门日常', input: {}, data: guildDaily },
   { action: 'get_guild_weekly', operation: 'guild.weekly', command: '/宗门周常', input: {}, data: guildWeekly },
   { action: 'claim_guild_milestone', operation: 'guild.milestone-claim', command: '/领取宗门日活奖励 1', input: { type: 'daily_activity', milestoneId: 1 }, args: { milestoneArg: '1', expectedType: 'daily_activity' }, data: { outcome: 'result', message: '已领取', receipt: { message: '已领取', milestoneId: 1, type: 'daily_activity', threshold: 10, currentPoints: 40, rewards: { spiritStone: 0, contribution: 2, prestige: 0 } } } },
@@ -214,6 +229,15 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['get_team_list', { page: 0 }],
+  ['get_team_info', { teamId: 0 }],
+  ['apply_to_team', { teamId: 8, userId: 999 }],
+  ['approve_team_application', { applicationId: 0 }],
+  ['reject_team_application', { applicationId: Number.MAX_SAFE_INTEGER + 1 }],
+  ['create_team', { leaderId: 999 }],
+  ['start_mainline_match', { chapterNumber: 7, stageNumber: 0 }],
+  ['start_dungeon_match', { dungeonId: 5, mode: 'single' }],
+  ['cancel_team_match', { uid: 999 }],
   ['claim_guild_milestone', { type: 'daily_activity', milestoneId: 0 }],
   ['claim_all_guild_milestones', { type: 'monthly' }],
   ['worship_guild', { offer: '自动' }],
