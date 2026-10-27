@@ -29,7 +29,7 @@ release
 
 ### AI 插件能力（Expose）
 
-机器人提供协议 `xiuxian.player.v1`，provider 为实际加载名（通常是 `xiuxian-game`）。当前能力版本为 `1.8.0`，已注册 64 项能力（28 项查询及 36 项经业务入口调用的动作），仅使用当前消息玩家身份，不发送聊天消息。
+机器人提供协议 `xiuxian.player.v1`，provider 为实际加载名（通常是 `xiuxian-game`）。当前能力版本为 `1.9.0`，已注册 75 项能力（29 项查询及 46 项经业务入口调用的动作），仅使用当前消息玩家身份，不发送聊天消息。
 
 | 动作                   | 参数                                                                  | 返回内容                                                           |
 | ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -182,3 +182,23 @@ if (result.ok) {
 同一消息、会话、版本和技能重试复用同一幂等键；连续回合使用服务端返回的新 revision，因此同一消息内多次选择普攻也能推进。revision 是状态版本，不是所有权凭据；服务端仍校验会话玩家。`自动` 表示交由原有自动战斗逻辑完成当前会话。
 
 回执包含当前阵容、技能选项、行动摘要、战斗记录编号及收益结算；只投影业务所需字段，不返回底层玩家模型或随机种子。先发布配套服务端 revision / expectedRevision 支持，再发布机器人；旧服务端缺少版本回执时会明确失败，不能自动降级为无版本选技。新服务端继续兼容原聊天处理器的无 expectedRevision 请求。
+
+### Expose 洞府与宗门日常
+
+| 动作                     | 参数                                      | 说明                                                |
+| ------------------------ | ----------------------------------------- | --------------------------------------------------- |
+| `get_cave_plant_options` | `{ plotIndex?: number }`                  | 可播种灵种、库存、成熟小时数与空闲地块              |
+| `cultivate_cave_plot`    | `{ plotIndex: number }`                   | 开垦指定地块；服务端校验材料和资格                  |
+| `plant_cave_seed`        | `{ plotIndex: number, seedName: string }` | 消耗对应灵种播种                                    |
+| `water_cave_plots`       | `{ plotIndex?: number }`                  | 浇灌；省略地块则批量处理                            |
+| `remove_cave_worms`      | `{ plotIndex?: number }`                  | 除虫；省略地块则批量处理                            |
+| `remove_cave_weeds`      | `{ plotIndex?: number }`                  | 除草；省略地块则批量处理                            |
+| `harvest_cave_plots`     | `{ plotIndex?: number }`                  | 收割；以服务端实际成熟及收获状态为准                |
+| `tend_cave_plots`        | `{}`                                      | 一键照料并收割本人灵田，检查各步骤说明              |
+| `checkin_guild`          | `{}`                                      | 当前宗门签到，返回实际贡献、声望和活跃增量          |
+| `mine_guild`             | `{}`                                      | 开始、查看进行中或结算采矿；检查 outcome 和剩余秒数 |
+| `claim_guild_stipend`    | `{}`                                      | 领取本周俸禄，返回实际金额及倍率事实                |
+
+洞府操作返回 message、needsSeedSelection 以及可用的 overview / options。snapshotError 表示快照读取失败，不能推断此前操作未发生；一键打理可能部分完成，以 message 各步骤为准。查询播种选项不消耗种子，实际播种和开垦使用服务端库存与规则。
+
+宗门操作保留 message 和结构化 receipt。采矿回执可包含 baseSpiritStone、spiritStoneBonus、outputMultiplier；旧服务端未提供时省略，不补造零值。产出、成长周期、俸禄倍率均来自服务端，不在机器人重算。

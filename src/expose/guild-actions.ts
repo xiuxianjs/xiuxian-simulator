@@ -32,13 +32,19 @@ export const guildActions = {
     object({}),
     object({
       message: text,
-      receipt: object({
-        outcome: { type: 'string', enum: ['started', 'in_progress', 'settled'] },
-        ...fields(text, 'message guildName'),
-        ...fields(integer, 'guildId veinLevel miningQuota remainingSeconds settledHours spiritStoneAdded contributionAdded dailyActivityAdded'),
-        started: boolean,
-        capReached: boolean
-      })
+      receipt: object(
+        {
+          outcome: { type: 'string', enum: ['started', 'in_progress', 'settled'] },
+          ...fields(text, 'message guildName'),
+          ...fields(integer, 'guildId veinLevel miningQuota remainingSeconds settledHours spiritStoneAdded contributionAdded dailyActivityAdded'),
+          started: boolean,
+          capReached: boolean,
+          baseSpiritStone: integer,
+          spiritStoneBonus: integer,
+          outputMultiplier: number
+        },
+        ['baseSpiritStone', 'spiritStoneBonus', 'outputMultiplier']
+      )
     }),
     () => '/宗门采矿',
     data => {

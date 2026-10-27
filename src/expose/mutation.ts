@@ -8,7 +8,8 @@ import { parseRobotBusinessEnvelope, type RobotBusinessOperation } from '../api/
 import type { GameEvent } from '../types/event';
 
 const button = object({ label: text, command: text });
-const reply = object(
+
+export const replySchema = object(
   {
     title: text,
     heading: text,
@@ -39,7 +40,7 @@ export function mutation<I extends Record<string, unknown>>(
       success: boolean,
       branch: { type: 'string', enum: ['business', 'middleware'] },
       reason: text,
-      replies: list(reply),
+      replies: list(replySchema),
       result: resultSchema
     },
     ['result']
@@ -69,12 +70,13 @@ export function mutation<I extends Record<string, unknown>>(
           .sort()
           .map(key => [key, prepared[key]])
       );
-      const request = createBackendRequestContext(event, `expose:${operation}:${JSON.stringify(args)}`);
+      const messageText = command(input);
+      const request = createBackendRequestContext(event, `expose:${operation}:${JSON.stringify([messageText, args])}`);
 
       context.signal.throwIfAborted();
       const raw = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {
         path: { operation },
-        body: { ...middlewareInputFromEvent(event), messageText: command(input), arguments: args },
+        body: { ...middlewareInputFromEvent(event), messageText, arguments: args },
         ...writeContext(request),
         signal: context.signal
       });
