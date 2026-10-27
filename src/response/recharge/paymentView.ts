@@ -43,7 +43,8 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     Boolean(payResult.vipUpgrade) ||
     payResult.newcomerDayGranted !== null ||
     payResult.monthCardExtended ||
-    payResult.seclusionPassActivated;
+    payResult.seclusionPassActivated ||
+    Boolean(payResult.spiritVein);
 
   if (!hasDetail) {
     successMd.addText('订单已完成，可查看到账奖励。');
@@ -73,6 +74,14 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
 
   if (payResult.monthCardExtended) {
     successMd.addText('月卡已激活/续期');
+    successMd.addNewline();
+  }
+  if (payResult.spiritVein) {
+    successMd.addText(`灵脉租契已延长 ${payResult.spiritVein.days}收益日，每日 ${payResult.spiritVein.dailyCrystal}灵晶`);
+    successMd.addNewline();
+    successMd.addText(`本订单权益期间：${payResult.spiritVein.startDate} 至 ${payResult.spiritVein.endDate}`);
+    successMd.addNewline();
+    successMd.addButton('领取灵脉租契', { data: '/灵脉租契', autoEnter: false });
     successMd.addNewline();
   }
 

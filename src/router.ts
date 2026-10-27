@@ -552,6 +552,7 @@ app.res(
     withAccessFacts(['social'], () => import('@src/response/friend/blocklist/res'))
   );
   xiuxian.use('飞信', () => import('@src/response/flyMail/home/res'));
+  xiuxian.use(['宝物', '上古遗珍', '灵脉租契', '确认宝物'], () => import('@src/response/treasures/res'));
   xiuxian.use(['黑盒拍卖', '限时活动', '查看特殊活动'], () => import('@src/response/blackBox/overview/res'));
   xiuxian.use('黑盒排期', () => import('@src/response/blackBox/schedule/res'));
   xiuxian.use('黑盒记录', () => import('@src/response/blackBox/history/res'));

@@ -17,6 +17,12 @@ export type RobotBusinessResult<T = unknown> =
   | ({ success: true; branch: 'business'; middleware: RobotMiddlewareResult; data: T } & RobotBusinessFollowup);
 
 export type RobotBusinessOperation =
+  | 'treasures.overview'
+  | 'treasures.catalog'
+  | 'treasures.preview'
+  | 'treasures.confirm'
+  | 'ancient-relics.overview'
+  | 'spirit-vein.overview'
   | 'alchemy.v2'
   | 'black-box.overview'
   | 'black-box.history'

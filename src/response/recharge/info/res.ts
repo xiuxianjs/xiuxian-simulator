@@ -158,6 +158,7 @@ export default onResponse(selects, async e => {
         ...(giftNav ? { nav: giftNav } : {}),
         header: [{ label: '返回权益', command: '/我的权益' }, ...(selected ? [{ label: '商品分类', command: '/充值' }] : [])],
         footer: [
+          { label: '灵脉租契', command: '/灵脉租契', autoEnter: false },
           ...(result.showNewcomerRebate ? [{ label: '新人返利', command: '/新人返利' }] : []),
           ...(result.showWeeklyRebate ? [{ label: '周周返利', command: '/周周返利' }] : [])
         ]

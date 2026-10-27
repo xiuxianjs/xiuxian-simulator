@@ -111,7 +111,7 @@ test('充值首页精简双卡说明，价格实时合计，查看与购买直�
   assert.match(cards[3].text, /金手指 · ¥9.9/);
   assert.deepEqual(cards[3].commands, ['/充值 金手指', '/充值购买 3']);
   const view = inspectMessage(message.nodes);
-  assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), ['/我的权益', '/充值 道晶套餐', '/充值 月卡', '/充值购买 2', '/充值 金手指', '/充值购买 3', '/新人返利', '/周周返利']);
+  assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), ['/我的权益', '/充值 道晶套餐', '/充值 月卡', '/充值购买 2', '/充值 金手指', '/充值购买 3', '/灵脉租契', '/新人返利', '/周周返利']);
   assert.doesNotMatch(view.text, /低保|叠乘|分别购买|独立计时|点击购买|查看套餐|查看详情/);
   assert.equal(requests.length, 2);
   assert.equal(requests[0].path, '/api/v2/robot/business/recharge.catalog');

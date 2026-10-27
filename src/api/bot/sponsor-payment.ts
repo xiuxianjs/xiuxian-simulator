@@ -86,6 +86,7 @@ export type BackendNormalPaymentSettlement = {
   newcomerDayGranted: number | null;
   monthCardExtended: boolean;
   seclusionPassActivated: boolean;
+  spiritVein?: { days: number; dailyCrystal: number; startDate: string; endDate: string };
 };
 export async function getBackendNormalPaymentSettlement(bid: string, uid: number, orderNo: string): Promise<BackendNormalPaymentSettlement> {
   return parseBackendNormalPaymentSettlement(await requestBackend(bid, 'get_players_id_payments_orders_orderNo_settlement', { path: { id: uid, orderNo } }));
@@ -117,6 +118,21 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
   if (vip && (!Number.isInteger(vip.oldLevel) || !Number.isInteger(vip.newLevel))) {
     throw new Error('充值结算回执不完整');
   }
+  const spiritVein = data.spiritVein === undefined || data.spiritVein === null ? undefined : asRow(data.spiritVein, '灵脉租契回执不完整');
+
+  if (
+    spiritVein &&
+    (!Number.isSafeInteger(spiritVein.days) ||
+      Number(spiritVein.days) <= 0 ||
+      !Number.isSafeInteger(spiritVein.dailyCrystal) ||
+      Number(spiritVein.dailyCrystal) <= 0 ||
+      typeof spiritVein.startDate !== 'string' ||
+      !Number.isFinite(Date.parse(spiritVein.startDate)) ||
+      typeof spiritVein.endDate !== 'string' ||
+      !Number.isFinite(Date.parse(spiritVein.endDate)))
+  ) {
+    throw new Error('灵脉租契回执不完整');
+  }
 
   return {
     orderNo: data.orderNo,
@@ -132,7 +148,17 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
     vipUpgrade: vip ? { oldLevel: vip.oldLevel as number, newLevel: vip.newLevel as number } : null,
     newcomerDayGranted: Number.isInteger(data.newcomerDayGranted) ? (data.newcomerDayGranted as number) : null,
     monthCardExtended: data.monthCardExtended,
-    seclusionPassActivated: data.seclusionPassActivated
+    seclusionPassActivated: data.seclusionPassActivated,
+    ...(spiritVein
+      ? {
+          spiritVein: {
+            days: spiritVein.days as number,
+            dailyCrystal: spiritVein.dailyCrystal as number,
+            startDate: spiritVein.startDate as string,
+            endDate: spiritVein.endDate as string
+          }
+        }
+      : {})
   };
 }
 

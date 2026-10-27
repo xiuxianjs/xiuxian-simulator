@@ -57,6 +57,7 @@ export async function runRobotBusiness<T>(
     if (
       renderFeedback &&
       (['tribulation.command', 'tribulation.public'].includes(operation) ||
+        ((operation.startsWith('treasures.') || operation === 'ancient-relics.overview' || operation === 'spirit-vein.overview') && renderFeedback.preservesAdvice) ||
         (['skill-books.wudao', 'soul-artifacts.grade-upgrade'].includes(operation) && renderFeedback.preservesAdvice))
     ) {
       await renderFeedback(reply);
