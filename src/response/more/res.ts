@@ -96,12 +96,13 @@ export default onResponse(selects, async e => {
     bid,
     title: '仙途百事',
     header: [
+      { label: '权限', command: '/权限' },
       { label: '安全中心', command: '/安全中心' },
       { label: '登录', command: '/登录' }
     ],
     footer: [
-      { label: '任务设置', command: '/任务设置' },
-      { label: '我的设置', command: '/我的设置' }
+      { label: '我的设置', command: '/我的设置' },
+      { label: '任务设置', command: '/任务设置' }
     ],
     content: md,
     keyboard: urlobj

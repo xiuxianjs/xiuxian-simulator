@@ -1,4 +1,5 @@
 import { Expose } from 'alemonjs';
+import { rewardActions } from './reward-actions';
 import { tribulationActions } from './tribulation-actions';
 import { craftingActions } from './crafting-actions';
 import { caveActions } from './cave-actions';
@@ -51,9 +52,10 @@ type Attributes = { uid: number; daoName: string; realmName: string } & Record<(
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.11.0',
+  version: '1.12.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
+    ...rewardActions,
     ...commonQueryActions,
     ...commonActions,
     ...cultivationActions,
