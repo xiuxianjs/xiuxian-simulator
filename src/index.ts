@@ -1,3 +1,4 @@
+import { isGameEventEnabled } from './utils/eventPolicy';
 import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
 import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
 import { startFeatureVisibility } from './utils/featureVisibility';
@@ -38,6 +39,9 @@ export default defineChildren({
   },
   // 事件生命周期开始时触发。
   onEventStart: async ({ event }) => {
+    if (!isGameEventEnabled(event)) {
+      return;
+    }
     assertChannelRobotEvent(event);
     normalizePrivateEvent(event);
     // 在身份缓存和幂等键构造前统一数字平台 ID。
@@ -52,7 +56,11 @@ export default defineChildren({
     startTransportEvent(event);
   },
   // 事件生命周期结束时触发。
-  onEventFinished: ({ event }) => transportCheckpoint('event.processor.finished', event),
+  onEventFinished: ({ event }) => {
+    if (isGameEventEnabled(event)) {
+      transportCheckpoint('event.processor.finished', event);
+    }
+  },
   // 事件生命周期异常时触发。
   onEventError: handleCommandError,
   // 应用销毁阶段触发。

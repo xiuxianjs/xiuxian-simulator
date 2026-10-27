@@ -25,7 +25,7 @@ const cases = [
 
 type PlatformEvent = Events['guild.join' | 'guild.exit' | 'private.friend.add' | 'private.friend.remove' | 'notice.create' | 'private.notice.create' | 'member.add' | 'member.remove'];
 
-async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = false) {
+async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = false, eventPolicy?: { allow?: string[]; deny?: string[] }, channelMode = false) {
   const requests: Array<{ path: string; body: Record<string, any> }> = [];
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: Record<string, any>) {
@@ -42,7 +42,7 @@ async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = fal
   }));
   const app = createTestApp({ failOnError: false, config: {
     processor: { repeated_user_time: repeatedUserTime },
-    'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-fixture-token' } }
+    'xiuxian-game': { events: eventPolicy, backend: { api_url: 'https://offline.invalid', worker_token: 'offline-fixture-token', channel_mode: channelMode, channel_bot_id: '123456', robot_auth_token: 'offline-token' } }
   } });
   t.after(() => app.dispose());
   await app.mount({ responseRouter: router });
@@ -66,7 +66,7 @@ async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = fal
   });
   const events: PlatformEvent[] = [];
   const registration = app.run(() => register(client as unknown as Parameters<typeof register>[0], {
-    botId: 'audit-bot', bindActions: false,
+    botId: channelMode ? '123456' : 'audit-bot', bindActions: false,
     cbp: { send: (event: PlatformEvent) => events.push(event) } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp']
   }));
   app.actions.on('message.send', request => new Promise((resolve, reject) => {
@@ -167,4 +167,41 @@ for (const tag of ['GROUP_ADD_ROBOT', 'GROUP_MSG_RECEIVE', 'GROUP_MEMBER_ADD', '
     await app.dispatch(event);
     assert.deepEqual(forwarded, [event.name]);
   });
+}
+
+
+for (const channelMode of [false, true]) {
+  for (const policy of [
+    { deny: ['guild.join', 'private.friend.add'] },
+    { allow: ['member.add'] },
+    { allow: [] },
+    { allow: ['notice.create'], deny: ['notice.create:join-request'] },
+    { allow: ['notice.create:join-request'] },
+    { allow: ['guild.join'], deny: ['guild.join'] }
+  ]) {
+    test(`事件策略只关闭本包，channel=${channelMode} ${JSON.stringify(policy)}`, async t => {
+      const { app, requests, deliveries, forwarded, emit } = await fixture(t, 0, false, policy, channelMode);
+      for (const [tag, name, endpoint, replies] of cases) {
+        const event = emit(tag);
+        const keys = [name, ...(event.Notice?.type ? [`${name}:${event.Notice.type}`] : [])];
+        const enabled = !(policy.deny?.some(key => keys.includes(key))) &&
+          (policy.allow === undefined || policy.allow.some(key => keys.includes(key)));
+        const requestStart = requests.length;
+        const deliveryStart = deliveries.length;
+        const forwardStart = forwarded.length;
+        const result = await app.dispatch(event);
+        assert.deepEqual(result.errors, [], tag);
+        assert.deepEqual(forwarded.slice(forwardStart), [name], tag);
+        if (!enabled) {
+          assert.equal(requests.length, requestStart, `${tag}: disabled event must not call backend`);
+          assert.equal(deliveries.length, deliveryStart, `${tag}: disabled event must not send welcome`);
+          assert.equal(result.messages.length, 0);
+        } else {
+          assert.ok(requests.slice(requestStart).some(request => request.path === endpoint), tag);
+          assert.equal(result.messages.length, replies ? 1 : 0);
+          for (const message of result.messages) assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+        }
+      }
+    });
+  }
 }

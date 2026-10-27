@@ -1,3 +1,4 @@
+import { isGameEventEnabled } from '@src/utils/eventPolicy';
 import { createContext, configureContext, Format, logger, ResultCode } from 'alemonjs';
 import { parseOnboarding, type OnboardingView } from '@src/api/bot/onboarding';
 import { requestRobotBusiness } from '@src/api/bot/robot-business';
@@ -32,7 +33,7 @@ const onboarding = createContext({
       const gameEvent = event as GameEvent;
       const text = String(gameEvent.MessageText ?? '');
 
-      if (!isOnboardingAddressed(gameEvent, state.view)) {
+      if (!isGameEventEnabled(gameEvent) || !isOnboardingAddressed(gameEvent, state.view)) {
         action.pass();
 
         return;

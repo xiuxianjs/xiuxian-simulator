@@ -1,4 +1,5 @@
-import { defineRouter, Router } from 'alemonjs';
+import { defineRouter, Router, type Next } from 'alemonjs';
+import { isGameEventEnabled } from './utils/eventPolicy';
 import { withAccessFacts } from './api/bot/access-facts';
 import { withCommandCatalog } from './api/bot/catalog-query-reuse';
 import type { RobotCommandProfile } from './api/bot/command-entry';
@@ -1300,8 +1301,28 @@ export const matchesGameCommand = (event: { name?: string; MessageText?: string 
 // 框架命令解析器也会剥离 !，因此在进入 DSL 及兜底前排除旧版前缀。
 // 路由不匹配时框架自动 next，继续后续包，不能用空处理器吞掉事件。
 export default defineRouter(
-  app.values.map(entry => !entry.regular && Array.isArray(entry.selects) && commandEvents.every(event => entry.selects.includes(event))
-      ? { ...entry, regular: /^(?!\s*[!！])/ }
-      : entry
-  )
+  app.values
+    .map(entry => !entry.regular && Array.isArray(entry.selects) && commandEvents.every(event => entry.selects.includes(event))
+        ? { ...entry, regular: /^(?!\s*[!！])/ }
+        : entry
+    )
+    .map(entry => ({
+      ...entry,
+      handler: async () => {
+        const loaded = await entry.handler();
+        const guard = (event: GameEvent, next: Next) => {
+          if (!isGameEventEnabled(event)) {
+            next();
+
+            return;
+          }
+
+          return true;
+        };
+
+        return typeof loaded === 'function'
+          ? { select: entry.selects, current: [guard, loaded] }
+          : { ...loaded, current: [guard, ...(Array.isArray(loaded.current) ? loaded.current : [loaded.current])] };
+      }
+    }))
 );

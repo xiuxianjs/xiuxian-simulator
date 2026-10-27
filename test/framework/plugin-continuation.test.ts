@@ -47,3 +47,36 @@ for (const teaching of [false, true]) {
     assert.equal(matched.actions[matched.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }
+
+test('禁用消息事件也跳过现有教学 Context 和明确指令，只启用私聊不会影响其他包', async t => {
+  const app = createTestApp({ config: { processor: { repeated_user_time: 0 } } });
+  t.after(() => app.dispose());
+  await app.mount({ responseRouter: router, responseContent: onboardingContent });
+  const downstream = Router.create();
+  downstream.res({ events: ['message.create', 'private.message.create'] }, async () => async () => {
+    const [message] = useMessage();
+    await message.send({ format: Format.create().addText('其他插件已执行') });
+  });
+  await app.mount({ responseRouter: downstream.define }, undefined, 'other-plugin');
+  app.actions.on('message.send', () => [createResult(ResultCode.Ok, '已送达', { id: 'receipt' })]);
+  const event = app.events.groupMessage({ text: '/继续引导', platform: 'qq-bot' });
+  await app.invoke(event, () => showOnboarding(event as GameEvent, {
+    status: 'active', phase: 'profile', version: 1, title: '教学', lines: [], feedback: [], actions: [{ label: '查看角色', command: '/我' }]
+  }));
+  for (const policy of [{ allow: [] }, { deny: ['message.create'] }, { allow: ['private.message.create'] }, { allow: 'message.create' }]) {
+    app.configure({ processor: { repeated_user_time: 0 }, 'xiuxian-game': { events: policy } });
+    for (const text of ['/我', '/图鉴']) {
+      const result = await app.dispatch(app.events.groupMessage({ text, platform: 'qq-bot' }));
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.messages[0].text, '其他插件已执行');
+      assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    }
+  }
+  app.configure({ processor: { repeated_user_time: 0 }, 'xiuxian-game': { events: { allow: ['private.message.create'] } } });
+  const enabled = await app.dispatch(app.events.privateMessage({ text: '/图鉴', platform: 'qq-bot', userId: 'outside-teaching' }));
+  assert.deepEqual(enabled.errors, []);
+  assert.equal(enabled.messages.length, 1);
+  assert.ok(JSON.stringify(enabled.messages[0].nodes).includes('/components/encyclopedia'));
+  assert.equal(enabled.actions[enabled.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+});

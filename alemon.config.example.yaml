@@ -3,6 +3,19 @@
 xiuxian-game:
   # 可选：替换“点击加入官方群聊”的链接；未填写或留空时沿用默认官群。
   official_group_url: 'https://qm.qq.com/q/vdFtnG7SEK'
+  # 可选：仅控制修仙包收到事件后的行为，普通服/渠道服均适用。
+  # 关闭的事件直接传给其他插件，不修改框架全局事件开关。
+  # 不配置 allow = 默认允许全部；allow: [] = 本包不处理任何事件。
+  # deny 优先于 allow；使用框架事件名，不使用 QQ 原始事件名。
+  # events:
+  #   deny: ['guild.join', 'notice.create:join-request'] # 关闭被邀请入群后的处理和加群申请处理
+  #   allow: ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] # 只处理消息和按钮
+  # 可用平台事件：guild.join / guild.exit / member.add / member.remove /
+  # private.friend.add / private.friend.remove / notice.create / private.notice.create。
+  # notice 子类型可单独匹配：notice.create:join-request、notice.create:message-permission、
+  # private.notice.create:message-permission；只填 notice.create 则匹配该事件的全部子类型。
+  # 配置必须为字符串数组；格式错误时本包停止处理事件，其他插件仍可继续。
+  # 此配置控制新收到的事件，不取消已排队通知，也不控制 SSE/定时任务。
   backend:
     # 必填：online 统一 API origin，不要附加 /api/v1。
     api_url: 'https://xiuxian-simulator.alemonjs.com'
