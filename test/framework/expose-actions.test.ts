@@ -26,7 +26,16 @@ const activityPanel = { rewardType: 'daily', cyclePeriod: '2026-10-28', currentP
 const activityClaim = { userName: '修士', requiredPoints: 10, issued: [{ type: 'currency', name: '灵石', amount: 11 }] };
 const activityAll = { claimed: [activityClaim], partial: true, error: '第二档未完成' };
 const monthStatus = { total: 1, claimableCount: 0, claimedCount: 1, upcomingCount: 0, prepaidCount: 0, dailyRewards: { spiritCrystal: 150, mentalPillItemId: 38, mentalPillQuantity: 2, qiPillItemId: 39, qiPillQuantity: 2 }, records: [{ day: 1, rewardDate: '2026-10-28', status: 'claimed' }] };
+const shopReference = 'r1_1_s_abc_' + 'a'.repeat(24);
 const cases = [
+  { action: 'preview_shop_purchase', operation: 'shops.purchase', command: '/购买 1 2', input: { productId: 1, count: 2 }, args: { mode: 'preview', productId: 1, count: 2 }, data: { preview: { productId: 1, shopCode: 'WANBAOLOU', name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2, needsConfirmation: false }, reference: shopReference, expiresAt: '2026-10-28T00:05:00Z' } },
+  { action: 'confirm_shop_purchase', operation: 'shops.purchase', command: '/购买', input: { reference: shopReference }, args: { mode: 'reference', reference: shopReference }, data: { reference: shopReference, result: { name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2 } } },
+  { action: 'consume_item', operation: 'items.consume', command: '/消耗 精力丹 1', input: { itemName: '精力丹', quantity: 1 }, data: { outcome: 'consumed', message: '已服用', remainingQuantity: 0 } },
+  { action: 'get_green_bottle_capacity', operation: 'green-bottle.capacity', command: '/小绿瓶存储', input: {}, data: { experienceCost: 300, maxAvailable: 3, canStore: true } },
+  { action: 'store_green_bottles', operation: 'green-bottle.store', command: '/小绿瓶存储 9', input: { count: 9 }, data: { success: true, message: '已存储', experienceCost: 300, converted: 3, remainingExp: 1001, totalBottles: 5 } },
+  { action: 'learn_skill_book', operation: 'skill-books.learn', command: '/学习功法 2', input: { bookId: 2 }, args: { bookId: '2', confirm: null }, data: { outcome: 'learned', skillBook: { id: 2, name: '剑诀', skillType: '战技', grade: '下品', realm: '炼气', gradeLevel: 1, proficiency: 0 } } },
+  { action: 'get_skill_switch_options', operation: 'skill-books.switch', command: '/切换战技', input: { skillType: '战技' }, args: { skillType: '战技', bookId: null, confirm: null }, data: { code: 'SHOW_LIST', skillType: '战技', options: [{ id: 2, name: '剑诀', skillType: '战技', status: 2, isInUse: false, canSwitch: true }] } },
+  { action: 'switch_skill_book', operation: 'skill-books.switch', command: '/切换战技 2', input: { skillType: '战技', bookId: 2 }, args: { skillType: '战技', bookId: '2', confirm: null }, data: { code: 'OK', skillType: '战技', result: { outcome: 'switched', skillBook: { id: 2, name: '剑诀', skillType: '战技' } } } },
   { action: 'get_daily_activity', operation: 'activity-points.daily', command: '/日常活跃', input: {}, data: activityPanel },
   { action: 'get_weekly_activity', operation: 'activity-points.weekly', command: '/周常活跃', input: {}, data: { ...activityPanel, rewardType: 'weekly' } },
   { action: 'claim_daily_activity', operation: 'activity-points.claim-daily', command: '/领取日常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: activityClaim },
@@ -179,6 +188,21 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['preview_shop_purchase', { productId: 0, count: 1 }],
+  ['preview_shop_purchase', { productId: 1, count: 0 }],
+  ['preview_shop_purchase', { productId: 1, count: 2147483648 }],
+  ['confirm_shop_purchase', { reference: 'r1_1_a_abc_' + 'a'.repeat(24) }],
+  ['confirm_shop_purchase', { reference: 'r1_1_s_abc_' + 'a'.repeat(23) }],
+  ['confirm_shop_purchase', { reference: 'r1_1_s_abc_' + 'a'.repeat(24), count: 3 }],
+  ['consume_item', { itemName: '精力丹', quantity: 0 }],
+  ['consume_item', { itemName: '精力丹', quantity: 1.5 }],
+  ['consume_item', { itemName: '精力丹\n晋级', quantity: 1 }],
+  ['consume_item', { itemName: '123', quantity: 1 }],
+  ['consume_item', { itemName: '药'.repeat(65), quantity: 1 }],
+  ['store_green_bottles', { count: 0 }],
+  ['learn_skill_book', { bookId: 2, force: true }],
+  ['switch_skill_book', { skillType: '战技', bookId: 2, confirm: '确认' }],
+  ['get_skill_switch_options', { skillType: '未知' }],
   ['claim_daily_activity', { requiredPoints: 0 }],
   ['claim_daily_activity', { requiredPoints: 1.5 }],
   ['claim_weekly_activity', { requiredPoints: Number.MAX_SAFE_INTEGER + 1 }],

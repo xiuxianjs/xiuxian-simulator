@@ -6,7 +6,7 @@ import { getAppConfig } from '@src/utils/appConfig';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
-import { Format, onResponse, useEvent, useMe } from 'alemonjs';
+import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -85,18 +85,17 @@ export default onResponse(selects, async e => {
   const configuredGroupUrl = getAppConfig().official_group_url;
   const officialGroupUrl = (typeof configuredGroupUrl === 'string' ? configuredGroupUrl.trim() : '') || 'https://qm.qq.com/q/vdFtnG7SEK';
 
-  const [me] = useMe();
+  // const [me] = useMe();
 
-  const share = await me.share();
-  const url = share?.data?.url;
-  const urlobj = url ? ({ label: '分享我', command: url } as const) : undefined;
+  // const share = await me.share();
+  // const url = share?.data?.url;
+  // const urlobj = url ? ({ label: '分享我', command: url } as const) : undefined;
 
   const reply = FormatGui({
     isPrivate: e.isPrivate ?? false,
     bid,
     title: '仙途百事',
     header: [
-      { label: '群设置', command: '/设置' },
       { label: '安全中心', command: '/安全中心' },
       { label: '登录', command: '/登录' }
     ],
@@ -105,9 +104,10 @@ export default onResponse(selects, async e => {
       { label: '任务设置', command: '/任务设置' }
     ],
     content: md,
-    keyboard: urlobj
-      ? [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }, urlobj]
-      : [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }]
+    // keyboard: urlobj
+    //   ? [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }, urlobj]
+    //   : [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }]
+    keyboard: [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }]
   });
 
   void message.send(reply);
