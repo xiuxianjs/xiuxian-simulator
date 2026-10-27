@@ -5,6 +5,7 @@ import { logger, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { startNotificationStream, stopNotificationStream } from '../../src/notification/stream';
 import { claimNotificationRelay } from '../../src/api/bot/notification-relay';
+import { observeChatContacts } from '../../src/api/bot/chat';
 import { readPlatformDeliveryReceipt } from '../../src/api/bot/notification-cache';
 
 const config = {
@@ -104,4 +105,35 @@ test(`领取失败只重试对应队列，健康 SSE 与其它队列不受影响
   assert.deepEqual(result.errors, []);
 });
 
+}
+
+
+for (const channelMode of [false, true]) {
+  test(`纯文本聊天 401 区分渠道鉴权部署不匹配与官服凭据失败 channel=${channelMode}`, async t => {
+    const app = createTestApp({ config: { ...config, 'xiuxian-game': { backend: { ...config['xiuxian-game'].backend, channel_mode: channelMode } } } });
+    t.after(() => app.dispose());
+    t.mock.method(axios, 'create', options => {
+      assert.deepEqual(options?.headers, channelMode ? { Authorization: 'Bearer secret-bot-token' } : { 'X-Worker-Token': 'secret-worker-token' });
+      return { post: async () => { throw new AxiosError('Request failed with status code 401', 'ERR_BAD_REQUEST', undefined, undefined, {
+        status: 401, data: '未授权\n', headers: {}, config: { headers: {} }
+      } as never); } } as never;
+    });
+    const result = await app.runHandler(async () => {
+      await assert.rejects(observeChatContacts([]), error => {
+        assert.ok(error instanceof Error);
+        assert.match(error.message, /status=401/);
+        if (channelMode) {
+          assert.match(error.message, /CHANNEL_CHAT_AUTH_MISMATCH/);
+          assert.match(error.message, /GAME_MODE=channel/);
+          assert.match(error.message, /代理目标/);
+        } else {
+          assert.match(error.message, /code=ERR_BAD_REQUEST/);
+          assert.doesNotMatch(error.message, /CHANNEL_CHAT_AUTH_MISMATCH/);
+        }
+        assert.doesNotMatch(error.stack!, /secret-bot-token|secret-worker-token/);
+        return true;
+      });
+    }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
+    assert.deepEqual(result.errors, []);
+  });
 }
