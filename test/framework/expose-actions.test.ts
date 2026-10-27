@@ -27,7 +27,33 @@ const activityClaim = { userName: '修士', requiredPoints: 10, issued: [{ type:
 const activityAll = { claimed: [activityClaim], partial: true, error: '第二档未完成' };
 const monthStatus = { total: 1, claimableCount: 0, claimedCount: 1, upcomingCount: 0, prepaidCount: 0, dailyRewards: { spiritCrystal: 150, mentalPillItemId: 38, mentalPillQuantity: 2, qiPillItemId: 39, qiPillQuantity: 2 }, records: [{ day: 1, rewardDate: '2026-10-28', status: 'claimed' }] };
 const shopReference = 'r1_1_s_abc_' + 'a'.repeat(24);
+const soulToken = '12345678-1234-1234-1234-123456789abc';
+const soulPath = { message: '已领悟', pathKey: 'xuan_fa', pathName: '玄法', nodeName: '入门', pathSwitchAvailableAt: null };
+const soulNurture = { direction: 'wu_dao', directionName: '悟道', tier: 'normal', tierName: '平稳', stabilityBefore: 70, stabilityAfter: 75, insightGained: 2, proficiencyGained: 3, extraItems: [], dailyNurtureCount: 1, dailyNurtureLimit: 3, usedMonthCardExtra: false, dailyNurtureProgressText: '1/3', rerollable: true };
+const spiritRootView = { granted: true, title: '灵根', quality: 1, qualityName: '下品', cultivation: 104, stagePoints: 4, stageTarget: 400, overflow: 0, bonusPercent: 2, nextBonusPercent: 3, nextQualityName: '中品', requiredRealmName: '筑基', canFeed: true, canPromote: false, meditationActive: false, activeMeditationBonusPercent: 0, message: '已晋品' };
+const guildMilestone = { id: 1, threshold: 10, description: '奖励', claimed: false, canClaim: true };
+const guildDaily = { guildId: 1, guildName: '青云', contributionPoints: 100, dailyActivity: 40, dailyActivityMax: 50, dailyMiningCount: 0, dailyExchangeCount: 0, prestigeRemaining: 3, miningText: '未开始', checkinDone: false, dailyWorshipDone: false, dailyStorylineDone: false, claimAllAvailable: true, dailyTasks: ['checkin','mining','exchange','worship','storyline'].map(key => ({ key, line: '任务', actionLabel: '执行', actionAvailable: true })), milestones: [guildMilestone] };
+const guildWeekly = { guildId: 1, guildName: '青云', contributionPoints: 100, weeklyActivity: 40, weeklyActivityMax: 100, stipendThreshold: 40, stipendPreviewAmount: 100, stipendBaseAmount: 100, stipendGuildLevel: 1, stipendLevelMultiplier: 1, stipendActivityMultiplier: 1, weeklyCheckinCount: 1, weeklyMiningCount: 0, weeklyExchangeCount: 0, claimAllAvailable: true, weeklyTasks: ['checkin','mining','exchange'].map(key => ({ key, label: '任务', progress: 1, target: 3, unit: '次', activityReward: 1, bonusText: '奖励', completed: false })), milestones: [guildMilestone] };
+const guildExpected = { shopItemId: 1, itemId: 9, name: '药草', category: 'material', quantity: 2, priceContribution: 20 };
+const guildShop = { contributionPoints: 100, autoRefreshEnabled: false, isLeader: true, autoRefreshHours: [], autoRefreshStatusText: '未开启', refreshDailyLimit: 3, items: [{ id: 1, index: 1, itemId: 9, name: '药草', category: 'material', quantity: 2, priceContribution: 20, purchased: false, canExchange: true, statusText: '未兑换', itemType: 'material', itemSubtype: null }] };
 const cases = [
+  { action: 'get_guild_daily', operation: 'guild.daily', command: '/宗门日常', input: {}, data: guildDaily },
+  { action: 'get_guild_weekly', operation: 'guild.weekly', command: '/宗门周常', input: {}, data: guildWeekly },
+  { action: 'claim_guild_milestone', operation: 'guild.milestone-claim', command: '/领取宗门日活奖励 1', input: { type: 'daily_activity', milestoneId: 1 }, args: { milestoneArg: '1', expectedType: 'daily_activity' }, data: { outcome: 'result', message: '已领取', receipt: { message: '已领取', milestoneId: 1, type: 'daily_activity', threshold: 10, currentPoints: 40, rewards: { spiritStone: 0, contribution: 2, prestige: 0 } } } },
+  { action: 'claim_all_guild_milestones', operation: 'guild.milestone-claim-all', command: '/一键领取宗门周活奖励', input: { type: 'weekly_activity' }, data: { message: '部分已领取', partial: true, claimed: [{ id: 1, threshold: 10, description: '奖励' }] } },
+  { action: 'get_guild_worship_options', operation: 'guild.worship', command: '/祭祀祖师', input: {}, args: { offer: '' }, data: { code: 'GUIDE', data: { dailyWorshipDone: false, canWorship: true, introText: '祭祀', noticeText: '每日一次', offers: [{ name: '灵石', cost: 5000, activity: 5, contribution: 20, line: '祭祀', canWorship: true }] } } },
+  { action: 'worship_guild', operation: 'guild.worship', command: '/祭祀祖师 灵石', input: { offer: '灵石' }, data: { code: 'OK', data: { guildId: 1, cost: 5000, dailyActivityAdded: 5, currentDailyActivity: 45, contributionAdded: 20, offer: '灵石', message: '已祭祀', offerText: '灵石', dailyActivityText: '活跃+5', contributionText: '贡献+20' } } },
+  { action: 'get_guild_shop', operation: 'guild.shop', command: '/宗门商店', input: {}, data: guildShop },
+  { action: 'exchange_guild_shop_item', operation: 'guild.shop-exchange', command: '/宗门商店兑换 1', input: { itemIndex: 1, expected: guildExpected }, data: { outcome: 'result', receipt: { itemId: 1, itemName: '药草', quantity: 2, contributionDelta: -10, prestigeGain: 1, remainingDailyCount: 2 } } },
+  { action: 'preview_soul_path_choose', operation: 'soul-path.choose-preview', command: '/选择道途 玄法', input: { pathKey: 'xuan_fa' }, args: { input: '玄法' }, data: { token: soulToken, message: '选择预览' } },
+  { action: 'preview_soul_path_switch', operation: 'soul-path.switch-preview', command: '/切换道途 炼体', input: { pathKey: 'lian_ti' }, args: { input: '炼体' }, data: { token: soulToken, message: '切换预览' } },
+  { action: 'preview_soul_path_advance', operation: 'soul-path.advance-preview', command: '/道途突破', input: {}, args: { input: '' }, data: { token: soulToken, message: '突破预览' } },
+  { action: 'preview_soul_path_reroll', operation: 'soul-path.reroll-preview', command: '/神魂重选', input: {}, args: { input: '' }, data: { token: soulToken, message: '重选预览' } },
+  { action: 'confirm_soul_path', operation: 'soul-path.confirm', command: '/确认神魂 choose:' + soulToken, input: { token: 'choose:' + soulToken }, data: { mode: 'choose', result: soulPath } },
+  { action: 'nurture_soul_path', operation: 'soul-path.nurture', command: '/神魂温养 悟道', input: { direction: 'wu_dao' }, args: { input: '悟道' }, data: soulNurture },
+  { action: 'set_soul_supply_direction', operation: 'soul-path.supply', command: '/神魂补给 自动', input: { direction: 'auto' }, args: { input: '自动' }, data: { direction: null, directionName: '自动', message: '已设置' } },
+  { action: 'preview_spirit_root_feed', operation: 'spirit-root.preview', command: '/灵根培养 1 10', input: { itemId: 1, quantity: 10 }, data: { itemId: 1, itemName: '清灵草', requested: 10, consumed: 1, pointsAdded: 5, before: 99, after: 104, quality: 0, stageTarget: 100, stageBefore: 99, stageAfter: 104 } },
+  { action: 'promote_spirit_root', operation: 'spirit-root.promote', command: '/灵根晋品 0 104', input: { expectedQuality: 0, expectedCultivation: 104 }, data: { view: spiritRootView, message: '已晋品' } },
   { action: 'preview_shop_purchase', operation: 'shops.purchase', command: '/购买 1 2', input: { productId: 1, count: 2 }, args: { mode: 'preview', productId: 1, count: 2 }, data: { preview: { productId: 1, shopCode: 'WANBAOLOU', name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2, needsConfirmation: false }, reference: shopReference, expiresAt: '2026-10-28T00:05:00Z' } },
   { action: 'confirm_shop_purchase', operation: 'shops.purchase', command: '/购买', input: { reference: shopReference }, args: { mode: 'reference', reference: shopReference }, data: { reference: shopReference, result: { name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2 } } },
   { action: 'consume_item', operation: 'items.consume', command: '/消耗 精力丹 1', input: { itemName: '精力丹', quantity: 1 }, data: { outcome: 'consumed', message: '已服用', remainingQuantity: 0 } },
@@ -188,6 +214,24 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['claim_guild_milestone', { type: 'daily_activity', milestoneId: 0 }],
+  ['claim_all_guild_milestones', { type: 'monthly' }],
+  ['worship_guild', { offer: '自动' }],
+  ['get_guild_worship_options', { offer: '灵石' }],
+  ['exchange_guild_shop_item', { itemIndex: 1 }],
+  ['exchange_guild_shop_item', { itemIndex: 1, expected: { ...guildExpected, shopItemId: 0 } }],
+  ['exchange_guild_shop_item', { itemIndex: 1, expected: { ...guildExpected, priceContribution: -1 } }],
+  ['exchange_guild_shop_item', { itemIndex: 0, expected: guildExpected }],
+  ['preview_soul_path_choose', { pathKey: '其他' }],
+  ['preview_soul_path_advance', { pathKey: 'xuan_fa' }],
+  ['confirm_soul_path', { token: 'choose:' + soulToken.slice(0, -1) }],
+  ['confirm_soul_path', { token: '-'.repeat(36) }],
+  ['confirm_soul_path', { token: soulToken, pathKey: 'lian_ti' }],
+  ['nurture_soul_path', { direction: 'auto' }],
+  ['set_soul_supply_direction', { direction: 'random' }],
+  ['preview_spirit_root_feed', { itemId: 1, quantity: 0 }],
+  ['promote_spirit_root', { expectedQuality: 0 }],
+  ['promote_spirit_root', { expectedQuality: 0, expectedCultivation: -1 }],
   ['preview_shop_purchase', { productId: 0, count: 1 }],
   ['preview_shop_purchase', { productId: 1, count: 0 }],
   ['preview_shop_purchase', { productId: 1, count: 2147483648 }],

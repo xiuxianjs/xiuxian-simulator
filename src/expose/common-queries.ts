@@ -310,7 +310,7 @@ const realmOverview = object({
   )
 });
 
-const spiritRoot = object({
+export const spiritRoot = object({
   ...fields(boolean, 'granted canFeed canPromote meditationActive'),
   ...fields(text, 'title qualityName nextQualityName requiredRealmName message'),
   ...fields(integer, 'quality cultivation stagePoints stageTarget overflow bonusPercent nextBonusPercent activeMeditationBonusPercent')
