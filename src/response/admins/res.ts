@@ -1,13 +1,13 @@
 import { platform } from '@alemonjs/qq-bot';
-import { Format, useEvent, useMessage } from 'alemonjs';
+import { Format, getAppConfigValue, useEvent, useMe, useMessage } from 'alemonjs';
 
-export default () => {
+export default async () => {
   const [ref] = useEvent();
   const event = ref.current;
 
-  if (/管理/.test(event.MessageText) && event.Platform === platform) {
+  if (/(管理|权限)/.test(event.MessageText) && event.Platform === platform) {
     // 尝试提取出群QQ
-    const match = event.MessageText.match(/管理\s+(\d+)/);
+    const match = event.MessageText.match(/(管理|权限)\s+(\d+)/);
 
     let groupQQ: string | null = null;
 
@@ -33,20 +33,32 @@ export default () => {
       md.addText('权限二、群内主动发言（开关）');
       md.addNewline();
 
-      const URL = 'https://club.vip.qq.com/transfer';
-      // const URL = 'https://qq-bot-proxy/transfer-to-qq';
-      const key = 'open_kuikly_info';
-      const openKuiklyInfo = {
-        page_name: 'ai_group_service_agreement_pop_page',
-        groupCode: groupQQ,
-        botUin: 2854210742,
-        botUid: 'u_mJL2pN6Q7SuYuDZ60wyi6w',
-        screen: 1
-      };
+      const [me] = useMe();
 
-      bt.addButton('打开设置', `${URL}?${key}=${encodeURIComponent(JSON.stringify(openKuiklyInfo))}`, {
-        type: 'link'
-      });
+      const share = await me.share();
+      const url = share?.data?.url;
+
+      if (url) {
+        const obj = new URL(share?.data?.url);
+        const botUin = obj.searchParams.get('robot_uin');
+        const baseURL = 'https://club.vip.qq.com/transfer';
+        const key = 'open_kuikly_info';
+
+        const value = getAppConfigValue();
+        const botUid = value?.botUid ?? 'u_mJL2pN6Q7SuYuDZ60wyi6w';
+
+        const openKuiklyInfo = {
+          page_name: 'ai_group_service_agreement_pop_page',
+          groupCode: groupQQ,
+          botUin: botUin,
+          botUid: botUid,
+          screen: 1
+        };
+
+        bt.addButton('打开设置', `${baseURL}?${key}=${encodeURIComponent(JSON.stringify(openKuiklyInfo))}`, {
+          type: 'link'
+        });
+      }
     } else {
       md.addBold('「修仙模拟器」权限设置');
       md.addNewline();

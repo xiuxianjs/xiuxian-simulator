@@ -24,6 +24,12 @@ test('炼丹：真实预览、原引用确认、重复确认与同消息命令�
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
     assert.equal(body.messageText, current.command);
     assert.deepEqual(body.arguments, {});
+    if (current.command.startsWith('/炼丹 确认 ')) {
+      const chars = [...body.messageText].length;
+      const bytes = Buffer.byteLength(body.messageText, 'utf8');
+      assert.ok(chars <= 80, `${chars} Unicode characters, ${bytes} UTF-8 bytes`);
+      assert.ok(bytes > chars);
+    }
     const middleware = { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } };
     return { status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', middleware, data: current.reply } }) };
   } }));
@@ -59,6 +65,14 @@ test('锻造：真实入门及普通预览、确认、作品重放回执', async
   let current = rows[0];
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${current.operation}`);
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    if (current.operation === 'forge.confirm') {
+      assert.equal(body.arguments.token, current.args.token);
+      const chars = [...body.messageText].length;
+      const bytes = Buffer.byteLength(body.messageText, 'utf8');
+      assert.ok(chars <= 80, `${chars} Unicode characters, ${bytes} UTF-8 bytes`);
+      assert.ok(bytes > chars);
+    }
     return { status: 200, headers: {}, data: JSON.stringify({ data: current.result }) };
   } }));
   for (current of rows) {

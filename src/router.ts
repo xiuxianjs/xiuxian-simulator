@@ -88,7 +88,7 @@ app.res(
   /**
    * 无需身份、不用担心被用户知晓的，公共入口
    */
-  publicXiuxian.use('管理', () => import('@src/response/admins/res'));
+  publicXiuxian.use(['管理', '权限'], () => import('@src/response/admins/res'));
   publicXiuxian.use(
     ['更多'],
     withAccessFacts(['realm'], () => import('@src/response/more/res'))

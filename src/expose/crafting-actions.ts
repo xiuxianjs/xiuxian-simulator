@@ -1,18 +1,12 @@
-import { ExposeError } from 'alemonjs';
+import { confirmationReferenceSchema as reference, validateConfirmationReference as validateReference } from './confirmation';
 import { mutation, replySchema } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseAlchemyV2Reply } from '../api/bot/alchemy-v2';
 import { forgeStatFields, parseForgeOverview, parseForgePreview, parseForgeResult } from '../api/schemas/forge';
 
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
-const reference = { type: 'string' as const, minLength: 1, maxLength: 64 };
 const empty = object({});
 
-function validateReference(value: string, kind: string) {
-  if (!new RegExp(`^r1_[a-z0-9]+_${kind}_[a-z0-9]+_[a-f0-9]{24}$`).test(value)) {
-    throw new ExposeError('INVALID_INPUT', '请提供服务端原预览返回的完整确认引用');
-  }
-}
 function alchemyReply(value: unknown) {
   const reply = parseAlchemyV2Reply(value);
   const buttons = [...reply.buttons, ...(reply.blocks ?? []).flatMap(block => block.inlineButtons ?? [])];

@@ -1,4 +1,5 @@
 import { Expose } from 'alemonjs';
+import { tribulationActions } from './tribulation-actions';
 import { craftingActions } from './crafting-actions';
 import { caveActions } from './cave-actions';
 import { guildActions } from './guild-actions';
@@ -50,7 +51,7 @@ type Attributes = { uid: number; daoName: string; realmName: string } & Record<(
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.10.0',
+  version: '1.11.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
     ...commonQueryActions,
@@ -64,6 +65,7 @@ export const gameExpose = Expose.create().provide({
     ...caveActions,
     ...guildActions,
     ...craftingActions,
+    ...tribulationActions,
     ...bagQueryActions,
     get_inventory: Expose.action<{ category: 'prop' | 'material'; page?: number; subtype?: string }, ReturnType<typeof projectInventory>>({
       description: '分页查询当前玩家道具(prop)或材料(material)背包；page 默认 1，subtype 可选。数量为服务端库存事实，不代表可直接消耗。',

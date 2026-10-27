@@ -1,12 +1,12 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
-import { getAppConfig } from '@src/utils/appConfig';
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import App, { MORE_PAGE_SIZE, parseMoreNavigation } from '@src/response-apps/more/app';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
+import { getAppConfig } from '@src/utils/appConfig';
+import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
-import { Format, onResponse, useEvent } from 'alemonjs';
+import { Format, onResponse, useEvent, useMe } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -84,6 +84,13 @@ export default onResponse(selects, async e => {
   }
   const configuredGroupUrl = getAppConfig().official_group_url;
   const officialGroupUrl = (typeof configuredGroupUrl === 'string' ? configuredGroupUrl.trim() : '') || 'https://qm.qq.com/q/vdFtnG7SEK';
+
+  const [me] = useMe();
+
+  const share = await me.share();
+  const url = share?.data?.url;
+  const urlobj = url ? ({ label: '分享我', command: url, type: 'link' } as const) : undefined;
+
   const reply = FormatGui({
     isPrivate: e.isPrivate ?? false,
     bid,
@@ -97,7 +104,9 @@ export default onResponse(selects, async e => {
       { label: '我的设置', command: '/我的设置' }
     ],
     content: md,
-    keyboard: [{ label: '点击加入官方群聊', command: officialGroupUrl, type: 'link' }]
+    keyboard: urlobj
+      ? [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }, urlobj]
+      : [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }]
   });
 
   void message.send(reply);

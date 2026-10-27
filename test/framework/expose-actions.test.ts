@@ -16,7 +16,20 @@ const manualState = { sessionId: 'manual-1', revision: 2, finished: false, event
 const caveCommand = { message: '操作完成', needsSeedSelection: false, overview: null, snapshotError: '快照暂不可用' };
 const alchemyReference = 'r1_1_a_abc_' + 'a'.repeat(24);
 const alchemyReply = { title: '炼丹', heading: '', text: '服务端回执', buttons: [], advice: [], blocks: [{ text: '原预览', quoted: true, inlineButtons: [{ label: '确认', command: '/炼丹 确认 ' + alchemyReference }] }] };
+const heart = { policyVersion: 'a'.repeat(64), topic: 'general', title: '心魔', prompt: '如何面对', options: [{ id: 'guard', name: '守', attackMultiplier: 0.8, defenseMultiplier: 1.2 }, { id: 'slay', name: '斩', attackMultiplier: 1.2, defenseMultiplier: 0.8 }, { id: 'accept', name: '纳', attackMultiplier: 1, defenseMultiplier: 1 }] };
+const tribulationProgress = { successful: 1, requiredAttempts: 3, attackBonusPercent: 0.5, completed: false };
+const tribulationPrep = { eventId: 7, targetRealm: '金丹', status: 'opened', opensAt: '2026-10-28T00:00:00Z', requiredAttempts: 3, canStart: true, heartDemon: heart };
+const tReference = 'r1_1_t_abc_' + 'a'.repeat(24);
+const hReference = 'r1_1_h_abc_' + 'a'.repeat(24);
+const tribulationUnit = { Name: '修士', HP: 100, MP: 50, PhysicalAttack: 20, MagicAttack: 20, PhysicalDefense: 5, MagicDefense: 5, Speed: 10 };
 const cases = [
+  { action: 'promote_realm', operation: 'realm.promotion', command: '/晋级', input: {}, data: { mode: 'promotion', result: { success: false, message: '条件不足', unlockedRecipes: [], masterStageMessages: [] } } },
+  { action: 'open_tribulation', operation: 'tribulation.command', command: '/开启渡劫 7', input: { eventId: 7 }, args: { kind: 'open', eventId: 7 }, data: tribulationPrep },
+  { action: 'preview_tribulation', operation: 'tribulation.command', command: '/渡劫评级 7 high', input: { eventId: 7, grade: 'high' }, args: { kind: 'confirm', eventId: 7, grade: 'high' }, data: { confirmationReference: tReference, materialNames: { 10: '渡劫石' }, confirmation: { eventId: 7, grade: 'high', attackMultiplier: 1.2, conditionVersion: 'a'.repeat(64), rewardScope: 'current', experienceBefore: 100, successExperienceCost: 0, failureExperienceAfter: 90, progress: tribulationProgress, materials: [{ itemId: 10, quantity: 1 }], battle: { mode: 'continuous_layers_v1', name: '雷劫', player: tribulationUnit, layers: [{ layer: 1, enemies: [tribulationUnit] }] } } } },
+  { action: 'confirm_tribulation', operation: 'tribulation.command', command: '/渡劫开劫 ' + tReference, input: { reference: tReference }, args: { kind: 'reference', reference: tReference }, data: { eventId: 7, status: 'charging', grade: 'high', attackMultiplier: 1.2, conditionVersion: 'a'.repeat(64), confirmedAt: '2026-10-28T00:00:00Z', strikeAt: '2026-10-28T00:30:00Z', refunded: false } },
+  { action: 'preview_heart_demon', operation: 'tribulation.command', command: '/心魔选择 7 guard', input: { eventId: 7, choice: 'guard' }, args: { kind: 'heartPreview', eventId: 7, choice: 'guard' }, data: { tribulationPreparation: tribulationPrep, confirmationReference: hReference } },
+  { action: 'confirm_heart_demon', operation: 'tribulation.command', command: '/心魔回答 ' + hReference, input: { reference: hReference }, args: { kind: 'reference', reference: hReference }, data: { ...heart, choice: 'guard', answeredAt: '2026-10-28T00:00:00Z' } },
+  { action: 'evade_tribulation', operation: 'tribulation.command', command: '/暂避渡劫 7', input: { eventId: 7 }, args: { kind: 'evade', eventId: 7 }, data: { eventId: 7, status: 'evaded', levelAfter: 1, recoversAt: '2026-10-28T01:00:00Z', retryAt: '2026-10-28T01:00:00Z' } },
   { action: 'get_alchemy_dashboard', operation: 'alchemy.v2', command: '/炼丹', input: {}, data: alchemyReply },
   { action: 'enroll_alchemist', operation: 'alchemy.v2', command: '/炼丹 入门', input: {}, data: alchemyReply },
   { action: 'get_alchemy_recipes', operation: 'alchemy.v2', command: '/炼丹 丹方 1', input: { page: 1 }, args: {}, data: alchemyReply },
@@ -153,6 +166,11 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['preview_tribulation', { eventId: 7, grade: '任意' }],
+  ['confirm_tribulation', { reference: 'r1_1_h_abc_' + 'a'.repeat(24) }],
+  ['confirm_heart_demon', { reference: 'r1_1_t_abc_' + 'a'.repeat(24) }],
+  ['preview_heart_demon', { eventId: 7, choice: 'force' }],
+  ['evade_tribulation', { eventId: 0 }],
   ['preview_alchemy', { recipeId: 1, count: 1001 }],
   ['preview_alchemy', { recipeId: 1, count: 0 }],
   ['confirm_alchemy', { reference: 'r1_1_a_abc_' + 'a'.repeat(23) }],
