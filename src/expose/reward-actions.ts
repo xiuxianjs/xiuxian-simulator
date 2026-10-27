@@ -3,7 +3,7 @@ import { parseBackendActivityClaim, parseBackendActivityClaimAll } from '../api/
 import { parseRobotMonthCardClaim } from '../api/bot/membership-claim';
 import { validateBackendAchievementClaim } from '../api/bot/achievement-claim';
 import { validateGuardedAchievement } from '../api/bot/achievement-robot-query';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -35,7 +35,7 @@ const activity = object(
   ['taskRewardsCanClaim']
 );
 
-const activityPanel = (type: 'daily' | 'weekly', label: string) => mutation(
+const activityPanel = (type: 'daily' | 'weekly', label: string) => observation(
     `查询${label}活跃任务、周期、积分和可领阈值，沿用服务端准入；不会领取奖励。`,
     `activity-points.${type}`,
     empty,

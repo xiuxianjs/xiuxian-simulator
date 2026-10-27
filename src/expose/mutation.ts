@@ -9,6 +9,20 @@ import type { GameEvent } from '../types/event';
 
 const button = object({ label: text, command: text });
 
+/** A new snapshot for each call; mutations continue to use stable retry keys. */
+export function observation<I extends Record<string, unknown>>(
+  description: string,
+  operation: RobotBusinessOperation,
+  inputSchema: ExposeValueSchema,
+  resultSchema: ExposeValueSchema,
+  command: (input: I) => string,
+  decode: (data: unknown, input: I) => unknown,
+  argumentsFor: (input: I) => Record<string, unknown> = input => input,
+  validateInput?: (input: ExposeReadonly<I>) => void
+) {
+  return mutation(description, operation, inputSchema, resultSchema, command, decode, argumentsFor, validateInput, { freshRead: true });
+}
+
 export const replySchema = object(
   {
     title: text,
@@ -33,7 +47,8 @@ export function mutation<I extends Record<string, unknown>>(
   command: (input: I) => string,
   decode: (data: unknown, input: I) => unknown,
   argumentsFor: (input: I) => Record<string, unknown> = input => input,
-  validateInput?: (input: ExposeReadonly<I>) => void
+  validateInput?: (input: ExposeReadonly<I>) => void,
+  options: { freshRead?: boolean } = {}
 ) {
   const outputSchema = object(
     {
@@ -71,7 +86,10 @@ export function mutation<I extends Record<string, unknown>>(
           .map(key => [key, prepared[key]])
       );
       const messageText = command(input);
-      const request = createBackendRequestContext(event, `expose:${operation}:${JSON.stringify([messageText, args])}`);
+      // A fresh observation in one AI turn must not replay the snapshot read
+      // before a preceding write. Write retries retain their original scope.
+      const observation = options.freshRead ? `:read:${context.callId}` : '';
+      const request = createBackendRequestContext(event, `expose:${operation}:${JSON.stringify([messageText, args])}${observation}`);
 
       context.signal.throwIfAborted();
       const raw = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {

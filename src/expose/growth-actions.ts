@@ -2,10 +2,21 @@ import { parseRobotSkillDetail } from '../api/bot/skill-detail-queries';
 import { parseBackendSkillBookProficiency } from '../api/bot/skill-book-proficiency';
 import { parseSkillBookBatchUpgrade } from '../api/bot/skill-book-batch-upgrade';
 import { parseProfessionDashboard } from '../api/bot/profession-dashboard-query';
+import { parseLingzhiGuideState } from '../api/bot/lingzhi-guide';
+import { requestBackend } from '../api/bot/client';
 import { mutation } from './mutation';
+import { query } from './query';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const bookId = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
+
+type HerbalistSession = { step: number; createTime: number; expireTime: number; version: number };
+const herbalistSession = object({
+  step: { type: 'integer', minimum: 1, maximum: 4 },
+  createTime: bookId,
+  expireTime: bookId,
+  version: bookId
+});
 const detailDisplay = object(
   {
     ...fields(
@@ -95,6 +106,88 @@ const profession = object({
 });
 
 export const growthActions = {
+  get_herbalist_guide: query(
+    '读取本人当前灵药师指引，不开启或推进；active=false 仅表示没有有效引导会话，不表示职业未入门，需结合职业面板核对。',
+    object({ active: boolean, session: herbalistSession }, ['session']),
+    async ({ bid, uid }, _input, context) => {
+      const raw = await requestBackend(bid, 'get_players_id_professions_lingzhi_guide', { path: { id: uid }, signal: context.signal });
+      const state = parseLingzhiGuideState(raw);
+
+      if (state.completed) {
+        throw new Error('灵药师指引查询返回异常完成状态');
+      }
+
+      return { active: Boolean(state.session), ...(state.session ? { session: state.session } : {}) };
+    }
+  ),
+  start_herbalist_guide: mutation(
+    '开启或恢复本人灵药师指引；返回服务端当前步骤、版本及有效期。此操作不会推进步骤或表示已完成职业入门；已入门或不符合条件时保留服务端拒绝。',
+    'profession.lingzhi-guide',
+    object({}),
+    object({ session: herbalistSession }),
+    () => '/加入灵药师',
+    data => {
+      const state = parseLingzhiGuideState(data);
+
+      if (state.completed || !state.session) {
+        throw new Error('灵药师指引开始响应不完整');
+      }
+
+      return { session: state.session };
+    },
+    () => ({ continued: false })
+  ),
+  continue_herbalist_guide: mutation<{ expected: HerbalistSession }>(
+    '继续本人灵药师指引，expected 必须完整使用上次服务端返回的原 session。服务端核对原步骤和版本；completed=true 才表示入门完成，最终步骤会发放服务端规定的入门物资。失败或结果未知时先查询职业与指引状态。',
+    'profession.lingzhi-guide',
+    object({ expected: herbalistSession }),
+    object(
+      {
+        completed: boolean,
+        session: herbalistSession,
+        activation: object({
+          message: text,
+          completed: boolean,
+          alreadyCompleted: boolean,
+          professionCreated: boolean,
+          plotsInitialized: boolean,
+          starterSeedGranted: boolean,
+          hoeGranted: boolean
+        })
+      },
+      ['session', 'activation']
+    ),
+    () => '/继续灵药指引',
+    (data, input) => {
+      const state = parseLingzhiGuideState(data);
+
+      if (state.completed) {
+        const activation = (data as { activation?: Record<string, unknown> }).activation;
+
+        if (input.expected.step !== 4 || activation?.completed !== true || typeof activation.message !== 'string') {
+          throw new Error('灵药师入门结算响应不完整');
+        }
+
+        return { completed: true, activation };
+      }
+      if (
+        !state.session ||
+        input.expected.step >= 4 ||
+        state.session.step !== input.expected.step + 1 ||
+        state.session.version !== input.expected.version + 1 ||
+        state.session.createTime !== input.expected.createTime ||
+        state.session.expireTime !== input.expected.expireTime
+      ) {
+        throw new Error('灵药师指引步骤与请求不匹配');
+      }
+
+      return { completed: false, session: state.session };
+    },
+    input => ({
+      continued: true,
+      expected: { step: input.expected.step, createTime: input.expected.createTime, expireTime: input.expected.expireTime, version: input.expected.version }
+    })
+  ),
   get_skill_book_detail: mutation<{ bookId: number }>(
     '查询本人已学功法实例详情、当前和上限属性、技能效果及可操作状态；不执行升级或参悟。可选字段缺失表示服务端未提供。',
     'skill-books.detail',

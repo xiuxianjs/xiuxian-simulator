@@ -19,6 +19,45 @@ function omitNull(value: any): any {
   return Object.fromEntries(Object.entries(value).filter(([, value]) => value !== null).map(([key, value]) => [key, omitNull(value)]));
 }
 const actions = ['get_my_team', 'get_team_info', 'get_team_list', 'create_team', 'apply_to_team', 'leave_team', 'disband_team', 'get_team_applications', 'approve_team_application', 'reject_team_application', 'get_team_match', 'start_mainline_match', 'start_dungeon_match', 'cancel_team_match'];
+test('同一消息创建队伍后读取新状态，重复创建保留原回执', async t => {
+  const before = fixtures.find(row => row.action === 'get_my_team' && row.bid === 'player' && row.envelope.data.success && !row.envelope.data.data.team?.exists);
+  const after = fixtures.find(row => row.action === 'get_my_team' && row.bid === 'player' && row.envelope.data.success && row.envelope.data.data.team?.exists);
+  const created = fixtures.find(row => row.action === 'create_team' && row.bid === 'player' && row.envelope.data.success);
+  assert.ok(before && after && created);
+  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const receipts = new Map<string, any>();
+  let hasTeam = false;
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(request.headers['x-bid'], 'player');
+    const key = request.headers['idempotency-key'];
+    assert.ok(key);
+    let envelope = receipts.get(key);
+    if (!envelope) {
+      if (new URL(request.url).pathname.endsWith('/teams.create')) { envelope = created.envelope; hasTeam = true; }
+      else envelope = hasTeam ? after.envelope : before.envelope;
+      receipts.set(key, envelope);
+    }
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = async (action: string) => {
+    const result = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, {}), 'ai-plugin');
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(result.messages, []);
+    assert.deepEqual(result.actions, []);
+    assert.equal(result.value.ok, true, JSON.stringify(result.value));
+    return result.value.ok ? result.value.data as any : undefined;
+  };
+  assert.equal((await call('get_my_team')).result.hasTeam, false);
+  const creation = await call('create_team');
+  const refreshed = await call('get_my_team');
+  assert.equal(refreshed.result.hasTeam, true);
+  assert.equal(refreshed.result.team.teamId, creation.result.teamId);
+  assert.deepEqual(await call('create_team'), creation);
+  assert.equal(receipts.size, 3);
+});
 for (const action of actions) test(`${action}: 实际 Go 角色权限、队伍状态与匹配回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0, action);

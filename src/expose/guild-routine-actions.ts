@@ -5,7 +5,7 @@ import { parseGuildMilestoneClaim, parseGuildMilestonesClaimAll } from '../api/b
 import { parseRobotGuildWorship } from '../api/bot/guild-activity-robot-query';
 import { parseGuildShopPage } from '../api/bot/guild-shop-page';
 import { parseRobotGuildShopExchange } from '../api/bot/guild-shop-robot-query';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 type Period = 'daily_activity' | 'weekly_activity';
@@ -23,7 +23,7 @@ const milestone = object(
 const expectedItem = object({ shopItemId: positive, itemId: positive, name: text, category: text, quantity: positive, priceContribution: nonnegative });
 
 export const guildRoutineActions = {
-  get_guild_daily: mutation(
+  get_guild_daily: observation(
     '查询本人宗门日常任务、活跃、贡献和可领取里程碑；沿用服务端周期重置与结算，不自动完成任务。',
     'guild.daily',
     object({}),
@@ -42,7 +42,7 @@ export const guildRoutineActions = {
       return { ...result, milestones: result.milestones.map((item, index) => ({ ...raw[index], ...item })) };
     }
   ),
-  get_guild_weekly: mutation(
+  get_guild_weekly: observation(
     '查询本人宗门周常任务、活跃、贡献、可领里程碑及预计俸禄；预计俸禄不是领取回执。',
     'guild.weekly',
     object({}),

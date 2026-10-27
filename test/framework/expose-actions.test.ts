@@ -190,7 +190,11 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       assert.deepEqual(again.value.ok && again.value.data, value);
       assert.equal(requests.length, 2);
       assert.ok(requests[0].headers['idempotency-key']);
-      assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
+      if (['get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly'].includes(entry.action)) {
+        assert.notEqual(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
+      } else {
+        assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
+      }
       if (entry.action === 'claim_all_daily_activity' || entry.action === 'claim_all_weekly_activity') { assert.equal(value.result.partial, true); assert.equal(value.result.error, '第二档未完成'); assert.deepEqual(value.result.claimed, [activityClaim]); }
       if (entry.action === 'checkin_all') assert.equal(value.result[0].status, 'error');
     }

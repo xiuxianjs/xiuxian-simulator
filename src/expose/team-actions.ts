@@ -4,7 +4,7 @@ import { parseBackendTeams, parseBackendTeamPendingApplications } from '../api/b
 import { parseBackendTeamMatchSnapshot } from '../api/bot/team-match-queries';
 import { parseBackendTeamMatchStart } from '../api/bot/team-match-start';
 import { parseBackendTeamMatchCancel } from '../api/bot/team-match-cancel';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -59,7 +59,7 @@ function started(data: unknown) {
 }
 
 export const teamActions = {
-  get_my_team: mutation(
+  get_my_team: observation(
     '查询当前角色队伍、成员、阵位与服务端可用操作；access.ok=false 表示资格未解锁，hasTeam 根据服务端 exists 判定是否存在队伍。不会创建队伍。',
     'teams.overview',
     object({}),
@@ -67,7 +67,7 @@ export const teamActions = {
     () => '/我的队伍',
     data => info(data)
   ),
-  get_team_info: mutation<{ teamId: number }>(
+  get_team_info: observation<{ teamId: number }>(
     '查询指定队伍的服务端可见资料与本人操作资格；不申请入队，不从成员行推断队长权限。',
     'teams.info',
     object({ teamId: positive }),
@@ -76,7 +76,7 @@ export const teamActions = {
     (data, input) => info(data, input.teamId),
     input => ({ teamId: String(input.teamId) })
   ),
-  get_team_list: mutation<{ page?: number }>(
+  get_team_list: observation<{ page?: number }>(
     '分页查看队伍编号、人数、队长与最低境界；page 默认1，每页5条；不会创建申请。空名称或缺失字段保留服务端事实。',
     'teams.list',
     object({ page }, ['page']),
@@ -139,7 +139,7 @@ export const teamActions = {
     () => '/解散队伍',
     data => parseTeamAcknowledgement(data, 'disbanded')
   ),
-  get_team_applications: mutation(
+  get_team_applications: observation(
     '查询本人当前队伍的待审核申请；canReview=false 时阅读 error，不代表申请列表为空。申请编号用于队长同意或拒绝操作。',
     'teams.applications',
     object({}),
@@ -183,7 +183,7 @@ export const teamActions = {
     data => parseTeamAcknowledgement(data, 'rejected'),
     input => ({ applicationId: String(input.applicationId) })
   ),
-  get_team_match: mutation(
+  get_team_match: observation(
     '查询当前角色匹配队列快照；matching=false 表示服务端未返回有效排队记录，不代表已组队或战斗完成。只返回服务端等待时长及阶段。',
     'team-match.snapshot',
     object({}),
