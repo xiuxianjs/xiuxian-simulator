@@ -5,6 +5,7 @@ import { useMessage } from '@src/utils/useMessage';
  * 指令：/充值购买 <套餐ID>
  */
 import { BackendAPIError } from '@src/api/bot/client';
+import { CheckoutPromotionDecodeError } from '@src/api/bot/sponsor-payment';
 import { requestRobotBusiness } from '@src/api/bot/robot-business';
 import { runRobotBusiness, finishRobotBusiness } from '@src/response/robotBusiness';
 import QRCode from 'qrcode';
@@ -58,6 +59,27 @@ export default onResponse(selects, async e => {
       }
       created = response.data;
     } catch (error) {
+      if (error instanceof CheckoutPromotionDecodeError) {
+        await message.send(
+          FormatGui({
+            isPrivate,
+            bid,
+            title: '原订单待核对',
+            content: Format.createMarkdown().addBlockquote(
+              createQuoteMarkdown(
+                [error.message],
+                [
+                  { label: '查询原订单', command: `/查询充值订单 ${error.orderNo}`, autoEnter: false },
+                  { label: '恢复原订单', command: `/继续支付 ${error.orderNo}`, autoEnter: false }
+                ]
+              )
+            ),
+            footer: [{ label: '我的订单', command: '/我的订单', autoEnter: false }]
+          })
+        );
+
+        return;
+      }
       await feedback(
         error instanceof NormalPackageListDecodeError
           ? '⚠️ 充值购买异常，请稍后重试'
@@ -110,17 +132,22 @@ export default onResponse(selects, async e => {
         isPrivate,
         bid,
         title: '订单待支付',
-        keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link' }]],
+        keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link', autoEnter: false }]],
         content: Format.createMarkdown().addBlockquote(
           createQuoteMarkdown(
-            [`商品：${packageName}`, `金额：¥${yuan}`, `订单号：${orderNo}`],
             [
-              { label: '查询支付结果', command: `/查询充值订单 ${orderNo}` },
-              { label: '恢复支付页面', command: `/继续支付 ${orderNo}` }
+              `商品：${packageName}`,
+              `金额：¥${yuan}`,
+              `订单号：${orderNo}`,
+              ...(checkout.promotionTexts ? ['本订单返利参与说明', ...checkout.promotionTexts] : [])
+            ],
+            [
+              { label: '查询支付结果', command: `/查询充值订单 ${orderNo}`, autoEnter: false },
+              { label: '恢复支付页面', command: `/继续支付 ${orderNo}`, autoEnter: false }
             ]
           )
         ),
-        footer: [{ label: '返回权益', command: '/我的权益' }]
+        footer: [{ label: '返回权益', command: '/我的权益', autoEnter: false }]
       })
     );
     let qrCodeBuffer: Buffer;

@@ -29,7 +29,13 @@ const order = (value: unknown): BackendSponsorOrder => {
   return { orderNo: data.orderNo, payAmount, status: data.status };
 };
 
-export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string };
+export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string; promotionTexts?: string[] };
+
+export class CheckoutPromotionDecodeError extends Error {
+  constructor(readonly orderNo: string) {
+    super(`原订单 ${orderNo} 的返利参与说明暂未取得，请先查询原订单，再恢复支付。`);
+  }
+}
 
 export async function createBackendSponsorPayment(
   bid: string,
@@ -135,7 +141,9 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
       !Number.isSafeInteger(daily.treasureMaps) ||
       Number(daily.treasureMaps) < 0 ||
       !Array.isArray(daily.fragments))
-  ) { throw new Error('每日礼包回执不完整'); }
+  ) {
+    throw new Error('每日礼包回执不完整');
+  }
   const fragments = daily
     ? (daily.fragments as unknown[]).map(value => {
         const f = asRow(value, '每日礼包赠片回执不完整');
@@ -148,7 +156,9 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
           Number(f.rarity) > 6 ||
           !Number.isSafeInteger(f.quantity) ||
           Number(f.quantity) < 1
-        ) { throw new Error('每日礼包赠片回执不完整'); }
+        ) {
+          throw new Error('每日礼包赠片回执不完整');
+        }
 
         return { treasureId: f.treasureId as number, name: f.name, rarity: f.rarity as number, quantity: f.quantity as number };
       })
@@ -222,8 +232,22 @@ export function parseBackendNormalCheckout(value: unknown): BackendSponsorChecko
   if (paymentOrder.status !== 'PENDING') {
     throw new Error('新建充值订单状态异常');
   }
+  const promotionTexts = data.promotionTexts;
 
-  return { order: paymentOrder, payUrl: data.payUrl, packageName: data.packageName };
+  if (
+    (promotionTexts === undefined && paymentOrder.orderNo.startsWith('TD')) ||
+    (promotionTexts !== undefined &&
+      (!Array.isArray(promotionTexts) || !promotionTexts.length || promotionTexts.some(line => typeof line !== 'string' || !line.trim())))
+  ) {
+    throw new CheckoutPromotionDecodeError(paymentOrder.orderNo);
+  }
+
+  return {
+    order: paymentOrder,
+    payUrl: data.payUrl,
+    packageName: data.packageName,
+    ...(promotionTexts === undefined ? {} : { promotionTexts: promotionTexts as string[] })
+  };
 }
 export async function createBackendLimitedEventPayment(
   bid: string,

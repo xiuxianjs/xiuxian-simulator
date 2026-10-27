@@ -6,7 +6,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { parseBackendRechargeRights } from '@src/api/bot/recharge-rights-queries';
 import { getPaymentOrders, getPaymentOrder } from '@src/api/bot/payment-orders';
-import { getBackendNormalPaymentSettlement, parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
+import { CheckoutPromotionDecodeError, getBackendNormalPaymentSettlement, parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
 import { requestBackend } from '@src/api/bot/client';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { renderCachedImage } from '@src/utils/imageRender';
@@ -23,8 +23,8 @@ export default onResponse(selects, async e => {
   const bid = e.UserId;
   const isPrivate = isPrivateEvent(e);
   const footer = [
-    { label: '返回权益', command: '/我的权益' },
-    { label: '我的订单', command: '/我的订单' }
+    { label: '返回权益', command: '/我的权益', autoEnter: false },
+    { label: '我的订单', command: '/我的订单', autoEnter: false }
   ];
   const send = async (text: string) => {
     await message.send(FormatGui({ isPrivate, bid, title: '我的订单', content: Format.createMarkdown().addText(text), footer }));
@@ -58,8 +58,8 @@ export default onResponse(selects, async e => {
         createQuoteMarkdown(
           [`订单号：${order.orderNo}`, `金额：¥${(order.payAmount / 100).toFixed(2)}`, statusText(order.status)],
           [
-            { label: '刷新结果', command: `/查询充值订单 ${orderNo}` },
-            ...(order.status === 'PENDING' ? [{ label: '继续支付', command: `/继续支付 ${orderNo}` }] : [])
+            { label: '刷新结果', command: `/查询充值订单 ${orderNo}`, autoEnter: false },
+            ...(order.status === 'PENDING' ? [{ label: '继续支付', command: `/继续支付 ${orderNo}`, autoEnter: false }] : [])
           ]
         )
       );
@@ -77,13 +77,22 @@ export default onResponse(selects, async e => {
           await requestBackend(bid, 'get_players_id_payments_orders_orderNo_checkout', { path: { id: uid, orderNo } })
         );
 
+        if (checkout.order.orderNo !== orderNo) {
+          throw new Error('原订单收银台回执不一致');
+        }
+        const checkoutContent = Format.createMarkdown().addText(`商品：${checkout.packageName} · 原订单：${orderNo}`);
+
+        if (checkout.promotionTexts) {
+          checkoutContent.addNewline().addBlockquote(createQuoteMarkdown(['本订单返利参与说明', ...checkout.promotionTexts]));
+        }
+
         await message.send(
           FormatGui({
             isPrivate,
             bid,
             title: '继续支付',
-            content: Format.createMarkdown().addText(`商品：${checkout.packageName} · 原订单：${orderNo}`),
-            keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link' }]],
+            content: checkoutContent,
+            keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link', autoEnter: false }]],
             footer
           })
         );
@@ -154,6 +163,6 @@ export default onResponse(selects, async e => {
     );
   } catch (error) {
     logger.error('订单查询失败:', error);
-    await send('订单信息暂未获取。请从我的订单查询原订单；本次操作不会重新创建订单。');
+    await send(error instanceof CheckoutPromotionDecodeError ? error.message : '订单信息暂未获取。请从我的订单查询原订单；本次操作不会重新创建订单。');
   }
 });
