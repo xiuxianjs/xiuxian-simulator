@@ -183,7 +183,7 @@ test('权益首页订单在顶部，返利在底部，过期月卡可补领且�
   assert.equal(requests.length, 3);
 });
 
-test('VIP只展示当前等级六项权益，空双倍日配置仍可读取', async t => {
+test('VIP过滤主题权益后再分页，空双倍日配置仍可读取', async t => {
   const current = ['精力丹/元力丹每日各限购13份', '百宝商店·神奇商店93折', '百宝商店·万宝楼93折', '全修为加成+15%', '自定义主题3个槽位', '资源商店93折'];
   const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
     found: true, name: '道友', vipLevel: 7, totalRechargeAmount: 328000, hasMonthCard: false, pillDailyLimit: 13,
@@ -195,13 +195,13 @@ test('VIP只展示当前等级六项权益，空双倍日配置仍可读取', as
       { minLevel: 8, text: '资源商店92折', unlocked: false, needText: '还需1元' }
     ], monthCardPrivileges: []
   }));
-  for (const [command, expected] of [['/我的特权', current.slice(0, 5)], ['/我的特权 2', current.slice(5)] ] as const) {
+  for (const [command, expected] of [['/我的特权', current.filter(text => !text.includes('主题'))], ['/我的特权 2', current.filter(text => !text.includes('主题'))] ] as const) {
     const result = await app.runHandler(privilegesHandler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(result.messages[0].nodes);
     for (const text of expected) assert.ok(view.text.includes(text));
-    assert.doesNotMatch(view.text, /97折|92折|签到币双倍|月卡期间生效/);
+    assert.doesNotMatch(view.text, /主题|97折|92折|签到币双倍|月卡期间生效/);
   }
 });
 

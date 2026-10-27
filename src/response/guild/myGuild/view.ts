@@ -52,7 +52,7 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
       ['【宗门演武】', storylineText],
       [
         { label: '宗门主线', command: '/宗门主线' },
-        { label: '宗门大比', command: '/宗门大比' },
+        // { label: '宗门大比', command: '/宗门大比' }, // 宗门大比下架
         { label: '灵脉攻防战', command: '/灵脉攻防战' }
       ]
     );

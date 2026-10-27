@@ -19,7 +19,7 @@ import { Format, onResponse, useEvent } from 'alemonjs';
 const PERSONAL_ROWS = [
   { label: '活跃任务', command: '/日常活跃', introduction: '完成活跃任务，查看进度与奖励' },
   { label: '成就', command: '/成就', introduction: '查看成就目标与进度，领取已达成的奖励' },
-  { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' },
+  // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
   { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，修行任务与签到' },
   { label: '通天塔', command: '/通天塔', introduction: '登塔闯关，挑战更高层' },
   { label: '镇妖塔', command: '/妖塔', introduction: '逐层镇妖，磨砺战力' },
@@ -28,7 +28,7 @@ const PERSONAL_ROWS = [
   { label: '劫云榜', command: '/劫云榜', introduction: '观望道友渡劫，参与劫云互动' },
   { label: '稻草人', command: '/挑战稻草人', introduction: '测试伤害，检验战力' },
   { label: '邀请奖励', command: '/邀请奖励', introduction: '邀请道友，查看邀请奖励' },
-  { label: '小店', command: '/小店', introduction: '逛逛道友小店' },
+  // { label: '小店', command: '/小店', introduction: '逛逛道友小店' }, // 小店下架
   { label: '珍宝楼', command: '/珍宝楼', introduction: '道友摆摊，交易珍宝' },
   { label: '杀神榜', command: '/杀神榜', introduction: '群雄争锋，查看杀神排名' },
   { label: '人气榜', command: '/人气排行榜', introduction: '道友点赞，人气争锋' }
@@ -41,7 +41,7 @@ const GUILD_ROWS = [
   { label: '宗门主线', command: '/宗门主线', introduction: '推进宗门主线，挑战关卡' },
   { label: '宗门战备', command: '/宗门战备', introduction: '查看宗门战备，提升团队与个人属性' },
   { label: '灵脉攻防战', command: '/灵脉攻防战', introduction: '争夺秘境，为宗门拓土' },
-  { label: '宗门大比', command: '/宗门大比', introduction: '宗门列阵，比武争雄' },
+  // { label: '宗门大比', command: '/宗门大比', introduction: '宗门列阵，比武争雄' }, // 宗门大比下架
   { label: '宗门商店', command: '/宗门商店', introduction: '查看宗门商店，兑换所需物品' }
 ];
 

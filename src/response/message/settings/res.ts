@@ -196,7 +196,7 @@ export default onResponse(selects, async e => {
         content: md,
         footer: [
           { label: '自动任务', command: '/任务面板 自动' },
-          { label: '外观主题', command: '/我的主题' },
+          // { label: '外观主题', command: '/我的主题' }, // 主题切换下架
           { label: '回仙途百事', command: '/更多' }
         ]
       })

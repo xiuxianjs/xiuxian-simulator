@@ -14,6 +14,7 @@ after(async () => { await shutdownLogger(); });
 const bundle=await build({stdin:{contents:`export {default as hub} from './src/response/activity/res.ts';export {default as original} from 'old-activity-hub';`,resolveDir:process.cwd()},bundle:true,write:false,platform:'node',format:'esm',plugins:[{name:'activity-hub-presentation',setup(b){
  b.onResolve({filter:/^old-activity-hub$/},()=>({path:'old',namespace:'legacy'}));
  b.onLoad({filter:/.*/,namespace:'legacy'},()=>({loader:'ts',contents:readFileSync(new URL('./fixtures/activity-hub-before-v2.ts.txt',import.meta.url),'utf8'),resolveDir:process.cwd()}));
+ b.onResolve({filter:/^axios$/},()=>({path:import.meta.resolve('axios'),external:true}));
  b.onResolve({filter:/^alemonjs$/},()=>({path:pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href,external:true}));
  b.onResolve({filter:/^@src\/(utils\/useMessage|response\/config|response\/robotBusiness|api\/bot\/realm-access-queries|response-apps\/activity\/app)$/},a=>({path:a.path,namespace:'seam'}));
  b.onLoad({filter:/.*/,namespace:'seam'},()=>({contents:`export const selects=['message.create','private.message.create','interaction.create','private.interaction.create'];export { useMessage } from 'alemonjs';export default async()=>globalThis.__activityHubPresentation.legacy;export const getBackendRealmAccess=async()=>{const d=globalThis.__activityHubPresentation.result.data;return{moreVisibleCommands:[...(d.newcomerVisible?['/新人狂欢']:[]),...(d.giftCodesVisible?['/礼包码']:[])],foldVisibleCommands:[]}};export const runRobotBusiness=async(e,op,args,decode,next,feedback)=>{const s=globalThis.__activityHubPresentation;s.calls++;s.args=args;s.op=op;if(s.transport)throw new Error('transport');if(s.result.success&&s.result.branch==='middleware'){next();return{handled:true}}if(!s.result.success){await feedback(s.result.middleware.replies.at(-1));return{handled:true}}return{handled:false,data:decode(s.result.data)}};`}));
@@ -37,8 +38,8 @@ async function render(name='hub',isPrivate=true,command='/我的活动'){
  } finally { await app.dispose(); }
 }
 const entryCommands=nodes=>commands(nodes.find(n=>n.type==='Markdown').value.filter(n=>n.type==='MD.blockquote'));
-const expectedCommands=['/日常活跃','/成就','/黑盒拍卖','/新人狂欢','/通天塔','/妖塔','/登天梯','/悬赏榜','/劫云榜','/挑战稻草人','/邀请奖励','/小店','/珍宝楼','/杀神榜','/人气排行榜'];
-const guildCommands=['/宗门日常','/宗门挖矿','/祭祀祖师','/宗门主线','/宗门战备','/灵脉攻防战','/宗门大比','/宗门商店'];
+const expectedCommands=['/日常活跃','/成就','/新人狂欢','/通天塔','/妖塔','/登天梯','/悬赏榜','/劫云榜','/挑战稻草人','/邀请奖励','/珍宝楼','/杀神榜','/人气排行榜'];
+const guildCommands=['/宗门日常','/宗门挖矿','/祭祀祖师','/宗门主线','/宗门战备','/灵脉攻防战','/宗门商店'];
 async function present(data,isPrivate=true,command='/我的活动'){
  state.result={success:true,branch:'business',data};
  const actual=await render('hub',isPrivate,command);
@@ -48,15 +49,14 @@ async function present(data,isPrivate=true,command='/我的活动'){
  assert.equal(framework.result.actions[message.actionIndex].results?.[0].code,ResultCode.Ok);
  assert.deepEqual(entryCommands(actual[0]),command.endsWith('宗门活动')?guildCommands:expectedCommands);
  const header=actual[0].find(n=>n.type==='Markdown').value.filter(n=>n.type==='MD.button');
- assert.deepEqual(header.map(n=>[n.value,n.options.data]),[['[个人]','/个人活动'],['[宗门]','/宗门活动']]);
+ assert.deepEqual(header.map(n=>[n.value,n.options.data]),command.endsWith('宗门活动') ? [['‹个人›','/个人活动'],['‹▸宗门›','/宗门活动']] : [['‹▸个人›','/个人活动'],['‹宗门›','/宗门活动']]);
  return actual[0];
 }
 test('activity center keeps every gameplay entrance visible independently of eligibility and phase',async()=>{
  for(const row of receipts.filter(r=>r.result.success&&r.result.branch==='business'))for(const isPrivate of [false,true]){
   const nodes=await present(row.result.data,isPrivate),text=textOf(nodes);
   assert.ok(text.includes('仙界风云'));
-  assert.ok(text.includes('黑盒拍卖会'));
-  assert.ok(text.includes('2026年10月24日开拍'));
+  assert.ok(!text.includes('拍卖'));
   for(const phrase of ['礼包码','返回福利','当前未开启','已封锁','已结束','剩余攻击','产量加成','占领：','参与需','状态暂未确认'])assert.ok(!text.includes(phrase),phrase);
   const quotes=nodes.find(n=>n.type==='Markdown').value.filter(n=>n.type==='MD.blockquote');
   for(const quote of quotes){
@@ -103,12 +103,12 @@ test('activity aliases preserve quote rows and guild order for group and private
  for(const isPrivate of [true,false])for(const command of ['/个人活动','/我的活动','/活动大厅','/宗门活动','#宗门活动','！宗门活动']){
   const nodes=await present({...base,access:{hasGuild:false,canAccessOverseasIsland:false}},isPrivate,command);
   const quotes=nodes.find(n=>n.type==='Markdown').value.filter(n=>n.type==='MD.blockquote');
-  assert.equal(quotes.length,command.endsWith('宗门活动')?8:15);
+  assert.equal(quotes.length,command.endsWith('宗门活动')?7:13);
   for(const quote of quotes){
    assert.equal(quote.value[0].type,'MD.button');
    assert.equal(quote.value[1].type,'MD.text');
    assert.match(quote.value[1].value,/^ — .+/);
   }
-  if(command.endsWith('宗门活动')) assert.deepEqual(quotes.map(q=>q.value[0].value),['[宗门活跃]','[宗门挖矿]','[宗门祭祖]','[宗门主线]','[宗门战备]','[灵脉攻防战]','[宗门大比]','[宗门商店]']);
+  if(command.endsWith('宗门活动')) assert.deepEqual(quotes.map(q=>q.value[0].value),['‹宗门活跃›','‹宗门挖矿›','‹宗门祭祖›','‹宗门主线›','‹宗门战备›','‹灵脉攻防战›','‹宗门商店›']);
  }
 });

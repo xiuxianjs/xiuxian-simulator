@@ -1,3 +1,4 @@
+import { mentionsRetiredFeature } from '@src/response/retiredFeatures';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -34,11 +35,11 @@ export default onResponse(selects, async e => {
     if (mode !== 'month') {
       md.addText(`VIP ${data.vipLevel} · 累计充值 ¥${(data.totalRechargeAmount / 100).toFixed(2)}`).addNewline();
     }
-    const rows =
+    const rows = (
       mode === 'month'
         ? data.monthCardPrivileges
-        : data.vipPrivileges.filter(row => mode === 'locked' ? !row.unlocked : row.unlocked && (row.minLevel === undefined || row.minLevel === data.vipLevel)
-          );
+        : data.vipPrivileges.filter(row => (mode === 'locked' ? !row.unlocked : row.unlocked && (row.minLevel === undefined || row.minLevel === data.vipLevel)))
+    ).filter(row => !mentionsRetiredFeature(row.text) && !mentionsRetiredFeature(row.needText ?? ''));
 
     md.addText(mode === 'locked' ? '未解锁特权' : mode === 'month' ? `月卡特权 · ${data.hasMonthCard ? '生效中' : '未生效'}` : '当前已生效特权').addNewline();
     if (!rows.length) {

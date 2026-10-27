@@ -30,8 +30,8 @@ export default onResponse(selects, async e => {
         title: '我的上架',
         content: md,
         header: [
-          { label: '珍宝楼', command: '/珍宝楼' },
-          { label: '小店', command: '/小店' }
+          { label: '珍宝楼', command: '/珍宝楼' }
+          // { label: '小店', command: '/小店' } // 小店下架
         ],
         footer: [
           { label: '搜索', command: '/珍宝楼 搜索' },
@@ -72,8 +72,8 @@ export default onResponse(selects, async e => {
         title: '我的上架',
         content: contentMd,
         header: [
-          { label: '珍宝楼', command: '/珍宝楼' },
-          { label: '小店', command: '/小店' }
+          { label: '珍宝楼', command: '/珍宝楼' }
+          // { label: '小店', command: '/小店' } // 小店下架
         ],
         footer: [
           { label: '搜索', command: '/珍宝楼 搜索' },
@@ -116,8 +116,8 @@ export default onResponse(selects, async e => {
         command: '/我的上架 {page}'
       },
       header: [
-        { label: '珍宝楼', command: '/珍宝楼' },
-        { label: '小店', command: '/小店' }
+        { label: '珍宝楼', command: '/珍宝楼' }
+        // { label: '小店', command: '/小店' } // 小店下架
       ],
       footer: [
         { label: '搜索', command: '/珍宝楼 搜索' },

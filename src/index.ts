@@ -1,15 +1,16 @@
-import { isGameEventEnabled } from './utils/eventPolicy';
-import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
-import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
-import { startFeatureVisibility } from './utils/featureVisibility';
 import { platform } from '@alemonjs/qq-bot';
-import { observePlayerGroupActivity } from './notification/activity';
+import { gameExpose } from './expose';
+import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
 import { normalizeRobotBid } from './api/bot/robot-bid';
+import { observePlayerGroupActivity } from './notification/activity';
+import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
 import { startNotificationStream, stopNotificationStream } from './notification/stream';
 import { handleCommandError } from './response/commandError';
-import router, { matchesGameCommand } from './router';
 import { onboardingContent } from './response/onboarding/context';
 import { configureOnboardingCommandMatcher } from './response/onboarding/policy';
+import router, { matchesGameCommand } from './router';
+import { isGameEventEnabled } from './utils/eventPolicy';
+import { startFeatureVisibility } from './utils/featureVisibility';
 import { normalizePrivateEvent } from './utils/privateEvent';
 import { startTransportEvent, transportCheckpoint } from './utils/transportTiming';
 
@@ -71,6 +72,7 @@ export default defineChildren({
   // 注册路由
   register() {
     return {
+      expose: gameExpose,
       responseContent: onboardingContent,
       response: router
     };

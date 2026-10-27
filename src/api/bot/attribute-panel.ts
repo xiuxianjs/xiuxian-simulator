@@ -65,12 +65,12 @@ function integerField(data: Record<string, unknown>, key: string): number {
   return value;
 }
 
-export async function getBackendAttributePanel(bid: string | undefined, uid: number): Promise<BackendAttributePanel> {
+export async function getBackendAttributePanel(bid: string | undefined, uid: number, signal?: AbortSignal): Promise<BackendAttributePanel> {
   if (!bid?.trim() || !Number.isSafeInteger(uid) || uid <= 0) {
     throw new Error('属性面板查询参数无效');
   }
 
-  return parseAttributePanel(await requestBackend(bid, 'get_players_id_attribute_panel', { path: { id: uid } }), uid);
+  return parseAttributePanel(await requestBackend(bid, 'get_players_id_attribute_panel', { path: { id: uid }, signal }), uid);
 }
 
 export function parseAttributePanel(value: unknown, uid: number): BackendAttributePanel {

@@ -81,11 +81,12 @@ export const MORE_CATEGORIES: MoreCategory[] = [
   {
     name: '交易',
     displayName: '坊市交易',
-    description: '商店、市场与小店',
+    // description: '商店、市场与小店', // 小店下架
+    description: '商店与市场',
     entries: [
       { label: '商店', command: '/商店', description: '选择商店与购买物品' },
-      { label: '交易所', command: '/珍宝楼', description: '分类选购与上架' },
-      { label: '玩家小店', command: '/小店', description: '浏览玩家店铺' }
+      { label: '交易所', command: '/珍宝楼', description: '分类选购与上架' }
+      // { label: '玩家小店', command: '/小店', description: '浏览玩家店铺' } // 小店下架
     ]
   },
   {
@@ -106,7 +107,8 @@ export const MORE_CATEGORIES: MoreCategory[] = [
     displayName: '修行设置',
     description: '偏好、资料与辅助工具',
     entries: [
-      { label: '我的设置', command: '/我的设置', description: '通知、组队与外观设置' },
+      // { label: '我的设置', command: '/我的设置', description: '通知、组队与外观设置' }, // 主题切换下架
+      { label: '我的设置', command: '/我的设置', description: '通知与组队设置' },
       { label: '安全中心', command: '/安全中心', description: '密码、邮箱与账号管理' },
       { label: '道友小传', command: '/更多 个人资料', description: '称号、回忆与角色故事', subcategory: '个人资料' },
       { label: '藏经阁', command: '/更多 游戏资料', description: '图鉴、天书、术语与攻略', subcategory: '游戏资料' },

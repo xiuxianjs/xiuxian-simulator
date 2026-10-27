@@ -85,8 +85,8 @@ export default onResponse(selects, async e => {
           { label: '卖出记录', selected: query.mode === 'sell', command: '/我的交易记录 卖' }
         ],
         header: [
-          { label: '珍宝楼', command: '/珍宝楼' },
-          { label: '小店', command: '/小店' }
+          { label: '珍宝楼', command: '/珍宝楼' }
+          // { label: '小店', command: '/小店' } // 小店下架
         ]
       })
     );
@@ -134,8 +134,8 @@ export default onResponse(selects, async e => {
       bid,
       title: data.title,
       header: [
-        { label: '珍宝楼', command: '/珍宝楼' },
-        { label: '小店', command: '/小店' }
+        { label: '珍宝楼', command: '/珍宝楼' }
+        // { label: '小店', command: '/小店' } // 小店下架
       ],
       content: contentMd,
       nav: {

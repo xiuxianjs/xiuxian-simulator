@@ -138,8 +138,8 @@ export default onResponse(selects, async e => {
         { label: '通天塔', command: '/通天塔' },
         { label: '妖塔', command: '/妖塔' },
         { label: '珍宝楼', command: '/珍宝楼' },
-        { label: '灵脉攻防战', command: '/灵脉攻防战' },
-        { label: '宗门大比', command: '/宗门大比' }
+        { label: '灵脉攻防战', command: '/灵脉攻防战' }
+        // { label: '宗门大比', command: '/宗门大比' } // 宗门大比下架
       ],
       content: md,
       footer: [

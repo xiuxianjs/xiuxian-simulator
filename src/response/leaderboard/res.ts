@@ -1,3 +1,4 @@
+import { activeFeatureText, mentionsRetiredFeature } from '@src/response/retiredFeatures';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { rankingFeedbackMarkdown, rankingFailureMarkdown } from './view';
@@ -49,7 +50,7 @@ export default onResponse(selects, async e => {
   }
 
   for (const group of ['实力成长', '修仙百业', '道友互动', '竞技与活动', '其他']) {
-    const items = menu.items.filter(item => item.group === group);
+    const items = menu.items.filter(item => item.group === group && !mentionsRetiredFeature(item.command) && !mentionsRetiredFeature(item.label));
 
     if (items.length === 0) {
       continue;
@@ -63,7 +64,7 @@ export default onResponse(selects, async e => {
     }
     md.addNewline();
   }
-  md.addText(menu.hint);
+  md.addText(activeFeatureText(menu.hint));
 
   void message.send(
     FormatGui({

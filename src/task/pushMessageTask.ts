@@ -112,6 +112,12 @@ async function processPlayerNotification(
     if (payload?.version !== 1 || !Number.isSafeInteger(payload.recipientUserId) || payload.recipientUserId <= 0 || !Array.isArray(payload.data)) {
       throw new Error('玩家通知事件载荷无效');
     }
+    // 下架期间关闭主动通知，原投递逻辑完整保留，恢复时移除此拦截。
+    if (payload.source?.startsWith('black-box.') || payload.source?.startsWith('guild.competition.')) {
+      await acknowledgeNotificationRelay(row.eventId, consumer, { route: 'history', reason: 'proactive_disabled' });
+
+      return;
+    }
     const blackBoxNotice = payload.source?.startsWith('black-box.') === true;
 
     if (!row.recipientBid && !blackBoxNotice && payload.source !== 'flymail.subscription.required' && payload.source !== 'flymail.message.received') {

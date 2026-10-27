@@ -1,4 +1,9 @@
 xiuxian-game:
+  # 默认开启；仅在当前 QQ 消息内查询该消息玩家。enabled: false 可关闭。
+  expose:
+    enabled: true
+    # 可选：不配置则允许框架识别的插件；空数组拒绝全部调用。
+    # allowed_callers: ['你的AI插件实际加载名']
   # 可选：替换“点击加入官方群聊”的链接；未填写或留空时沿用默认官群。
   official_group_url: 'https://qm.qq.com/q/vdFtnG7SEK'
   # 可选：仅控制修仙包收到事件后的行为，普通服/渠道服均适用。

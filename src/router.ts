@@ -223,10 +223,10 @@ app.res(
   xiuxian.use('卸下称号', () => import('@src/response/title/deactivateTitle/res'));
   xiuxian.use(['我的回忆'], () => import('@src/response/memory/res'));
   xiuxian.use(['我的故事'], () => import('@src/response/story/res'));
-  xiuxian.use(['我的主题'], () => import('@src/response/theme/myThemes/res'));
-  xiuxian.use('切换主题', () => import('@src/response/theme/activateTheme/res'));
-  xiuxian.use('关闭主题', () => import('@src/response/theme/deactivateTheme/res'));
-  xiuxian.use('切换墨色模式', () => import('@src/response/theme/switchInkMode/res'));
+  // xiuxian.use(['我的主题'], () => import('@src/response/theme/myThemes/res')); // 主题切换下架
+  // xiuxian.use('切换主题', () => import('@src/response/theme/activateTheme/res')); // 主题切换下架
+  // xiuxian.use('关闭主题', () => import('@src/response/theme/deactivateTheme/res')); // 主题切换下架
+  // xiuxian.use('切换墨色模式', () => import('@src/response/theme/switchInkMode/res')); // 主题切换下架
   xiuxian.use(['切换', '替换'], () => import('@src/response/profession/replaceEquip/res'));
   xiuxian.use(
     '商店',
@@ -397,8 +397,8 @@ app.res(
   xiuxian.use('邀请码', () => import('@src/response/referral/viewCode/res'));
   xiuxian.use('我的邀请', () => import('@src/response/referral/invitees/res'));
   xiuxian.use(['交易所', '珍宝楼'], () => import('@src/response/market/list/res'));
-  xiuxian.use('小店', () => import('@src/response/shop/playerShop/list/res'));
-  xiuxian.use('小店排行', () => import('@src/response/shop/playerShop/ranking/res'));
+  // xiuxian.use('小店', () => import('@src/response/shop/playerShop/list/res')); // 小店下架
+  // xiuxian.use('小店排行', () => import('@src/response/shop/playerShop/ranking/res')); // 小店下架
   xiuxian.use('煞气', () => import('@src/response/shaQi/res'));
   xiuxian.use('杀神榜', () => import('@src/response/killGodList/res'));
   xiuxian.use('领取杀神称号', () => import('@src/response/killGodList/claimTitle/res'));
@@ -434,7 +434,7 @@ app.res(
     ['圣人排行榜', '圣人榜'],
     withAccessFacts(['social'], () => import('@src/response/master/rank/res'))
   );
-  xiuxian.use('宗门大比', () => import('@src/response/guildCompetition/home/res'));
+  // xiuxian.use('宗门大比', () => import('@src/response/guildCompetition/home/res'));
   xiuxian.use('邀请境界奖励', () => import('@src/response/referral/rewardRules/realm/res'));
   xiuxian.use(['初入仙途', '新人狂欢'], () => import('@src/response/activity/newcomerLogin/res'));
   xiuxian.use('物品详情', () => import('@src/response/itemDetail/res'));
@@ -500,7 +500,7 @@ app.res(
   xiuxian.use('我的上架', () => import('@src/response/market/my/res'));
   xiuxian.use(['我的记录', '我的交易记录'], () => import('@src/response/market/records/res'));
   xiuxian.use(['信誉分', '我的信誉'], () => import('@src/response/market/credibility/res'));
-  xiuxian.use('我的小店', () => import('@src/response/shop/playerShop/mine/res'));
+  // xiuxian.use('我的小店', () => import('@src/response/shop/playerShop/mine/res')); // 小店下架
   xiuxian.use(
     ['我的武器', '我的饰品', '我的法袍', '我的衣服', '我的鞋子', '我的头饰', '我的羽翼'],
     () => import('@src/response/equipment/equipmentDetail/res')
@@ -519,11 +519,11 @@ app.res(
   xiuxian.use('我发的红包', () => import('@src/response/guild/myRedPackets/res'));
   xiuxian.use('宗门成员列表', () => import('@src/response/guild/memberList/res'));
   xiuxian.use('宗门改职', () => import('@src/response/guild/changeRole/res'));
-  xiuxian.use('可挑战宗门列表', () => import('@src/response/guildCompetition/challengeList/res'));
-  xiuxian.use('查看晋级赛队伍', () => import('@src/response/guildCompetition/checkPromotionTeams/res'));
-  xiuxian.use('查看押注记录', () => import('@src/response/guildCompetition/checkBets/res'));
-  xiuxian.use('宗门大比战斗记录', () => import('@src/response/guildCompetition/battleLog/res'));
-  xiuxian.use('宗门大比战斗详情', () => import('@src/response/guildCompetition/battleDetail/res'));
+  // xiuxian.use('可挑战宗门列表', () => import('@src/response/guildCompetition/challengeList/res'));
+  // xiuxian.use('查看晋级赛队伍', () => import('@src/response/guildCompetition/checkPromotionTeams/res'));
+  // xiuxian.use('查看押注记录', () => import('@src/response/guildCompetition/checkBets/res'));
+  // xiuxian.use('宗门大比战斗记录', () => import('@src/response/guildCompetition/battleLog/res'));
+  // xiuxian.use('宗门大比战斗详情', () => import('@src/response/guildCompetition/battleDetail/res'));
   xiuxian.use(['我的本命物', '本命物信息'], () => import('@src/response/soulArtifact/info/res'));
   xiuxian.use(['我的队伍', '查看队伍'], () => import('@src/response/team/myTeam/res'));
   xiuxian.use('队伍战斗记录', () => import('@src/response/team/battleRecords/res'));
@@ -552,11 +552,12 @@ app.res(
     withAccessFacts(['social'], () => import('@src/response/friend/blocklist/res'))
   );
   xiuxian.use('飞信', () => import('@src/response/flyMail/home/res'));
-  xiuxian.use(['黑盒拍卖', '限时活动', '查看特殊活动'], () => import('@src/response/blackBox/overview/res'));
-  xiuxian.use('黑盒排期', () => import('@src/response/blackBox/schedule/res'));
-  xiuxian.use('黑盒记录', () => import('@src/response/blackBox/history/res'));
-  xiuxian.use('黑盒详情', () => import('@src/response/blackBox/room/res'));
-  xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
+  // 拍卖会下架：保留原指令注册，恢复时统一启用。
+  // xiuxian.use(['黑盒拍卖', '限时活动', '查看特殊活动'], () => import('@src/response/blackBox/overview/res'));
+  // xiuxian.use('黑盒排期', () => import('@src/response/blackBox/schedule/res'));
+  // xiuxian.use('黑盒记录', () => import('@src/response/blackBox/history/res'));
+  // xiuxian.use('黑盒详情', () => import('@src/response/blackBox/room/res'));
+  // xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
   xiuxian.use('活动任务', () => import('@src/response/limitedEvent/tasks/res'));
   xiuxian.use('活动道具', () => import('@src/response/limitedEvent/tokens/res'));
 
@@ -564,13 +565,13 @@ app.res(
     // 验证码
     const captchaMatch = xiuxian.group({});
 
-    captchaMatch.use('黑盒入场', () => import('@src/response/blackBox/join/res'));
-    captchaMatch.use(['黑盒提醒', '黑盒预约'], () => import('@src/response/blackBox/reserve/res'));
-    captchaMatch.use('黑盒确认', () => import('@src/response/blackBox/confirm/res'));
-    captchaMatch.use('黑盒取消', () => import('@src/response/blackBox/cancel/res'));
-    captchaMatch.use('黑盒鉴宝', () => import('@src/response/blackBox/probe/res'));
-    captchaMatch.use('确认黑盒出价', () => import('@src/response/blackBox/bid/res'));
-    captchaMatch.use('黑盒撤标', () => import('@src/response/blackBox/withdraw/res'));
+    // captchaMatch.use('黑盒入场', () => import('@src/response/blackBox/join/res'));
+    // captchaMatch.use(['黑盒提醒', '黑盒预约'], () => import('@src/response/blackBox/reserve/res'));
+    // captchaMatch.use('黑盒确认', () => import('@src/response/blackBox/confirm/res'));
+    // captchaMatch.use('黑盒取消', () => import('@src/response/blackBox/cancel/res'));
+    // captchaMatch.use('黑盒鉴宝', () => import('@src/response/blackBox/probe/res'));
+    // captchaMatch.use('确认黑盒出价', () => import('@src/response/blackBox/bid/res'));
+    // captchaMatch.use('黑盒撤标', () => import('@src/response/blackBox/withdraw/res'));
     captchaMatch.use(['签到日历', '签到概览'], () => import('@src/response/signIn/calendar/res'));
     captchaMatch.use('签到', () => import('@src/response/signIn/hub/res'));
     captchaMatch.use('突破', () => import('@src/response/breakthrough/perform/res'));
@@ -1060,20 +1061,21 @@ app.res(
         seclusion.use('道侣任务', () => import('@src/response/companion/dailyTask/res'));
         seclusion.use('道侣商店兑换', () => import('@src/response/companion/shopBuy/res'));
         seclusion.use('选购', () => import('@src/response/market/confirmBuy/res'));
-        seclusion.use(
-          {
-            path: '逛店',
-            schema: {
-              args: [{ name: 'content', rules: [{ type: 'rest' }] }],
-              usage: '/逛店 <UID|@道友> [页码]'
-            }
-          },
-          () => import('@src/response/shop/playerShop/visit/res')
-        );
+        // 小店下架：暂停逛店入口，保留实现。
+        // seclusion.use(
+        //   {
+        //     path: '逛店',
+        //     schema: {
+        //       args: [{ name: 'content', rules: [{ type: 'rest' }] }],
+        //       usage: '/逛店 <UID|@道友> [页码]'
+        //     }
+        //   },
+        //   () => import('@src/response/shop/playerShop/visit/res')
+        // );
         seclusion.use('交易上架', () => import('@src/response/market/sell/res'));
         seclusion.use('交易下架', () => import('@src/response/market/cancel/res'));
-        seclusion.use('命名店铺', () => import('@src/response/shop/playerShop/rename/res'));
-        seclusion.use('店铺简介', () => import('@src/response/shop/playerShop/description/res'));
+        // seclusion.use('命名店铺', () => import('@src/response/shop/playerShop/rename/res')); // 小店下架
+        // seclusion.use('店铺简介', () => import('@src/response/shop/playerShop/description/res')); // 小店下架
         seclusion.use(['消耗', '服用', '炼化'], () => import('@src/response/consume/res'));
 
         seclusion.use('小绿瓶存储', () => import('@src/response/greenBottle/store/res'));
@@ -1164,23 +1166,24 @@ app.res(
         seclusion.use('提升宗门商店', () => import('@src/response/guild/upgradeShop/res'));
         seclusion.use('宗门商店兑换', () => import('@src/response/guild/exchange/res'));
         seclusion.use(['灵脉攻防战领取奖励', '秘境攻防领取奖励'], () => import('@src/response/guildSecretRealmWar/claim/res'));
-        seclusion.use('宗门大比报名', () => import('@src/response/guildCompetition/apply/res'));
-        seclusion.use(
-          {
-            path: '添加宗门大比成员',
-            schema: {
-              args: [{ name: 'content', rules: [{ type: 'rest' }] }],
-              usage: '/添加宗门大比成员 [UID|@道友] [位置]'
-            }
-          },
-          () => import('@src/response/guildCompetition/addMember/res')
-        );
-        seclusion.use('移除宗门大比成员', () => import('@src/response/guildCompetition/removeMember/res'));
-        seclusion.use('调整宗门大比位置', () => import('@src/response/guildCompetition/adjustPosition/res'));
-        seclusion.use('清空宗门大比队伍', () => import('@src/response/guildCompetition/clearTeam/res'));
-        seclusion.use('押注宗门大比', () => import('@src/response/guildCompetition/bet/res'));
-        seclusion.use('追投宗门大比', () => import('@src/response/guildCompetition/followBet/res'));
-        seclusion.use('领取宗门大比奖励', () => import('@src/response/guildCompetition/claimReward/res'));
+        // 宗门大比下架：保留注册代码，暂停全部指令。
+        // seclusion.use('宗门大比报名', () => import('@src/response/guildCompetition/apply/res'));
+        // seclusion.use(
+        //   {
+        //     path: '添加宗门大比成员',
+        //     schema: {
+        //       args: [{ name: 'content', rules: [{ type: 'rest' }] }],
+        //       usage: '/添加宗门大比成员 [UID|@道友] [位置]'
+        //     }
+        //   },
+        //   () => import('@src/response/guildCompetition/addMember/res')
+        // );
+        // seclusion.use('移除宗门大比成员', () => import('@src/response/guildCompetition/removeMember/res'));
+        // seclusion.use('调整宗门大比位置', () => import('@src/response/guildCompetition/adjustPosition/res'));
+        // seclusion.use('清空宗门大比队伍', () => import('@src/response/guildCompetition/clearTeam/res'));
+        // seclusion.use('押注宗门大比', () => import('@src/response/guildCompetition/bet/res'));
+        // seclusion.use('追投宗门大比', () => import('@src/response/guildCompetition/followBet/res'));
+        // seclusion.use('领取宗门大比奖励', () => import('@src/response/guildCompetition/claimReward/res'));
         seclusion.use(
           [
             {
@@ -1250,7 +1253,7 @@ app.res(
 
           meditation.use('挑战稻草人', () => import('@src/response/scarecrow/res'));
           meditation.use(['灵脉攻防战挑战', '秘境攻防挑战'], () => import('@src/response/guildSecretRealmWar/challenge/res'));
-          meditation.use('挑战宗门', () => import('@src/response/guildCompetition/challenge/res'));
+          // meditation.use('挑战宗门', () => import('@src/response/guildCompetition/challenge/res'));
           meditation.use(
             {
               path: '打劫',

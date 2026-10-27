@@ -345,7 +345,7 @@ export const shouldQueryMarket = (parsed: ParsedMarketCommand): boolean => {
 
 export const getMarketHeaderButtons = (): GuiButton[] => [
   { label: '珍宝楼', command: '/珍宝楼 1' },
-  { label: '小店', command: '/小店' },
+  // { label: '小店', command: '/小店' }, // 小店下架
   { label: '记录', command: '/我的交易记录' },
   { label: '上架', command: '/交易上架' },
   { label: '信誉', command: '/信誉分' }

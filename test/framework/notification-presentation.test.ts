@@ -201,7 +201,7 @@ for (const [label, privateTarget] of [
   ['有私聊地址', { platform: 'qq-bot', scope: 'c2c', targetId: 'black-box-private', BotId: 'black-box-bot' }],
   ['无私聊地址', null],
   ['旧缓存误存群地址', { platform: 'qq-bot', scope: 'group', targetId: 'black-box-group', BotId: 'black-box-bot' }]
-] as const) test(`黑盒通知仅私聊投递：${label}，忽略群订阅且不提交竞拍操作`, async t => {
+] as const) test(`拍卖和宗门大比下架后通知仅留历史：${label}，不投递且正常确认`, async t => {
   const scratch = mkdtempSync(join(tmpdir(), 'black-box-notice-contracts-'));
   t.after(() => rmSync(scratch, { recursive: true, force: true }));
   try { goTestFixture(['test', './internal/service', '-run', '^TestBlackBoxNotifications(ReminderBoundary|ResultOnlyAfterCommit)', '-count=1'], {
@@ -216,7 +216,13 @@ for (const [label, privateTarget] of [
   announcement.eventId += '-old-announcement';
   announcement.payload.source = 'black-box.announcement';
   announcement.payload.blackBoxOptIn = true;
-  const queues: Record<string, unknown[]> = { 'platform.message.dispatch': [], 'player.notification.dispatch': [...events, legacy, announcement] };
+  const competitionEvents = [events[0], events[2]].map((event, index) => {
+    const notice = structuredClone(event);
+    notice.eventId = `guild.competition.reward:retired:${index}`;
+    notice.payload.source = 'guild.competition.reward';
+    return notice;
+  });
+  const queues: Record<string, unknown[]> = { 'platform.message.dispatch': [], 'player.notification.dispatch': [...events, legacy, announcement, ...competitionEvents] };
   const requests: string[] = [], acknowledgements: unknown[] = [];
   let sent = 0;
   const previousLogin = process.env.login;
@@ -244,21 +250,10 @@ for (const [label, privateTarget] of [
   const handler = onResponse('message.create', async () => { await PushMessageTask(); });
   const result = await app.runHandler(handler, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
-  const canDeliver = privateTarget?.scope === 'c2c';
-  assert.equal(result.messages.length, canDeliver ? 2 : 0);
-  for (let i = 0; i < result.messages.length; i++) {
-    const message = result.messages[i];
-    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
-    for (const line of events[i].payload.data[0].value.split('\n')) assert.ok(message.text.includes(line.replace(/^【(.+)】$/, '$1')));
-    assert.ok(message.commands.includes('/黑盒记录'));
-    assert.ok(!message.commands.some(c => /^\/(黑盒确认|确认黑盒出价|黑盒鉴宝|黑盒出价)/.test(c)));
-    assert.doesNotMatch(message.text, /1000|winnerId|instance_prototype|凝灵种植匣/);
-  }
-  assert.equal(acknowledgements.length, 5);
-  assert.ok(!requests.some(path => path.endsWith('/subscription') || path.includes('fallback')));
-  assert.deepEqual(acknowledgements.slice(0, 3), canDeliver
-    ? [{ route: 'private', reason: 'sent' }, { route: 'private', reason: 'sent' }, { route: 'history', reason: 'no_target' }]
-    : [{ route: 'history', reason: 'no_private_target' }, { route: 'history', reason: 'no_private_target' }, { route: 'history', reason: 'no_target' }]);
-  assert.deepEqual(acknowledgements.slice(3), [{route:'history',reason:'proactive_disabled'}, {route:'history',reason:'proactive_disabled'}]);
+  assert.equal(result.messages.length, 0);
+  assert.equal(sent, 0);
+  assert.equal(acknowledgements.length, 7);
+  assert.ok(!requests.some(path => path.endsWith('/subscription') || path.includes('fallback') || path.endsWith('/private-target/read')));
+  assert.deepEqual(acknowledgements, Array.from({ length: 7 }, () => ({ route: 'history', reason: 'proactive_disabled' })));
   assert.ok(!requests.some(path => path.includes('/robot/business/') || path.includes('/black-box/')));
 });

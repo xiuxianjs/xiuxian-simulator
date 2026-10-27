@@ -14,8 +14,9 @@ export function getBackendRobotIdentity(bid: string, request?: BackendRequestCon
   return event?.UserId === bid ? getEventBackendRobotIdentity(event, request) : fetchBackendRobotIdentity(bid, request);
 }
 
-async function fetchBackendRobotIdentity(bid: string, request?: BackendRequestContext): Promise<BackendRobotIdentity> {
-  const result = await requestBackend(bid, 'getRobotIdentity', { requestId: request?.requestId });
+/** Fresh identity lookup for non-router consumers; never accepts a caller-supplied player ID. */
+export async function fetchBackendRobotIdentity(bid: string, request?: BackendRequestContext & { signal?: AbortSignal }): Promise<BackendRobotIdentity> {
+  const result = await requestBackend(bid, 'getRobotIdentity', { requestId: request?.requestId, signal: request?.signal });
   const value: unknown = result;
 
   if (!record(value) || value.bid !== bid || !record(value.account)) {

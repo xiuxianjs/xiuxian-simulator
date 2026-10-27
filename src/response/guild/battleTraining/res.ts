@@ -126,7 +126,8 @@ export default onResponse(selects, async e => {
   }
 
   md.addNewline();
-  md.addText('生效范围：宗门主线、灵脉攻防战、宗门大比。');
+  // md.addText('生效范围：宗门主线、灵脉攻防战、宗门大比。'); // 宗门大比下架
+  md.addText('生效范围：宗门主线、灵脉攻防战。');
 
   void message.send(
     FormatGui({
@@ -137,8 +138,8 @@ export default onResponse(selects, async e => {
       footer: [
         { label: '我的宗门', command: '/我的宗门' },
         { label: '宗门主线', command: '/宗门主线' },
-        { label: '灵脉攻防战', command: '/灵脉攻防战' },
-        { label: '宗门大比', command: '/宗门大比' }
+        { label: '灵脉攻防战', command: '/灵脉攻防战' }
+        // { label: '宗门大比', command: '/宗门大比' } // 宗门大比下架
       ]
     })
   );
