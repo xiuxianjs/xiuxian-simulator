@@ -179,6 +179,10 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['claim_daily_activity', { requiredPoints: 0 }],
+  ['claim_daily_activity', { requiredPoints: 1.5 }],
+  ['claim_weekly_activity', { requiredPoints: Number.MAX_SAFE_INTEGER + 1 }],
+  ['claim_all_daily_activity', { type: 'weekly' }],
   ['preview_tribulation', { eventId: 7, grade: '任意' }],
   ['confirm_tribulation', { reference: 'r1_1_h_abc_' + 'a'.repeat(24) }],
   ['confirm_heart_demon', { reference: 'r1_1_t_abc_' + 'a'.repeat(24) }],

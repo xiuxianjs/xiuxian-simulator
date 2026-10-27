@@ -96,7 +96,7 @@ export default onResponse(selects, async e => {
     bid,
     title: '仙途百事',
     header: [
-      { label: '权限', command: '/权限' },
+      { label: '群设置', command: '/设置' },
       { label: '安全中心', command: '/安全中心' },
       { label: '登录', command: '/登录' }
     ],

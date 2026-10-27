@@ -254,9 +254,9 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
                 ? [
                     [
                       // { label: '主题', command: '/我的主题' }, // 主题切换下架
+                      { label: '设置', command: '设置' },
                       { label: '改签名', command: '/改签名 新内容' },
-                      { label: '改称号', command: '/我的称号' },
-                      { label: '权限', command: '/权限' }
+                      { label: '改称号', command: '/我的称号' }
                     ]
                   ]
                 : []),

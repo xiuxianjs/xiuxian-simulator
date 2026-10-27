@@ -5,9 +5,9 @@ export default async () => {
   const [ref] = useEvent();
   const event = ref.current;
 
-  if (/(管理|权限)/.test(event.MessageText) && event.Platform === platform) {
+  if (/(管理|权限|设置)/.test(event.MessageText) && event.Platform === platform) {
     // 尝试提取出群QQ
-    const match = event.MessageText.match(/(管理|权限)\s+(\d+)/);
+    const match = event.MessageText.match(/(管理|权限|设置)\s+(\d+)/);
 
     let groupQQ: string | null = null;
 
@@ -74,9 +74,9 @@ export default async () => {
       md.addText('> 请输入群号,获得当前群权限设置');
       md.addNewline();
       md.addNewline();
-      md.addText('💡 @修仙模拟器 /管理 <群号>');
+      md.addText('💡 @修仙模拟器 /设置 「群号」');
       md.addNewline();
-      bt.addButton('点击输入群号', '/管理 删除我并替换为群号后发送');
+      bt.addButton('点击输入群号', '/设置 「群号」');
     }
 
     const format = Format.create();
