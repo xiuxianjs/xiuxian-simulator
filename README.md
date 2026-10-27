@@ -29,7 +29,7 @@ release
 
 ### AI 插件能力（Expose）
 
-机器人提供协议 `xiuxian.player.v1`，provider 为实际加载名（通常是 `xiuxian-game`）。当前能力版本为 `1.9.0`，已注册 75 项能力（29 项查询及 46 项经业务入口调用的动作），仅使用当前消息玩家身份，不发送聊天消息。
+机器人提供协议 `xiuxian.player.v1`，provider 为实际加载名（通常是 `xiuxian-game`）。当前能力版本为 `1.10.0`，已注册 84 项能力（29 项查询及 55 项经业务入口调用的动作），仅使用当前消息玩家身份，不发送聊天消息。
 
 | 动作                   | 参数                                                                  | 返回内容                                                           |
 | ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -202,3 +202,23 @@ if (result.ok) {
 洞府操作返回 message、needsSeedSelection 以及可用的 overview / options。snapshotError 表示快照读取失败，不能推断此前操作未发生；一键打理可能部分完成，以 message 各步骤为准。查询播种选项不消耗种子，实际播种和开垦使用服务端库存与规则。
 
 宗门操作保留 message 和结构化 receipt。采矿回执可包含 baseSpiritStone、spiritStoneBonus、outputMultiplier；旧服务端未提供时省略，不补造零值。产出、成长周期、俸禄倍率均来自服务端，不在机器人重算。
+
+### Expose 炼丹与锻造确认
+
+| 动作                     | 参数                                  | 说明                                     |
+| ------------------------ | ------------------------------------- | ---------------------------------------- |
+| `get_alchemy_dashboard`  | `{}`                                  | 炼丹状态与入口，服务端可能处理入门状态   |
+| `enroll_alchemist`       | `{}`                                  | 加入炼丹师或恢复原入门引导               |
+| `get_alchemy_recipes`    | `{ page: number }`                    | 丹方说明与预览入口                       |
+| `preview_alchemy`        | `{ recipeId: number, count: number }` | 1..1000 炉预览；实际可炼数量以原预览为准 |
+| `confirm_alchemy`        | `{ reference: string }`               | 用户确认后提交原 r1_a 引用               |
+| `get_forge_overview`     | `{}`                                  | 锻造等级、图纸、材料和资格               |
+| `preview_forge`          | `{ recipeId: number }`                | 普通锻造材料、费用、属性范围及确认 token |
+| `preview_forge_tutorial` | `{}`                                  | 加入锻造师的入门制作预览                 |
+| `confirm_forge`          | `{ reference: string }`               | 用户确认后提交原 r1_f 引用               |
+
+炼丹返回 `{ reply, confirmations }`，reply 保留服务端完整说明、分块和按钮，confirmations 提取原确认按钮中的引用。`success` 或 Expose `ok` 不代表一定炼制成功，调用方必须阅读 reply 中的结果。锻造预览返回 token、expiresAt、材料、费用及属性范围；确认将 token 原样作为 reference 提交。
+
+只接受相应类型的完整 r1_ 引用，不接受调用方提供的签名载荷、自由确认命令或 force 参数。引用校验、原预览内容和原操作编号由服务端 Redis 及数据库回执保留；确认前必须取得用户对原预览的明确同意。失效、规则变化或库存变化时按服务端拒绝处理，不重新预览后自动确认，也不将成功读取引用视作授权。
+
+同一平台消息下的幂等键同时绑定业务操作、固定构造的具体命令及规范化参数，防止炼丹多个入口共用 alchemy.v2、空 arguments 时误读其他动作的回执。重试保留原引用；跨消息重复确认仍由原业务操作编号或确认编号去重。
