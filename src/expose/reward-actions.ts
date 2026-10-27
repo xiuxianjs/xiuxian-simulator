@@ -8,7 +8,7 @@ import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
 const points = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
-const issued = list(object({ name: text, amount: integer }));
+const issued = list(object({ type: text, name: text, amount: integer }));
 const claim = object({ userName: text, requiredPoints: integer, issued });
 const claimAll = object({ claimed: list(claim), partial: boolean, userName: text, taskRewards: issued, error: text }, ['userName', 'taskRewards', 'error']);
 const activity = object(

@@ -22,7 +22,19 @@ const tribulationPrep = { eventId: 7, targetRealm: '金丹', status: 'opened', o
 const tReference = 'r1_1_t_abc_' + 'a'.repeat(24);
 const hReference = 'r1_1_h_abc_' + 'a'.repeat(24);
 const tribulationUnit = { Name: '修士', HP: 100, MP: 50, PhysicalAttack: 20, MagicAttack: 20, PhysicalDefense: 5, MagicDefense: 5, Speed: 10 };
+const activityPanel = { rewardType: 'daily', cyclePeriod: '2026-10-28', currentPoints: 100, taskRewardsCanClaim: true, tasks: [], rewards: [{ requiredPoints: 10, itemId: 0, quantity: 11, name: '灵石', category: 'currency', currencyCode: 'SPIRIT_STONE', claimed: false, canClaim: true }] };
+const activityClaim = { userName: '修士', requiredPoints: 10, issued: [{ type: 'currency', name: '灵石', amount: 11 }] };
+const activityAll = { claimed: [activityClaim], partial: true, error: '第二档未完成' };
+const monthStatus = { total: 1, claimableCount: 0, claimedCount: 1, upcomingCount: 0, prepaidCount: 0, dailyRewards: { spiritCrystal: 150, mentalPillItemId: 38, mentalPillQuantity: 2, qiPillItemId: 39, qiPillQuantity: 2 }, records: [{ day: 1, rewardDate: '2026-10-28', status: 'claimed' }] };
 const cases = [
+  { action: 'get_daily_activity', operation: 'activity-points.daily', command: '/日常活跃', input: {}, data: activityPanel },
+  { action: 'get_weekly_activity', operation: 'activity-points.weekly', command: '/周常活跃', input: {}, data: { ...activityPanel, rewardType: 'weekly' } },
+  { action: 'claim_daily_activity', operation: 'activity-points.claim-daily', command: '/领取日常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: activityClaim },
+  { action: 'claim_weekly_activity', operation: 'activity-points.claim-weekly', command: '/领取周常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: activityClaim },
+  { action: 'claim_all_daily_activity', operation: 'activity-points.claim-all-daily', command: '/一键领取日常活跃奖励', input: {}, data: activityAll },
+  { action: 'claim_all_weekly_activity', operation: 'activity-points.claim-all-weekly', command: '/一键领取周常活跃奖励', input: {}, data: activityAll },
+  { action: 'claim_month_card_rewards', operation: 'membership.claim-month-card', command: '/一键领取月卡', input: {}, data: { beforeTotal: 1, claim: { days: 1, rewards: { spiritCrystal: 150, mentalPill: 2, qiPill: 2 } }, status: monthStatus } },
+  { action: 'claim_all_achievements', operation: 'achievements.claim-all', command: '/一键领取成就', input: {}, data: { access: { canUseFifthLayerFeature: true, realmName: '炼气' }, data: { claimedCount: 1, claimed: [{ category: 'general', categoryLabel: '通用', achievementName: '达成', issued: activityClaim.issued }] } } },
   { action: 'promote_realm', operation: 'realm.promotion', command: '/晋级', input: {}, data: { mode: 'promotion', result: { success: false, message: '条件不足', unlockedRecipes: [], masterStageMessages: [] } } },
   { action: 'open_tribulation', operation: 'tribulation.command', command: '/开启渡劫 7', input: { eventId: 7 }, args: { kind: 'open', eventId: 7 }, data: tribulationPrep },
   { action: 'preview_tribulation', operation: 'tribulation.command', command: '/渡劫评级 7 high', input: { eventId: 7, grade: 'high' }, args: { kind: 'confirm', eventId: 7, grade: 'high' }, data: { confirmationReference: tReference, materialNames: { 10: '渡劫石' }, confirmation: { eventId: 7, grade: 'high', attackMultiplier: 1.2, conditionVersion: 'a'.repeat(64), rewardScope: 'current', experienceBefore: 100, successExperienceCost: 0, failureExperienceAfter: 90, progress: tribulationProgress, materials: [{ itemId: 10, quantity: 1 }], battle: { mode: 'continuous_layers_v1', name: '雷劫', player: tribulationUnit, layers: [{ layer: 1, enemies: [tribulationUnit] }] } } } },
@@ -129,6 +141,7 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       assert.equal(requests.length, 2);
       assert.ok(requests[0].headers['idempotency-key']);
       assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
+      if (entry.action === 'claim_all_daily_activity' || entry.action === 'claim_all_weekly_activity') { assert.equal(value.result.partial, true); assert.equal(value.result.error, '第二档未完成'); assert.deepEqual(value.result.claimed, [activityClaim]); }
       if (entry.action === 'checkin_all') assert.equal(value.result[0].status, 'error');
     }
   } else {
