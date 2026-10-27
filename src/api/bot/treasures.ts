@@ -308,6 +308,14 @@ export function parseTreasureReceipt(value: unknown) {
     return invalid();
   }
   if (item.kind === 'explore' && (!Array.isArray(result.rewards) || result.rewards.length < integer(result.count))) { return invalid(); }
+  if (item.kind === 'explore') {
+    const count = integer(result.count);
+
+    if (![1, 10].includes(count)) { return invalid(); }
+    if (result.rulesVersion === 'treasure-v3-complete-20261027') {
+      if ((result.rewards as unknown[]).length !== count || result.experienceGranted !== count * 100) { return invalid(); }
+    } else if (!['treasure-v1-20261027', 'treasure-v2-20261027-first-drop'].includes(String(result.rulesVersion))) { return invalid(); }
+  }
 
   return {
     kind: item.kind as TreasurePreviewKind,
@@ -318,6 +326,7 @@ export function parseTreasureReceipt(value: unknown) {
       ...(item.kind === 'explore'
         ? {
             rewards: array(result.rewards, reward),
+            rulesVersion: text(result.rulesVersion),
             source: source(result.source),
             count: integer(result.count),
             paidAmount: integer(result.paidAmount),

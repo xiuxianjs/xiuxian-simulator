@@ -125,6 +125,7 @@ const receipt = (kind = 'explore', input:Record<string,unknown> = {}) => ({
   operationId,
   result: {
     operationId,
+    rulesVersion:'treasure-v3-complete-20261027',
     message: '原操作已结算',
     count: Number(input.count ?? 10),
     source: input.source ?? 'dao_crystal',
@@ -372,4 +373,14 @@ test('碎片9+2自动合成1余1并激活，回执不冒充直接完整出货',a
 test('租契未来额度含预留不足30日时隐藏新购买，但已产生收益仍可领',async t=>{
  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,{...lease,canPurchase:false,remainingDays:170,futureDays:169,reservedDays:0,purchaseUnavailableReason:'未来收益日剩余额度不足30日'}));
  const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/灵脉租契',platform:'qq-bot'})));assert.match(view.text,/未来收益日剩余额度不足30日/);assert.ok(!view.commands.includes('/充值购买 27'));assert.ok(view.commands.includes('/灵脉租契 领取'));
+});
+for (const mode of ['extra-reward','wrong-xp','unknown-version'] as const) test(`v3异常回执${mode}保留原引用`,async t=>{
+ const data=receipt('explore',{source:'free',count:1});if(mode==='extra-reward')data.result.rewards.push({...data.result.rewards[0]});if(mode==='wrong-xp')data.result.experienceGranted=0;if(mode==='unknown-version')data.result.rulesVersion='treasure-future-unknown';
+ const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
+ assert.match(view.text,/结果尚未获完整确认/);assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
+});
+for(const rulesVersion of ['treasure-v1-20261027','treasure-v2-20261027-first-drop'])test(`旧版${rulesVersion}藏宝图0经验多奖励回执继续恢复`,async t=>{
+ const data=receipt('explore',{source:'treasure_map',count:1});data.result.rulesVersion=rulesVersion;data.result.experienceGranted=0;data.result.rewards.push({...data.result.rewards[0],treasureId:401,name:'采薇竹篮',rarity:4});
+ const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
+ assert.match(view.text,/原操作已结算/);assert.match(view.text,/宝物经验 \+0/);assert.ok(!view.commands.some(command=>command.startsWith('/确认宝物 ')));
 });
