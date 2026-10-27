@@ -1,33 +1,23 @@
-# 将此配置段合并到运行目录的 alemon.config.yaml。
-# 保留已有 login、平台凭证、xiuxian-game.minio 等配置，不要覆盖整份文件。
 xiuxian-game:
   # 可选：替换“点击加入官方群聊”的链接；未填写或留空时沿用默认官群。
   official_group_url: 'https://qm.qq.com/q/vdFtnG7SEK'
   # 可选：仅控制修仙包收到事件后的行为，普通服/渠道服均适用。
-  # 关闭的事件直接传给其他插件，不修改框架全局事件开关。
   # 不配置 allow = 默认允许全部；allow: [] = 本包不处理任何事件。
   # deny 优先于 allow；使用框架事件名，不使用 QQ 原始事件名。
   # events:
   #   deny: ['guild.join', 'notice.create:join-request'] # 关闭被邀请入群后的处理和加群申请处理
   #   allow: ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] # 只处理消息和按钮
-  # 可用平台事件：guild.join / guild.exit / member.add / member.remove /
-  # private.friend.add / private.friend.remove / notice.create / private.notice.create。
-  # notice 子类型可单独匹配：notice.create:join-request、notice.create:message-permission、
-  # private.notice.create:message-permission；只填 notice.create 则匹配该事件的全部子类型。
-  # 配置必须为字符串数组；格式错误时本包停止处理事件，其他插件仍可继续。
-  # 此配置控制新收到的事件，不取消已排队通知，也不控制 SSE/定时任务。
+
   backend:
     # 必填：online 统一 API origin，不要附加 /api/v1。
     api_url: 'https://xiuxian-simulator.alemonjs.com'
-    # 普通服对应官服 ROBOT_AUTH_TOKEN；
-    # 渠道模式填写商户签发的 BOT_TOKEN。
+    # 官服 ROBOT_AUTH_TOKEN；
+    # 签发的 BOT_TOKEN。
     robot_auth_token: ''
-    # 显式渠道模式；每个机器人实例使用自己的 Token 与 QQ AppID。
-    # 渠道游戏 origin 必须指向独立渠道服，不能复用上面的正式服示例地址。
+    # 显式渠道模式
     channel_mode: false
     channel_bot_id: ''
-    # 普通服任务与通知使用 Go WORKER_AUTH_TOKEN；
-    # 渠道商户不要配置运营凭据
+    # 普通服任务与通知使用 Go WORKER_AUTH_TOKEN；渠道商户不要配置运营凭据
     worker_token: ''
     # 单次请求超时（毫秒），默认 10000；战斗请求另有较长等待时间。
     api_timeout_ms: 60000
@@ -35,12 +25,7 @@ xiuxian-game:
     log_api_timings: false
     # 图片渲染、上传和平台发送耗时；默认只记录 >=1秒的阶段。
     log_transport_timings: false
-  # 可选：两项均配置才会上报；不要使用游戏 API 地址。
+  # 可选：两项均配置才会上报；
   # analytics_api_url: 'https://xiuxian-logap.alemonjs.com'
-  # analytics_api_key: ''
-
-  # 统计归属的 QQ AppID：QQ 事件自动读取当前机器人的 BotId，通常无需填写。
-  # 无 QQ 事件上下文的上报需显式填写；填写后必须与实际机器人及 channel_bot_id 一致。
-  # 官服机器人示例为 102062268；运营商必须使用各自机器人的 AppID，不能照抄官服。
   # analytics_appid: '102062268'
-  # analytics_api_key 使用 logap 中该 AppID 对应的上报密钥，不是游戏 BOT-TOKEN。
+  # analytics_api_key: ''

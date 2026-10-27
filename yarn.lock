@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@alemonjs/qq-bot@^2.1.41":
-  version "2.1.41"
-  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.41.tgz#694f5e2b67456e767a600665ca6675248266d9c7"
-  integrity sha512-V1rURukgaHFbOIbsg1lVxIDSwytRNiZsLE29oAAy/n+pSBvOCQ+mQNe0FpoqNYJp1EJaecvl8/vonE5xZP8Xwg==
+"@alemonjs/qq-bot@^2.1.42":
+  version "2.1.42"
+  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.42.tgz#5ef7208f4a844361cf247b6e0bc56e46e7e90e28"
+  integrity sha512-mEBhAWNVMhcXDshU/5MIbmSDz4nGTROPnrWEUbAglSjE583rDSPnyR/Iw+daJ10OA1R9R586Z2Fdocuy2V9pvg==
   dependencies:
     "@noble/curves" "^1.7.0"
     axios "^1.4.0"
@@ -1596,13 +1596,14 @@ ajv@^6.14.0:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-alemonjs@^2.1.114:
-  version "2.1.114"
-  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.114.tgz#8aea3eb01c3c6b04544978bcb6d13ba72fb274a9"
-  integrity sha512-UXk85q5uWVMGXVC+OKPGVwHjQMHRbO5dbcVqHqR9HNMXBgXGfknbkrvLoCgXa0axFsaf8p2XNp8DTMxhVoU65Q==
+alemonjs@^2.1.118:
+  version "2.1.118"
+  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.118.tgz#52b67bf2385c89c1928dd2a820ae5dadf9bab222"
+  integrity sha512-73oKyXWiV5YRnAELU0LOGhB3q6Sns7TA7AQ5Ios/tPVyIHv//LUvRO9MXIvBxMh8u7TT8uKgsj7sME5VVOpyKg==
   dependencies:
     "@koa/cors" "^5.0.0"
     axios "^1.14.0"
+    caller-path "^4.0.0"
     commander "^13.1.0"
     cron "^4.4.0"
     cross-spawn "^7.0.6"
@@ -2071,10 +2072,29 @@ call-bound@^1.0.2, call-bound@^1.0.3, call-bound@^1.0.4:
     call-bind-apply-helpers "^1.0.2"
     get-intrinsic "^1.3.0"
 
+caller-callsite@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.npmmirror.com/caller-callsite/-/caller-callsite-5.0.0.tgz#e95f38263a0aa0c74ed339bc417ef5281647bdd5"
+  integrity sha512-l3+xZHsuNlFjchy1nl1kpQwi7PhKHgtQ7MOx5ijHwlouAjnwRNjq3AlxH8SGuWiF5XAhb/mSH+c90LIDFjJKtA==
+  dependencies:
+    callsites "^4.0.0"
+
+caller-path@^4.0.0:
+  version "4.0.0"
+  resolved "https://registry.npmmirror.com/caller-path/-/caller-path-4.0.0.tgz#6509f6ba633c9db306bb6de9e86295383aa1e1af"
+  integrity sha512-18JFq7TTe4+cDKsyZETRk/IS9Xka3dRcU9VWm1C6XlkAjKPSR2bskpDSUHVQw7gvef34bi1gltzmCxToUw1oQw==
+  dependencies:
+    caller-callsite "^5.0.0"
+
 callsites@^3.0.0:
   version "3.1.0"
   resolved "https://registry.npmmirror.com/callsites/-/callsites-3.1.0.tgz#b3630abd8943432f54b3f0519238e33cd7df2f73"
   integrity sha512-P8BjAsXvZS+VIDUI11hHCQEv74YT67YUi5JJFNWIqL235sBmjX4+qx9Muvls5ivyNENctx46xQLQ3aTuE7ssaQ==
+
+callsites@^4.0.0:
+  version "4.2.0"
+  resolved "https://registry.npmmirror.com/callsites/-/callsites-4.2.0.tgz#98761d5be3ce092e4b9c92f7fb8c8eb9b83cadc8"
+  integrity sha512-kfzR4zzQtAE9PC7CzZsjl3aBNbXWuXiSeOCdLcPpBfGW8YuCqQHcRPFDbr/BPVmd3EEPVpuFzLyuT/cUhPr4OQ==
 
 camelcase-css@^2.0.1:
   version "2.0.1"

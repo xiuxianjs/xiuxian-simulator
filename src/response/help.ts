@@ -1,8 +1,8 @@
-import { useMessage } from '@src/utils/useMessage';
-import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import { selects } from '@src/response/config';
+import { runRobotBusiness } from '@src/response/robotBusiness';
 import { FormatGui } from '@src/utils/messageHelper';
+import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 const NEWCOMER_STAGE_GUIDES = {
@@ -235,7 +235,7 @@ export default onResponse(selects, async e => {
     content.addBlockquote(Format.createMarkdown().addText('成长路线：主线 → 修为 → 突破／晋级 → 继续挑战。'));
     content.addBlockquote(Format.createMarkdown().addText('每日先签到，再打开任务面板查看当前可做、可领取的事项。'));
     content.addBlockquote(Format.createMarkdown().addText('装备、社交、宗门、活动与设置，在「更多」中按分类查找。'));
-    content.addBlockquote(Format.createMarkdown().addText('成长指引分三个阶段：/帮助 1、/帮助 2、/帮助 3。'));
+    content.addBlockquote(Format.createMarkdown().addText('更多内容可以查看 成长指引'));
     const visible = new Set([...access.moreVisibleCommands, ...access.foldVisibleCommands]);
     const shortcuts = [
       { label: '主线', command: '/查看主线' },

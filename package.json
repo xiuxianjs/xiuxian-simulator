@@ -17,7 +17,7 @@
   },
   "description": "修仙",
   "devDependencies": {
-    "@alemonjs/qq-bot": "^2.1.41",
+    "@alemonjs/qq-bot": "^2.1.42",
     "@eslint/js": "^9.18.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/koa-bodyparser": "^4.3.12",
@@ -28,7 +28,7 @@
     "@types/nodemailer": "^6.4.20",
     "@types/qrcode": "^1.5.6",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "alemonjs": "^2.1.114",
+    "alemonjs": "^2.1.118",
     "cssnano": "^8.0.5",
     "esbuild": "~0.28.0",
     "eslint": "^9.18.0",
