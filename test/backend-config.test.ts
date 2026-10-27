@@ -14,7 +14,7 @@ test('AlemonJS backend config handles YAML booleans, domain lists and worker ide
   };
   mockBackendConfig(t, backend);
   assert.deepEqual(getBackendConfig(), {
-    url: 'https://backend.test', logApiTimings: false, logTransportTimings: false, robotAuthToken: 'robot', workerToken: 'worker', timeoutMs: 30000
+    channelMode: false, channelBotId: '100017', url: 'https://backend.test', logApiTimings: false, logTransportTimings: false, robotAuthToken: 'robot', workerToken: 'worker', timeoutMs: 30000
   });
   backend.worker_token = 'new-worker';
   backend.domains = ['inventory'];
@@ -34,6 +34,6 @@ test('missing configuration uses safe defaults and ignores legacy backend ENV', 
 test('documented YAML example is accepted by the actual config reader', t => {
   const example = parse(readFileSync(new URL('../alemon.config.example.yaml', import.meta.url), 'utf8'));
   mockBackendConfig(t, example['xiuxian-game'].backend);
-  assert.equal(getBackendConfig().url, example['xiuxian-game'].backend.api_url);
+  assert.equal(getBackendConfig().url, example['xiuxian-game'].backend.api_url.trim().replace(/\/+$/, ''));
   assert.equal(getBackendConfig().timeoutMs, example['xiuxian-game'].backend.api_timeout_ms);
 });

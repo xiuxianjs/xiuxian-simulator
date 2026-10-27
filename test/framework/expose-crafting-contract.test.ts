@@ -14,7 +14,7 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotB
 const alchemyRows = [...output.matchAll(/EXPOSE_ALCHEMY_REPLY=([^|]+)\|(.+)/g)].map(match => ({ command: match[1], reply: JSON.parse(match[2]) }));
 assert.ok(alchemyRows.length >= 5);
 test('炼丹：真实预览、原引用确认、重复确认与同消息命令幂等隔离', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = alchemyRows[0];
@@ -59,7 +59,7 @@ test('炼丹：真实预览、原引用确认、重复确认与同消息命令�
 test('锻造：真实入门及普通预览、确认、作品重放回执', async t => {
   const rows = [...output.matchAll(/EXPOSE_FORGE_HTTP=([^|]+)\|([^|]+)\|(.+)/g)].map(match => ({ operation: match[1], args: JSON.parse(match[2]), result: JSON.parse(match[3]) })).filter(row => row.operation !== 'forge.learn');
   assert.ok(rows.length >= 6);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];

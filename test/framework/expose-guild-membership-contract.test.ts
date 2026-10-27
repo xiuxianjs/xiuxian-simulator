@@ -18,7 +18,7 @@ const clean = (value: any): any => Array.isArray(value) ? value.map(clean) : val
 for (const action of actions) test(`${action}: 实际宗门申请、权限、原申请审核及回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -77,7 +77,7 @@ for (const action of actions) test(`${action}: 实际宗门申请、权限、原
 for (const action of actions) for (const mode of ['disabled', 'spoof', 'missing-id', 'cancel', 'empty'] as const) test(`${action}: ${mode}`, async t => {
   const fixture = fixtures.find(row => row.action === action && row.envelope.data.success);
   assert.ok(fixture);
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;
@@ -124,7 +124,7 @@ test('同一 AI 消息中申请后重新查询读取新状态，写操作重试�
   const pending = fixtures.find(row => row.action === 'get_guild_applications' && row.bid === 'player' && row.envelope.data.data.applications.length > 0);
   const submitted = fixtures.find(row => row.action === 'apply_to_guild' && row.envelope.data.success);
   assert.ok(empty && pending && submitted);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let applied = false;

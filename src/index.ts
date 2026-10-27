@@ -1,3 +1,5 @@
+import { onWatchConfigValue } from 'alemonjs';
+import { getQQBotAppIds } from './utils/qqBotIdentity';
 import { platform } from '@alemonjs/qq-bot';
 import { gameExpose } from './expose';
 import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
@@ -19,23 +21,45 @@ configureOnboardingCommandMatcher(matchesGameCommand);
 const isProduction = process.env.NODE_ENV !== 'development';
 const isQQBot = process.env.login === platform;
 
+let stopWaitingForAppId: (() => void) | undefined;
+let servicesStarted = false;
+let disposed = false;
+
+async function startReadyServices(): Promise<void> {
+  if (disposed || servicesStarted) {
+    return;
+  }
+  if ((isQQBot || getBackendConfig().channelMode) && !getQQBotAppIds().length) {
+    stopWaitingForAppId ??= onWatchConfigValue(() => {
+      void startReadyServices().catch(error => logger.error('机器人服务启动失败', error));
+    });
+
+    return;
+  }
+  stopWaitingForAppId?.();
+  stopWaitingForAppId = undefined;
+  servicesStarted = true;
+  if (!getBackendConfig().channelMode) {
+    await resetChatContactObserver();
+  } else {
+    logger.warn('渠道模式：聊天运营接口尚未接入，暂停聊天观察与投递。');
+  }
+  try {
+    await startFeatureVisibility();
+  } catch {
+    logger.error('功能展示规则加载失败，未确认的功能入口将隐藏，后续消息会重试。');
+  }
+  if (!disposed && isProduction && isQQBot) {
+    startNotificationStream();
+  }
+}
+
 export default defineChildren({
   // 应用创建阶段触发。
   onCreated: async () => {
-    if (!getBackendConfig().channelMode) {
-      await resetChatContactObserver();
-    } else {
-      logger.warn('渠道模式：聊天运营接口尚未接入，暂停聊天观察与投递。');
-    }
-    try {
-      await startFeatureVisibility();
-    } catch {
-      logger.error('功能展示规则加载失败，未确认的功能入口将隐藏，后续消息会重试。');
-    }
-    // QQ 平台通知由 SSE 唤醒投递。
-    if (isProduction && isQQBot) {
-      startNotificationStream();
-    }
+    disposed = false;
+    servicesStarted = false;
+    await startReadyServices();
     logger.info('修仙机器人已启动');
   },
   // 事件生命周期开始时触发。
@@ -66,6 +90,9 @@ export default defineChildren({
   onEventError: handleCommandError,
   // 应用销毁阶段触发。
   onDispose: async () => {
+    disposed = true;
+    stopWaitingForAppId?.();
+    stopWaitingForAppId = undefined;
     stopNotificationStream();
     await stopChatContactObserver();
   },

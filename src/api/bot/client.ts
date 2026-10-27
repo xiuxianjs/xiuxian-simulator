@@ -6,6 +6,7 @@ import { isParameterRecord } from '../core/helpers';
 import { operationDefinitions, type OperationId, type Operations } from '../registry';
 import { invalidateEventAccessFacts } from './access-facts';
 import { backendRequestTimeout, backendTransportOperation, isBattleOperation, UNKNOWN_BATTLE_RESULT } from './battle-request';
+import { getQQBotAppIds } from '../../utils/qqBotIdentity';
 import { assertChannelRobotEvent, getBackendConfig } from './config';
 import { backendConnectionPools } from './connection-pools';
 import type { BackendRequestContext } from './context';
@@ -52,6 +53,9 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
   let outcome = 'error';
   const event = getCurrentEvent();
 
+  if ((config.channelMode || process.env.login === 'qq-bot' || event?.Platform === 'qq-bot') && !getQQBotAppIds().length) {
+    throw new Error('QQ AppID 尚未就绪，请等待扫码登录或框架配置更新');
+  }
   if (event) {
     assertChannelRobotEvent(event);
   }

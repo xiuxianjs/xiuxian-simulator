@@ -15,7 +15,7 @@ const templates = { current: summary, templates: [{ ...summary, slot: 1, name: '
 for (const action of ['get_inventory', 'get_battle_templates'] as const) {
   for (const scenario of ['success', 'empty', 'malformed', 'forbidden', 'disabled', 'spoof uid', 'cancel pending'] as const) {
     test(`${action}: ${scenario}`, async t => {
-      const app = createTestApp({ config: { 'xiuxian-game': { backend, ...(scenario === 'disabled' ? { expose: { enabled: false } } : {}) } } });
+      const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend, ...(scenario === 'disabled' ? { expose: { enabled: false } } : {}) } } });
       t.after(() => app.dispose());
       await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
       const controller = new AbortController();

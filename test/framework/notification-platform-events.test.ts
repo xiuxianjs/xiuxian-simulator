@@ -42,7 +42,8 @@ async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = fal
   }));
   const app = createTestApp({ failOnError: false, config: {
     processor: { repeated_user_time: repeatedUserTime },
-    'xiuxian-game': { events: eventPolicy, backend: { api_url: 'https://offline.invalid', worker_token: 'offline-fixture-token', channel_mode: channelMode, channel_bot_id: '123456', robot_auth_token: 'offline-token' } }
+    'qq-bot': { app_id: '123456' },
+    'xiuxian-game': { events: eventPolicy, backend: { api_url: 'https://offline.invalid', worker_token: 'offline-fixture-token', channel_mode: channelMode, robot_auth_token: 'offline-token' } }
   } });
   t.after(() => app.dispose());
   await app.mount({ responseRouter: router });

@@ -17,7 +17,7 @@ test('ordinary notification transport retains Worker credentials', t => {
 });
 
 test('channel relay and cache use BOT_TOKEN and the configured AppID without Worker fallback', async t => {
-  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, channel_bot_id: '100017', robot_auth_token: 'merchant-token', worker_token: 'must-not-send' });
+  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, robot_auth_token: 'merchant-token', worker_token: 'must-not-send' });
   const requests: { path: string; body: Record<string, unknown> }[] = [];
   t.mock.method(axios, 'create', config => {
     assert.deepEqual(config?.headers, { Authorization: 'Bearer merchant-token' });
@@ -40,7 +40,7 @@ test('channel relay and cache use BOT_TOKEN and the configured AppID without Wor
 });
 
 test('channel origin and platform event must belong to the configured robot', t => {
-  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, channel_bot_id: '100017', robot_auth_token: 'merchant-token' });
+  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, robot_auth_token: 'merchant-token' });
   assert.doesNotThrow(() => assertChannelRobotEvent({ Platform: 'qq-bot', BotId: '100017', Target: { BotId: '100017' } }));
   for (const event of [
     { Platform: 'qq-bot' },
@@ -52,18 +52,25 @@ test('channel origin and platform event must belong to the configured robot', t 
 
 for (const url of ['http://channel.invalid', 'https://user:secret@channel.invalid', 'https://channel.invalid/api/v1', 'https://channel.invalid/?secret=value', 'https://channel.invalid/#fragment']) {
   test('channel transport rejects insecure or non-origin endpoint: ' + new URL(url).hostname, t => {
-    mockBackendConfig(t, { api_url: url, channel_mode: true, channel_bot_id: '100017', robot_auth_token: 'merchant-token' });
+    mockBackendConfig(t, { api_url: url, channel_mode: true, robot_auth_token: 'merchant-token' });
     assert.throws(() => getBackendConfig(), /HTTPS origin/);
   });
 }
 
 for (const fields of [
   { channel_mode: 'true' },
-  { channel_mode: true, channel_bot_id: '100017' },
-  { channel_mode: true, robot_auth_token: 'merchant-token' },
-  { channel_mode: true, channel_bot_id: 'not-an-app', robot_auth_token: 'merchant-token' }
+  { channel_mode: true },
+  { channel_mode: true, robot_auth_token: '' }
 ]) test('invalid channel credentials fail before requesting even when Worker token exists: ' + JSON.stringify(Object.keys(fields)), async t => {
   mockBackendConfig(t, { api_url: 'https://channel.invalid', worker_token: 'must-not-fallback', ...fields });
   t.mock.method(axios, 'create', () => { throw new Error('must not request'); });
   await assert.rejects(claimNotificationRelay('player.notification.dispatch', 'consumer'), /channel_mode|BOT_TOKEN/);
+});
+
+
+test('未获得框架 AppID 时忽略旧手填 ID，通知请求不会创建客户端', async t => {
+  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, robot_auth_token: 'merchant-token', channel_bot_id: '100017' }, { app_id: '' });
+  t.mock.method(axios, 'create', () => { throw new Error('must not request'); });
+  assert.equal(getBackendConfig().channelBotId, '');
+  await assert.rejects(claimNotificationRelay('player.notification.dispatch', 'consumer'), /AppID 尚未就绪/);
 });

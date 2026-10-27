@@ -29,7 +29,7 @@ const specs = [
 ];
 for (const spec of specs) test(`${spec.action}: 实际 Go 状态、原引用与重试`, async t => {
   assert.ok(spec.rows.length > 0, spec.action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = spec.rows[0];
@@ -87,7 +87,7 @@ for (const spec of specs) test(`${spec.action}: 实际 Go 状态、原引用与�
 });
 
 test('开劫结果待核实：保留双方错误，不自动重新预览或提交', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;

@@ -28,7 +28,7 @@ for (const spec of specs) test(`${spec.action}: 真实服务端结算及拒绝�
   const query = spec.action === 'get_demon_tower';
   const rows = fixtures.filter(row => row.operation === spec.operation && row.envelope.data.data?.outcome !== 'usage' && (!spec.mode || !row.envelope.data.data || row.envelope.data.data.mode === spec.mode) && (!query || (row.envelope.data.success && row.envelope.data.branch === 'business')));
   assert.ok(rows.length > 0, spec.action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];

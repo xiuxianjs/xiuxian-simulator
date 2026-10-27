@@ -15,6 +15,7 @@
 import { getCurrentEvent, logger } from 'alemonjs';
 import { getAppConfig } from '../utils/appConfig';
 import { getBackendConfig } from '../api/bot/config';
+import { getQQBotAppId, getQQBotAppIds } from '../utils/qqBotIdentity';
 import { classifyFeature } from './classifier';
 
 // ==================== 公共基础设施 ====================
@@ -69,13 +70,14 @@ function getAnalyticsConfig(ctx: TrackContext = currentContext()) {
   if (apiUrl === backend.url) {
     return null;
   }
-  const configured = String(config.analytics_appid ?? '').trim();
-  const channel = backend.channelMode ? backend.channelBotId : '';
-  const ids = [ctx.appid, configured, channel].filter((id): id is string => Boolean(id));
-  const appid = ids[0];
+  const ids = getQQBotAppIds();
+  const appid = ctx.platform === 'qq-bot' ? ctx.appid : ctx.platform ? '' : getQQBotAppId();
 
-  if (!appid || !/^[1-9]\d*$/.test(appid) || ids.some(id => id !== appid)) {
-    logger.error('[logap] AppID 缺失、格式错误或与机器人不一致，本次不上报');
+  if (!ids.length) {
+    return null;
+  }
+  if (!appid || !ids.includes(appid) || (backend.channelMode && appid !== backend.channelBotId)) {
+    logger.error('[logap] 事件缺少有效的 QQ 机器人身份，本次不上报');
 
     return null;
   }

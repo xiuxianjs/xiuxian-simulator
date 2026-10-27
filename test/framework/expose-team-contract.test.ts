@@ -24,7 +24,7 @@ test('同一消息创建队伍后读取新状态，重复创建保留原回执',
   const after = fixtures.find(row => row.action === 'get_my_team' && row.bid === 'player' && row.envelope.data.success && row.envelope.data.data.team?.exists);
   const created = fixtures.find(row => row.action === 'create_team' && row.bid === 'player' && row.envelope.data.success);
   assert.ok(before && after && created);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const receipts = new Map<string, any>();
@@ -61,7 +61,7 @@ test('同一消息创建队伍后读取新状态，重复创建保留原回执',
 for (const action of actions) test(`${action}: 实际 Go 角色权限、队伍状态与匹配回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0, action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -128,7 +128,7 @@ for (const [label, action, input, data, ok] of [
   ['取消结果矛盾', 'cancel_team_match', {}, { cancelled: true, targetLabel: null }, false],
   ['查询队伍不能自动创建', 'get_my_team', {}, { id: 8 }, false]
 ] as const) test(`Expose 队伍契约边界：${label}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } }, data } }) }) }));

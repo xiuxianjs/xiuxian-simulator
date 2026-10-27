@@ -1,4 +1,6 @@
+import { getCurrentEvent } from 'alemonjs';
 import { getAppConfig } from '../../utils/appConfig';
+import { getQQBotAppId, getQQBotAppIds } from '../../utils/qqBotIdentity';
 import { isValidTimeout } from '../core/helpers';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -20,7 +22,7 @@ export function getBackendConfig() {
       .replace(/\/+$/, ''),
     robotAuthToken: String(value.robot_auth_token ?? '').trim(),
     channelMode: value.channel_mode === true,
-    channelBotId: String(value.channel_bot_id ?? '').trim(),
+    channelBotId: getQQBotAppId(),
     timeoutMs: isValidTimeout(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS,
     logTransportTimings: value.log_transport_timings === true,
     logApiTimings: value.log_api_timings === true,
@@ -28,8 +30,11 @@ export function getBackendConfig() {
   };
 
   if (config.channelMode) {
-    if (!config.robotAuthToken || !/^[1-9]\d*$/.test(config.channelBotId)) {
-      throw new Error('渠道通知需要 BOT_TOKEN 和 backend.channel_bot_id');
+    if (!config.robotAuthToken) {
+      throw new Error('渠道通知需要 BOT_TOKEN');
+    }
+    if (getQQBotAppIds().length > 1 && !config.channelBotId) {
+      throw new Error('QQ 多机器人配置缺少有效的 default_bot，无法确定渠道 BOT_TOKEN 对应的机器人');
     }
     let endpoint: URL;
 
@@ -60,7 +65,10 @@ export function assertChannelRobotEvent(event: { Platform: string; BotId?: strin
 
   if (
     config.channelMode &&
-    (event.Platform !== 'qq-bot' || event.BotId !== config.channelBotId || (event.Target?.BotId && event.Target.BotId !== config.channelBotId))
+    (!config.channelBotId ||
+      event.Platform !== 'qq-bot' ||
+      event.BotId !== config.channelBotId ||
+      (event.Target?.BotId && event.Target.BotId !== config.channelBotId))
   ) {
     throw new Error('当前平台事件与渠道机器人配置不匹配');
   }
@@ -71,6 +79,9 @@ export function getNotificationBackendConfig() {
   const config = getBackendConfig();
   const headers: Record<string, string> = {};
 
+  if ((config.channelMode || process.env.login === 'qq-bot' || getCurrentEvent()?.Platform === 'qq-bot') && !getQQBotAppIds().length) {
+    throw new Error('QQ AppID 尚未就绪，请等待扫码登录或框架配置更新');
+  }
   if (!config.url) {
     throw new Error('通知 API 后端地址未配置');
   }

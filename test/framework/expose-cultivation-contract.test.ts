@@ -15,7 +15,7 @@ for (const [marker, action] of [['ROBOT_REALM_OVERVIEW', 'get_realm'], ['ROBOT_S
   const rows = [...output.matchAll(new RegExp(marker + '=(.+)', 'g'))].map(match => JSON.parse(match[1])).filter(row => row.status === 200 && row.state !== 'muted');
   assert.ok(rows.length > 0, marker);
   test(`${action} 对接实际服务端多状态响应`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
     t.after(() => app.dispose());
     await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
     let current = rows[0];

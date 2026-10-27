@@ -16,7 +16,7 @@ const actions = ['get_achievement_overview', 'get_achievement_category', 'get_al
 for (const action of actions) test(`${action}: 真实服务端状态与结算回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -87,7 +87,7 @@ for (const action of actions) test(`${action}: 真实服务端状态与结算回
 for (const action of actions) for (const mode of ['disabled', 'spoof', 'missing-id', 'cancel', 'malformed'] as const) test(`${action}: ${mode}`, async t => {
   const fixture = fixtures.find(row => row.action === action && row.status === 200 && row.envelope.data.success);
   assert.ok(fixture?.envelope.data.success);
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;
@@ -132,7 +132,7 @@ for (const [action, input] of [
 for (const defect of ['wrong-id', 'inactive', 'bad-definition', 'null-description'] as const) test(`activate_title: ${defect}`, async t => {
   const fixture = fixtures.find(row => row.action === 'activate_title' && row.status === 200);
   assert.ok(fixture);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const envelope = structuredClone(fixture.envelope);
@@ -153,7 +153,7 @@ for (const defect of ['wrong-id', 'inactive', 'bad-definition', 'null-descriptio
 test('成就列表保留原始空名称，不补造展示文案', async t => {
   const fixture = fixtures.find(row => row.action === 'get_all_achievements' && row.envelope.data.data?.items?.length > 0);
   assert.ok(fixture);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const envelope = structuredClone(fixture.envelope);

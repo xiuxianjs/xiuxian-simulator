@@ -17,7 +17,7 @@ const actions = ['get_guild_daily', 'get_guild_weekly', 'claim_guild_milestone',
 for (const action of actions) test(`${action}: 真实 Go 任务/领奖/祭祀/原商品兑换`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0, action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -76,7 +76,7 @@ for (const action of actions) test(`${action}: 真实 Go 任务/领奖/祭祀/�
 test('宗门兑换原商品字段顺序不改变当前消息重试键', async t => {
   const row = fixtures.find(row => row.action === 'exchange_guild_shop_item' && row.envelope.data.success);
   assert.ok(row);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const keys: string[] = [];

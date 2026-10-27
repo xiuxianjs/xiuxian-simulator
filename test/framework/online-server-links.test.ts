@@ -12,7 +12,7 @@ after(() => shutdownLogger());
 
 for (const channelMode of [undefined, false, true]) {
   test(`online links preserve business parameters with channel_mode=${channelMode}`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { backend: { channel_mode: channelMode, api_url: 'https://channel.example.com', robot_auth_token: 'offline-token', channel_bot_id: '123456' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123456' }, 'xiuxian-game': { backend: { channel_mode: channelMode, api_url: 'https://channel.example.com', robot_auth_token: 'offline-token' } } } });
     t.after(() => app.dispose());
     app.actions.on('message.send', () => [createResult(ResultCode.Ok, '已送达', { id: 'receipt' })]);
     const event = app.events.privateMessage({ text: '/图鉴 装备 武器', platform: 'qq-bot', botId: '123456', userId: 'owner' });

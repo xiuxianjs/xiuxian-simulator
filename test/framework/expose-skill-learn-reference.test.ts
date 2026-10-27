@@ -20,7 +20,7 @@ const preview = previews.find(row => row.data.data.reference === confirmation.re
 assert.ok(preview);
 
 for (const action of ['prepare_skill_learn', 'confirm_skill_learn'] as const) test(`${action}: 原返还预览与实际学习结算`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const keys: string[] = [];

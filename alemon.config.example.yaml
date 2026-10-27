@@ -14,13 +14,12 @@ xiuxian-game:
   #   allow: ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] # 只处理消息和按钮
   backend:
     # 必填：online 统一 API origin，不要附加 /api/v1。
-    api_url: 'https://xiuxian-simulator.alemonjs.com'
-    # 官服 ROBOT_AUTH_TOKEN；
-    # 签发的 BOT_TOKEN。
+    api_url: 'http://tatian-online.alemonjs.com/channel'
+    # 官服填写 ROBOT_AUTH_TOKEN；渠道服填写商户平台签发的 BOT_TOKEN。
     robot_auth_token: ''
+    # AppID 自动读取 qq-bot 的框架配置，扫码期间等待配置就绪，无需在本包重复填写。
     # 显式渠道模式
     channel_mode: false
-    channel_bot_id: ''
     # 普通服任务与通知使用 Go WORKER_AUTH_TOKEN；渠道商户不要配置运营凭据
     worker_token: ''
     # 单次请求超时（毫秒），默认 10000；战斗请求另有较长等待时间。
@@ -29,7 +28,6 @@ xiuxian-game:
     log_api_timings: false
     # 图片渲染、上传和平台发送耗时；默认只记录 >=1秒的阶段。
     log_transport_timings: false
-  # 可选：两项均配置才会上报；
+  # 可选：以下地址和密钥都配置才会上报，AppID 自动取自 QQ 框架配置和当前事件。
   # analytics_api_url: 'https://xiuxian-logap.alemonjs.com'
-  # analytics_appid: '102062268'
   # analytics_api_key: ''

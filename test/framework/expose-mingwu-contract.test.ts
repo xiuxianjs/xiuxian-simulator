@@ -13,7 +13,7 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotB
 }).toString();
 const fixtures = [...output.matchAll(/EXPOSE_MINGWU_HTTP=(.+)/g)].map(match => JSON.parse(match[1])).filter(row => row.scenario !== 'legacy');
 for (const row of fixtures) test(`明悟丹实际选择到结算: ${row.scenario}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const requests: any[] = [];
@@ -67,7 +67,7 @@ for (const row of fixtures) test(`明悟丹实际选择到结算: ${row.scenario
 const ready = fixtures.find(row => row.scenario === 'ready');
 assert.ok(ready);
 for (const mode of ['disabled', 'spoof', 'missing-id', 'cancel', 'empty', 'bad-count', 'wrong-state'] as const) test(`use_mingwu_pill: ${mode}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;

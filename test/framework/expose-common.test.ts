@@ -30,7 +30,7 @@ const cases: { action: string; path: string; input?: Record<string, unknown>; da
 ];
 for (const entry of cases) {
   for (const broken of [false, true]) test(`${entry.action}: ${broken ? '拒绝损坏响应' : '真实 SDK 查询与结果语义'}`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { backend } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend } } });
     t.after(() => app.dispose());
     await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
     const paths: string[] = [];
@@ -56,7 +56,7 @@ for (const entry of cases) {
   });
 }
 for (const action of Object.keys(commonQueryActions)) test(`${action}: 关闭与身份参数不可绕过`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend, expose: { enabled: false } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend, expose: { enabled: false } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => { throw new Error('unexpected HTTP'); });

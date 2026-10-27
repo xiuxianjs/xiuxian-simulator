@@ -14,7 +14,7 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotB
 const fixtures = [...output.matchAll(/ROBOT_BATTLE_TEMPLATE=(.+)/g)].map(match => JSON.parse(match[1])).filter(row => row.op !== 'battle-templates.list');
 assert.equal(fixtures.length, 110);
 test('Expose 战斗模板：实际服务端成功、拒绝、旧模板、回滚与槽位边界', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = fixtures[0];

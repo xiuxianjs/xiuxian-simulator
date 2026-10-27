@@ -15,7 +15,7 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotB
 const fixtures = [...output.matchAll(/ROBOT_CHECKIN_RESPONSE=checkin\.hub\|player\|(.+)/g)].map(match => JSON.parse(match[1]));
 assert.equal(fixtures.length, 2);
 for (const [index, fixture] of fixtures.entries()) test(`Expose 接收真实 Go 一键签到回执 ${index}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(fixture) }) }));

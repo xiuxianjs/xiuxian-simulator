@@ -24,7 +24,7 @@ const cases = [
 ];
 assert.equal(cases.length, 10);
 for (const fixture of cases) test(`Expose 接收实际 Go 序列化响应 ${fixture.name}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => ({ status: 200, headers: {}, data: JSON.stringify({ data: request.url.endsWith('/robot/identity') ? { bid: 'owner', account: { status: 'registered', playerId: fixture.uid } } : fixture.data }) }) }));

@@ -22,7 +22,7 @@ const specs = [
 for (const spec of specs) test(`${spec.action}: 实际服务端多状态回执`, async t => {
   const rows = [...output.matchAll(new RegExp(spec.marker + '=(.+)', 'g'))].map(match => JSON.parse(match[1])).filter(row => !row.op || row.op === spec.operation);
   assert.ok(rows.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];

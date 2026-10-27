@@ -17,7 +17,7 @@ const nurtureKeys = ['direction', 'directionName', 'tier', 'tierName', 'stabilit
 for (const action of ['preview_soul_path_choose', 'preview_soul_path_switch', 'preview_soul_path_advance', 'preview_soul_path_reroll', 'confirm_soul_path', 'nurture_soul_path', 'set_soul_supply_direction', 'preview_spirit_root_feed', 'promote_spirit_root']) test(`${action}: 真实 Go 预览、原凭证确认及养成回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0, action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -71,7 +71,7 @@ for (const action of ['preview_soul_path_choose', 'preview_soul_path_switch', 'p
 const rejected = [...output.matchAll(/ROBOT_SOUL_CONFIRM=(.+)/g)].map(match => JSON.parse(match[1]))
   .filter(row => row.result.success === false && /^(?:choose:)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(row.arguments.token));
 test('confirm_soul_path: 真实 Go 过期、状态变化和越权拒绝', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rejected[0];
@@ -109,7 +109,7 @@ for (const [label, action, input, data] of [
   ['补给方向错配', 'set_soul_supply_direction', { direction: 'auto' }, { direction: 'wu_dao', directionName: '悟道', message: '已设置' }],
   ['灵药预览编号错配', 'preview_spirit_root_feed', { itemId: 2, quantity: 10 }, rootPreview]
 ] as const) test(`Expose 神魂灵根拒绝损坏回执：${label}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let requests = 0;

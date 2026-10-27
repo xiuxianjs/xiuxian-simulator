@@ -16,7 +16,7 @@ const cases = [
   { action: 'get_lootboxes', path: 'lootboxes', filter: {}, data: { page: 2, total: 6, pageSize: 5, items: [{ id: 11, lootboxId: 6, quantity: 2, name: '礼盒', description: '材料', capabilities: [{ kind: 'open', valid: true, options: [{ requestedCount: 10, effectiveCount: 2 }] }] }] } }
 ];
 for (const entry of cases) for (const mode of ['success', 'empty', 'malformed', 'disabled', 'cancel'] as const) test(`${entry.action}: ${mode}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' }, expose: { enabled: mode !== 'disabled' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' }, expose: { enabled: mode !== 'disabled' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const controller = new AbortController();

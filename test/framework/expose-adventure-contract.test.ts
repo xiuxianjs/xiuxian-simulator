@@ -40,7 +40,7 @@ assert.ok(fixtures.length > 100);
 for (const action of ['challenge_dungeon', 'sweep_dungeon', 'sweep_free_dungeons', 'sweep_storyline', 'claim_storyline_chest', 'claim_storyline_chapter_chests', 'claim_all_storyline_chests']) test(`${action}: 实际 Go 结算、拒绝、重复领取及部分奖励`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];

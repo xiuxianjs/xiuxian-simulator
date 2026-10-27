@@ -17,7 +17,7 @@ const rows = [...output.matchAll(/EXPOSE_SHOP_HTTP=([^|]+)\|([^|]+)\|(.+)/g)]
 for (const action of ['preview_shop_purchase', 'confirm_shop_purchase']) test(`${action}: Go 原报价、越权/过期/变价拒绝及跨消息重放`, async t => {
   const fixtures = rows.filter(row => row.action === action);
   assert.ok(fixtures.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = fixtures[0];

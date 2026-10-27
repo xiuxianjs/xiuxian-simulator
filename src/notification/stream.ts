@@ -1,10 +1,12 @@
 import { dispatchChatNotices, startChatNotices, stopChatNotices } from './chat';
 import { dispatchCommunityNotifications } from './communityDelivery';
 import { getBackendConfig, getNotificationBackendConfig } from '@src/api/bot/config';
-import { logger } from 'alemonjs';
+import { logger, onWatchConfigValue } from 'alemonjs';
+import { getQQBotAppIds } from '../utils/qqBotIdentity';
 import { PushMessageTask } from '@src/task/pushMessageTask';
 
 let started = false;
+let stopWaitingForAppId: (() => void) | undefined;
 let generation = 0;
 let activeController: AbortController | undefined;
 let cancelReconnect: (() => void) | undefined;
@@ -72,6 +74,13 @@ export const startNotificationStream = (): void => {
   if (started) {
     return;
   }
+  if (!getQQBotAppIds().length) {
+    stopWaitingForAppId ??= onWatchConfigValue(() => startNotificationStream());
+
+    return;
+  }
+  stopWaitingForAppId?.();
+  stopWaitingForAppId = undefined;
   const config = getBackendConfig();
 
   started = true;
@@ -155,6 +164,8 @@ export const startNotificationStream = (): void => {
 
 export const stopNotificationStream = (): void => {
   started = false;
+  stopWaitingForAppId?.();
+  stopWaitingForAppId = undefined;
   stopChatNotices();
   generation++;
   activeController?.abort();

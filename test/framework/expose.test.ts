@@ -15,7 +15,7 @@ const panel = { ...Object.fromEntries(fields.map(key => [key, 12])), uid: 7, dao
 
 for (const scenario of ['success', 'default config', 'default enabled', 'extra uid', 'unregistered', 'wrong player', 'server failure', 'cancelled'] as const) {
   test(`Expose 查询真实身份和属性链路: ${scenario}`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': { backend, expose: scenario === 'default config' ? undefined : scenario === 'default enabled' ? { allowed_callers: ['ai-plugin'] } : access } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend, expose: scenario === 'default config' ? undefined : scenario === 'default enabled' ? { allowed_callers: ['ai-plugin'] } : access } } });
     t.after(() => app.dispose());
     await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
     const requests: any[] = [];
@@ -55,8 +55,8 @@ for (const scenario of ['success', 'default config', 'default enabled', 'extra u
 
 for (const scenario of ['disabled', 'caller', 'no event', 'event denied', 'other platform', 'channel mismatch', 'malformed config', 'empty allowlist', 'invalid enabled', 'invalid config'] as const) {
   test(`Expose 在请求前拒绝未授权调用: ${scenario}`, async t => {
-    const app = createTestApp({ config: { 'xiuxian-game': {
-      backend: scenario === 'channel mismatch' ? { ...backend, channel_mode: true, channel_bot_id: '123' } : backend,
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': {
+      backend: scenario === 'channel mismatch' ? { ...backend, channel_mode: true } : backend,
       expose: scenario === 'disabled' ? { ...access, enabled: false } : scenario === 'empty allowlist' ? { allowed_callers: [] } : scenario === 'invalid enabled' ? { enabled: 'true' } : scenario === 'invalid config' ? null : scenario === 'malformed config' ? { enabled: true, allowed_callers: 'ai-plugin' } : access,
       ...(scenario === 'event denied' ? { events: { allow: [] } } : {})
     } } });
@@ -83,7 +83,7 @@ test('Expose 随插件卸载失效', async t => {
 });
 
 test('取消正在进行的身份查询会终止 HTTP，且不再请求属性', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend, expose: access } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend, expose: access } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const controller = new AbortController();

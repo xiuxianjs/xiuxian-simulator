@@ -22,7 +22,7 @@ const cases = [
 ];
 assert.ok(cases.length >= 15);
 for (const fixture of cases) test(`Expose 修炼实际服务端契约 ${fixture.name}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {

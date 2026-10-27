@@ -142,7 +142,7 @@ const cases = [
   { action: 'claim_all_emails', operation: 'emails.claim-all', command: '/一键领取邮件', input: {}, data: { claimed: 1, skipped: 2, total: 3 } }
 ];
 for (const entry of cases) for (const mode of ['success', 'refused', 'malformed', 'disabled', 'spoof', 'missing-id', 'cancel'] as const) test(`${entry.action}: ${mode}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' }, expose: { enabled: mode !== 'disabled' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' }, expose: { enabled: mode !== 'disabled' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const requests: any[] = [];
@@ -205,7 +205,7 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
 });
 
 test('写操作幂等键区分原消息、玩家和参数，参数顺序不改变重试键', async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const keys: string[] = [];
@@ -322,7 +322,7 @@ for (const [action, input] of [
   ['save_battle_template', { slot: 1.5 }],
   ['delete_battle_template', { slot: 0 }]
 ] as const) test(`${action}: 拒绝非法参数 ${JSON.stringify(input)}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': {} } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': {} } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => { throw new Error('invalid input must not reach HTTP'); });

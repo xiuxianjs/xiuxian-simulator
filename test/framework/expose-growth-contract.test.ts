@@ -16,7 +16,7 @@ const actions = ['get_skill_book_detail', 'comprehend_skill_book', 'upgrade_skil
 for (const action of actions) test(`${action}: 真实服务端状态与结算回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length >= 6);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -91,7 +91,7 @@ for (const action of actions) test(`${action}: 真实服务端状态与结算回
 for (const action of actions) for (const mode of ['disabled', 'spoof', 'missing-id', 'cancel', 'malformed', 'mismatch'] as const) test(`${action}: ${mode}`, async t => {
   const fixture = fixtures.find(row => row.action === action && row.state === 'ready');
   assert.ok(fixture?.envelope.data.success);
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;

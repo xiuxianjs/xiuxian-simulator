@@ -21,7 +21,7 @@ const specs = [
 for (const [action, operation] of specs) test(`${action}: 实际 Go 日常结算及重复领取`, async t => {
   const rows = fixtures.filter(row => row.operation === operation);
   assert.ok(rows.length > 0, action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -61,7 +61,7 @@ test('get_cave_plant_options: 真实播种选项及成熟时长', async t => {
   const match = output.match(/EXPOSE_CAVE_READ=(.+)/);
   assert.ok(match);
   const fixture = JSON.parse(match[1]);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => ({ status: 200, headers: {}, data: JSON.stringify(request.url.endsWith('/robot/identity') ? { data: { bid: 'player', account: { status: 'registered', playerId: 1 } } } : fixture) }) }));

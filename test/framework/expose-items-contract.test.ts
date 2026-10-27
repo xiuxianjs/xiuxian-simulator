@@ -34,7 +34,7 @@ for (const match of output.matchAll(/ROBOT_SKILL_(LEARN|SWITCH)=(.+)/g)) {
 for (const action of ['consume_item', 'get_green_bottle_capacity', 'store_green_bottles', 'learn_skill_book', 'get_skill_switch_options', 'switch_skill_book']) test(`${action}: 实际 Go 分支与原结算契约`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length, action);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -102,7 +102,7 @@ for (const [label, action, input, data, ok] of [
   ['切换选项不得执行切换', 'get_skill_switch_options', { skillType: '战技' }, { code: 'OK', skillType: '战技', result: { outcome: 'switched', skillBook: { id: 2, name: '剑诀', skillType: '战技' } } }, false],
   ['最长道具名与数量', 'consume_item', { itemName: '药'.repeat(64), quantity: 2147483647 }, { outcome: 'consumed', message: '服务端已结算', remainingQuantity: 0 }, true]
 ] as const) test(`Expose 道具功法边界：${label}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {

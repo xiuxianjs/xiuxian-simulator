@@ -17,7 +17,7 @@ for (const action of ['challenge_storyline', 'choose_storyline_skill', 'get_stor
   const query = action === 'get_storyline_battle';
   const rows = fixtures.filter(row => query ? row.envelope.data.success : row.operation === (action === 'challenge_storyline' ? 'storyline.challenge' : 'storyline.choice'));
   const sessionId = fixtures[0].envelope.data.data.sessionId;
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];

@@ -1,3 +1,4 @@
+import { getQQBotAppIds } from './qqBotIdentity';
 import { Format, logger, type DataEnums, type OutgoingMessage } from 'alemonjs';
 import { getBackendConfig } from '../api/bot/config';
 import { getBackendPresentationAccess, parseBackendTianshuContent, type TianshuContent } from '../api/bot/tianshu-content';
@@ -41,6 +42,10 @@ function policyFrom(content: TianshuContent): Policy {
 export async function startFeatureVisibility(): Promise<void> {
   activated = true;
   const { config, key } = runtimeKey();
+
+  if ((config.channelMode || process.env.login === 'qq-bot') && !getQQBotAppIds().length) {
+    return;
+  }
   const runtime = runtimes.get(key) ?? {};
 
   runtimes.set(key, runtime);

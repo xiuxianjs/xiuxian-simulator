@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import axios from 'axios';
-import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
+import { createResult, getConfig, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { PushMessageTask } from '../../src/task/pushMessageTask';
 import { startNotificationStream, stopNotificationStream } from '../../src/notification/stream';
+import { startFeatureVisibility } from '../../src/utils/featureVisibility';
 import { requestBackend } from '../../src/api/bot/client';
 
 after(() => shutdownLogger());
 
 const config = {
-  'xiuxian-game': { backend: { api_url: 'https://channel.invalid', channel_mode: true, channel_bot_id: '100017', robot_auth_token: 'merchant-token', worker_token: 'never-send' } },
-  'qq-bot': { bots: { '100017': {}, '100018': {} } }
+  'xiuxian-game': { backend: { api_url: 'https://channel.invalid', channel_mode: true, robot_auth_token: 'merchant-token', worker_token: 'never-send' } },
+  'qq-bot': { default_bot: '100017', bots: { '100017': {}, '100018': {} } }
 };
 
 test('game API rejects another robot event before creating an authenticated request', async t => {
@@ -118,4 +119,63 @@ test('channel SSE wakes only player and selected-bot community queues using BOT_
   }, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
   assert.deepEqual([...seen].sort(), ['community', 'flymail', 'standard']);
+});
+
+
+test('扫码期间不请求；框架配置更新后自动启动 SSE 并认领通知', async t => {
+  const waitingConfig = { 'xiuxian-game': config['xiuxian-game'], 'qq-bot': {} };
+  const app = createTestApp({ config: waitingConfig });
+  t.after(() => app.dispose());
+  t.after(() => stopNotificationStream());
+  let notify: (() => void) | undefined;
+  let stopped = 0;
+  let fetches = 0;
+  const requests: string[] = [];
+  let wake!: () => void;
+  const claimed = new Promise<void>(resolve => { wake = resolve; });
+  t.mock.method(axios, 'create', () => ({ post: async (path: string) => {
+    requests.push(path);
+    if (requests.length === 3) wake();
+    return { data: { data: path.endsWith('/community/claim') ? null : { event: null } } };
+  } } as never));
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => {
+    fetches++;
+    return new Response(new ReadableStream<Uint8Array>({ start(controller) {
+      controller.enqueue(new TextEncoder().encode('event: stream.ready\ndata: {}\n\n'));
+      options.signal?.addEventListener('abort', () => controller.close(), { once: true });
+    } }), { headers: { 'Content-Type': 'text/event-stream' } });
+  });
+  const result = await app.runHandler(async () => {
+    t.mock.method(getConfig(), 'onWatch', listener => {
+      notify = () => listener(getConfig().value!);
+      return () => { stopped++; };
+    });
+    await startFeatureVisibility();
+    startNotificationStream();
+    startNotificationStream();
+    await assert.rejects(requestBackend('native', 'get_auth_profile'), /AppID 尚未就绪/);
+    assert.equal(fetches, 0);
+    assert.deepEqual(requests, []);
+    assert.ok(notify);
+    app.configure(config);
+    notify();
+    await claimed;
+    assert.equal(fetches, 1);
+    assert.equal(stopped, 1);
+    stopNotificationStream();
+  }, app.events.groupMessage({ platform: 'qq-bot', botId: '' }));
+  assert.deepEqual(result.errors, []);
+});
+
+test('等待扫码期间销毁会取消配置订阅', async t => {
+  const app = createTestApp({ config: { 'xiuxian-game': config['xiuxian-game'] } });
+  t.after(() => app.dispose());
+  let stopped = 0;
+  const result = await app.runHandler(async () => {
+    t.mock.method(getConfig(), 'onWatch', () => () => { stopped++; });
+    startNotificationStream();
+    stopNotificationStream();
+    assert.equal(stopped, 1);
+  }, app.events.groupMessage({ platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
 });

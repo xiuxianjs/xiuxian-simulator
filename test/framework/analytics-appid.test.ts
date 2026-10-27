@@ -7,8 +7,8 @@ import { trackAction, trackLogin } from '../../src/analytics';
 
 after(() => shutdownLogger());
 const turn = () => new Promise<void>(resolve => setImmediate(resolve));
-function fixture(t: TestContext, key: string, extra = {}) {
-  const app = createTestApp({ config: { 'xiuxian-game': {
+function fixture(t: TestContext, key: string, extra = {}, qq: Record<string, unknown> = { bots: { '102062268': {}, '222222222': {}, '333333333': {} } }) {
+  const app = createTestApp({ config: { 'qq-bot': qq, 'xiuxian-game': {
     analytics_api_url: 'https://analytics.invalid', analytics_api_key: key, ...extra
   } } });
   t.after(() => app.dispose());
@@ -62,10 +62,10 @@ test('真实功能中间件按 AppID 分批，延迟发送保留各运行实例�
   }
 });
 
-test('缺失、非法和配置不匹配的 AppID 不上报，也不打断处理；无 QQ 身份可显式配置', async t => {
+test('缺失、非法或非 QQ 事件身份不上报，不使用额外手填 AppID', async t => {
   const requests = capture(t);
   const app = fixture(t, 'key');
-  const configured = fixture(t, 'key', { analytics_appid: '102062268' });
+  const configured = fixture(t, 'key', {}, { app_id: '102062268' });
   let completed = 0;
   const handler = onResponse('message.create', event => {
     Object.assign(event, { uid: 8 });
@@ -84,8 +84,7 @@ test('缺失、非法和配置不匹配的 AppID 不上报，也不打断处理�
   t.mock.timers.tick(8000);
   await turn();
   assert.equal(completed, 4);
-  assert.equal(requests.length, 2);
-  assert.ok(requests.every(request => request.body.appid === '102062268' && request.body.events.length === 1));
+  assert.equal(requests.length, 0);
 });
 
 test('上报网络失败不会成为游戏处理异常，满批后后续事件仍能发送', async t => {
@@ -103,4 +102,25 @@ test('上报网络失败不会成为游戏处理异常，满批后后续事件�
   t.mock.timers.tick(8000);
   await turn();
   assert.equal(calls, 2);
+});
+
+
+test('扫码未完成不产生统计请求，框架补全 AppID 后自动上报', async t => {
+  const requests = capture(t);
+  const app = fixture(t, 'key', {}, { app_id: '' });
+  const handler = onResponse('message.create', () => trackAction(18, 'test', '日常', 'success'));
+  const event = app.events.groupMessage({ platform: 'qq-bot', botId: '102062268' });
+  assert.deepEqual((await app.runHandler(handler, event)).errors, []);
+  t.mock.timers.tick(8000);
+  await turn();
+  assert.equal(requests.length, 0);
+  app.configure({ 'qq-bot': { app_id: '102062268' }, 'xiuxian-game': {
+    analytics_api_url: 'https://analytics.invalid', analytics_api_key: 'key'
+  } });
+  assert.deepEqual((await app.runHandler(handler, event)).errors, []);
+  t.mock.timers.tick(8000);
+  await turn();
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].body.appid, '102062268');
+  assert.equal(requests[0].body.events.length, 1);
 });

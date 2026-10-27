@@ -17,7 +17,7 @@ const pendingFacts = (value: any) => Object.fromEntries(['quantity', 'itemId', '
 for (const action of ['consume_item', ...actions]) test(`${action}: 实际培元丹原预览、确认取消与拒绝`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
@@ -79,7 +79,7 @@ for (const action of ['consume_item', ...actions]) test(`${action}: 实际培元
 for (const action of actions) for (const mode of ['disabled', 'spoof', 'missing-id', 'cancel', 'empty', 'wrong-snapshot'] as const) test(`${action}: ${mode}`, async t => {
   const fixture = fixtures.find(row => row.action === action && row.status === 200);
   assert.ok(fixture);
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let calls = 0;

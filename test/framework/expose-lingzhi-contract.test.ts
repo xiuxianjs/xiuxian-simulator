@@ -15,7 +15,7 @@ const fixtures = [...output.matchAll(/EXPOSE_LINGZHI_START=([^|]+)\|(.+)/g)].map
 assert.equal(fixtures.length, 4);
 
 for (const fixture of fixtures) test(`灵药师开始指引：${fixture.state}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const keys: string[] = [];
@@ -49,7 +49,7 @@ for (const fixture of fixtures) test(`灵药师开始指引：${fixture.state}`,
 });
 test('灵药师入口拒绝身份注入和关闭配置', async () => {
   for (const mode of ['spoof', 'disabled', 'missing-id'] as const) {
-    const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' } } } });
     try {
       await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
       const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
@@ -67,7 +67,7 @@ const transitionsOutput = goTestFixture(['test', './internal/httpapi', '-run', '
 const transitions = [...transitionsOutput.matchAll(/EXPOSE_LINGZHI_CONTINUE=([^|]+)\|(.+)/g)].map(match => ({ expected: JSON.parse(match[1]), envelope: JSON.parse(match[2]) }));
 assert.equal(transitions.length, 4);
 for (const row of transitions) test(`灵药师第 ${row.expected.step} 步：绑定原状态并保留实际结果`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const keys: string[] = [];
@@ -98,7 +98,7 @@ for (const row of transitions) test(`灵药师第 ${row.expected.step} 步：绑
 });
 
 for (const mode of ['active', 'empty', 'malformed', 'disabled', 'spoof'] as const) test(`查询灵药师指引：${mode}`, async t => {
-  const app = createTestApp({ config: { 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { expose: { enabled: mode !== 'disabled' }, backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const requests: string[] = [];
