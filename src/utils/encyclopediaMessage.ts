@@ -1,5 +1,6 @@
 import { Format } from 'alemonjs';
 import { FormatGui } from './messageHelper';
+import { createOnlineUrl } from './onlineUrl';
 
 const categories = ['道具', '材料', '装备', '天工', '功法', '本命', '秘境', '凶兽', '货币'];
 const usage = '用法：/图鉴 [分类] [子分类]；/图鉴详情 <分类> <编号>。';
@@ -7,7 +8,7 @@ const usage = '用法：/图鉴 [分类] [子分类]；/图鉴详情 <分类> <�
 type EncyclopediaTarget = { category?: string; subCategory?: string; entryId?: number; legacyPage?: boolean };
 
 export function encyclopediaUrl(target: EncyclopediaTarget = {}): string {
-  const url = new URL('https://tatian-online.alemonjs.com/components/encyclopedia');
+  const url = createOnlineUrl('/components/encyclopedia');
 
   if (target.category) {
     url.searchParams.set('category', target.category);

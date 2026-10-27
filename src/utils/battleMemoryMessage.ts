@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { Format } from 'alemonjs';
 import { FormatGui, normalizeFooterRows, type GuiButton } from './messageHelper';
 import type { useMessage } from './useMessage';
+import { createOnlineUrl } from './onlineUrl';
 
-export const battleMemoryUrl = (recordId: string): string => `https://tatian-online.alemonjs.com/components/battle-memory/${encodeURIComponent(recordId)}`;
+export const battleMemoryUrl = (recordId: string): string => createOnlineUrl(`/components/battle-memory/${encodeURIComponent(recordId)}`).href;
 
 type BattleEntry = { id?: string | null; label?: string };
 type MemoryEntry = { id: string; label?: string };

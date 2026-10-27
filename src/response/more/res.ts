@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { getAppConfig } from '@src/utils/appConfig';
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import App, { MORE_PAGE_SIZE, parseMoreNavigation } from '@src/response-apps/more/app';
 import { selects } from '@src/response/config';
@@ -81,6 +82,8 @@ export default onResponse(selects, async e => {
 
     return;
   }
+  const configuredGroupUrl = getAppConfig().official_group_url;
+  const officialGroupUrl = (typeof configuredGroupUrl === 'string' ? configuredGroupUrl.trim() : '') || 'https://qm.qq.com/q/vdFtnG7SEK';
   const reply = FormatGui({
     isPrivate: e.isPrivate ?? false,
     bid,
@@ -94,7 +97,7 @@ export default onResponse(selects, async e => {
       { label: '我的设置', command: '/我的设置' }
     ],
     content: md,
-    keyboard: [{ label: '点击加入官方群聊', command: 'https://qm.qq.com/q/vdFtnG7SEK', type: 'link' }]
+    keyboard: [{ label: '点击加入官方群聊', command: officialGroupUrl, type: 'link' }]
   });
 
   void message.send(reply);

@@ -64,7 +64,7 @@ beforeEach(async () => {
     state.sent.push({ event: e, value });
     return state.send ? state.send(e, value) : [{ code: 2000, message: 'OK', data: {} }];
   });
-  configureOnboardingCommandMatcher();
+  configureOnboardingCommandMatcher(actualMatch);
   Object.assign(state, { calls: [], sent: [], send: undefined, respond: async () => view('panel', 2) });
 });
 

@@ -3,10 +3,14 @@ import { handleNotificationLifecycle } from '@src/notification/lifecycle';
 import { queueCommunityWelcome } from '@src/notification/communityDelivery';
 
 export default async () => {
-  const [event] = useEvent({ selects: ['member.add'] });
+  const [event, next] = useEvent({ selects: ['member.add'] });
 
-  if (!(await handleNotificationLifecycle(event.current))) {
-    return;
+  try {
+    if (!(await handleNotificationLifecycle(event.current))) {
+      return;
+    }
+    await queueCommunityWelcome(event.current);
+  } finally {
+    next();
   }
-  await queueCommunityWelcome(event.current);
 };

@@ -5,14 +5,19 @@ import { handleNotificationPermissionEvent } from '@src/notification/channel';
 import { useEvent } from 'alemonjs';
 
 export default async () => {
-  const [event] = useEvent({ selects: ['notice.create', 'private.notice.create'] });
-  const [message] = useMessage();
+  const [event, next] = useEvent({ selects: ['notice.create', 'private.notice.create'] });
 
-  // 同一 notice 事件中的子类型由 Notice.type 区分。
-  if (event.current.Notice?.type === 'message-permission') {
-    await handleNotificationPermissionEvent(event.current);
-    await sendNotificationWelcome(event.current, data => message.send(data));
-  } else if (event.current.name === 'notice.create' && event.current.Notice?.type === 'join-request') {
-    await handleCommunityJoinRequest(event.current);
+  try {
+    const [message] = useMessage();
+
+    // 同一 notice 事件中的子类型由 Notice.type 区分。
+    if (event.current.Notice?.type === 'message-permission') {
+      await handleNotificationPermissionEvent(event.current);
+      await sendNotificationWelcome(event.current, data => message.send(data));
+    } else if (event.current.name === 'notice.create' && event.current.Notice?.type === 'join-request') {
+      await handleCommunityJoinRequest(event.current);
+    }
+  } finally {
+    next();
   }
 };

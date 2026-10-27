@@ -1,5 +1,4 @@
 import type { OnboardingView } from '@src/api/bot/onboarding';
-import { isPrivateEvent } from '@src/utils/privateEvent';
 import { mentionsRetiredFeature } from '../retiredFeatures';
 
 export const canonicalOnboardingCommand = (value: string): string => value
@@ -39,7 +38,7 @@ export const isOnboardingResolution = (command: string, view: OnboardingView): b
 // Actual business feedback/receipts are never filtered by this helper.
 export const onboardingDisplayLines = (view: OnboardingView): string[] => view.lines.flatMap(line => line.split('\n')).filter(line => !view.phase.startsWith('milestone.') || !mentionsRetiredFeature(line));
 
-type OnboardingInput = { name?: string; MessageText?: string; IsPrivate?: boolean; isPrivate?: boolean };
+type OnboardingInput = { name?: string; MessageText?: string; IsPrivate?: boolean; isPrivate?: boolean; InteractionData?: string };
 
 export const onboardingButtonId = (version: number, index: number): string => `ob${version.toString(36)}.${index}`;
 
@@ -92,7 +91,8 @@ export function isOnboardingAddressed(event: OnboardingInput, view: OnboardingVi
   if (/^[!！]/.test(text)) {
     return false;
   }
-  if (isPrivateEvent(event) || event.name?.includes('interaction') || /^[/#＃]/.test(text)) {
+  // 仅教学自己的回调可直接接管；私聊、命令前缀和其他插件按钮都不是归属凭据。
+  if (onboardingButtonVersion(event) !== undefined) {
     return true;
   }
   const command = canonicalOnboardingCommand(text);

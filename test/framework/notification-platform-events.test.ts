@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { after, test, type TestContext } from 'node:test';
 import axios from 'axios';
-import { ResultCode, shutdownLogger, type Events } from 'alemonjs';
+import { ResultCode, Router, shutdownLogger, type Events } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { register } from '../../node_modules/@alemonjs/qq-bot/lib/register.js';
 import router from '../../src/router';
@@ -25,10 +25,11 @@ const cases = [
 
 type PlatformEvent = Events['guild.join' | 'guild.exit' | 'private.friend.add' | 'private.friend.remove' | 'notice.create' | 'private.notice.create' | 'member.add' | 'member.remove'];
 
-async function fixture(t: TestContext, repeatedUserTime = 1000) {
+async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = false) {
   const requests: Array<{ path: string; body: Record<string, any> }> = [];
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: Record<string, any>) {
+      if (cacheFails) throw new Error('offline cache unavailable');
       path = path.split('/cache')[1];
       requests.push({ path, body });
       let data: unknown = null;
@@ -39,12 +40,18 @@ async function fixture(t: TestContext, repeatedUserTime = 1000) {
       return { data: { data } };
     }
   }));
-  const app = createTestApp({ config: {
+  const app = createTestApp({ failOnError: false, config: {
     processor: { repeated_user_time: repeatedUserTime },
     'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-fixture-token' } }
   } });
   t.after(() => app.dispose());
   await app.mount({ responseRouter: router });
+  const forwarded: string[] = [];
+  const downstream = Router.create();
+  downstream.res({ events: [...new Set(cases.map(([, name]) => name))] }, async () => (event: PlatformEvent) => {
+    forwarded.push(event.name);
+  });
+  await app.mount({ responseRouter: downstream.define }, undefined, 'other-plugin');
   const client = new EventEmitter();
   const deliveries: Array<{ scope: string; target: string; body: Record<string, unknown> }> = [];
   Object.assign(client, {
@@ -77,12 +84,12 @@ async function fixture(t: TestContext, repeatedUserTime = 1000) {
     assert.ok(event);
     return event;
   };
-  return { app, requests, deliveries, emit };
+  return { app, requests, deliveries, emit, forwarded };
 }
 
 for (const [tag, name, endpoint, replies] of cases) {
   test(`QQ ${tag} 经真实适配器、框架路由和处理器可达 ${name}`, async t => {
-    const { app, requests, deliveries, emit } = await fixture(t);
+    const { app, requests, deliveries, emit, forwarded } = await fixture(t);
     const event = emit(tag);
     assert.equal(event.name, name);
     assert.equal(event.OccurredAt, 1_792_483_200_000);
@@ -91,6 +98,7 @@ for (const [tag, name, endpoint, replies] of cases) {
     assert.equal(event.Target?.scope, privateEvent ? 'c2c' : 'group');
     const result = await app.dispatch(event);
     assert.deepEqual(result.errors, []);
+    assert.deepEqual(forwarded, [name], '平台事件必须继续传给其他包，且只传一次');
     const recorded = requests.find(request => request.path === endpoint);
     assert.ok(recorded, JSON.stringify(requests));
     if (endpoint === '/availability/event' || endpoint === '/permission/event') {
@@ -140,3 +148,23 @@ test('QQ ISO 时间戳转换为毫秒；同一操作人的连续平台事件不�
   assert.deepEqual(duplicate.reasons, ['filtered']);
   assert.equal(requests.filter(request => request.path === '/permission/event').length, 2);
 });
+
+
+test('未知通知及不适用的平台生命周期仍继续后续插件', async t => {
+  const { app, forwarded } = await fixture(t, 0);
+  for (const name of [...new Set(cases.map(([, name]) => name))]) {
+    const result = await app.dispatch(app.events.event(name, { Platform: 'other-platform' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(forwarded.at(-1), name);
+  }
+  assert.equal(forwarded.length, new Set(cases.map(([, name]) => name)).size);
+});
+
+for (const tag of ['GROUP_ADD_ROBOT', 'GROUP_MSG_RECEIVE', 'GROUP_MEMBER_ADD', 'GROUP_DEL_ROBOT'] as const) {
+  test(`${tag} 本包处理异常也不阻断其他插件`, async t => {
+    const { app, forwarded, emit } = await fixture(t, 0, true);
+    const event = emit(tag);
+    await app.dispatch(event);
+    assert.deepEqual(forwarded, [event.name]);
+  });
+}

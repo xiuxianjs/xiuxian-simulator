@@ -2,7 +2,11 @@ import { useEvent } from 'alemonjs';
 import { handleNotificationLifecycle } from '@src/notification/lifecycle';
 
 export default async () => {
-  const [event] = useEvent({ selects: ['private.friend.remove', 'guild.exit', 'member.remove'] });
+  const [event, next] = useEvent({ selects: ['private.friend.remove', 'guild.exit', 'member.remove'] });
 
-  await handleNotificationLifecycle(event.current);
+  try {
+    await handleNotificationLifecycle(event.current);
+  } finally {
+    next();
+  }
 };

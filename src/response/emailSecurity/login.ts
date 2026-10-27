@@ -1,4 +1,5 @@
 import { parseBackendLoginWindow, type BackendLoginWindow } from '@src/api/bot/account';
+import { createOnlineUrl } from '@src/utils/onlineUrl';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { getCommandErrorMessage } from '@src/utils/commandError';
 import { Format, onResponse, useEvent } from 'alemonjs';
@@ -20,14 +21,14 @@ export function createLoginReply(result: LoginWindowResult, isPrivate: boolean, 
   const reply = FormatGui({ isPrivate, bid, title: '网页登录', content: md });
 
   if (result.code === 'OK') {
-    const url = new URL('https://tatian-online.alemonjs.com/login');
+    const url = createOnlineUrl('/login');
 
     url.searchParams.set('temporaryPassword', result.data.temporaryPassword);
     url.searchParams.set('UID', String(result.data.playerId));
     const buttons = Format.createButtonGroup();
 
     buttons.addButton('临时进入', url.toString(), { type: 'link' });
-    const emailURL = new URL('https://tatian-online.alemonjs.com/login');
+    const emailURL = createOnlineUrl('/login');
 
     emailURL.searchParams.set('UID', String(result.data.playerId));
     emailURL.searchParams.set('loginMethod', 'email');

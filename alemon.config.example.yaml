@@ -1,6 +1,8 @@
 # 将此配置段合并到运行目录的 alemon.config.yaml。
 # 保留已有 login、平台凭证、xiuxian-game.minio 等配置，不要覆盖整份文件。
 xiuxian-game:
+  # 可选：替换“点击加入官方群聊”的链接；未填写或留空时沿用默认官群。
+  official_group_url: 'https://qm.qq.com/q/vdFtnG7SEK'
   backend:
     # 必填：online 统一 API origin，不要附加 /api/v1。
     api_url: 'https://xiuxian-simulator.alemonjs.com'

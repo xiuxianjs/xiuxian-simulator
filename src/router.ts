@@ -1,4 +1,4 @@
-import { Router } from 'alemonjs';
+import { defineRouter, Router } from 'alemonjs';
 import { withAccessFacts } from './api/bot/access-facts';
 import { withCommandCatalog } from './api/bot/catalog-query-reuse';
 import type { RobotCommandProfile } from './api/bot/command-entry';
@@ -24,9 +24,6 @@ app.res({ events: ['private.friend.add', 'guild.join'] }, () => import('@src/res
 app.res({ events: ['member.add'] }, () => import('@src/response/notification/member/res'));
 // 失去朋友、退出群聊、被踢出群聊
 app.res({ events: ['private.friend.remove', 'guild.exit', 'member.remove'] }, () => import('@src/response/notification/lifecycle/res'));
-
-// 检查是不是接到了 !，是就结束，直接排斥不执行
-app.res({ events: commandEvents, regular: /^[!！]/ }, () => import('@src/response/commandError/ignore/res'));
 
 // 下架指令在进入游戏分组前终止，避免旧按钮落入限时活动等前缀路由。
 app.res(
@@ -78,6 +75,8 @@ app.res(
 {
   const publicXiuxian = app.group({
     events: commandEvents,
+    // 未命中明确指令时交给其他插件，不生成模糊指令提示。
+    fallback: { suggest: false },
     routeText: {
       prefixes: ['/', '#', '＃'],
       stripPrefix: true,
@@ -1298,4 +1297,11 @@ export function resolveCommandTransportProfile(_event: GameEvent): RobotCommandP
 // the Router instance as the response configuration's default export.
 export const matchesGameCommand = (event: { name?: string; MessageText?: string }): boolean => app.match(event).matched;
 
-export default app.define;
+// 框架命令解析器也会剥离 !，因此在进入 DSL 及兜底前排除旧版前缀。
+// 路由不匹配时框架自动 next，继续后续包，不能用空处理器吞掉事件。
+export default defineRouter(
+  app.values.map(entry => !entry.regular && Array.isArray(entry.selects) && commandEvents.every(event => entry.selects.includes(event))
+      ? { ...entry, regular: /^(?!\s*[!！])/ }
+      : entry
+  )
+);
