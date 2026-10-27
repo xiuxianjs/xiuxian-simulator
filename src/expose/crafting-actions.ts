@@ -9,7 +9,9 @@ const reference = { type: 'string' as const, minLength: 1, maxLength: 64 };
 const empty = object({});
 
 function validateReference(value: string, kind: string) {
-  if (!new RegExp(`^r1_[a-z0-9]+_${kind}_[a-z0-9]+_[a-f0-9]{24}$`).test(value)) { throw new ExposeError('INVALID_INPUT', '请提供服务端原预览返回的完整确认引用'); }
+  if (!new RegExp(`^r1_[a-z0-9]+_${kind}_[a-z0-9]+_[a-f0-9]{24}$`).test(value)) {
+    throw new ExposeError('INVALID_INPUT', '请提供服务端原预览返回的完整确认引用');
+  }
 }
 function alchemyReply(value: unknown) {
   const reply = parseAlchemyV2Reply(value);
@@ -64,6 +66,14 @@ export const craftingActions = {
     () => '/炼丹',
     alchemyReply
   ),
+  enroll_alchemist: mutation(
+    '按现有入门流程加入炼丹师或恢复入门引导；服务端处理资格及原有入门奖励，不自动继续其他按钮。',
+    'alchemy.v2',
+    empty,
+    alchemy,
+    () => '/炼丹 入门',
+    alchemyReply
+  ),
   get_alchemy_recipes: mutation<{ page: number }>(
     '查看指定页炼丹丹方；返回服务端说明及预览入口，不立即炼制。',
     'alchemy.v2',
@@ -113,6 +123,15 @@ export const craftingActions = {
     input => `/打造 ${input.recipeId}`,
     parseForgePreview,
     input => ({ recipeId: input.recipeId, tutorial: false })
+  ),
+  preview_forge_tutorial: mutation(
+    '预览加入锻造师的入门制作与工具奖励；取得用户确认后再用原引用调用 confirm_forge。',
+    'forge.preview',
+    empty,
+    preview,
+    () => '/加入锻造师',
+    parseForgePreview,
+    () => ({ recipeId: 0, tutorial: true })
   ),
   confirm_forge: mutation<{ reference: string }>(
     '用户明确确认原预览后，使用原 r1_f 引用打造；服务端校验原材料、图纸和预览有效期，返回实际装备及重放标记。不得重建最新预览后自动提交。',

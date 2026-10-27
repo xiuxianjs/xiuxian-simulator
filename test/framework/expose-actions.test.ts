@@ -14,7 +14,14 @@ const dungeonSweep = { dungeonName: '秘境', times: 1, totalSpiritCost: 0, tota
 const chapterChests = { success: true, message: '已领取', chapterNumber: 1, claimedIndexes: [1], totalReward: 10, chests: [{ index: 1, requiredStars: 3, reward: 10, claimed: true, unlocked: true }] };
 const manualState = { sessionId: 'manual-1', revision: 2, finished: false, events: [], battle: { Winner: '', Rounds: 1, SideA: [], SideB: [] }, choice: { unitId: 'p', unitName: '修士', side: 'A', round: 1, availableSkills: [{ type: 'normal', name: '普攻', available: true }] } };
 const caveCommand = { message: '操作完成', needsSeedSelection: false, overview: null, snapshotError: '快照暂不可用' };
+const alchemyReference = 'r1_1_a_abc_' + 'a'.repeat(24);
+const alchemyReply = { title: '炼丹', heading: '', text: '服务端回执', buttons: [], advice: [], blocks: [{ text: '原预览', quoted: true, inlineButtons: [{ label: '确认', command: '/炼丹 确认 ' + alchemyReference }] }] };
 const cases = [
+  { action: 'get_alchemy_dashboard', operation: 'alchemy.v2', command: '/炼丹', input: {}, data: alchemyReply },
+  { action: 'enroll_alchemist', operation: 'alchemy.v2', command: '/炼丹 入门', input: {}, data: alchemyReply },
+  { action: 'get_alchemy_recipes', operation: 'alchemy.v2', command: '/炼丹 丹方 1', input: { page: 1 }, args: {}, data: alchemyReply },
+  { action: 'preview_alchemy', operation: 'alchemy.v2', command: '/炼丹 预览 1 1000', input: { recipeId: 1, count: 1000 }, args: {}, data: alchemyReply },
+  { action: 'confirm_alchemy', operation: 'alchemy.v2', command: '/炼丹 确认 ' + alchemyReference, input: { reference: alchemyReference }, args: {}, data: alchemyReply },
   { action: 'cultivate_cave_plot', operation: 'cave.cultivate', command: '/开垦 1', input: { plotIndex: 1 }, args: { plotIndex: '1' }, data: caveCommand },
   { action: 'plant_cave_seed', operation: 'cave.plant', command: '/播种 1 灵种', input: { plotIndex: 1, seedName: '灵种' }, args: { plotIndex: '1', seedName: '灵种' }, data: { mode: 'plant', result: caveCommand } },
   { action: 'water_cave_plots', operation: 'cave.water', command: '/浇灌 1', input: { plotIndex: 1 }, args: { plotIndex: '1' }, data: { mode: 'command', result: caveCommand } },
@@ -146,6 +153,12 @@ test('写操作幂等键区分原消息、玩家和参数，参数顺序不改�
 });
 
 for (const [action, input] of [
+  ['preview_alchemy', { recipeId: 1, count: 1001 }],
+  ['preview_alchemy', { recipeId: 1, count: 0 }],
+  ['confirm_alchemy', { reference: 'r1_1_a_abc_' + 'a'.repeat(23) }],
+  ['confirm_alchemy', { reference: 'r1_1_f_abc_' + 'a'.repeat(24) }],
+  ['confirm_forge', { reference: 'r1_1_a_abc_' + 'a'.repeat(24) }],
+  ['confirm_forge', { reference: 'b3_untrusted-payload' }],
   ['cultivate_cave_plot', { plotIndex: 0 }],
   ['plant_cave_seed', { plotIndex: 1, seedName: '' }],
   ['water_cave_plots', { plotIndex: -1 }],
