@@ -27,228 +27,140 @@ release
 - `src/task`：现有任务触发器及调度归属校验。
 - alemon.config.example.yaml 机器人配置说明
 
-### AI 插件能力（Expose）
+### Expose 常用成长入口
 
-机器人提供协议 `xiuxian.player.v1`，provider 为实际加载名（通常是 `xiuxian-game`）。当前能力版本为 `1.12.0`，已注册 101 项能力（31 项查询及 70 项经业务入口调用的动作），仅使用当前消息玩家身份，不发送聊天消息。
+`xiuxian.player.v1` 版本 `1.18.0` 新增以下能力：
 
-| 动作                   | 参数                                                                  | 返回内容                                                           |
-| ---------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `get_attributes`       | `{}`                                                                  | UID、道号、境界名称、五维属性及上限、战斗属性；数值单位沿用服务端  |
-| `get_inventory`        | `{ category: 'prop' 或 'material', page?: number, subtype?: string }` | 道具／材料背包、服务端分页、库存和挂牌数量、锁定状态及可用入口     |
-| `get_battle_templates` | `{}`                                                                  | 当前配装与已保存模板、装备名称、功法槽位及名称、缺失装备／功法数量 |
+| Action                     | 输入                             | 返回与约束                                           |
+| -------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `get_skill_book_detail`    | `bookId`：本人已学实例编号       | 当前与上限属性、效果、熟练度和可操作状态；不执行养成 |
+| `comprehend_skill_book`    | `bookId`、`points`：正整数熟练点 | 实际投入、成功与失败次数、保底和剩余点数             |
+| `upgrade_skill_book`       | `bookId`、`count`：1..36         | 实际成功次数、经验与灵石消耗、属性变化及停止原因     |
+| `get_profession_dashboard` | `{}`                             | 炼丹师、灵药师等级经验、装备、引导状态和开放条件     |
 
-新增的常用查询如下；未列参数的动作传 `{}`，分页默认第 1 页。
+所有入口沿用服务端准入与当前消息身份，不接受调用方指定玩家 UID。必须同时检查调用结果 `ok` 与业务 `success`；被拒绝时读取 `replies`，不得宣称操作完成。升级可能提前停止，`upgradeCount` 是请求次数，`successCount` 才是实际成功次数。写入重试应使用原平台消息；更换消息会产生新操作。可选字段省略表示未提供，不能当作零；职业 `access.features` 以 `{key, realmReached, requiredRealm, lockedReason}` 数组保留服务端条件。
 
-| 范围         | 动作                                              | 可选参数／说明                            |
-| ------------ | ------------------------------------------------- | ----------------------------------------- |
-| 资料与境界   | `get_profile`、`get_realm`                        | 当前资源、境界、突破与晋升条件            |
-| 灵根         | `get_spirit_root`、`get_spirit_root_materials`    | 品质、培养材料及来源                      |
-| 经脉与神魂   | `get_meridians`、`get_soul_path`                  | 进度、剩余次数、材料与节点条件            |
-| 当前装备     | `get_equipped`                                    | 已装备物品与空槽位                        |
-| 已学功法     | `get_learned_books`                               | `page`、`visibility: visible/hidden`      |
-| 装备背包     | `get_equipment_bag`                               | `page`、`equipmentType`                   |
-| 功法背包     | `get_skill_book_bag`                              | `page`、`skillType`                       |
-| 本命物、礼盒 | `get_soul_artifact_bag`、`get_lootboxes`          | `page`                                    |
-| 天工工具     | `get_profession_tool_bag`                         | `page`、`typeName`                        |
-| 主线         | `get_storyline_chapters`、`get_storyline_chapter` | 前者可传 `page`；后者必传 `chapterNumber` |
-| 副本、凶兽   | `get_dungeons`、`get_world_boss`                  | 副本可传 `page`                           |
-| 日常与任务   | `get_checkin_status`、`get_tasks`                 | 签到时段、任务状态及提示入口              |
-| 邮件         | `get_emails`                                      | `page`；不领取附件或删除邮件              |
-| 洞府与宗门   | `get_cave`、`get_guild`                           | 灵田、阵法、宗门状态                      |
-| 商店         | `get_shop_products`                               | `page`、`shopCode`                        |
+### Expose 队伍与匹配
 
-新增查询暂标 `effect: unknown`，不能仅凭 GET 或“查询”名称推断无副作用。已确认神魂查询会由服务端初始化状态和发放教学材料；其他入口的副作用分类仍在逐项核查。可选字段缺失表示服务端未提供或原值为 null，不补造零值；超出安全整数范围的整数字段拒绝返回。返回的聊天命令与操作资格仅供展示，不代表 Expose 已开放相应写操作。
+| 动作                                                  | 参数                                             | 返回内容                                                             |
+| ----------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------- |
+| `get_my_team`                                         | `{}`                                             | 本人队伍、服务端准入及成员操作资格                                   |
+| `get_team_info`                                       | `{ teamId: number }`                             | 指定队伍的可见资料；操作权限以 `team.actions` 为准                   |
+| `get_team_list`                                       | `{ page?: number }`                              | 服务端队伍列表，默认第1页，每页5条                                   |
+| `create_team`                                         | `{}`                                             | 实际创建的 `teamId`                                                  |
+| `apply_to_team`                                       | `{ teamId: number }`                             | `applicationId`、队伍编号、status 和 autoApproved；false表示等待审核 |
+| `get_team_applications`                               | `{}`                                             | 队长待审核申请；canReview=false 时保留服务端 error                   |
+| `approve_team_application`、`reject_team_application` | `{ applicationId: number }`                      | 同意后的队伍编号，或明确拒绝回执                                     |
+| `leave_team`、`disband_team`                          | `{}`                                             | 离队或解散回执；解散影响整支队伍，角色及权限由服务端校验             |
+| `get_team_match`                                      | `{}`                                             | matching 及可用的服务端等待秒数、超时与匹配阶段快照                  |
+| `start_mainline_match`                                | `{ chapterNumber: number, stageNumber: number }` | 已进入匹配队列的实际目标标签                                         |
+| `start_dungeon_match`                                 | `{ dungeonId: number }`                          | 秘境匹配目标标签，服务端拒绝单人秘境等不合资格目标                   |
+| `cancel_team_match`                                   | `{}`                                             | cancelled 及可选目标标签；false不代表已解散队伍                      |
 
-背包页码默认 1；省略 subtype 时服务端分别使用道具 `pill`、材料 `herb`，不是所有子分类的合计。使用返回的 `pagination` 翻页；空页保留服务端总量，不补造物品。`lockState` 保留服务端数值，布尔状态转换为 0/1；库存和挂牌数量不等同于可消耗数量。此动作仅覆盖道具和材料；装备、功法、本命物、天工和礼盒使用各自独立动作。无固定结构的物品 effect 不直接透传。
+队伍编号、申请编号使用服务端列表中的原编号，不接受主体UID、队长身份或跳过准入参数。`hasTeam` 以服务端 `exists` 判定；队伍、姓名和目标的可选null字段省略，不补造“未知”姓名或空队伍。`get_team_info` 不输出该旧接口未填充的 access 默认值，权限取自 `team.actions`；本人 overview 的 access 保留。队长离队可能触发服务端原有继任规则，应重新读取队伍状态。
 
-战斗模板功法表示为 `skills: [{ slot, name }]`，保留服务端槽位名称；境界不足、接口拒绝或响应不完整均返回失败，不伪装成空模板。
+入队申请与真正入队分开：仅 `autoApproved=true` 表示服务端自动审批已完成，其余等待队长处理。开始匹配只表示入队列，匹配成功、战斗开始、结算都须读取后续权威状态；本批不启动或替代服务端匹配 Worker。取消队列不等于回滚已发生的战斗。创建、审核、离队、解散及队列操作沿用当前消息幂等键，业务通知仍由服务端原通知链路处理，Expose 不发送聊天消息。
 
-默认开启，无需配置即可由框架识别的插件在当前 QQ 消息中调用。在 `xiuxian-game` 下可关闭或限制调用方：
+### Expose 通天塔
 
-```yaml
-expose:
-  enabled: true # false 关闭全部 Expose 调用
-  # 可选；不配置允许框架识别的插件，空数组拒绝全部调用
-  # allowed_callers: ['你的AI插件实际加载名']
-```
+`xiuxian.player.v1` 版本 `1.19.0` 增加 10 项通天塔能力：
 
-可信 AI 插件在自己的 QQ 消息处理器中按动作契约调用，例如：
+| Action                               | 输入与用途                                           |
+| ------------------------------------ | ---------------------------------------------------- |
+| `get_tongtian_tower`                 | `{}`；开放状态、排名、成本及可扫荡目标               |
+| `challenge_tongtian_rank`            | `targetRank`：1..1999；单次挑战                      |
+| `batch_challenge_tongtian`           | `{}`；按现有连续爬塔规则处理，返回逐轮事件与停止原因 |
+| `sweep_tongtian_rank`                | `targetRank`：1..1999、`count`：1..10；扫荡较低排名  |
+| `get_tongtian_first_rewards`         | `{}`；首通档位和可领状态                             |
+| `get_tongtian_monthly_rewards`       | `{}`；月度档位、最佳排名及领取记录                   |
+| `claim_tongtian_first_reward`        | `ranking`：首通档位排名                              |
+| `claim_all_tongtian_first_rewards`   | `{}`；领取全部可领首通档位                           |
+| `claim_tongtian_monthly_reward`      | `rewardId`：月度档位 ID，与排名分开                  |
+| `claim_all_tongtian_monthly_rewards` | `{}`；领取全部可领月度档位                           |
 
-```ts
-import { Expose } from 'alemonjs';
+调用 `ok` 和业务 `success` 均成功后，仍须检查单次战斗的 `result.success` / `battle.winner`、批量 `events` / `stopReason` 和实际领取回执。业务成功不等于获胜或完成全部轮次。首通与月度查询保留开放期、境界与档位状态，不把奖励配置当作所得。通天塔查询可能初始化排名；所有入口保留当前消息身份、服务端准入和原消息重试幂等机制，不自动服药或重启挑战。
 
-const result = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'get_attributes', {}, { timeoutMs: 10000 });
-if (result.ok) {
-  // 将 result.data 作为工具结果；不要假设其他动作具有相同输出。
-} else {
-  // 按 result.error.code 处理拒绝、取消、后端失败等情况。
-}
-```
+### Expose 成就与称号
 
-调用者须由框架识别，模型不能指定调用方或目标 UID。只允许当前 QQ 消息事件，不支持定时后台代玩或按钮事件；本包 `events` 开关和渠道机器人身份校验同样生效。每次查询重新向服务端解析当前绑定角色，不使用事件附加的 UID；服务端继续校验接口归属。参数与输出均由 Expose 契约校验。身份与业务查询 HTTP 请求均接收取消信号。
+版本 `1.20.0` 增加 9 项能力：
 
-默认信任宿主加载的插件，也可使用白名单收紧调用范围；调用插件应在玩家明确要求时调用，不应把私人属性转发到其他会话。同进程插件不是沙箱，此机制也不提供玩家长期委托授权。当前已开放以下签到、邮件领取、修炼、战斗模板、装备穿戴、功法显示与礼盒操作；其他物品消耗和交易确认操作仍在接入，后续须接入服务端确认引用、原操作编号与幂等结算，不能直接把任意聊天指令作为工具执行。
+| Action                            | 输入与用途                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| `get_achievement_overview`        | `{}`；成就分类、完成率与可领数量                                                             |
+| `get_achievement_category`        | `category`：`general`、`storyline`、`lingzhi`、`combat_power`、`tower_shop_unlock`、`master` |
+| `get_all_achievements`            | `page`：正整数，每页5项全部配置                                                              |
+| `get_completed_achievements`      | `page`：正整数，每页5项本人已达成记录                                                        |
+| `get_combat_power_achievements`   | `{}`；战力、里程碑、历史领取与下一目标                                                       |
+| `claim_combat_power_achievements` | `{}`；领取当前可领的战力成就奖励                                                             |
+| `get_titles`                      | `{}`；本人有效称号、状态、说明和有效期                                                       |
+| `activate_title`                  | `titleId`：本人称号列表返回的持有记录 ID                                                     |
+| `deactivate_title`                | `{}`；卸下当前称号，`removed=false` 表示无称号需要卸下                                       |
 
-### Expose 写操作
+成就保留服务端的 `completed`、`claimed`、`reachable` 等不同状态，查询配置不等于已领取。`locked=true` 是资格受限，不等于空记录；未提供的名称、描述或日期按可选字段处理，不补造文本。战力领奖返回实际领取数和奖励文案。称号所有权、过期和佩戴互斥由服务端检查；重复操作使用原消息幂等键，越权与失效错误原样作为调用失败返回。
 
-| 动作               | 参数                  | 结果                                |
-| ------------------ | --------------------- | ----------------------------------- |
-| `checkin_daily`    | `{}`                  | 日常签到奖励和累计进度              |
-| `checkin_newcomer` | `{}`                  | 新人签到奖励及到期日期              |
-| `checkin_all`      | `{}`                  | 各项签到的 done / skip / error 回执 |
-| `claim_email`      | `{ emailId: number }` | 指定邮件领取回执                    |
-| `claim_all_emails` | `{}`                  | 领取、跳过、总数                    |
+### Expose 明悟丹选择与服用
 
-这些动作标记 `effect: write`，使用同一个默认开启、可关闭及调用方白名单配置。仅接受当前真实平台消息身份，必须有消息编号；不能传入 UID、业务操作名、URL 或任意聊天指令。调用服务端 V2 业务入口，保留准入、维护及游戏资格校验，不发送聊天消息、不消费任务续接上下文。
+版本 `1.21.0` 增加 `use_mingwu_pill({skillBookId, quantity, expectedProficiency})`。先调用 `consume_item({itemName:"明悟丹", quantity:数量})` 获取 `mingwuSelection`，从 `canSelect=true` 的选项提取功法模板 `skillBookId` 和原 `proficiency`，再原样传入选中编号、数量与 `expectedProficiency`（0..59）。服务端在扣药事务的功法行锁内比较原熟练度；功法被卸下、归属不符、熟练度变化、库存或次数不足时拒绝，不自动更新选择。
 
-返回 `{ success, branch, reason, replies, result? }`。Expose 的 `ok` 只表示调用及响应契约成功，业务拒绝仍可返回 `ok: true`；调用方必须检查 `success`、`branch` 和具体结果。一键签到须逐项检查状态。`replies` 保留服务端拒绝提示及按钮，不自动执行按钮。
+必须读取实际 `consumedCount`、`proficiencyGain`、`currentProficiency` 和 `remainingCount`；临近原有60%上限可能只消耗部分所选丹药。同一原消息重试使用原幂等键，新消息重复旧状态会被拒绝。该入口需配套发布服务端的 `expectedProficiency` 校验；旧聊天接口继续兼容。
 
-幂等键绑定原消息、固定业务操作与排序后的参数，同一消息内同参重试复用原键；新消息不是原操作重试。取消或错误的 `outcome: unknown` 不代表服务端回滚，禁止换新消息自动重试领取。框架 callId 不是结算幂等编号。
+### Expose 培元丹原预览确认
 
-### Expose 修炼与战斗模板
+版本 `1.22.0` 增加 `get_peiyuan_confirmation({snapshot})`、`confirm_peiyuan_pill({reference})`、`cancel_peiyuan_pill({reference})`。
 
-| 动作                           | 参数                              | 结果及边界                                           |
-| ------------------------------ | --------------------------------- | ---------------------------------------------------- |
-| `get_meditation_boost_options` | `{}`                              | 自动加速设置、倍率、每周期灵石价格、周期分钟数和余额 |
-| `start_meditation`             | `{}`                              | 开始闭关或返回已有进度；检查 `result.success`        |
-| `end_meditation`               | `{}`                              | 出关、实际收益及费用结算；检查 `result.success`      |
-| `pulse_meridian`               | `{}`                              | 单次冲脉进度、剩余真气、次数及后续资格               |
-| `breakthrough_realm`           | `{}`                              | 突破后的境界、解锁及师门提示                         |
-| `save_battle_template`         | `{ slot: number, name?: string }` | 保存当前配装，已有槽位会覆盖，返回实际保存名称       |
-| `apply_battle_template`        | `{ slot: number }`                | 切换当前配装，返回实际装备和功法                     |
-| `delete_battle_template`       | `{ slot: number }`                | 删除模板记录；不分解物品                             |
+先通过 `consume_item` 取得培元丹 `peiyuanPending.snapshot`，再将原摘要交给 `get_peiyuan_confirmation`。它返回完整原变化、原时限和服务端 `p` 类型引用；原摘要缺失或不匹配时不能自动改为最新记录。确认、取消均只传引用，保留原60秒期限，引用保留24小时用于已结算重试；重新获取引用不会延长原时限。旧服务端未返回摘要时，先核对原结果，不重发消耗请求。
 
-模板槽位限定 1..5，功法沿用查询的 `skills: [{ slot, name }]`。这些动作均沿用写操作回执、身份和幂等约束；加速设置查询经过业务准入，保守标记 `effect: write`，不承诺没有资源结算副作用。
+属性应用与原决定回执在现有 SQL 表同一事务提交；确认重试不重复应用，取消不返还已服用的丹药。同一原预览的不同引用共享唯一决定，确认与取消互斥；已处理引用的重试返回原结果，即使出现了新预览也不会处理或删除它。新操作要求原属性及当前上限仍支持原变化，状态变化时明确拒绝。Redis 清理失败时已提交回执仍有效，可用原引用重试清理，未清理的原待确认缓存至多保留其原时限。
 
-普通闭关遵循已有自动加速配置，出关可能消耗灵石；调用前可查询加速设置，本入口不修改设置或购买旧版按小时加速。收益、消耗、周期均来自服务端，不在机器人重算。冲脉返回的 `Progress`、`RequiredProgress` 和配置沿用服务端字段。
+需配套发布服务端摘要、引用和结算支持。旧聊天确认与取消保留原入口，共用玩家操作锁；不新增数据库字段或迁移。
 
-### Expose 装备、功法与礼盒
+### Expose 灵根培养原预览确认
 
-| 动作                   | 参数                                          | 说明                                                               |
-| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
-| `equip_equipment`      | `{ identifier: string }`                      | 装备实例编号字符串或名称；优先使用背包中的实例编号                 |
-| `auto_equip_equipment` | `{}`                                          | 服务端自动穿戴；逐项检查 `results`，可能部分未装备                 |
-| `unequip_equipment`    | `{ equipmentTypeName: string }`               | 按当前装备类型名称卸下                                             |
-| `unequip_skill_book`   | `{ skillType: '战技' 或 '被动技' 或 '神通' }` | 换下当前功法，不遗忘或分解                                         |
-| `hide_skill_book`      | `{ bookId: number }`                          | 隐藏本人已学功法，使用实例编号                                     |
-| `show_skill_book`      | `{ bookId: number }`                          | 恢复显示隐藏功法                                                   |
-| `open_lootbox`         | `{ lootboxName: string, openCount: number }`  | 名称或配置编号字符串；数量为 1..10，库存不足时实际数量由服务端返回 |
+版本 `1.23.0` 为 `preview_spirit_root_feed({itemId, quantity})` 增加服务端 `r` 类型 `reference` 与 `expiresAt`，并新增 `confirm_spirit_root_feed({reference})`。预览数量沿用服务端上限1,000,000；预览5分钟有效，引用保留24小时供已结算重试。预览不消耗材料，确认仅传原引用，不重新指定材料、数量或当前状态。
 
-这些动作使用现有服务端业务准入、所有权及幂等校验。`success: false` 也可能来自写入之后的缓存失败，不能推断完全未修改；应核对状态和原回执，不能换新消息自动重试。礼盒会消耗库存，奖励以回执为准，不预估随机产出。
+服务端在原扣料事务中核对完整原预览：材料、请求与实际消耗数量、培养增量、原品质和培养值，以及阶段目标与进度。状态、材料定义或培养效果变化时明确拒绝；不使用最新预览替换原确认。实际消耗以 `feed.consumed` 为准，例如现有规则下培养值99、请求10份清灵草时，仅消耗1份、增加5点至104，原溢出保留规则不变。
 
-功法学习与切换的覆盖确认尚未开放；不提供可绕过预览的任意 `force` 参数。
+引用作为稳定业务编号，继续复用 `SpiritRootEvent`：扣料、培养和原回执同事务提交；同一引用跨消息重试返回原回执，成功后的重试不因预览过期或后续状态变化再次扣料。旧聊天预览和确认入口继续兼容，不新增数据库字段。需配套发布服务端引用支持；缺失原引用时明确失败，不降级成无绑定的确认。
 
-### Expose 凶兽与妖塔
+### Expose 宗门申请与审核
 
-| 动作                       | 参数                                                     | 结果及边界                                                     |
-| -------------------------- | -------------------------------------------------------- | -------------------------------------------------------------- |
-| `challenge_world_boss`     | `{}`                                                     | 挑战一次；伤害、剩余次数、战斗摘要及 logId                     |
-| `challenge_world_boss_all` | `{}`                                                     | 使用剩余次数；逐场回执、实际消耗次数及中止原因                 |
-| `claim_world_boss_rewards` | `{}`                                                     | 实际领取条目、灵石与灵晶合计                                   |
-| `get_demon_tower`          | `{}`                                                     | 当前层、历史星数、加成、待选次数、操作资格；每次重新读取       |
-| `challenge_demon_tower`    | `{ stars: number }`                                      | 1..3 星挑战；检查 result.success、layerCleared、needSelectBuff |
-| `select_demon_tower_buff`  | `{ buffKey: 'hp' 或 'atk' 或 'critDmg', count: number }` | 消耗可选次数，返回实际加成及剩余次数                           |
-| `sweep_demon_tower`        | `{}`                                                     | 实际扫荡层数、灵石、积分、里程碑和待选加成                     |
-| `reset_demon_tower`        | `{}`                                                     | 重置当前进度，服务端校验次数并消耗重列旗                       |
+版本 `1.24.0` 增加 8 项能力：
 
-批量挑战可能只完成部分场次；以 rounds、attemptsUsed、remainingAttempts 和 stopReason 为准。挑战失败、战斗落败、资格拒绝分别保留原结果，不自动再次发起挑战。战斗记录编号原样返回；Expose 不发送回放链接或执行聊天路由。所有收益及消耗由服务端结算，取消调用不保证回滚。
+| Action                          | 输入与用途                                          |
+| ------------------------------- | --------------------------------------------------- |
+| `get_guild_list`                | `page`；每页5项宗门资料与申请资格，保留页码纠正状态 |
+| `apply_to_guild`                | `guildId`；提交申请，成功不代表已经入宗             |
+| `get_guild_applications`        | `{}`；本人待处理申请及可撤回状态                    |
+| `cancel_guild_application`      | `applicationId`；撤回本人指定申请，不退出宗门       |
+| `get_guild_members`             | `page`；本人宗门的成员、职位、活跃和贡献            |
+| `get_guild_review_applications` | `page`；有权限时返回待审核申请与申请人编号          |
+| `approve_guild_application`     | `applicantId`、`applicationId`；同意原申请          |
+| `reject_guild_application`      | `applicantId`、`applicationId`；拒绝原申请          |
 
-### Expose 主线宝箱与秘境
+审核必须同时使用列表中的原申请编号与申请人编号。服务端在当前宗门及权限校验后，锁定申请行并核对原编号；撤回重提时拒绝原编号，不自动审核新申请。申请编号用于匹配原记录，不能替代权限校验；失效资格仍按服务端原有规则处理，拒绝结果不表示入宗成功。旧聊天审核继续兼容，Expose 审核需配套发布服务端原申请校验。
 
-| 动作                             | 参数                                                            | 结果及边界                                                 |
-| -------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------- |
-| `challenge_dungeon`              | `{ dungeonName: string }`                                       | 秘境挑战；检查 won 及 rewardsByUser 中各成员实际资格与奖励 |
-| `sweep_dungeon`                  | `{ dungeonName: string, times: number }`                        | 次数仅支持 1、5、10；实际精力消耗、货币及物品明细          |
-| `sweep_free_dungeons`            | `{}`                                                            | 免费秘境扫荡；返回实际完成与跳过项目，不自动重试           |
-| `sweep_storyline`                | `{ chapterNumber: number, stageNumber: number, times: number }` | 关卡 1..4、次数 1..9999，返回实际消耗和奖励                |
-| `claim_storyline_chest`          | `{ chapterNumber: number, chestIndex: number }`                 | 领取指定章节宝箱；序号取章节查询结果                       |
-| `claim_storyline_chapter_chests` | `{ chapterNumber: number }`                                     | 领取指定章节所有可领宝箱                                   |
-| `claim_all_storyline_chests`     | `{}`                                                            | 领取全部章节可领宝箱，返回章节明细与合计                   |
+本批4个查询每次采用框架调用编号区分读取，允许同一条 AI 消息中提交或审核后重新查询新状态；写操作继续使用原消息、操作及参数生成稳定幂等键。缺失的简介、境界或姓名保留为可选字段，不填造展示文案；无权查询、未入宗与查询失败保留业务拒绝，不替换成空列表。宗门列表 `redirected=true` 表示已纠正页码，若 `result` 缺失则表示纠正查询失败。
 
-主线扫荡的 `totalExp` 和 `totalBonusExp` 分别保留基础修为与有符号调整，最终修为按两者相加理解；封顶可能使调整为负。秘境组队胜利不代表所有成员都获得奖励，以 `rewardsByUser` 的 eligible、noRewardReason、spiritCostPaid 及实际奖励为准。
+### Expose 查询快照
 
-动作沿用当前消息身份、服务端准入及稳定幂等键，不把调用方自由文本作为任意业务命令。主线扫荡与宝箱所需 input 由限定的结构化参数构造。主线手动战斗使用下列带版本校验的能力；其他预览确认能力仍在接入中。
+版本 `1.25.0` 对日常和周常活跃、宗门日常和周常、队伍信息、队伍列表、队伍申请及匹配状态使用每次调用的新查询回执。同一条消息中领取、组队或变更后可以重新读取最新状态；领取、创建及其他写操作仍沿用原消息生成的稳定幂等键，避免重试重复结算。查询仍遵守服务端准入及周期处理，不能将业务拒绝当作空数据。
 
-### Expose 主线手动战斗
+### Expose 灵药师入门
 
-| 动作                     | 参数                                                              | 说明                                                              |
-| ------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `challenge_storyline`    | `{ chapterNumber: number, stageNumber: number }`                  | 关卡 1..4；遵循玩家原有自动／手动模式，返回战斗状态或结算         |
-| `get_storyline_battle`   | `{ sessionId: string }`                                           | 每次重新读取本人会话，不推进回合                                  |
-| `choose_storyline_skill` | `{ sessionId: string, expectedRevision: number, choice: string }` | choice 为 normal、battle、divine、自动；使用最近状态中的 revision |
+版本 `1.26.0` 新增 `start_herbalist_guide`，开启或恢复本人灵药师指引，返回服务端步骤、版本、创建时间和过期时间；已入门或不满足条件时返回服务端拒绝。开始指引不表示已完成入门或发放物资。
 
-流程为挑战后检查 finished；有 choice 时读取 availableSkills 和当前阵容，再提交 expectedRevision。必须检查 `choiceAccepted`：true 表示本次提交已接受；false 表示未按本次输入执行选技，返回当前状态供重新决策。版本过期、已结束或选择期限已过时，不把原选择套用到后续回合。可用技能、选择期限、Worker 超时处理和结算均由服务端决定。
+版本 `1.27.0` 新增 `get_herbalist_guide` 和 `continue_herbalist_guide`。查询返回当前会话；继续需要携带完整原 session，服务端核对原步骤、版本、创建与过期时间，旧状态不得推进新指引。最后一步按服务端原事务启用职业和发放入门物资；只以实际 completed 和 activation 回执确认完成。会话缺失不等于未入门，结果未知时核对职业及灵田状态。此能力需配套发布服务端。
 
-同一消息、会话、版本和技能重试复用同一幂等键；连续回合使用服务端返回的新 revision，因此同一消息内多次选择普攻也能推进。revision 是状态版本，不是所有权凭据；服务端仍校验会话玩家。`自动` 表示交由原有自动战斗逻辑完成当前会话。
+### Expose 功法切换确认
 
-回执包含当前阵容、技能选项、行动摘要、战斗记录编号及收益结算；只投影业务所需字段，不返回底层玩家模型或随机种子。先发布配套服务端 revision / expectedRevision 支持，再发布机器人；旧服务端缺少版本回执时会明确失败，不能自动降级为无版本选技。新服务端继续兼容原聊天处理器的无 expectedRevision 请求。
+版本 `1.28.0` 新增 `prepare_skill_switch` 与 `confirm_skill_switch`。准备操作在空槽位可直接切换；已有使用中功法时返回服务端原比较与 `reference`，确认须携带同一类型、目标实例和引用。服务端在事务内核对两本功法及原比较属性，变化时拒绝；成功回执与切换同时提交，跨消息重试复用原回执。引用绑定玩家，在 Redis 中保留 24 小时，失效或缓存不可用时应先核对结果。需机器人与服务端配套发布。
 
-### Expose 洞府与宗门日常
+版本 `1.29.0` 新增 `prepare_skill_learn` 和 `confirm_skill_learn`。准备时没有旧功法则直接学习；需要替换时返回原功法比较、预计返还及引用。确认会核对原目标、旧功法、熟练度、强化和返还配置，事务中完成经验材料返还、熟练度转移及原回执保存。引用绑定玩家并保留 24 小时，缓存不可用或引用失效时先核对原结果；需机器人与服务端配套发布。
 
-| 动作                     | 参数                                      | 说明                                                |
-| ------------------------ | ----------------------------------------- | --------------------------------------------------- |
-| `get_cave_plant_options` | `{ plotIndex?: number }`                  | 可播种灵种、库存、成熟小时数与空闲地块              |
-| `cultivate_cave_plot`    | `{ plotIndex: number }`                   | 开垦指定地块；服务端校验材料和资格                  |
-| `plant_cave_seed`        | `{ plotIndex: number, seedName: string }` | 消耗对应灵种播种                                    |
-| `water_cave_plots`       | `{ plotIndex?: number }`                  | 浇灌；省略地块则批量处理                            |
-| `remove_cave_worms`      | `{ plotIndex?: number }`                  | 除虫；省略地块则批量处理                            |
-| `remove_cave_weeds`      | `{ plotIndex?: number }`                  | 除草；省略地块则批量处理                            |
-| `harvest_cave_plots`     | `{ plotIndex?: number }`                  | 收割；以服务端实际成熟及收获状态为准                |
-| `tend_cave_plots`        | `{}`                                      | 一键照料并收割本人灵田，检查各步骤说明              |
-| `checkin_guild`          | `{}`                                      | 当前宗门签到，返回实际贡献、声望和活跃增量          |
-| `mine_guild`             | `{}`                                      | 开始、查看进行中或结算采矿；检查 outcome 和剩余秒数 |
-| `claim_guild_stipend`    | `{}`                                      | 领取本周俸禄，返回实际金额及倍率事实                |
+### Expose 初入仙途
 
-洞府操作返回 message、needsSeedSelection 以及可用的 overview / options。snapshotError 表示快照读取失败，不能推断此前操作未发生；一键打理可能部分完成，以 message 各步骤为准。查询播种选项不消耗种子，实际播种和开垦使用服务端库存与规则。
+版本 `1.30.0` 增加 `get_newcomer_activity`、`claim_newcomer_login` 和 `claim_newcomer_task`。面板返回服务端活动进度和可领奖里程碑，只有原领奖命令包含合法编号时才提供 `taskConfigId`；领取结果按实际回执判断，零奖励和无可领状态不会被当成发奖。活动面板每次调用获取新快照，写操作保持原消息幂等。
 
-宗门操作保留 message 和结构化 receipt。采矿回执可包含 baseSpiritStone、spiritStoneBonus、outputMultiplier；旧服务端未提供时省略，不补造零值。产出、成长周期、俸禄倍率均来自服务端，不在机器人重算。
+版本 `1.31.0` 新增批量开垦 `cultivate_all_cave_plots`、单块升级 `upgrade_cave_plot` 和加速选项查询 `get_cave_acceleration_options`。开垦和升级按服务端实际消耗执行；加速查询仅展示当下报价，操作后的快照错误不代表操作未提交。
 
-### Expose 炼丹与锻造确认
-
-| 动作                     | 参数                                  | 说明                                     |
-| ------------------------ | ------------------------------------- | ---------------------------------------- |
-| `get_alchemy_dashboard`  | `{}`                                  | 炼丹状态与入口，服务端可能处理入门状态   |
-| `enroll_alchemist`       | `{}`                                  | 加入炼丹师或恢复原入门引导               |
-| `get_alchemy_recipes`    | `{ page: number }`                    | 丹方说明与预览入口                       |
-| `preview_alchemy`        | `{ recipeId: number, count: number }` | 1..1000 炉预览；实际可炼数量以原预览为准 |
-| `confirm_alchemy`        | `{ reference: string }`               | 用户确认后提交原 r1_a 引用               |
-| `get_forge_overview`     | `{}`                                  | 锻造等级、图纸、材料和资格               |
-| `preview_forge`          | `{ recipeId: number }`                | 普通锻造材料、费用、属性范围及确认 token |
-| `preview_forge_tutorial` | `{}`                                  | 加入锻造师的入门制作预览                 |
-| `confirm_forge`          | `{ reference: string }`               | 用户确认后提交原 r1_f 引用               |
-
-炼丹返回 `{ reply, confirmations }`，reply 保留服务端完整说明、分块和按钮，confirmations 提取原确认按钮中的引用。`success` 或 Expose `ok` 不代表一定炼制成功，调用方必须阅读 reply 中的结果。锻造预览返回 token、expiresAt、材料、费用及属性范围；确认将 token 原样作为 reference 提交。
-
-只接受相应类型的完整 r1_ 引用，不接受调用方提供的签名载荷、自由确认命令或 force 参数。引用校验、原预览内容和原操作编号由服务端 Redis 及数据库回执保留；确认前必须取得用户对原预览的明确同意。失效、规则变化或库存变化时按服务端拒绝处理，不重新预览后自动确认，也不将成功读取引用视作授权。
-
-同一平台消息下的幂等键同时绑定业务操作、固定构造的具体命令及规范化参数，防止炼丹多个入口共用 alchemy.v2、空 arguments 时误读其他动作的回执。重试保留原引用；跨消息重复确认仍由原业务操作编号或确认编号去重。
-
-### Expose 晋级、渡劫与心魔
-
-| 动作                          | 参数                                                         | 说明                                                                 |
-| ----------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `promote_realm`               | `{}`                                                         | 原晋级入口，mode 区分 preparation 和 promotion；后者还须检查 success |
-| `get_tribulation_preparation` | `{}`                                                         | 重新读取本人劫云；preparation 缺失表示没有可用准备状态               |
-| `open_tribulation`            | `{ eventId: number }`                                        | 开启本场准备，不自动确认开劫                                         |
-| `preview_tribulation`         | `{ eventId: number, grade: 'low' 或 'standard' 或 'high' }`  | 原评级材料、修为代价、倍率、战斗和条件快照，返回 r1_t 引用           |
-| `confirm_tribulation`         | `{ reference: string }`                                      | 用户确认原评级后提交 r1_t 引用                                       |
-| `get_tribulation_result`      | `{ eventId: number }`                                        | 每次重新读取本人原事件，不再次开劫                                   |
-| `preview_heart_demon`         | `{ eventId: number, choice: 'guard' 或 'slay' 或 'accept' }` | 返回当前心魔选项与原策略绑定的 r1_h 引用                             |
-| `confirm_heart_demon`         | `{ reference: string }`                                      | 用户确认后原样提交 r1_h 引用                                         |
-| `evade_tribulation`           | `{ eventId: number }`                                        | 主动暂避，影响档位、恢复和重开时间，须用户明确要求                   |
-
-开劫和结果查询返回 kind：charging 表示已接受、等待落雷或已取消等状态；receipt 才是实际结算；unconfirmed 表示开劫与回执都未得到完整确认，保留 failure / status 及 receiptFailure / receiptStatus。不得把调用成功或 charging 解释为渡劫成功；不得重新生成最新参数后自动提交。
-
-评级预览保留原倍率、材料和修为代价，以及可用的心魔、因果、天时、暂避、捣乱与攻击上限快照。材料名称以数组映射返回。确认仅使用原引用，不接受调用方提交倍率、条件摘要或策略版本。跨玩家引用由服务端拒绝；引用使用 GET 保留原内容供重试。心魔回答与开劫的引用类型分别校验，不可互换。
-
-### Expose 活跃、月卡与成就领奖
-
-| 动作                                                    | 参数                         | 返回内容                                                |
-| ------------------------------------------------------- | ---------------------------- | ------------------------------------------------------- |
-| `get_daily_activity`、`get_weekly_activity`             | `{}`                         | 服务端周期、积分、任务、奖励阈值及领取状态              |
-| `claim_daily_activity`、`claim_weekly_activity`         | `{ requiredPoints: number }` | 指定阈值实际发放的 `issued`；阈值从活跃面板读取         |
-| `claim_all_daily_activity`、`claim_all_weekly_activity` | `{}`                         | `claimed`、`partial`，以及可选任务奖励和错误信息        |
-| `claim_month_card_rewards`                              | `{}`                         | 实际领取天数、灵晶／丹药数量及领取后状态；不会购买月卡  |
-| `claim_all_achievements`                                | `{}`                         | `locked` 与领取结果；保留服务端准入，不自行推断解锁境界 |
-
-这些入口沿用服务端业务准入与当前消息幂等键，均不发送聊天消息。活跃面板通过业务入口读取，副作用暂按保守的 `write` 标注。`partial: true` 表示部分奖励已结算，不能当作全部成功或自动重新发奖；缺失的可选字段不会补造。成就 `locked: true` 时没有领取结果。月卡发奖后的状态查询失败可能返回失败提示，这不证明发奖已回滚，应先核对权益和库存。
+版本 `1.32.0` 新增 `prepare_cave_acceleration` 和 `confirm_cave_acceleration`，支持灵肥、小绿瓶、灵石及催熟。准备时返回原作物、请求次数、灵石消耗上限和服务端引用；确认时在事务内核对原作物及加速条件，实际消耗与回执同时提交。状态变化或库存不足时拒绝，引用跨消息重试复用原回执。缓存失效时先核对灵田和原结果；机器人与服务端需配套发布。
