@@ -4,6 +4,7 @@ import {
   parseTreasureConfirmation,
   parseTreasureOverview,
   parseTreasureReceipt,
+  parseTreasureDailyPacks,
   treasureAttributeNames,
   validTreasureConfirmationRef,
   type OwnedTreasure,
@@ -29,7 +30,9 @@ const sourceNames: Record<string, string> = { free: '每日免费', spirit_cryst
 const stages = ['星尘', '晓月', '真阳', '仙藏'];
 const pageSize = 6;
 const treasureID = (value: string | undefined) => {
-  if (value === undefined || !/^\d{3}$/.test(value)) { return undefined; }
+  if (value === undefined || !/^\d{3}$/.test(value)) {
+    return undefined;
+  }
   const id = Number(value);
 
   return id >= 101 && id <= 604 && id % 100 >= 1 && id % 100 <= 4 ? id : undefined;
@@ -144,7 +147,6 @@ export default onResponse(selects, async event => {
     quote(
       [`经验 ${data.experience} · 仙蕴 ${data.xianYun}`, ...(item.owned ? [`下一级经验 ${item.nextLevelCost}`] : [])],
       [
-        ...(item.canSynthesize ? [{ label: '合成', command: `/宝物 合成 ${d.id}` }] : []),
         ...(item.canUpgrade ? [{ label: '升级', command: `/宝物 升级 ${d.id}` }] : []),
         ...(item.canPromote ? [{ label: '升品', command: `/宝物 升品 ${d.id}` }] : []),
         { label: '返回持有', command: '/宝物' }
@@ -176,10 +178,16 @@ export default onResponse(selects, async event => {
       title = '宝物操作回执';
       quote([data.result.message, `操作编号 ${data.operationId}`]);
       if (data.kind === 'explore' && data.result.rewards) {
-        quote([`探索 ${data.result.count}次 · 消耗 ${data.result.paidAmount} · 宝物经验 +${data.result.experienceGranted}`]);
+        const unit = data.result.source ? sourceNames[data.result.source] : '';
+
+        quote([`探索 ${data.result.count}次 · 消耗 ${data.result.paidAmount}${unit} · 宝物经验 +${data.result.experienceGranted}`]);
         for (const r of data.result.rewards) {
           quote(
-            [`${r.name} · ${r.kind === 'body' ? '完整本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 新获得' : ''}`],
+            [
+              `${r.name} · ${r.kind === 'body' ? '直接完整本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''}`,
+              ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}；不计直接完整结果。`] : []),
+              ...(r.forcedComplete ? ['本笔十连形态保证'] : [])
+            ],
             [{ label: '查看', command: `/宝物 详情 ${r.treasureId}` }]
           );
         }
@@ -194,16 +202,95 @@ export default onResponse(selects, async event => {
     if (command === '宝物') {
       const action = args[0];
 
-      if (['合成', '升级', '升品'].includes(action)) {
-        const id = treasureID(args[1]);
+      if (action === '合成') {
+        quote(['同名碎片每满10枚自动合成，首次本体自动激活，不需要手动合成。']);
+        await send();
 
-        if (args.length !== 2 || id === undefined) {
-          quote(['参数错误：/宝物 合成|升级|升品 <宝物编号>。']);
+        return;
+      }
+      if (action === '一键分解' && args.length === 1) {
+        await preview('decompose', { allMaxed: true });
+
+        return;
+      }
+      if (action === '分解' && args.length > 1) {
+        const id = treasureID(args[2]);
+        const quantity = Number(args[3]);
+
+        if (
+          args.length !== 4 ||
+          !['本体', '碎片'].includes(args[1]) ||
+          id === undefined ||
+          !/^\d+$/.test(args[3]) ||
+          !Number.isSafeInteger(quantity) ||
+          quantity < 1
+        ) {
+          quote(['参数错误：/宝物 分解 本体|碎片 <编号> <数量>。']);
           await send();
 
           return;
         }
-        await preview(({ 合成: 'synthesize', 升级: 'upgrade', 升品: 'promote' } as const)[action as '合成' | '升级' | '升品'], { treasureId: id });
+        await preview('decompose', { items: [{ treasureId: id, kind: args[1] === '本体' ? 'body' : 'fragment', quantity }] });
+
+        return;
+      }
+      if ((action === '分解' || action === '记录') && args.length === 1) {
+        const data = await call('treasures.overview', {}, parseTreasureOverview);
+
+        if (!data) {
+          return;
+        }
+        if (action === '记录') {
+          for (const record of data.records) {
+            quote([record.createdAt, record.message, `操作编号 ${record.operationId}`]);
+          }
+          if (!data.records.length) {
+            quote(['暂无宝物操作记录。']);
+          }
+        } else {
+          quote(
+            [
+              '主宝物不可分解；只消耗重复本体或余片。仙蕴分解无每日或每周获取上限，确认后不能撤销。',
+              '一键只处理满阶主宝物的重复本体，不处理碎片；未满阶材料须手动指定。'
+            ],
+            [{ label: '一键清单预览', command: '/宝物 一键分解' }]
+          );
+          for (const item of data.items) {
+            const rate = data.decompositionValues.find(v => v.rarity === item.definition.rarity);
+
+            if (!rate) {
+              continue;
+            }
+            for (const kind of ['本体', '碎片'] as const) {
+              const available = kind === '本体' ? item.duplicates : item.fragments;
+
+              if (!available) {
+                continue;
+              }
+              quote(
+                [
+                  `${item.definition.id} ${item.definition.name} ${kind} · 库存${available} · 每份${kind === '本体' ? rate.bodyXianYun : rate.fragmentXianYun}仙蕴`
+                ],
+                [{ label: '输入数量预览', command: `/宝物 分解 ${kind} ${item.definition.id} 1` }]
+              );
+            }
+          }
+        }
+        await send();
+
+        return;
+      }
+
+      if (['升级', '升品'].includes(action)) {
+        const id = treasureID(args[1]);
+
+        if (args.length !== 2 || id === undefined) {
+          quote(['参数错误：/宝物 升级|升品 <宝物编号>。']);
+          await send();
+
+          return;
+        }
+        await preview(({ 升级: 'upgrade', 升品: 'promote' } as const)[action as '升级' | '升品'], { treasureId: id });
 
         return;
       }
@@ -245,7 +332,9 @@ export default onResponse(selects, async event => {
           [`宝物经验 ${data.experience} · 仙蕴 ${data.xianYun} · 境界等级上限 ${data.levelCap}`],
           [
             { label: '持有', command: '/宝物' },
-            { label: '全部图鉴', command: '/宝物 图鉴' }
+            { label: '全部图鉴', command: '/宝物 图鉴' },
+            { label: '分解与仙蕴', command: '/宝物 分解' },
+            { label: '操作记录', command: '/宝物 记录' }
           ]
         );
         const all = data.items.filter(item => isCatalog || item.owned || item.fragments > 0);
@@ -279,6 +368,41 @@ export default onResponse(selects, async event => {
       return;
     }
     if (command === '上古遗珍') {
+      if (args[0] === '礼包' && args.length === 1) {
+        const data = await call('treasures.daily-packs', {}, parseTreasureDailyPacks);
+
+        if (!data) {
+          return;
+        }
+        quote(['每日1元／6元／18元与全包共享额度；未决订单继续占用，跨日不会自动释放。随机赠片不计探索和经验。']);
+        for (const p of data.products) {
+          quote(
+            [
+              `${p.name} · ¥${(p.priceAmount / 100).toFixed(2)} · ${p.label}`,
+              `剩余${p.remaining}份`,
+              ...p.rewardParts.map(r => `${r.name} ×${r.quantity}${r.independentRolls ? `（独立${r.independentRolls}次，每次${r.perRoll}片）` : ''}`),
+              ...p.promotionTexts,
+              p.unavailableReason
+            ].filter(Boolean),
+            p.available && p.packageId !== null ? [{ label: '购买（私聊）', command: `/充值购买 ${p.packageId}` }] : []
+          );
+        }
+        if (data.unresolvedOrderNo) {
+          quote([`待核对订单 ${data.unresolvedOrderNo}`], [{ label: '我的订单', command: '/我的订单' }]);
+        }
+        await send();
+
+        return;
+      }
+      if (args[0] === '周活' && args.length === 1) {
+        quote(
+          ['五个周活门槛领取后额外得到2／3／5／5／5张藏宝图。原档奖励保留，本周已领取原奖励但未发图可在周活入口补领。'],
+          [{ label: '查看周活与补图', command: '/周常活跃' }]
+        );
+        await send();
+
+        return;
+      }
       if (args[0] === '免费探索' && args.length === 1) {
         await preview('explore', { source: 'free', count: 1 });
 
@@ -314,15 +438,30 @@ export default onResponse(selects, async event => {
       quote([`累计探索 ${data.totalExplorations}次 · 本轮 ${data.milestoneProgress}/300`, `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`]);
       if (args[0] === '概率') {
         for (const pity of data.pity) {
-          quote([`${pity.name}保底 ${pity.counter}/${pity.hardPity} · 下次完整本体概率 ${probability(pity.nextProbability)}`]);
+          const exactName = ['普通', '优秀', '精良', '稀有', '史诗', '神话'][pity.rarity - 1];
+
+          quote([`${pity.name}保底 ${pity.counter}/${pity.hardPity}次直接完整结果`, `下一次完整结果恰好${exactName}概率 ${probability(pity.nextProbability)}`]);
         }
-        quote(data.wholeRates.map(rate => `${rate.name}完整本体综合概率 ${probability(rate.probability)}`));
+        quote([
+          `单次直接完整率${probability(data.shapeRates.singleComplete)}`,
+          `每笔十连期望直接完整${number(data.shapeRates.tenExpectedComplete)}件，平均每个子探索${probability(data.shapeRates.tenAverageComplete)}`
+        ]);
+        for (const rate of data.wholeRates) {
+          quote([
+            `${rate.name}完整池内综合概率 ${probability(rate.probability)}`,
+            `单次探索直出${probability(rate.probability * data.shapeRates.singleComplete)}`,
+            `十连子探索平均直出${probability(rate.probability * data.shapeRates.tenAverageComplete)}`
+          ]);
+        }
         quote(data.rules);
       } else if (args[0] === '记录') {
         for (const record of data.records.slice(0, 10)) {
           quote([
             `${record.createdAt} · ${sourceNames[record.source]}探索 ${record.count}次 · 消耗 ${record.paidAmount}`,
-            ...record.rewards.map(r => `${r.name}${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}`),
+            ...record.rewards.flatMap(r => [
+              `${r.name}${r.kind === 'body' ? '直接完整本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? '；已激活' : ''}`,
+              ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}；不计直接完整结果。`] : [])
+            ]),
             `操作编号 ${record.operationId}`
           ]);
         }
@@ -348,12 +487,15 @@ export default onResponse(selects, async event => {
             `灵晶 ${number(data.balances.spiritCrystal)} · 道晶 ${number(data.balances.daoCrystal)} · 藏宝图 ${data.balances.treasureMaps}张`,
             `今日免费探索：${data.freeAvailable ? '可用' : '已使用'}`,
             `灵晶每日首次十连9折：${data.spiritTenDiscountAvailable ? '可用' : '已使用'}；道晶十连始终9折`,
-            '藏宝图目前仅通过邮件发放，单次1张、十连10张。'
+            '藏宝图来自邮件、每日礼包与周活跃，单次1张、十连10张。所有来源每次成功探索100经验。',
+            '每笔十连至少1次直接完整结果；同名碎片满10自动合成。三档保底按直接完整结果计数，较高档覆盖较低门槛。'
           ],
           [
             ...(data.freeAvailable ? [{ label: '免费探索', command: '/上古遗珍 免费探索' }] : []),
             { label: '概率公示', command: '/上古遗珍 概率' },
-            { label: '探索记录', command: '/上古遗珍 记录' }
+            { label: '探索记录', command: '/上古遗珍 记录' },
+            { label: '每日礼包', command: '/上古遗珍 礼包' },
+            { label: '周活藏宝图', command: '/上古遗珍 周活' }
           ]
         );
         for (const name of ['灵晶', '道晶', '藏宝图']) {
@@ -398,7 +540,7 @@ export default onResponse(selects, async event => {
       ],
       [
         ...(lease.claimableDays > 0 ? [{ label: '预览领取', command: '/灵脉租契 领取' }] : []),
-        ...(lease.packageId ? [{ label: '购买/续订（私聊）', command: `/充值购买 ${lease.packageId}` }] : []),
+        ...(lease.packageId && lease.canPurchase ? [{ label: '购买/续订（私聊）', command: `/充值购买 ${lease.packageId}` }] : []),
         { label: '我的订单', command: '/我的订单' }
       ]
     );

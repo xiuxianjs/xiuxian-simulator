@@ -18,7 +18,7 @@ export default onResponse(selects, async e => {
   const renderFailure = async (text: string) => {
     const content = Format.createMarkdown().addText(text);
 
-    await message.send(FormatGui({ isPrivate, bid, title: '周常活跃', content, footer: [{ label: '返回周常活跃', command: '/周常活跃' }] }));
+    await message.send(FormatGui({ isPrivate, bid, title: '周常活跃', content, footer: [{ label: '返回周常活跃', command: '/周常活跃', autoEnter: false }] }));
   };
 
   try {
@@ -34,7 +34,7 @@ export default onResponse(selects, async e => {
 
     const rewardText = result.data.rewards.length > 0 ? result.data.rewards.map(reward => `${reward.name}×${reward.amount}`).join('、') : '无';
 
-    md.addText(`【${result.data.userName}】领取周常活跃奖励成功！`);
+    md.addText(`【${result.data.userName}】${result.data.treasureMapBackfillOnly ? '补领藏宝图成功，原宝箱奖励不重复发放' : '领取周常活跃奖励成功'}！`);
     md.addNewline();
     md.addText(`🎯 活跃度阈值：${result.data.requiredPoints}`);
     md.addNewline();
@@ -47,7 +47,7 @@ export default onResponse(selects, async e => {
         bid,
         title: '周常活跃',
         content: md,
-        footer: [{ label: '返回周常活跃', command: '/周常活跃' }]
+        footer: [{ label: '返回周常活跃', command: '/周常活跃', autoEnter: false }]
       })
     );
   } catch (error) {
@@ -61,7 +61,7 @@ export default onResponse(selects, async e => {
         bid,
         title: '周常活跃',
         content: md,
-        footer: [{ label: '返回周常活跃', command: '/周常活跃' }]
+        footer: [{ label: '返回周常活跃', command: '/周常活跃', autoEnter: false }]
       })
     );
   }

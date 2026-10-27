@@ -5,6 +5,8 @@ import { dirname } from 'node:path';
 import { Router, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import handler from '../../src/response/treasures/res';
+import weeklyHandler from '../../src/response/activityPoints/weekly/res';
+import claimWeeklyHandler from '../../src/response/activityPoints/claimWeekly/res';
 import responseRouter, { matchesGameCommand } from '../../src/router';
 import { parseTreasureConfirmation, validTreasureConfirmationRef } from '../../src/api/bot/treasures';
 import { parseBackendNormalPaymentSettlement } from '../../src/api/bot/sponsor-payment';
@@ -35,6 +37,9 @@ const overview = {
   experience: 100,
   xianYun: 5,
   levelCap: 10,
+  version: 1,
+  decompositionValues: [10,20,40,100,220,500].map((bodyXianYun,index)=>({rarity:index+1,bodyXianYun,fragmentXianYun:bodyXianYun/10})),
+  records: [],
   fortune: { score: 1, level: 1, maxLevel: 20, nextThreshold: 3, bonus: { critRate: 1, hitRate: 1, dodgeRate: 1, critDamage: 5 } },
   items: [401, 504, 601, 602, 603, 604].map(id => ({
     definition: {
@@ -54,7 +59,7 @@ const overview = {
     grade: id === 504 ? 1 : 0,
     gradeName: id === 504 ? '星尘1' : '',
     level: id === 504 ? 1 : 0,
-    fragments: 10,
+    fragments: 2,
     duplicates: 1,
     attributes: { ...stats, hp: 600 },
     percentAttributes: { ...stats, hp: 2 },
@@ -62,8 +67,7 @@ const overview = {
     nextLevelCost: 100,
     promotion: { duplicates: 1, xianYun: 0, requirements: [] },
     canUpgrade: id === 504,
-    canPromote: id === 504,
-    canSynthesize: id !== 504
+    canPromote: id === 504
   }))
 };
 const relics = {
@@ -74,6 +78,7 @@ const relics = {
   totalExplorations: 300,
   milestoneProgress: 0,
   pendingSelections: 1,
+  shapeRates: {singleComplete:.12,tenExpectedComplete:1.478500976009402,tenAverageComplete:.1478500976009402},
   pity: [{ rarity: 6, name: '神话', counter: 119, hardPity: 120, nextProbability: 1 }],
   wholeRates: [{ rarity: 6, name: '神话', probability: 0.0098 }],
   rules: ['保底分别计数', '随机碎片1-3'],
@@ -81,6 +86,7 @@ const relics = {
 };
 const lease = {
   active: true,
+  canPurchase:true,
   startDate: '2026-10-01',
   endDate: '2026-10-30',
   remainingDays: 4,
@@ -98,7 +104,8 @@ const preview = (kind = 'explore', input: Record<string, unknown> = {}) => {
     input.source === 'free' ? 0 : input.source === 'treasure_map' ? count : input.source === 'spirit_crystal' ? (count === 10 ? 10800 : 1200) : 108;
   const unit = input.source === 'free' ? '免费次数' : input.source === 'treasure_map' ? '张藏宝图' : input.source === 'spirit_crystal' ? '灵晶' : '道晶';
   const summaries: Record<string, string[]> = {
-    explore: [`上古遗珍：探索${count}次；消耗${amount}${unit}。`, '独立累计10／50／120保底；每300次另获神话自选。'],
+    explore: [`上古遗珍：探索${count}次；消耗${amount}${unit}。`, '完整结果推进20／50／120门槛，高档覆盖；每300探索另获神话自选。'],
+    decompose: ['消耗「神农鼎」重复本体1件；获得220仙蕴。', '分解不能撤销，主件与气运不降低。'],
     synthesize: ['消耗「掌天瓶」碎片10片，合成1本体；已拥有时计为重复本体。'],
     upgrade: ['「神农鼎」等级1 → 2；消耗宝物经验100。', '升级提升战斗数值，生活特效保持当前品级。'],
     promote: ['「神农鼎」星尘1 → 星尘2；消耗重复本体1、仙蕴0。'],
@@ -113,16 +120,17 @@ const preview = (kind = 'explore', input: Record<string, unknown> = {}) => {
     operationId
   };
 };
-const receipt = (kind = 'explore') => ({
+const receipt = (kind = 'explore', input:Record<string,unknown> = {}) => ({
   kind,
   operationId,
   result: {
     operationId,
     message: '原操作已结算',
-    count: 10,
-    paidAmount: 108,
-    experienceGranted: 1000,
-    rewards: [{ treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true }],
+    count: Number(input.count ?? 10),
+    source: input.source ?? 'dao_crystal',
+    paidAmount: input.source === 'free' ? 0 : input.source === 'treasure_map' ? Number(input.count) : input.source === 'spirit_crystal' ? 10800 : 108,
+    experienceGranted: Number(input.count ?? 10)*100,
+    rewards: Array.from({length:Number(input.count ?? 10)},(_,index)=>index===0 ? { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true } : { treasureId:101,name:'锈剑残片',rarity:1,kind:'fragment',quantity:1,newlyOwned:false }),
     days: 2,
     spiritCrystal: 4000
   }
@@ -195,7 +203,7 @@ for (const privateChat of [false, true]) {
         assert.match(view.text, /0.98%/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
       else {
-        assert.match(view.text, /目前仅通过邮件发放/);
+        assert.match(view.text, /邮件、每日礼包与周活跃/);
         assert.ok(view.commands.includes('/上古遗珍 免费探索'));
         assert.ok(view.commands.includes('/上古遗珍 十连探索 道晶'));
         assert.ok(!view.commands.includes('/上古遗珍 探索 道晶'));
@@ -212,12 +220,14 @@ for (const [command, kind, input] of [
   ['/上古遗珍 十连探索 灵晶', 'explore', { source: 'spirit_crystal', count: 10 }],
   ['/宝物 升级 504', 'upgrade', { treasureId: 504 }],
   ['/宝物 升品 504', 'promote', { treasureId: 504 }],
-  ['/宝物 合成 604', 'synthesize', { treasureId: 604 }],
+  ['/宝物 分解 本体 504 1', 'decompose', { items: [{treasureId:504,kind:'body',quantity:1}] }],
+  ['/宝物 分解 碎片 604 2', 'decompose', { items: [{treasureId:604,kind:'fragment',quantity:2}] }],
+  ['/宝物 一键分解', 'decompose', { allMaxed:true }],
   ['/上古遗珍 自选 604', 'select-mythic', { treasureId: 604 }],
   ['/灵脉租契 领取', 'claimLease', {}]
 ] as const) {
   test(`真实按钮预览到确认与重复回执 ${command}`, async t => {
-    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, r.path.endsWith('/treasures.preview') ? preview(kind, input) : receipt(kind)));
+    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, r.path.endsWith('/treasures.preview') ? preview(kind, input) : receipt(kind,input)));
     await mount(app);
     const initial = facts(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })));
     const confirm = initial.commands.find(c => c.startsWith('/确认宝物 '));
@@ -324,4 +334,42 @@ test('支付成功回执展示本订单租契快照，旧订单保持兼容', ()
   assert.match(view.text, /延长 30收益日，每日 2000灵晶/);
   assert.ok(view.commands.includes('/灵脉租契'));
   assert.throws(() => parseBackendNormalPaymentSettlement({ ...data, spiritVein: { days: 30, dailyCrystal: '2000', startDate: 'x', endDate: 'x' } }));
+});
+
+test('每日礼包入口展示服务端配额，已单购的全包没有购买按钮', async t => {
+  const data={serverDate:'2026-10-27',unresolvedOrderNo:'N-pending',quotas:[{sku:'small',limit:3,successful:1,pending:0,remaining:2}],products:[
+    {sku:'small',name:'1元礼包',packageId:31,priceAmount:100,limit:3,remaining:2,available:true,unavailableReason:'',label:'超值300%',rewardParts:[{kind:'fragment',name:'随机稀有碎片',quantity:2,independentRolls:1,perRoll:2}]},
+    {sku:'all',name:'全包',packageId:34,priceAmount:3000,limit:1,remaining:0,available:false,unavailableReason:'当日已有单购，不支持补差全包',label:'单买33元，全包30元',rewardParts:[]}
+  ]};
+  for(const product of data.products) Object.assign(product,{promotionTexts:['不参加首充返利','不参加新人返利','不参加限时累计返利','不参加周返利','实付计充值及VIP']});
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,data));
+  const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/上古遗珍 礼包',platform:'qq-bot'})));
+  assert.ok(view.commands.includes('/充值购买 31'));assert.ok(!view.commands.includes('/充值购买 34'));assert.match(view.text,/不支持补差全包/);assert.match(view.text,/N-pending/);assert.equal(requests[0].path,'/api/v2/robot/business/treasures.daily-packs');previews.set('每日礼包与共享配额',view);
+});
+test('已领原周活宝箱能补图，多行原奖励保留且图与按钮各只展示一次',async t=>{
+  const weekly={rewardType:'weekly',cyclePeriod:'2026-10-26',currentPoints:10,taskRewardsCanClaim:false,tasks:[],rewards:['灵石','灵肥'].map((name,index)=>({requiredPoints:10,name,category:'item',currencyCode:'',itemId:index+1,quantity:index?1:10,claimed:true,canClaim:false,treasureMapQuantity:2,treasureMapGranted:false,treasureMapClaimable:true,treasureMapBackfillOnly:true}))};
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('activity-points.weekly')?weekly:{userName:'道友',requiredPoints:10,issued:[{type:'item',name:'藏宝图',amount:2}],treasureMapBackfillOnly:true}));
+  const view=facts(await app.runHandler(weeklyHandler,app.events.privateMessage({text:'/周常活跃',platform:'qq-bot'})));
+  assert.match(view.text,/灵石 x10、灵肥 x1/);assert.equal(view.text.match(/额外藏宝图 ×2/g)?.length,1);assert.equal(view.commands.filter(c=>c==='/领取周常活跃奖励 10').length,1);
+  const done=facts(await app.runHandler(claimWeeklyHandler,app.events.privateMessage({text:'/领取周常活跃奖励 10',platform:'qq-bot'})));
+  assert.match(done.text,/补领藏宝图成功，原宝箱奖励不重复发放/);assert.match(done.text,/藏宝图×2/);assert.doesNotMatch(done.text,/灵石×10/);assert.equal(requests[1].path,'/api/v2/robot/business/activity-points.claim-weekly');previews.set('周活藏宝图补领',view);
+});
+test('200回执串单时确认结果继续保留原引用，旧手动合成按钮不再提交',async t=>{
+ const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,{...receipt(),operationId:'other-operation'}));
+ const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
+ assert.match(view.text,/结果尚未获完整确认/);assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
+ const auto=facts(await app.runHandler(handler,app.events.privateMessage({text:'/宝物 合成 604',platform:'qq-bot'})));assert.match(auto.text,/满10枚自动合成/);assert.equal(requests.length,1);
+});
+test('每日礼包成功回执不把固定货币与特殊赠片重复展示',()=>{
+ const parsed=parseBackendNormalPaymentSettlement({orderNo:'N-pack',packageRewards:{spiritMilk:10,spiritStone:0,spiritCrystal:1500,items:[],equipments:[],skills:[]},bonusSpiritMilk:0,vipUpgrade:null,newcomerDayGranted:null,monthCardExtended:false,seclusionPassActivated:false,dailyTreasurePack:{sku:'small',businessDate:'2026-10-27',treasureMaps:0,fragments:[{treasureId:401,name:'采薇竹篮',rarity:4,quantity:2}]}});
+ const view=inspectMessage([{type:'Markdown',value:buildRechargeSuccessContent(parsed).value.value}]);assert.equal(view.text.match(/道晶 \+10/g)?.length,1);assert.equal(view.text.match(/灵晶 \+1500/g)?.length,1);assert.match(view.text,/采薇竹篮碎片 ×2/);
+});
+test('碎片9+2自动合成1余1并激活，回执不冒充直接完整出货',async t=>{
+ const result=receipt('explore',{source:'free',count:1});result.result.rewards=[{treasureId:603,name:'乾坤鼎',rarity:6,kind:'fragment',quantity:2,newlyOwned:true,autoSynthesized:1,fragmentsRemaining:1} as typeof result.result.rewards[number]];
+ const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,result));const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
+ assert.match(view.text,/乾坤鼎 · 碎片 ×2 · 已激活/);assert.match(view.text,/自动合成1本体，余片1/);assert.doesNotMatch(view.text,/直接完整本体/);previews.set('碎片自动合成与首次激活',view);
+});
+test('租契未来额度含预留不足30日时隐藏新购买，但已产生收益仍可领',async t=>{
+ const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,{...lease,canPurchase:false,remainingDays:170,futureDays:169,reservedDays:0,purchaseUnavailableReason:'未来收益日剩余额度不足30日'}));
+ const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/灵脉租契',platform:'qq-bot'})));assert.match(view.text,/未来收益日剩余额度不足30日/);assert.ok(!view.commands.includes('/充值购买 27'));assert.ok(view.commands.includes('/灵脉租契 领取'));
 });

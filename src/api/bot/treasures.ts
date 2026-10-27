@@ -128,8 +128,7 @@ function ownedTreasure(value: unknown) {
     nextLevelCost: integer(item.nextLevelCost),
     promotion: promotion(item.promotion),
     canUpgrade: bool(item.canUpgrade),
-    canPromote: bool(item.canPromote),
-    canSynthesize: bool(item.canSynthesize)
+    canPromote: bool(item.canPromote)
   };
 }
 function fortune(value: unknown) {
@@ -152,7 +151,18 @@ export function parseTreasureOverview(value: unknown) {
     experience: integer(item.experience),
     xianYun: integer(item.xianYun),
     levelCap: integer(item.levelCap),
-    fortune: fortune(item.fortune)
+    fortune: fortune(item.fortune),
+    version: integer(item.version),
+    decompositionValues: array(item.decompositionValues, value => {
+      const v = row(value);
+
+      return { rarity: rarity(v.rarity), bodyXianYun: integer(v.bodyXianYun), fragmentXianYun: integer(v.fragmentXianYun) };
+    }),
+    records: array(item.records, value => {
+      const v = row(value);
+
+      return { operationId: text(v.operationId), kind: text(v.kind), createdAt: date(v.createdAt), message: text(v.message) };
+    })
   };
 }
 export type TreasureOverview = ReturnType<typeof parseTreasureOverview>;
@@ -175,6 +185,10 @@ function reward(value: unknown) {
   if (!['fragment', 'body'].includes(String(item.kind))) {
     return invalid();
   }
+  const autoSynthesized = item.autoSynthesized === undefined ? 0 : integer(item.autoSynthesized);
+  const fragmentsRemaining = item.fragmentsRemaining === undefined ? undefined : integer(item.fragmentsRemaining);
+
+  if (fragmentsRemaining !== undefined && fragmentsRemaining > 9) { return invalid(); }
 
   return {
     treasureId: integer(item.treasureId),
@@ -182,12 +196,16 @@ function reward(value: unknown) {
     rarity: rarity(item.rarity),
     kind: text(item.kind),
     quantity: integer(item.quantity),
-    newlyOwned: bool(item.newlyOwned)
+    newlyOwned: bool(item.newlyOwned),
+    autoSynthesized,
+    fragmentsRemaining,
+    forcedComplete: item.forcedComplete === undefined ? false : bool(item.forcedComplete)
   };
 }
 export function parseRelicsOverview(value: unknown) {
   const item = row(value);
   const balances = row(item.balances);
+  const shape = row(item.shapeRates);
 
   return {
     serverDate: date(item.serverDate),
@@ -197,6 +215,11 @@ export function parseRelicsOverview(value: unknown) {
     totalExplorations: integer(item.totalExplorations),
     milestoneProgress: integer(item.milestoneProgress),
     pendingSelections: integer(item.pendingSelections),
+    shapeRates: {
+      singleComplete: number(shape.singleComplete),
+      tenExpectedComplete: number(shape.tenExpectedComplete),
+      tenAverageComplete: number(shape.tenAverageComplete)
+    },
     pity: array(item.pity, value => {
       const p = row(value);
 
@@ -243,10 +266,11 @@ export function parseSpiritVein(value: unknown) {
     priceAmount: integer(item.priceAmount),
     dailyCrystal: integer(item.dailyCrystal),
     immediateDaoCrystal: integer(item.immediateDaoCrystal),
+    canPurchase: bool(item.canPurchase),
     purchaseUnavailableReason: item.purchaseUnavailableReason === undefined ? undefined : text(item.purchaseUnavailableReason)
   };
 }
-const kinds = ['explore', 'synthesize', 'upgrade', 'promote', 'select-mythic', 'claimLease'] as const;
+const kinds = ['explore', 'synthesize', 'upgrade', 'promote', 'select-mythic', 'claimLease', 'decompose'] as const;
 
 export type TreasurePreviewKind = (typeof kinds)[number];
 export function validTreasureConfirmationRef(value: string): boolean {
@@ -280,6 +304,11 @@ export function parseTreasureReceipt(value: unknown) {
   }
   const result = row(item.result);
 
+  if (result.operationId !== item.operationId) {
+    return invalid();
+  }
+  if (item.kind === 'explore' && (!Array.isArray(result.rewards) || result.rewards.length < integer(result.count))) { return invalid(); }
+
   return {
     kind: item.kind as TreasurePreviewKind,
     operationId: text(item.operationId),
@@ -289,6 +318,7 @@ export function parseTreasureReceipt(value: unknown) {
       ...(item.kind === 'explore'
         ? {
             rewards: array(result.rewards, reward),
+            source: source(result.source),
             count: integer(result.count),
             paidAmount: integer(result.paidAmount),
             experienceGranted: integer(result.experienceGranted)
@@ -296,5 +326,46 @@ export function parseTreasureReceipt(value: unknown) {
         : {}),
       ...(item.kind === 'claimLease' ? { days: integer(result.days), spiritCrystal: integer(result.spiritCrystal) } : {})
     }
+  };
+}
+
+export function parseTreasureDailyPacks(value: unknown) {
+  const data = row(value);
+
+  return {
+    serverDate: date(data.serverDate),
+    unresolvedOrderNo: data.unresolvedOrderNo === null ? null : text(data.unresolvedOrderNo),
+    quotas: array(data.quotas, value => {
+      const q = row(value);
+
+      return { sku: text(q.sku), limit: integer(q.limit), successful: integer(q.successful), pending: integer(q.pending), remaining: integer(q.remaining) };
+    }),
+    products: array(data.products, value => {
+      const p = row(value);
+
+      return {
+        sku: text(p.sku),
+        name: text(p.name),
+        packageId: p.packageId === null ? null : integer(p.packageId),
+        priceAmount: integer(p.priceAmount),
+        limit: integer(p.limit),
+        remaining: integer(p.remaining),
+        available: bool(p.available),
+        unavailableReason: text(p.unavailableReason),
+        label: text(p.label),
+        promotionTexts: array(p.promotionTexts, text),
+        rewardParts: array(p.rewardParts, value => {
+          const r = row(value);
+
+          return {
+            kind: text(r.kind),
+            name: text(r.name),
+            quantity: integer(r.quantity),
+            independentRolls: r.independentRolls === undefined ? undefined : integer(r.independentRolls),
+            perRoll: r.perRoll === undefined ? undefined : integer(r.perRoll)
+          };
+        })
+      };
+    })
   };
 }

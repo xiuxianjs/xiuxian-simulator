@@ -17,6 +17,8 @@ function texts(row: Record<string, unknown>, keys: string[]) {
 export function parseBackendActivityPoints(value: unknown, type: 'daily' | 'weekly'): ActivityPointsQueryData {
   const row = record(value);
 
+  if (row.treasureMapsUnavailableReason !== undefined && typeof row.treasureMapsUnavailableReason !== 'string') { throw new Error('周活藏宝图状态不完整'); }
+
   if (
     row.rewardType !== type ||
     (row.taskRewardsCanClaim !== undefined && typeof row.taskRewardsCanClaim !== 'boolean') ||
@@ -49,6 +51,10 @@ export function parseBackendActivityPoints(value: unknown, type: 'daily' | 'week
     ) {
       throw new Error('活跃奖励数据不完整');
     }
+    if (
+      (reward.treasureMapQuantity !== undefined && (!Number.isSafeInteger(reward.treasureMapQuantity) || Number(reward.treasureMapQuantity) < 0)) ||
+      ['treasureMapGranted', 'treasureMapClaimable', 'treasureMapBackfillOnly'].some(key => reward[key] !== undefined && typeof reward[key] !== 'boolean')
+    ) { throw new Error('周活藏宝图状态不完整'); }
   }
 
   return row as unknown as ActivityPointsQueryData;

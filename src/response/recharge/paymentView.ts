@@ -44,7 +44,8 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     payResult.newcomerDayGranted !== null ||
     payResult.monthCardExtended ||
     payResult.seclusionPassActivated ||
-    Boolean(payResult.spiritVein);
+    Boolean(payResult.spiritVein) ||
+    Boolean(payResult.dailyTreasurePack);
 
   if (!hasDetail) {
     successMd.addText('订单已完成，可查看到账奖励。');
@@ -83,6 +84,20 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     successMd.addNewline();
     successMd.addButton('领取灵脉租契', { data: '/灵脉租契', autoEnter: false });
     successMd.addNewline();
+  }
+  if (payResult.dailyTreasurePack) {
+    const pack = payResult.dailyTreasurePack;
+
+    const name = ({ small: '每日1元礼包', medium: '每日6元礼包', large: '每日18元礼包', all: '每日全包' } as Record<string, string>)[pack.sku] ?? '每日礼包';
+
+    successMd.addText(`${name} · ${pack.businessDate}`).addNewline();
+    if (pack.treasureMaps) {
+      successMd.addText(`藏宝图 +${pack.treasureMaps}`).addNewline();
+    }
+    for (const fragment of pack.fragments) {
+      successMd.addText(`${fragment.name}碎片 ×${fragment.quantity}`).addNewline();
+    }
+    successMd.addButton('查看每日礼包', { data: '/上古遗珍 礼包', autoEnter: false }).addNewline();
   }
 
   if (payResult.seclusionPassActivated) {

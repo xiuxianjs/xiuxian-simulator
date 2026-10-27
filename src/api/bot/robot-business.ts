@@ -21,6 +21,7 @@ export type RobotBusinessOperation =
   | 'treasures.catalog'
   | 'treasures.preview'
   | 'treasures.confirm'
+  | 'treasures.daily-packs'
   | 'ancient-relics.overview'
   | 'spirit-vein.overview'
   | 'alchemy.v2'

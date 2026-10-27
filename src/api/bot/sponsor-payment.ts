@@ -87,6 +87,12 @@ export type BackendNormalPaymentSettlement = {
   monthCardExtended: boolean;
   seclusionPassActivated: boolean;
   spiritVein?: { days: number; dailyCrystal: number; startDate: string; endDate: string };
+  dailyTreasurePack?: {
+    sku: string;
+    businessDate: string;
+    treasureMaps: number;
+    fragments: { treasureId: number; name: string; rarity: number; quantity: number }[];
+  };
 };
 export async function getBackendNormalPaymentSettlement(bid: string, uid: number, orderNo: string): Promise<BackendNormalPaymentSettlement> {
   return parseBackendNormalPaymentSettlement(await requestBackend(bid, 'get_players_id_payments_orders_orderNo_settlement', { path: { id: uid, orderNo } }));
@@ -119,6 +125,34 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
     throw new Error('充值结算回执不完整');
   }
   const spiritVein = data.spiritVein === undefined || data.spiritVein === null ? undefined : asRow(data.spiritVein, '灵脉租契回执不完整');
+  const daily = data.dailyTreasurePack === undefined || data.dailyTreasurePack === null ? undefined : asRow(data.dailyTreasurePack, '每日礼包回执不完整');
+
+  if (
+    daily &&
+    (!['small', 'medium', 'large', 'all'].includes(String(daily.sku)) ||
+      typeof daily.businessDate !== 'string' ||
+      !Number.isFinite(Date.parse(daily.businessDate)) ||
+      !Number.isSafeInteger(daily.treasureMaps) ||
+      Number(daily.treasureMaps) < 0 ||
+      !Array.isArray(daily.fragments))
+  ) { throw new Error('每日礼包回执不完整'); }
+  const fragments = daily
+    ? (daily.fragments as unknown[]).map(value => {
+        const f = asRow(value, '每日礼包赠片回执不完整');
+
+        if (
+          !Number.isSafeInteger(f.treasureId) ||
+          typeof f.name !== 'string' ||
+          !Number.isSafeInteger(f.rarity) ||
+          Number(f.rarity) < 4 ||
+          Number(f.rarity) > 6 ||
+          !Number.isSafeInteger(f.quantity) ||
+          Number(f.quantity) < 1
+        ) { throw new Error('每日礼包赠片回执不完整'); }
+
+        return { treasureId: f.treasureId as number, name: f.name, rarity: f.rarity as number, quantity: f.quantity as number };
+      })
+    : [];
 
   if (
     spiritVein &&
@@ -149,6 +183,9 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
     newcomerDayGranted: Number.isInteger(data.newcomerDayGranted) ? (data.newcomerDayGranted as number) : null,
     monthCardExtended: data.monthCardExtended,
     seclusionPassActivated: data.seclusionPassActivated,
+    ...(daily
+      ? { dailyTreasurePack: { sku: daily.sku as string, businessDate: daily.businessDate as string, treasureMaps: daily.treasureMaps as number, fragments } }
+      : {}),
     ...(spiritVein
       ? {
           spiritVein: {
