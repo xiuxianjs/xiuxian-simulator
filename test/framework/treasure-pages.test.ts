@@ -85,7 +85,9 @@ test('宝物默认普通，仅显示当前档已激活主件，气运不混入�
   const result = await run(t, overview([item(101), item(401), item(601, 6, false)]), '/宝物');
 
   assert.match(result.text, /宝物101/);
-  assert.match(result.text, /星尘1 · Lv\.1/);
+  assert.match(result.text, /【101】宝物101/);
+  assert.match(result.text, /品阶：星尘1 · 等级：1\/10/);
+  assert.match(result.text, /批量培养：预览本次可培养宝物与消耗/);
   assert.doesNotMatch(result.text, /宝物401|宝物601|鸿蒙气运 1\/20级|碎片/);
   assert.ok(result.commands.includes('/宝物 品质 1'));
   assert.ok(result.commands.includes('/宝物 品质 4'));

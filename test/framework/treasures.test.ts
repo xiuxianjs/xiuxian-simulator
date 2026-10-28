@@ -204,7 +204,7 @@ for (const privateChat of [false, true]) {
       if (command === '/宝物') {
         assert.match(view.text, /我的宝物/);
         assert.match(view.text, /神农鼎/);
-        assert.match(view.text, /星尘1 · Lv\.1/);
+        assert.match(view.text, /品阶：星尘1 · 等级：1\/10/);
         assert.doesNotMatch(view.text, /鸿蒙气运 1\/20级|未拥有 · 碎片/);
       } else {
         assert.match(view.text, command.includes('详情') ? /神农鼎/ : /鸿蒙气运 1\/20级/);
