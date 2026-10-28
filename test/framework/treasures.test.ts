@@ -75,6 +75,7 @@ const overview = {
   }))
 };
 const relics = {
+  rulesVersion: 'treasure-v5-priority-20261029',
   serverDate: '2026-10-27',
   balances: { spiritCrystal: 30000, daoCrystal: 108, treasureMaps: 9 },
   freeAvailable: true,
@@ -85,12 +86,9 @@ const relics = {
   shapeRates: {singleComplete:.12,tenExpectedComplete:1.478500976009402,tenAverageComplete:.1478500976009402},
   pity: [{ rarity: 6, name: '神话', counter: 119, hardPity: 120, nextProbability: 1 }],
   wholeRates: [
-    { rarity: 1, name: '普通', probability: .9172 * 4 / 7 },
-    { rarity: 2, name: '优秀', probability: .9172 * 2 / 7 },
-    { rarity: 3, name: '精良', probability: .9172 / 7 },
-    { rarity: 4, name: '稀有', probability: .05 },
-    { rarity: 5, name: '史诗', probability: .021 },
-    { rarity: 6, name: '神话', probability: .0118 }
+    { rarity: 4, name: '稀有', probability: .05, scope: 'all_explorations' },
+    { rarity: 5, name: '史诗', probability: .021, scope: 'all_explorations' },
+    { rarity: 6, name: '神话', probability: .0118, scope: 'all_explorations' }
   ],
   rules: ['保底分别计数', '随机碎片1-3'],
   records: []
@@ -136,13 +134,13 @@ const receipt = (kind = 'explore', input:Record<string,unknown> = {}) => ({
   operationId,
   result: {
     operationId,
-    rulesVersion:'treasure-v3-complete-20261027',
+    rulesVersion:'treasure-v5-priority-20261029',
     message: kind === 'explore' ? '上古遗珍探索完成' : '原操作已结算',
     count: Number(input.count ?? 10),
     source: input.source ?? 'dao_crystal',
     paidAmount: input.source === 'free' ? 0 : input.source === 'treasure_map' ? Number(input.count) : input.source === 'spirit_crystal' ? 10800 : Number(input.count) === 1 ? 12 : 108,
     experienceGranted: Number(input.count ?? 10)*100,
-    rewards: Array.from({length:Number(input.count ?? 10)},(_,index)=>index===0 ? { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true } : { treasureId:101,name:'锈剑残片',rarity:1,kind:'fragment',quantity:1,newlyOwned:false }),
+    rewards: Array.from({length:Number(input.count ?? 10)},(_,index)=>index===0 ? { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true, pullIndex: index + 1 } : { treasureId:101,name:'锈剑残片',rarity:1,kind:'fragment',quantity:1,newlyOwned:false,pullIndex:index+1 }),
     days: 2,
     spiritCrystal: 4000
   }
@@ -232,11 +230,11 @@ for (const privateChat of [false, true]) {
       const view = facts(result);
       if (privateChat) previews.set(command, view);
       if (command.endsWith('概率')) {
-        assert.match(view.text, /完整宝物综合概率/);
-        const rows = ['普通 综合概率 52.411%', '优秀 综合概率 26.206%', '精良 综合概率 13.103%', '稀有 综合概率 5%', '史诗 综合概率 2.1%', '神话 综合概率 1.18%'];
+        assert.match(view.text, /综合概率/);
+        const rows = ['稀有 综合概率 5%', '史诗 综合概率 2.1%', '神话 综合概率 1.18%'];
         for (const row of rows) assert.ok(view.text.includes(row), row);
         assert.equal(view.text.match(/ 综合概率 /g)?.length, rows.length);
-        assert.doesNotMatch(view.text, /保底|下一次|下一概率|直接完整率|期望|子探索|直出|累计探索|本轮|神话自选|每300|随机碎片|119\/120|12%/);
+        assert.doesNotMatch(view.text, /普通|优秀|精良|完整|形态|保底|下一次|下一概率|直接完整率|期望|子探索|直出|累计探索|本轮|神话自选|每300|随机碎片|119\/120|12%/);
         assert.deepEqual(view.commands, ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
         assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
@@ -507,7 +505,7 @@ test('每日礼包成功回执不把固定货币与特殊赠片重复展示',()=
  const view=inspectMessage([{type:'Markdown',value:buildRechargeSuccessContent(parsed).value.value}]);assert.equal(view.text.match(/道晶 \+10/g)?.length,1);assert.equal(view.text.match(/灵晶 \+1500/g)?.length,1);assert.match(view.text,/采薇竹篮碎片 ×2/);
 });
 test('碎片9+2自动合成1余1并激活，回执不冒充直接完整出货',async t=>{
- const result=receipt('explore',{source:'free',count:1});result.result.rewards=[{treasureId:603,name:'乾坤鼎',rarity:6,kind:'fragment',quantity:2,newlyOwned:true,autoSynthesized:1,fragmentsRemaining:1} as typeof result.result.rewards[number]];
+ const result=receipt('explore',{source:'free',count:1});result.result.rewards=[{treasureId:603,name:'乾坤鼎',rarity:6,kind:'fragment',quantity:2,newlyOwned:true,pullIndex:1,autoSynthesized:1,fragmentsRemaining:1} as typeof result.result.rewards[number]];
  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,result));const view=facts(await completeExploration(app,app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'}))),2);
  assert.match(view.text,/乾坤鼎 · 碎片 ×2 · 已激活/);assert.match(view.text,/自动合成1本体，余片1/);assert.doesNotMatch(view.text,/直接完整本体/);previews.set('碎片自动合成与首次激活',view);
 });
@@ -516,7 +514,7 @@ test('租契未来额度含预留不足30日时隐藏新购买，但已产生收
  const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/灵脉租契',platform:'qq-bot'})));assert.match(view.text,/未来收益日剩余额度不足30日/);assert.ok(!view.commands.includes('/充值购买 27'));assert.ok(view.commands.includes('/灵脉租契 领取'));
 });
 for (const mode of ['extra-reward','wrong-xp','unknown-version'] as const) test(`v3异常回执${mode}保留原引用`,async t=>{
- const data=receipt('explore',{source:'free',count:1});if(mode==='extra-reward')data.result.rewards.push({...data.result.rewards[0]});if(mode==='wrong-xp')data.result.experienceGranted=0;if(mode==='unknown-version')data.result.rulesVersion='treasure-future-unknown';
+ const data=receipt('explore',{source:'free',count:1});data.result.rulesVersion='treasure-v3-complete-20261027';if(mode==='extra-reward')data.result.rewards.push({...data.result.rewards[0]});if(mode==='wrong-xp')data.result.experienceGranted=0;if(mode==='unknown-version')data.result.rulesVersion='treasure-future-unknown';
  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
  assert.match(view.text,/结果尚未获完整确认/);assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
 });

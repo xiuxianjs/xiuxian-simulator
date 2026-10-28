@@ -223,8 +223,7 @@ export default onResponse(selects, async event => {
           quote(
             [
               `${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''}`,
-              ...(r.autoSynthesized ? [`⭐ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}；不计直接完整结果。`] : []),
-              ...(r.forcedComplete ? ['本笔十连形态保证'] : [])
+              ...(r.autoSynthesized ? [`⭐ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
             ],
             [{ label: '查看', command: `/宝物 详情 ${r.treasureId}` }]
           );
@@ -513,17 +512,23 @@ export default onResponse(selects, async event => {
         ]);
       }
       if (args[0] === '概率') {
-        quote(['完整宝物综合概率']);
-        for (const rate of data.wholeRates) {
-          quote([`${rate.name} 综合概率 ${probability(rate.probability)}`]);
+        const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
+
+        if (data.rulesVersion !== 'treasure-v5-priority-20261029' || rates.length !== 3 || new Set(rates.map(rate => rate.rarity)).size !== 3 || rates.some(rate => rate.scope !== 'all_explorations' || rate.probability > 1)) {
+          quote(['概率资料未同步，请稍后刷新。'], [{ label: '刷新', command: '/上古遗珍 概率' }]);
+        } else {
+          quote(['综合概率']);
+          for (const rate of rates) {
+            quote([`${rate.name} 综合概率 ${probability(rate.probability)}`]);
+          }
         }
       } else if (args[0] === '记录') {
         for (const record of data.records.slice(0, 10)) {
           quote([
             `${record.createdAt} · ${sourceNames[record.source]}探索 ${record.count}次 · 消耗 ${record.paidAmount}`,
             ...record.rewards.flatMap(r => [
-              `${r.name}${r.kind === 'body' ? '直接完整本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? '；已激活' : ''}`,
-              ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}；不计直接完整结果。`] : [])
+              `${r.name}${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? '；已激活' : ''}`,
+              ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
             ]),
             `操作编号 ${record.operationId}`
           ]);

@@ -18,8 +18,8 @@ const fragment = (rarity = 1) => ({ treasureId: rarity * 100 + 1, name: ({ 1: '�
 const body = { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true };
 const receipt = (rewards: ReturnType<typeof fragment>[], count = rewards.length) => ({
   kind: 'explore', operationId,
-  result: { operationId, rulesVersion: 'treasure-v3-complete-20261027', message: '上古遗珍探索完成', source: 'dao_crystal', count,
-    paidAmount: count === 1 ? 12 : 108, experienceGranted: count * 100, rewards }
+  result: { operationId, rulesVersion: 'treasure-v5-priority-20261029', message: '上古遗珍探索完成', source: 'dao_crystal', count,
+    paidAmount: count === 1 ? 12 : 108, experienceGranted: count * 100, rewards: rewards.map((reward, index) => ({ ...reward, pullIndex: index + 1 })) }
 });
 type App = Awaited<ReturnType<typeof gameFixture>>['app'];
 const sendCalls = (app: App) => app.calls.filter(call => call.name === 'message.send');
@@ -52,6 +52,7 @@ type StoryScenario = {
   label: string;
   story: string;
   rewards: Array<ReturnType<typeof fragment> & { autoSynthesized?: number; fragmentsRemaining?: number }>;
+  count?: 1 | 10;
   preview?: string;
 };
 const directBody = (rarity: number) => ({ ...fragment(rarity), kind: 'body', newlyOwned: true });
@@ -59,17 +60,17 @@ const scenarios: StoryScenario[] = [
   { label: '直接获得稀有完整宝物', story: '你越过瘴雾深谷', rewards: [directBody(4)], preview: '稀有·紫完整本体' },
   { label: '直接获得史诗完整宝物', story: '你横渡沧海', rewards: [directBody(5)], preview: '史诗·金完整本体' },
   { label: '直接获得神话完整宝物', story: '你踏尽四海八荒', rewards: [body], preview: '神话·红完整本体' },
-  { label: '仅有各档碎片且最高神话', story: '你踏过断碑荒径', rewards: [1, 2, 3, 4, 5, 6].map(fragment), preview: '仅有碎片·最高神话，仍为基础场景' },
+  { label: '仅有神话碎片', story: '你踏过断碑荒径', rewards: [fragment(6)], count: 1, preview: '仅有碎片·最高神话，仍为基础场景' },
   { label: '稀有完整本体与神话碎片同出', story: '你越过瘴雾深谷', rewards: [directBody(4), fragment(6)] },
   { label: '史诗完整本体与神话碎片同出', story: '你横渡沧海', rewards: [directBody(5), fragment(6)] },
   { label: '多个完整本体取最高神话', story: '你踏尽四海八荒', rewards: [body, directBody(4), directBody(5)] },
-  { label: '神话碎片自动合成本体', story: '你踏过断碑荒径', rewards: [{ ...fragment(6), autoSynthesized: 1, fragmentsRemaining: 0, newlyOwned: true }] },
+  { label: '神话碎片自动合成本体', story: '你踏过断碑荒径', rewards: [{ ...fragment(6), autoSynthesized: 1, fragmentsRemaining: 0, newlyOwned: true }], count: 1 },
   { label: '精良完整本体与神话碎片同出', story: '你踏过断碑荒径', rewards: [directBody(3), fragment(6)] }
 ];
 
 for (const scenario of scenarios) {
   test(`${scenario.label}按本次完整本体选叙事，满3秒后才发探索结果`, async t => {
-    const rewards = [...scenario.rewards, ...Array.from({ length: 10 - scenario.rewards.length }, () => fragment())];
+    const rewards = [...scenario.rewards, ...Array.from({ length: (scenario.count ?? 10) - scenario.rewards.length }, () => fragment())];
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards)));
     const { pending } = await start(app);
     assert.equal(requests.length, 1);
