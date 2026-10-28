@@ -7,7 +7,7 @@ import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import handler from '../../src/response/treasures/res';
 import { businessEnvelope, gameFixture } from './fixture';
 
-const previews = new Map<number, string>();
+const previews = new Map<string, string>();
 after(async () => {
   if (process.env.TREASURE_STORY_PREVIEW_OUTPUT) writeFileSync(process.env.TREASURE_STORY_PREVIEW_OUTPUT, [...previews.values()].join('\n'), 'utf8');
   await shutdownLogger();
@@ -48,12 +48,28 @@ function delivered(result: TestRunResult) {
   return result.messages.map(message => inspectMessage(message.nodes));
 }
 
-for (const [rarity, story] of [
-  [1, '你踏过断碑荒径'], [2, '你踏过断碑荒径'], [3, '你踏过断碑荒径'],
-  [4, '你越过瘴雾深谷'], [5, '你横渡沧海'], [6, '你踏尽四海八荒']
-] as const) {
-  test(`最高奖励${rarity}品叙事独立发送，满3秒后才发探索结果`, async t => {
-    const rewards = Array.from({ length: 10 }, (_, index) => index === 0 ? { ...fragment(), kind: 'body' } : fragment(index === 9 ? rarity : 1));
+type StoryScenario = {
+  label: string;
+  story: string;
+  rewards: Array<ReturnType<typeof fragment> & { autoSynthesized?: number; fragmentsRemaining?: number }>;
+  preview?: string;
+};
+const directBody = (rarity: number) => ({ ...fragment(rarity), kind: 'body', newlyOwned: true });
+const scenarios: StoryScenario[] = [
+  { label: '直接获得稀有完整宝物', story: '你越过瘴雾深谷', rewards: [directBody(4)], preview: '稀有·紫完整本体' },
+  { label: '直接获得史诗完整宝物', story: '你横渡沧海', rewards: [directBody(5)], preview: '史诗·金完整本体' },
+  { label: '直接获得神话完整宝物', story: '你踏尽四海八荒', rewards: [body], preview: '神话·红完整本体' },
+  { label: '仅有各档碎片且最高神话', story: '你踏过断碑荒径', rewards: [1, 2, 3, 4, 5, 6].map(fragment), preview: '仅有碎片·最高神话，仍为基础场景' },
+  { label: '稀有完整本体与神话碎片同出', story: '你越过瘴雾深谷', rewards: [directBody(4), fragment(6)] },
+  { label: '史诗完整本体与神话碎片同出', story: '你横渡沧海', rewards: [directBody(5), fragment(6)] },
+  { label: '多个完整本体取最高神话', story: '你踏尽四海八荒', rewards: [body, directBody(4), directBody(5)] },
+  { label: '神话碎片自动合成本体', story: '你踏过断碑荒径', rewards: [{ ...fragment(6), autoSynthesized: 1, fragmentsRemaining: 0, newlyOwned: true }] },
+  { label: '精良完整本体与神话碎片同出', story: '你踏过断碑荒径', rewards: [directBody(3), fragment(6)] }
+];
+
+for (const scenario of scenarios) {
+  test(`${scenario.label}按本次完整本体选叙事，满3秒后才发探索结果`, async t => {
+    const rewards = [...scenario.rewards, ...Array.from({ length: 10 - scenario.rewards.length }, () => fragment())];
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards)));
     const { pending } = await start(app);
     assert.equal(requests.length, 1);
@@ -62,7 +78,7 @@ for (const [rarity, story] of [
     assert.equal(sendCalls(app).length, 1);
     const narrative = liveViews(app)[0];
     assert.match(narrative.text, /^上古遗珍\n/);
-    assert.ok(narrative.text.includes(story));
+    assert.ok(narrative.text.includes(scenario.story));
     assert.doesNotMatch(narrative.text, /操作编号|宝物经验|碎片|本体|消耗|确认/);
     assert.deepEqual(narrative.commands, []);
     await app.clock.advance(2999);
@@ -76,7 +92,7 @@ for (const [rarity, story] of [
     assert.ok(!views[1].text.includes('宝物操作回执'));
     assert.deepEqual(views[1].commands.slice(-3), ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
     assert.equal(requests.length, 1);
-    if (rarity >= 4) previews.set(rarity, `## 探索叙事与结果（最高${({ 4: '稀有·紫', 5: '史诗·金', 6: '神话·红' } as Record<number, string>)[rarity]}）\n\n离线真实处理器示例：本例最高品质来自碎片，叙事不代表获得同档完整本体。结算先完成，再分别发送以下两条消息。\n\n第一条消息（没有操作按钮）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的按钮均为手动发送（autoEnter:false），仍引用原操作结果。\n`);
+    if (scenario.preview) previews.set(scenario.preview, `## 探索叙事与结果（${scenario.preview}）\n\n离线真实处理器示例：仅本次直接获得的完整本体决定紫、金、红叙事；碎片及自动合成不提升场景。结算先完成，再分别发送以下两条消息。\n\n第一条消息（没有操作按钮）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的按钮均为手动发送（autoEnter:false），仍引用原操作结果。\n`);
   });
 }
 

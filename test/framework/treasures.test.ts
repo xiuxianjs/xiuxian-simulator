@@ -84,7 +84,14 @@ const relics = {
   pendingSelections: 1,
   shapeRates: {singleComplete:.12,tenExpectedComplete:1.478500976009402,tenAverageComplete:.1478500976009402},
   pity: [{ rarity: 6, name: '神话', counter: 119, hardPity: 120, nextProbability: 1 }],
-  wholeRates: [{ rarity: 6, name: '神话', probability: 0.0118 }],
+  wholeRates: [
+    { rarity: 1, name: '普通', probability: .9172 * 4 / 7 },
+    { rarity: 2, name: '优秀', probability: .9172 * 2 / 7 },
+    { rarity: 3, name: '精良', probability: .9172 / 7 },
+    { rarity: 4, name: '稀有', probability: .05 },
+    { rarity: 5, name: '史诗', probability: .021 },
+    { rarity: 6, name: '神话', probability: .0118 }
+  ],
   rules: ['保底分别计数', '随机碎片1-3'],
   records: []
 };
@@ -221,11 +228,17 @@ for (const privateChat of [false, true]) {
       const event = privateChat
         ? app.events.privateMessage({ text: command, platform: 'qq-bot' })
         : app.events.groupMessage({ text: command, platform: 'qq-bot' });
-      const view = facts(await app.runHandler(handler, event));
+      const result = await app.runHandler(handler, event);
+      const view = facts(result);
       if (privateChat) previews.set(command, view);
       if (command.endsWith('概率')) {
-        assert.match(view.text, /119\/120/);
-        assert.match(view.text, /1.18%/);
+        assert.match(view.text, /完整宝物综合概率/);
+        const rows = ['普通 综合概率 52.411%', '优秀 综合概率 26.206%', '精良 综合概率 13.103%', '稀有 综合概率 5%', '史诗 综合概率 2.1%', '神话 综合概率 1.18%'];
+        for (const row of rows) assert.ok(view.text.includes(row), row);
+        assert.equal(view.text.match(/ 综合概率 /g)?.length, rows.length);
+        assert.doesNotMatch(view.text, /保底|下一次|下一概率|直接完整率|期望|子探索|直出|累计探索|本轮|神话自选|每300|随机碎片|119\/120|12%/);
+        assert.deepEqual(view.commands, ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
+        assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
       else {
         assert.match(view.text, /当前账户/);
@@ -247,7 +260,7 @@ for (const used of [false, true]) {
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
     const top = nodes.filter(node => node.type === 'MD.button').slice(0, 4);
     assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 周活', '/充值 日礼包'
+      '/上古遗珍 概率', '/上古遗珍 记录', '/周常活跃', '/充值 日礼包'
     ]);
     const positions = top.map(button => nodes.indexOf(button));
     assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
@@ -440,11 +453,46 @@ test('日礼包默认单档展示，未决订单保留且不能再次购买', as
   const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/上古遗珍 礼包',platform:'qq-bot'})));
   assert.ok(!view.commands.includes('/充值购买 31'));assert.ok(!view.commands.includes('/充值购买 34'));assert.match(view.text,/每日限购2\/3/);assert.match(view.text,/N-pending/);assert.ok(view.commands.includes('/充值 日礼包 30元全包'));assert.equal(requests[0].path,'/api/v2/robot/business/treasures.daily-packs');previews.set('每日礼包与共享配额',view);
 });
+for (const privateChat of [false, true]) {
+  test(`周常五档原奖励与藏宝图同列且不重复 private=${privateChat}`, async t => {
+    // 仅为离线展示夹具门槛；产品积分门槛由服务端数据库提供。
+    const thresholds = [10, 20, 40, 60, 80];
+    const mapQuantities = [2, 3, 5, 5, 5];
+    const weekly = {
+      rewardType: 'weekly', cyclePeriod: '2026-10-26', currentPoints: 80, taskRewardsCanClaim: false, tasks: [],
+      rewards: thresholds.flatMap((requiredPoints, index) => ['灵石', '灵肥'].map((name, rewardIndex) => ({
+        requiredPoints, name, category: 'item', currencyCode: '', itemId: rewardIndex + 1, quantity: rewardIndex ? 1 : 10,
+        claimed: false, canClaim: true, treasureMapQuantity: mapQuantities[index], treasureMapGranted: false,
+        treasureMapClaimable: true, treasureMapBackfillOnly: false
+      })))
+    };
+    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, weekly));
+    const event = privateChat
+      ? app.events.privateMessage({ text: '/周常活跃', platform: 'qq-bot' })
+      : app.events.groupMessage({ text: '/周常活跃', platform: 'qq-bot' });
+    const result = await app.runHandler(weeklyHandler, event);
+    const view = facts(result);
+
+    for (const [index, points] of thresholds.entries()) {
+      assert.ok(view.text.includes(`${points}点 → 灵石 x10、灵肥 x1、藏宝图 x${mapQuantities[index]}`));
+      assert.equal(view.commands.filter(command => command === `/领取周常活跃奖励 ${points}`).length, 1);
+    }
+    assert.equal(view.text.match(/点 →/g)?.length, 5);
+    assert.equal(view.text.match(/藏宝图 x/g)?.length, 5);
+    assert.doesNotMatch(view.text, /额外藏宝图|原档达标领取后到账|可补领/);
+    assert.ok(view.commands.includes('/一键领取周常活跃奖励'));
+    assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].path, '/api/v2/robot/business/activity-points.weekly');
+    if (privateChat) previews.set('周常活跃（藏宝图已并入原奖励；积分为离线示例）', view);
+  });
+}
+
 test('已领原周活宝箱能补图，多行原奖励保留且图与按钮各只展示一次',async t=>{
   const weekly={rewardType:'weekly',cyclePeriod:'2026-10-26',currentPoints:10,taskRewardsCanClaim:false,tasks:[],rewards:['灵石','灵肥'].map((name,index)=>({requiredPoints:10,name,category:'item',currencyCode:'',itemId:index+1,quantity:index?1:10,claimed:true,canClaim:false,treasureMapQuantity:2,treasureMapGranted:false,treasureMapClaimable:true,treasureMapBackfillOnly:true}))};
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('activity-points.weekly')?weekly:{userName:'道友',requiredPoints:10,issued:[{type:'item',name:'藏宝图',amount:2}],treasureMapBackfillOnly:true}));
   const view=facts(await app.runHandler(weeklyHandler,app.events.privateMessage({text:'/周常活跃',platform:'qq-bot'})));
-  assert.match(view.text,/灵石 x10、灵肥 x1/);assert.equal(view.text.match(/额外藏宝图 ×2/g)?.length,1);assert.equal(view.commands.filter(c=>c==='/领取周常活跃奖励 10').length,1);
+  assert.match(view.text,/10点 → 灵石 x10、灵肥 x1、藏宝图 x2（可补领）/);assert.equal(view.text.match(/藏宝图 x2/g)?.length,1);assert.doesNotMatch(view.text,/额外藏宝图/);assert.equal(view.commands.filter(c=>c==='/领取周常活跃奖励 10').length,1);
   const done=facts(await app.runHandler(claimWeeklyHandler,app.events.privateMessage({text:'/领取周常活跃奖励 10',platform:'qq-bot'})));
   assert.match(done.text,/补领藏宝图成功，原宝箱奖励不重复发放/);assert.match(done.text,/藏宝图×2/);assert.doesNotMatch(done.text,/灵石×10/);assert.equal(requests[1].path,'/api/v2/robot/business/activity-points.claim-weekly');previews.set('周活藏宝图补领',view);
 });

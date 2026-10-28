@@ -13,6 +13,7 @@ import {
   type TreasurePreviewKind
 } from '@src/api/bot/treasures';
 import type { RobotBusinessOperation } from '@src/api/bot/robot-business';
+import { createBackendRequestContext, type BackendRequestContext } from '@src/api/bot/context';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -84,7 +85,7 @@ export default onResponse(selects, async event => {
       throw new Error('消息未确认送达');
     }
   };
-  const call = async <T>(name: RobotBusinessOperation, input: Record<string, unknown>, decode: (value: unknown) => T) => {
+  const call = async <T>(name: RobotBusinessOperation, input: Record<string, unknown>, decode: (value: unknown) => T, request?: BackendRequestContext) => {
     operation = name;
     const response = await runRobotBusiness(
       event,
@@ -103,7 +104,8 @@ export default onResponse(selects, async event => {
           quote([tip.description], [{ label: tip.command, command: tip.command }]);
         }
         await send();
-      })
+      }),
+      request
     );
 
     return response.handled ? undefined : response.data;
@@ -197,7 +199,7 @@ export default onResponse(selects, async event => {
       mutationConfirmed = true;
       if (data.kind === 'explore' && data.result.rewards) {
         explorationSettled = true;
-        const highestRarity = Math.max(...data.result.rewards.map(reward => reward.rarity));
+        const highestRarity = Math.max(1, ...data.result.rewards.filter(reward => reward.kind === 'body').map(reward => reward.rarity));
 
         requireSent(
           await message.send(
@@ -504,30 +506,17 @@ export default onResponse(selects, async event => {
       if (!data) {
         return;
       }
-      if (args.length) {
+      if (args.length && args[0] !== '概率') {
         quote([
           `累计探索 ${data.totalExplorations}次 · 本轮 ${data.milestoneProgress}/300`,
           `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`
         ]);
       }
       if (args[0] === '概率') {
-        for (const pity of data.pity) {
-          const exactName = ['普通', '优秀', '精良', '稀有', '史诗', '神话'][pity.rarity - 1];
-
-          quote([`${pity.name}保底 ${pity.counter}/${pity.hardPity}次直接完整结果`, `下一次完整结果恰好${exactName}概率 ${probability(pity.nextProbability)}`]);
-        }
-        quote([
-          `单次直接完整率${probability(data.shapeRates.singleComplete)}`,
-          `每笔十连期望直接完整${number(data.shapeRates.tenExpectedComplete)}件，平均每个子探索${probability(data.shapeRates.tenAverageComplete)}`
-        ]);
+        quote(['完整宝物综合概率']);
         for (const rate of data.wholeRates) {
-          quote([
-            `${rate.name}完整池内综合概率 ${probability(rate.probability)}`,
-            `单次探索直出${probability(rate.probability * data.shapeRates.singleComplete)}`,
-            `十连子探索平均直出${probability(rate.probability * data.shapeRates.tenAverageComplete)}`
-          ]);
+          quote([`${rate.name} 综合概率 ${probability(rate.probability)}`]);
         }
-        quote(data.rules);
       } else if (args[0] === '记录') {
         for (const record of data.records.slice(0, 10)) {
           quote([
@@ -543,7 +532,7 @@ export default onResponse(selects, async event => {
           quote(['暂无探索记录。']);
         }
       } else if (args[0] === '自选') {
-        const treasures = await call('treasures.overview', {}, parseTreasureOverview);
+        const treasures = await call('treasures.overview', {}, parseTreasureOverview, createBackendRequestContext(event, 'treasures.overview'));
 
         if (!treasures) {
           return;
@@ -562,7 +551,7 @@ export default onResponse(selects, async event => {
             { label: '探索记录', command: '/上古遗珍 记录' }
           ],
           [
-            { label: '周活藏宝图', command: '/上古遗珍 周活' },
+            { label: '周活藏宝图', command: '/周常活跃' },
             { label: '每日礼包', command: '/充值 日礼包' }
           ]
         ]) {
