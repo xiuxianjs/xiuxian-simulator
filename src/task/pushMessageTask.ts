@@ -250,9 +250,6 @@ export const dispatchStandardMessages = async (): Promise<void> => {
       }
       await dispatchPlayerNotifications(loadLegacyIDs, 'standard');
     }
-  } catch (error) {
-    logger.error('通知推送任务失败', error);
-    throw error;
   } finally {
     running = false;
   }

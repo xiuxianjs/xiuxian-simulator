@@ -137,3 +137,30 @@ for (const channelMode of [false, true]) {
     assert.deepEqual(result.errors, []);
   });
 }
+
+test('标准通知领取失败只由队列重试层记录一次', async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  t.after(() => stopNotificationStream());
+  const logs: unknown[][] = [];
+  t.mock.method(logger, 'error', (...args) => { logs.push(args); });
+  t.mock.method(axios, 'create', () => ({ post: async (path: string, body: Record<string, unknown>) => {
+    if (path.endsWith('/claim-next')) return { data: { claim: null, pending: false } };
+    if (path.endsWith('/community/claim')) return { data: { data: null } };
+    if (body.lane === 'standard') throw unavailable();
+    return { data: { data: { event: null } } };
+  } } as never));
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => new Response(new ReadableStream<Uint8Array>({ start(controller) {
+    controller.enqueue(new TextEncoder().encode('event: stream.ready\ndata: {}\n\n'));
+    options.signal?.addEventListener('abort', () => controller.close(), { once: true });
+  } }), { headers: { 'Content-Type': 'text/event-stream' } }));
+  const result = await app.runHandler(async () => {
+    startNotificationStream();
+    await settle();
+    assert.equal(logs.length, 1);
+    assert.match(String(logs[0][0]), /玩家通知/);
+    assert.match((logs[0][1] as Error).message, /req_notification_test/);
+    stopNotificationStream();
+  }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
+  assert.deepEqual(result.errors, []);
+});
