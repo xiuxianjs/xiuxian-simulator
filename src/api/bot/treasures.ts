@@ -111,6 +111,23 @@ function promotion(value: unknown) {
 
   return { duplicates: integer(item.duplicates), xianYun: integer(item.xianYun), requirements: array(item.requirements, text) };
 }
+function cultivationPreview(value: unknown) {
+  const item = row(value);
+  const grade = integer(item.grade);
+  const level = integer(item.level);
+
+  if (grade < 1 || grade > 24 || level < 1) {
+    return invalid();
+  }
+
+  return {
+    grade,
+    gradeName: text(item.gradeName),
+    level,
+    attributes: attributes(item.attributes),
+    percentAttributes: attributes(item.percentAttributes)
+  };
+}
 function ownedTreasure(value: unknown) {
   const item = row(value);
 
@@ -128,7 +145,9 @@ function ownedTreasure(value: unknown) {
     nextLevelCost: integer(item.nextLevelCost),
     promotion: promotion(item.promotion),
     canUpgrade: bool(item.canUpgrade),
-    canPromote: bool(item.canPromote)
+    canPromote: bool(item.canPromote),
+    ...(item.upgradePreview === undefined ? {} : { upgradePreview: cultivationPreview(item.upgradePreview) }),
+    ...(item.promotionPreview === undefined ? {} : { promotionPreview: cultivationPreview(item.promotionPreview) })
   };
 }
 function fortune(value: unknown) {
@@ -188,7 +207,9 @@ function reward(value: unknown) {
   const autoSynthesized = item.autoSynthesized === undefined ? 0 : integer(item.autoSynthesized);
   const fragmentsRemaining = item.fragmentsRemaining === undefined ? undefined : integer(item.fragmentsRemaining);
 
-  if (fragmentsRemaining !== undefined && fragmentsRemaining > 9) { return invalid(); }
+  if (fragmentsRemaining !== undefined && fragmentsRemaining > 9) {
+    return invalid();
+  }
 
   return {
     treasureId: integer(item.treasureId),
@@ -270,7 +291,7 @@ export function parseSpiritVein(value: unknown) {
     purchaseUnavailableReason: item.purchaseUnavailableReason === undefined ? undefined : text(item.purchaseUnavailableReason)
   };
 }
-const kinds = ['explore', 'synthesize', 'upgrade', 'promote', 'select-mythic', 'claimLease', 'decompose'] as const;
+const kinds = ['explore', 'synthesize', 'upgrade', 'promote', 'select-mythic', 'claimLease', 'decompose', 'batch-promote', 'batch-upgrade'] as const;
 
 export type TreasurePreviewKind = (typeof kinds)[number];
 export function validTreasureConfirmationRef(value: string): boolean {
@@ -307,14 +328,47 @@ export function parseTreasureReceipt(value: unknown) {
   if (result.operationId !== item.operationId) {
     return invalid();
   }
-  if (item.kind === 'explore' && (!Array.isArray(result.rewards) || result.rewards.length < integer(result.count))) { return invalid(); }
+  if (item.kind === 'explore' && (!Array.isArray(result.rewards) || result.rewards.length < integer(result.count))) {
+    return invalid();
+  }
   if (item.kind === 'explore') {
     const count = integer(result.count);
 
-    if (![1, 10].includes(count)) { return invalid(); }
+    if (![1, 10].includes(count)) {
+      return invalid();
+    }
     if (result.rulesVersion === 'treasure-v3-complete-20261027') {
-      if ((result.rewards as unknown[]).length !== count || result.experienceGranted !== count * 100) { return invalid(); }
-    } else if (!['treasure-v1-20261027', 'treasure-v2-20261027-first-drop'].includes(String(result.rulesVersion))) { return invalid(); }
+      if ((result.rewards as unknown[]).length !== count || result.experienceGranted !== count * 100) {
+        return invalid();
+      }
+    } else if (!['treasure-v1-20261027', 'treasure-v2-20261027-first-drop'].includes(String(result.rulesVersion))) {
+      return invalid();
+    }
+  }
+  const batch = item.kind === 'batch-promote' || item.kind === 'batch-upgrade';
+  const batchItems = batch
+    ? array(result.items, value => {
+        const entry = row(value);
+
+        return {
+          treasureId: integer(entry.treasureId),
+          name: text(entry.name),
+          rarity: rarity(entry.rarity),
+          fromLevel: integer(entry.fromLevel),
+          toLevel: integer(entry.toLevel),
+          fromGrade: integer(entry.fromGrade),
+          toGrade: integer(entry.toGrade),
+          experienceCost: integer(entry.experienceCost),
+          duplicatesCost: integer(entry.duplicatesCost),
+          xianYunCost: integer(entry.xianYunCost),
+          ...(entry.fromGradeName === undefined ? {} : { fromGradeName: text(entry.fromGradeName) }),
+          ...(entry.toGradeName === undefined ? {} : { toGradeName: text(entry.toGradeName) })
+        };
+      })
+    : undefined;
+
+  if (batchItems && !batchItems.length) {
+    return invalid();
   }
 
   return {
@@ -333,7 +387,15 @@ export function parseTreasureReceipt(value: unknown) {
             experienceGranted: integer(result.experienceGranted)
           }
         : {}),
-      ...(item.kind === 'claimLease' ? { days: integer(result.days), spiritCrystal: integer(result.spiritCrystal) } : {})
+      ...(item.kind === 'claimLease' ? { days: integer(result.days), spiritCrystal: integer(result.spiritCrystal) } : {}),
+      ...(batchItems
+        ? {
+            items: batchItems,
+            experienceCost: integer(result.experienceCost),
+            duplicatesCost: integer(result.duplicatesCost),
+            xianYunCost: integer(result.xianYunCost)
+          }
+        : {})
     }
   };
 }
