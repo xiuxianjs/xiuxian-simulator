@@ -25,13 +25,21 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = isPrivateEvent(e);
 
+  if (!isPrivate) {
+    await message.send(
+      FormatGui({ isPrivate, bid, title: '充值购买', content: Format.createMarkdown().addText('充值购买仅支持私聊，请转到私聊后购买。'), bar: false })
+    );
+
+    return;
+  }
+
   const [, parentNext] = useEvent();
   const feedback = async (text: string) => {
     await message.send(
       FormatGui({
         header: [
-          { label: '返回权益', command: '/我的权益' },
-          { label: '我的订单', command: '/我的订单' }
+          { label: '返回权益', command: '/我的权益', autoEnter: false },
+          { label: '我的订单', command: '/我的订单', autoEnter: false }
         ],
         isPrivate,
         bid,
@@ -95,7 +103,7 @@ export default onResponse(selects, async e => {
       for (const pkg of result.packages) {
         const quote = createQuoteMarkdown(
           [`${pkg.name} · ¥${pkg.yuan}${pkg.doubleAvailable ? ' · 首充双倍' : ''}`],
-          [{ label: '购买', command: `/充值购买 ${pkg.id}` }]
+          [{ label: '购买', command: `/充值购买 ${pkg.id}`, autoEnter: false }]
         );
 
         if (pkg.grantSpiritMilk > 0) {
@@ -109,14 +117,14 @@ export default onResponse(selects, async e => {
       await message.send(
         FormatGui({
           header: [
-            { label: '返回权益', command: '/我的权益' },
-            { label: '我的订单', command: '/我的订单' }
+            { label: '返回权益', command: '/我的权益', autoEnter: false },
+            { label: '我的订单', command: '/我的订单', autoEnter: false }
           ],
           isPrivate,
           bid,
           title: '充值',
           content: md,
-          footer: [{ label: '全部套餐', command: '/充值' }]
+          footer: [{ label: '全部套餐', command: '/充值', autoEnter: false }]
         })
       );
 
@@ -168,8 +176,8 @@ export default onResponse(selects, async e => {
       await message.send(
         FormatGui({
           header: [
-            { label: '返回权益', command: '/我的权益' },
-            { label: '我的订单', command: '/我的订单' }
+            { label: '返回权益', command: '/我的权益', autoEnter: false },
+            { label: '我的订单', command: '/我的订单', autoEnter: false }
           ],
           isPrivate,
           bid,
@@ -219,16 +227,16 @@ export default onResponse(selects, async e => {
             await message.send(
               FormatGui({
                 header: [
-                  { label: '返回权益', command: '/我的权益' },
-                  { label: '我的订单', command: '/我的订单' }
+                  { label: '返回权益', command: '/我的权益', autoEnter: false },
+                  { label: '我的订单', command: '/我的订单', autoEnter: false }
                 ],
                 isPrivate,
                 bid,
                 title: '充值成功',
                 content: Format.createMarkdown().addBlockquote(buildRechargeSuccessContent(receipt)),
                 footer: [
-                  { label: '我的资料', command: '/我的资料' },
-                  { label: '储物袋', command: '/储物袋' }
+                  { label: '我的资料', command: '/我的资料', autoEnter: false },
+                  { label: '储物袋', command: '/储物袋', autoEnter: false }
                 ]
               })
             );
@@ -254,8 +262,8 @@ export default onResponse(selects, async e => {
             await message.send(
               FormatGui({
                 header: [
-                  { label: '返回权益', command: '/我的权益' },
-                  { label: '我的订单', command: '/我的订单' }
+                  { label: '返回权益', command: '/我的权益', autoEnter: false },
+                  { label: '我的订单', command: '/我的订单', autoEnter: false }
                 ],
                 isPrivate,
                 bid,
@@ -282,8 +290,8 @@ export default onResponse(selects, async e => {
     await message.send(
       FormatGui({
         header: [
-          { label: '返回权益', command: '/我的权益' },
-          { label: '我的订单', command: '/我的订单' }
+          { label: '返回权益', command: '/我的权益', autoEnter: false },
+          { label: '我的订单', command: '/我的订单', autoEnter: false }
         ],
         isPrivate,
         bid,

@@ -74,7 +74,7 @@ for (const [rarity, story] of [
     assert.match(views[1].text, /^上古遗珍探索完成\n/);
     assert.ok(views[1].text.includes(`操作编号 ${operationId}`));
     assert.ok(!views[1].text.includes('宝物操作回执'));
-    assert.deepEqual(views[1].commands.slice(-3), ['/宝物', '/上古遗珍', '/灵脉租契']);
+    assert.deepEqual(views[1].commands.slice(-3), ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
     assert.equal(requests.length, 1);
     if (rarity >= 4) previews.set(rarity, `## 探索叙事与结果（最高${({ 4: '稀有·紫', 5: '史诗·金', 6: '神话·红' } as Record<number, string>)[rarity]}）\n\n离线真实处理器示例：本例最高品质来自碎片，叙事不代表获得同档完整本体。结算先完成，再分别发送以下两条消息。\n\n第一条消息（没有操作按钮）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的按钮均为手动发送（autoEnter:false），仍引用原操作结果。\n`);
   });

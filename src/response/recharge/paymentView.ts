@@ -82,7 +82,7 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     successMd.addNewline();
     successMd.addText(`本订单权益期间：${payResult.spiritVein.startDate} 至 ${payResult.spiritVein.endDate}`);
     successMd.addNewline();
-    successMd.addButton('领取灵脉租契', { data: '/灵脉租契', autoEnter: false });
+    successMd.addButton('领取灵脉租契', { data: '/我的权益 灵脉租契', autoEnter: false });
     successMd.addNewline();
   }
   if (payResult.dailyTreasurePack) {
@@ -97,7 +97,7 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     for (const fragment of pack.fragments) {
       successMd.addText(`${fragment.name}碎片 ×${fragment.quantity}`).addNewline();
     }
-    successMd.addButton('查看每日礼包', { data: '/上古遗珍 礼包', autoEnter: false }).addNewline();
+    successMd.addButton('查看每日礼包', { data: '/充值 日礼包', autoEnter: false }).addNewline();
   }
 
   if (payResult.seclusionPassActivated) {

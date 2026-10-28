@@ -282,6 +282,10 @@ export function parseSpiritVein(value: unknown) {
     remainingDays: integer(item.remainingDays),
     claimableDays: integer(item.claimableDays),
     claimableCrystal: integer(item.claimableCrystal),
+    ...(item.claimedDays === undefined ? {} : { claimedDays: integer(item.claimedDays) }),
+    ...(item.totalDays === undefined ? {} : { totalDays: integer(item.totalDays) }),
+    ...(item.futureDays === undefined ? {} : { futureDays: integer(item.futureDays) }),
+    ...(item.reservedDays === undefined ? {} : { reservedDays: integer(item.reservedDays) }),
     maxDays: integer(item.maxDays),
     packageId: item.packageId === null ? null : integer(item.packageId),
     priceAmount: integer(item.priceAmount),
@@ -419,6 +423,9 @@ export function parseTreasureDailyPacks(value: unknown) {
         name: text(p.name),
         packageId: p.packageId === null ? null : integer(p.packageId),
         priceAmount: integer(p.priceAmount),
+        basePriceAmount: p.basePriceAmount === undefined ? integer(p.priceAmount) : integer(p.basePriceAmount),
+        creditedAmount: p.creditedAmount === undefined ? 0 : integer(p.creditedAmount),
+        canClaimFree: p.canClaimFree === undefined ? false : bool(p.canClaimFree),
         limit: integer(p.limit),
         remaining: integer(p.remaining),
         available: bool(p.available),
@@ -439,4 +446,68 @@ export function parseTreasureDailyPacks(value: unknown) {
       };
     })
   };
+}
+
+export function parseDailyPackFreePreview(value: unknown) {
+  const data = row(value);
+  const confirmationRef = text(data.confirmationRef);
+  const summary = array(data.summary, text);
+  const operationId = text(data.operationId);
+
+  if (data.kind !== 'daily-pack-free' || !validTreasureConfirmationRef(confirmationRef) || !summary.length || summary.some(line => !line.trim()) || !operationId.trim()) { return invalid(); }
+
+  return { kind: 'daily-pack-free' as const, confirmationRef, summary, expiresAt: date(data.expiresAt), operationId };
+}
+
+export function parseDailyPackFreeReceipt(value: unknown) {
+  const data = row(value);
+  const result = row(data.result);
+  const grant = row(result.dailyTreasurePack);
+
+  if (data.kind !== 'daily-pack-free' || result.operationId !== data.operationId || !text(data.operationId).trim() || grant.sku !== 'all') { return invalid(); }
+
+  return {
+    operationId: text(data.operationId),
+    message: text(result.message),
+    grant: {
+      businessDate: date(grant.businessDate),
+      spiritCrystal: integer(grant.spiritCrystal),
+      daoCrystal: integer(grant.daoCrystal),
+      treasureMaps: integer(grant.treasureMaps),
+      fragments: array(grant.fragments, value => {
+        const item = row(value);
+
+        return { treasureId: integer(item.treasureId), name: text(item.name), rarity: rarity(item.rarity), quantity: integer(item.quantity) };
+      }),
+      promotionTexts: grant.promotionTexts === undefined ? [] : array(grant.promotionTexts, text)
+    }
+  };
+}
+
+export function parseSpiritVeinCalendar(value: unknown) {
+  const data = row(value);
+  const page = integer(data.page);
+  const totalPages = integer(data.totalPages);
+  const totalDays = integer(data.totalDays);
+  const items = array(data.items, value => {
+    const item = row(value);
+    const day = integer(item.day);
+    const rewardDate = text(item.rewardDate);
+    const time = Date.parse(`${rewardDate}T00:00:00Z`);
+
+    if (
+      day < 1 ||
+      day > totalDays ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(rewardDate) ||
+      !Number.isFinite(time) ||
+      new Date(time).toISOString().slice(0, 10) !== rewardDate ||
+      !['claimed', 'claimable', 'upcoming'].includes(String(item.state))
+    ) { return invalid(); }
+
+    return { day, rewardDate, spiritCrystal: integer(item.spiritCrystal), state: item.state as 'claimed' | 'claimable' | 'upcoming' };
+  });
+
+  if (page < 1 || totalPages < 1 || page > totalPages || items.length > 7) { return invalid(); }
+
+  return { page, totalPages, totalDays, items };
 }

@@ -5,6 +5,8 @@ import {
   parseTreasureOverview,
   parseTreasureReceipt,
   parseTreasureDailyPacks,
+  parseDailyPackFreePreview,
+  parseDailyPackFreeReceipt,
   validTreasureConfirmationRef,
   type OwnedTreasure,
   type TreasureOverview,
@@ -16,6 +18,7 @@ import { selects } from '@src/response/config';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { buildDailyPackProductPage, buildSpiritVeinProductBlock, dailyPackSku } from '../recharge/productView';
 import { buildOwnedTreasurePage, buildTreasureFortunePage, buildTreasureEffectsPage, buildTreasureDetailPage } from './treasurePages';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
@@ -53,13 +56,13 @@ const treasureID = (value: string | undefined) => {
 const navigation: Button[] = [
   { label: '宝物', command: '/宝物' },
   { label: '上古遗珍', command: '/上古遗珍' },
-  { label: '灵脉租契', command: '/灵脉租契' }
+  { label: '灵脉租契', command: '/充值 灵脉租契' }
 ];
 
 export default onResponse(selects, async event => {
   const [message] = useMessage();
   const [, next] = useEvent();
-  const match = /^\s*[/#＃]?(宝物|上古遗珍|灵脉租契|确认宝物)(?:\s+(.*?))?\s*$/.exec(event.MessageText ?? '');
+  const match = /^\s*[/#＃]?(宝物|上古遗珍|灵脉租契|确认宝物|确认礼包)(?:\s+(.*?))?\s*$/.exec(event.MessageText ?? '');
   const command = match?.[1];
   const args = match?.[2]?.split(/\s+/).filter(Boolean) ?? [];
   let title = command ?? '宝物';
@@ -68,6 +71,8 @@ export default onResponse(selects, async event => {
   let originalRef: string | undefined;
   let mutationConfirmed = false;
   let explorationSettled = false;
+  let originalFreeRef: string | undefined;
+  let dailyClaimConfirmed = false;
   const quote = (lines: string[], buttons: Button[] = []) => content.addBlockquote(createQuoteMarkdown(lines, manual(buttons)));
   const send = (footer: Button[] = navigation) => {
     const body = { bid: event.UserId, isPrivate: isPrivateEvent(event), title, content, footer: manual(footer), bar: false as const };
@@ -76,7 +81,7 @@ export default onResponse(selects, async event => {
   };
   const requireSent = (receipts: Awaited<ReturnType<typeof message.send>>) => {
     if (!receipts.length || receipts.some(receipt => receipt.code !== ResultCode.Ok)) {
-      throw new Error('探索消息未确认送达');
+      throw new Error('消息未确认送达');
     }
   };
   const call = async <T>(name: RobotBusinessOperation, input: Record<string, unknown>, decode: (value: unknown) => T) => {
@@ -120,7 +125,7 @@ export default onResponse(selects, async event => {
         : [...data.summary, `有效至 ${data.expiresAt.replace('T', ' ').replace(/\.\d+Z$/, 'Z')}`, '确认后按本次预览结算；重复确认只返回原操作结果。'],
       [
         { label: '确认', command: `/确认宝物 ${data.confirmationRef}` },
-        { label: '取消并返回', command: kind === 'explore' || kind === 'select-mythic' ? '/上古遗珍' : kind === 'claimLease' ? '/灵脉租契' : '/宝物' }
+        { label: '取消并返回', command: kind === 'explore' || kind === 'select-mythic' ? '/上古遗珍' : kind === 'claimLease' ? '/我的权益 灵脉租契' : '/宝物' }
       ]
     );
     await send();
@@ -142,9 +147,37 @@ export default onResponse(selects, async event => {
   };
 
   try {
+    if (!isPrivateEvent(event) && (command === '确认礼包' || (command === '上古遗珍' && ['礼包', '领取全包'].includes(args[0])))) {
+      title = '每日礼包';
+      quote(['日礼包仅支持私聊，请在私聊中发送 /充值 日礼包。']);
+      await send([]);
+
+      return;
+    }
     if (!command || !match) {
       quote(['参数错误，请使用 /宝物、/上古遗珍 或 /灵脉租契。']);
       await send();
+
+      return;
+    }
+    if (command === '确认礼包') {
+      if (args.length !== 1 || !validTreasureConfirmationRef(args[0])) {
+        quote(['领取确认凭据不完整，请在私聊中重新查看日礼包。']);
+        await send();
+
+        return;
+      }
+      originalFreeRef = args[0];
+      const data = await call('treasures.daily-pack-free-confirm', { confirmationRef: originalFreeRef }, parseDailyPackFreeReceipt);
+
+      if (!data) { return; }
+      dailyClaimConfirmed = true;
+      title = '每日礼包领取完成';
+      quote([data.message, `操作编号 ${data.operationId}`, `收益归属 ${data.grant.businessDate}`]);
+      quote([`灵晶 +${data.grant.spiritCrystal} · 道晶 +${data.grant.daoCrystal} · 藏宝图 +${data.grant.treasureMaps}`]);
+      for (const fragment of data.grant.fragments) { quote([`${fragment.name}碎片 ×${fragment.quantity}`]); }
+      if (data.grant.promotionTexts.length) { quote(data.grant.promotionTexts); }
+      requireSent(await send());
 
       return;
     }
@@ -408,28 +441,30 @@ export default onResponse(selects, async event => {
       return;
     }
     if (command === '上古遗珍') {
-      if (args[0] === '礼包' && args.length === 1) {
+      if (args[0] === '领取全包' && args.length === 1) {
+        const data = await call('treasures.daily-pack-free-preview', {}, parseDailyPackFreePreview);
+
+        if (!data) { return; }
+        title = '每日礼包领取确认';
+        quote(
+          [...data.summary, `有效至 ${data.expiresAt.replace('T', ' ')}`],
+          [
+            { label: '确认', command: `/确认礼包 ${data.confirmationRef}` },
+            { label: '取消并返回', command: '/充值 日礼包 30元全包' }
+          ]
+        );
+        await send();
+
+        return;
+      }
+      if (args[0] === '礼包' && args.length <= 2) {
         const data = await call('treasures.daily-packs', {}, parseTreasureDailyPacks);
 
         if (!data) {
           return;
         }
-        quote(['每日1元／6元／18元与全包共享额度；未决订单继续占用，跨日不会自动释放。随机赠片不计探索和经验。']);
-        for (const p of data.products) {
-          quote(
-            [
-              `${p.name} · ¥${(p.priceAmount / 100).toFixed(2)} · ${p.label}`,
-              `剩余${p.remaining}份`,
-              ...p.rewardParts.map(r => `${r.name} ×${r.quantity}${r.independentRolls ? `（独立${r.independentRolls}次，每次${r.perRoll}片）` : ''}`),
-              ...p.promotionTexts,
-              p.unavailableReason
-            ].filter(Boolean),
-            p.available && p.packageId !== null ? [{ label: '购买（私聊）', command: `/充值购买 ${p.packageId}` }] : []
-          );
-        }
-        if (data.unresolvedOrderNo) {
-          quote([`待核对订单 ${data.unresolvedOrderNo}`], [{ label: '我的订单', command: '/我的订单' }]);
-        }
+        title = '每日礼包';
+        content = buildDailyPackProductPage(data, dailyPackSku(args[1]));
         await send();
 
         return;
@@ -528,7 +563,7 @@ export default onResponse(selects, async event => {
           ],
           [
             { label: '周活藏宝图', command: '/上古遗珍 周活' },
-            { label: '每日礼包', command: '/上古遗珍 礼包' }
+            { label: '每日礼包', command: '/充值 日礼包' }
           ]
         ]) {
           for (const button of row) {
@@ -594,24 +629,28 @@ export default onResponse(selects, async event => {
     }
     quote(
       [
-        `¥${(lease.priceAmount / 100).toFixed(2)} · 30收益日`,
-        `购买即得 ${lease.immediateDaoCrystal}道晶 · 每收益日 ${lease.dailyCrystal}灵晶`,
         lease.active ? `生效中 · 剩余 ${lease.remainingDays}收益日` : '当前未生效',
         ...(lease.endDate ? [`权益截止 ${lease.endDate}`] : []),
         `可领取 ${lease.claimableDays}收益日 · ${lease.claimableCrystal}灵晶`,
         `续订延长收益日，每日金额不叠加；最多预存 ${lease.maxDays}日。`,
         ...(lease.purchaseUnavailableReason ? [lease.purchaseUnavailableReason] : [])
       ],
-      [
-        ...(lease.claimableDays > 0 ? [{ label: '预览领取', command: '/灵脉租契 领取' }] : []),
-        ...(lease.packageId && lease.canPurchase ? [{ label: '购买/续订（私聊）', command: `/充值购买 ${lease.packageId}` }] : []),
-        { label: '我的订单', command: '/我的订单' }
-      ]
+      [...(lease.claimableDays > 0 ? [{ label: '预览领取', command: '/灵脉租契 领取' }] : []), { label: '我的订单', command: '/我的订单' }]
     );
+    content.addBlockquote(buildSpiritVeinProductBlock(lease));
     await send();
   } catch (error) {
     logger.error('宝物指令未完成', { operation, message: error instanceof Error ? error.message : '未知异常' });
     content = Format.createMarkdown();
+    if (originalFreeRef) {
+      quote(
+        [dailyClaimConfirmed ? '礼包已领取，消息未确认送达。请重试原确认恢复展示。' : '领取结果尚未确认，请重试原确认，不要重新领取。'],
+        [{ label: '核对并重试原领取', command: `/确认礼包 ${originalFreeRef}` }]
+      );
+      await send();
+
+      return;
+    }
     quote(
       [
         explorationSettled

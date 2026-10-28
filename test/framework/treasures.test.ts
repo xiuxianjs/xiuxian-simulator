@@ -247,7 +247,7 @@ for (const used of [false, true]) {
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
     const top = nodes.filter(node => node.type === 'MD.button').slice(0, 4);
     assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 周活', '/上古遗珍 礼包'
+      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 周活', '/充值 日礼包'
     ]);
     const positions = top.map(button => nodes.indexOf(button));
     assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
@@ -280,7 +280,7 @@ for (const used of [false, true]) {
     assert.ok(view.text.indexOf('当前账户') > view.text.indexOf('藏宝图探索'));
     assert.match(view.text, /灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
     assert.deepEqual(view.commands.slice(-2), ['/宝物', '/上古遗珍']);
-    assert.ok(!view.commands.includes('/灵脉租契'));
+    assert.ok(!view.commands.includes('/充值 灵脉租契'));
     assert.equal(requests.length, 1);
     if (used) previews.set('/上古遗珍（免费与首十连已使用）', view);
   });
@@ -426,19 +426,19 @@ test('支付成功回执展示本订单租契快照，旧订单保持兼容', ()
   const view = inspectMessage([{ type: 'Markdown', value: buildRechargeSuccessContent(parsed).value.value }]);
   assert.match(view.text, /道晶 \+300/);
   assert.match(view.text, /延长 30收益日，每日 2000灵晶/);
-  assert.ok(view.commands.includes('/灵脉租契'));
+  assert.ok(view.commands.includes('/我的权益 灵脉租契'));
   assert.throws(() => parseBackendNormalPaymentSettlement({ ...data, spiritVein: { days: 30, dailyCrystal: '2000', startDate: 'x', endDate: 'x' } }));
 });
 
-test('每日礼包入口展示服务端配额，已单购的全包没有购买按钮', async t => {
+test('日礼包默认单档展示，未决订单保留且不能再次购买', async t => {
   const data={serverDate:'2026-10-27',unresolvedOrderNo:'N-pending',quotas:[{sku:'small',limit:3,successful:1,pending:0,remaining:2}],products:[
     {sku:'small',name:'1元礼包',packageId:31,priceAmount:100,limit:3,remaining:2,available:true,unavailableReason:'',label:'超值300%',rewardParts:[{kind:'fragment',name:'随机稀有碎片',quantity:2,independentRolls:1,perRoll:2}]},
-    {sku:'all',name:'全包',packageId:34,priceAmount:3000,limit:1,remaining:0,available:false,unavailableReason:'当日已有单购，不支持补差全包',label:'单买33元，全包30元',rewardParts:[]}
+    {sku:'all',name:'全包',packageId:34,priceAmount:3000,limit:1,remaining:0,available:false,unavailableReason:'当前有待核对订单',label:'全包优惠',rewardParts:[]}
   ]};
   for(const product of data.products) Object.assign(product,{promotionTexts:['不参加首充返利','不参加新人返利','不参加限时累计返利','不参加周返利','实付计充值及VIP']});
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,data));
   const view=facts(await app.runHandler(handler,app.events.privateMessage({text:'/上古遗珍 礼包',platform:'qq-bot'})));
-  assert.ok(view.commands.includes('/充值购买 31'));assert.ok(!view.commands.includes('/充值购买 34'));assert.match(view.text,/不支持补差全包/);assert.match(view.text,/N-pending/);assert.equal(requests[0].path,'/api/v2/robot/business/treasures.daily-packs');previews.set('每日礼包与共享配额',view);
+  assert.ok(!view.commands.includes('/充值购买 31'));assert.ok(!view.commands.includes('/充值购买 34'));assert.match(view.text,/每日限购2\/3/);assert.match(view.text,/N-pending/);assert.ok(view.commands.includes('/充值 日礼包 30元全包'));assert.equal(requests[0].path,'/api/v2/robot/business/treasures.daily-packs');previews.set('每日礼包与共享配额',view);
 });
 test('已领原周活宝箱能补图，多行原奖励保留且图与按钮各只展示一次',async t=>{
   const weekly={rewardType:'weekly',cyclePeriod:'2026-10-26',currentPoints:10,taskRewardsCanClaim:false,tasks:[],rewards:['灵石','灵肥'].map((name,index)=>({requiredPoints:10,name,category:'item',currencyCode:'',itemId:index+1,quantity:index?1:10,claimed:true,canClaim:false,treasureMapQuantity:2,treasureMapGranted:false,treasureMapClaimable:true,treasureMapBackfillOnly:true}))};
