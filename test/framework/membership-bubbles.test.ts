@@ -45,7 +45,8 @@ for (const privateChat of [false, true]) {
     assert.ok(!view.commands.includes('/一键领取月卡'));
     assert.ok(view.commands.includes('/我的权益 月卡'));
     assert.ok(view.commands.includes('/我的订单'));
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 4);
+    assert.equal(requests.filter(request => request.path.endsWith('/spirit-vein.overview')).length, 1);
     assert.ok(requests.slice(1).every(r => !r.path.includes('claim')));
   });
 }
@@ -161,12 +162,12 @@ test('权益首页订单在顶部，返利在底部，过期月卡可补领且�
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(message.nodes);
   assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), [
-    '/我的订单', '/我的特权', '/我的权益 月卡', '/一键领取月卡', '/我的权益 金手指', '/充值', '/里程碑',
+    '/我的订单', '/我的特权', '/我的权益 月卡', '/一键领取月卡', '/我的权益 金手指', '/我的权益 灵脉租契', '/充值 灵脉租契', '/充值', '/里程碑',
     '/充值', '/新人返利', '/周周返利'
   ]);
   const nodes = message.nodes.flatMap(n => n.type === 'Markdown' ? n.value : []);
   const quotes = nodes.filter(n => n.type === 'MD.blockquote');
-  assert.equal(quotes.length, 5);
+  assert.equal(quotes.length, 6);
   assert.ok(nodes.findIndex(n => n.type === 'MD.button' && n.options?.data === '/我的订单') < nodes.findIndex(n => n.type === 'MD.blockquote'));
   const quoteView = (index: number) => {
     const quote = quotes[index];
@@ -179,8 +180,10 @@ test('权益首页订单在顶部，返利在底部，过期月卡可补领且�
   assert.match(quoteView(1).text, /可领 21 天（可补领）/);
   assert.deepEqual(quoteView(1).commands, ['/我的权益 月卡', '/一键领取月卡']);
   assert.match(quoteView(2).text, /金手指 · 未开通/);
-  assert.deepEqual(quoteView(3).commands, ['/充值']);
-  assert.equal(requests.length, 3);
+  assert.deepEqual(quoteView(3).commands, ['/我的权益 灵脉租契', '/充值 灵脉租契']);
+  assert.deepEqual(quoteView(4).commands, ['/充值']);
+  assert.equal(requests.length, 4);
+  assert.equal(requests.filter(request => request.path.endsWith('/spirit-vein.overview')).length, 1);
 });
 
 test('VIP过滤主题权益后再分页，空双倍日配置仍可读取', async t => {

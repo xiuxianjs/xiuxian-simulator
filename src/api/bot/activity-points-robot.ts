@@ -8,6 +8,7 @@ export function parseRobotActivityPoints(value: unknown, type: 'daily' | 'weekly
 
   return {
     currentPoints: data.currentPoints,
+    treasureMapsUnavailableReason: data.treasureMapsUnavailableReason,
     taskRewardsCanClaim: data.taskRewardsCanClaim ?? false,
     tasks: data.tasks.map(task => ({
       taskId: task.taskId,
@@ -26,7 +27,11 @@ export function parseRobotActivityPoints(value: unknown, type: 'daily' | 'weekly
       quantity: reward.quantity,
       category: reward.category,
       claimed: reward.claimed,
-      canClaim: reward.canClaim
+      canClaim: reward.canClaim,
+      treasureMapQuantity: reward.treasureMapQuantity ?? 0,
+      treasureMapGranted: reward.treasureMapGranted === true,
+      treasureMapClaimable: reward.treasureMapClaimable === true,
+      treasureMapBackfillOnly: reward.treasureMapBackfillOnly === true
     }))
   };
 }
@@ -36,6 +41,7 @@ export function parseRobotActivityClaim(value: unknown) {
   return {
     userName: data.userName,
     requiredPoints: data.requiredPoints,
+    treasureMapBackfillOnly: data.treasureMapBackfillOnly === true,
     rewards: data.issued.map(reward => ({ name: displayCurrencyText(reward.name), amount: reward.amount }))
   };
 }

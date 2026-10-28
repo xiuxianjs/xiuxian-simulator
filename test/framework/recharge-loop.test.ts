@@ -32,7 +32,8 @@ for (const isPrivate of [false, true]) for (const active of [false, true]) {
     assert.ok(view.text.includes('状态暂未获取'));
     assert.equal(view.commands.includes('/一键领取月卡'), true);
     for (const command of ['/我的权益 月卡', '/我的权益 金手指', '/我的特权', '/充值', '/新人返利', '/周周返利', '/里程碑', '/我的订单']) assert.ok(view.commands.includes(command), command);
-    assert.equal(requests.length, 3);
+    assert.equal(requests.length, 4);
+    assert.equal(requests.filter(request => request.path.endsWith('/spirit-vein.overview')).length, 1);
     assert.ok(!JSON.stringify(message.nodes).includes('MD.image'));
     const quotes = message.nodes.flatMap(n => n.type === 'Markdown' ? n.value.filter(c => c.type === 'MD.blockquote') : []);
     assert.ok(quotes.some(q => Array.isArray(q.value) && inspectMessage([{ type: 'Markdown', value: q.value }]).commands.includes('/我的权益 月卡')));
@@ -125,6 +126,10 @@ test('overview summaries use successful backend eligibility and counts', async t
   const reward = { spiritStone: 0, spiritCrystal: 1, spiritMilk: 0, items: [], rewardText: '灵晶 ×1', canClaim: true };
   const { app, requests } = await gameFixture(t, request => {
     if (request.path.endsWith('/membership.rights')) return businessEnvelope(request.bid, rightsData(true, 0));
+    if (request.path.endsWith('/spirit-vein.overview')) return businessEnvelope(request.bid, {
+      active: false, startDate: null, endDate: null, remainingDays: 0, futureDays: 0, claimedDays: 0, totalDays: 0, claimableDays: 0, claimableCrystal: 0,
+      maxDays: 180, packageId: 27, priceAmount: 3000, dailyCrystal: 2000, immediateDaoCrystal: 300, canPurchase: true
+    });
     if (request.path.endsWith('/recharge/first')) return { names: { items: {}, equipments: {}, skills: {} }, tiers: [{ tierAmountYuan: 30, status: 'claimable', rewards: [], rewardText: '灵晶 ×1' }] };
     if (request.path.endsWith('/recharge/newcomer')) return { contentDays: 14, isInPeriod: true, daysSinceRegistration: 0, currentDay: 1, todayRechargedAmount: 3000, thresholdAmount: 3000, claimedDays: [], todayRewardClaimed: false, maxClaimableDay: 1, itemNames: {}, rewards: [{ ...reward, day: 1, claimed: false, statusTag: '可领取' }] };
     if (request.path.endsWith('/recharge/weekly-rebate')) return { eligible: true, minAccountDays: 14, dailyThresholdAmount: 3000, daysSinceRegistration: 15, todayDayOfWeek: 1, todayLabel: '周一', weekStart: '2026-10-19', todayRechargedAmount: 3000, todayRechargedYuan: 30, todayRechargeText: '30.00', thresholdYuan: 30, claimedDays: [], canClaimToday: false, canClaimBonus: false, rewards: [] };
@@ -133,7 +138,8 @@ test('overview summaries use successful backend eligibility and counts', async t
   });
   const result = await app.runHandler(rights, app.events.privateMessage({ text: '/我的权益', platform: 'qq-bot' }));
   const view = inspectMessage(result.messages[0].nodes);
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
+  assert.equal(requests.filter(request => request.path.endsWith('/spirit-vein.overview')).length, 1);
   assert.ok(view.text.includes('首充'));
   assert.ok(view.text.includes('1 档可领'));
   assert.ok(!view.text.includes('新人返利：'));

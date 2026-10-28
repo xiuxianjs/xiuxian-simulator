@@ -3,7 +3,7 @@ import type { BackendRequestContext } from './context';
 import { parsePositiveIssuedRewards, type IssuedReward } from '../schemas/issued-reward';
 
 export type BackendActivityIssuedReward = IssuedReward;
-export type BackendActivityClaim = { userName: string; requiredPoints: number; issued: BackendActivityIssuedReward[] };
+export type BackendActivityClaim = { userName: string; requiredPoints: number; issued: BackendActivityIssuedReward[]; treasureMapBackfillOnly?: boolean };
 export type BackendActivityClaimAll = {
   claimed: BackendActivityClaim[];
   partial: boolean;
@@ -27,7 +27,16 @@ export function parseBackendActivityClaim(value: unknown): BackendActivityClaim 
     throw new Error('活跃奖励响应不完整');
   }
 
-  return { userName: item.userName, requiredPoints: item.requiredPoints, issued: parsePositiveIssuedRewards(item.issued, '活跃奖励响应不完整') };
+  if (item.treasureMapBackfillOnly !== undefined && typeof item.treasureMapBackfillOnly !== 'boolean') {
+    throw new Error('周活补图回执不完整');
+  }
+
+  return {
+    userName: item.userName,
+    requiredPoints: item.requiredPoints,
+    issued: parsePositiveIssuedRewards(item.issued, '活跃奖励响应不完整'),
+    treasureMapBackfillOnly: item.treasureMapBackfillOnly === true
+  };
 }
 
 export async function claimBackendActivityReward(

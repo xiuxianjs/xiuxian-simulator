@@ -20,6 +20,8 @@ const PERSONAL_ROWS = [
   { label: '活跃任务', command: '/日常活跃', introduction: '完成活跃任务，查看进度与奖励' },
   { label: '成就', command: '/成就', introduction: '查看成就目标与进度，领取已达成的奖励' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
+  { label: '上古遗珍', command: '/上古遗珍', introduction: '每日免费探索，收集宝物与碎片' },
+  { label: '宝物', command: '/宝物', introduction: '查看与培养宝物，提升鸿蒙气运' },
   { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，修行任务与签到' },
   { label: '通天塔', command: '/通天塔', introduction: '登塔闯关，挑战更高层' },
   { label: '镇妖塔', command: '/妖塔', introduction: '逐层镇妖，磨砺战力' },
@@ -65,7 +67,7 @@ export default onResponse(selects, async e => {
 
   for (const entry of entries) {
     const row = Format.createMarkdown()
-      .addButton(markdownButtonLabel(`${entry.label}`), { data: entry.command })
+      .addButton(markdownButtonLabel(`${entry.label}`), { data: entry.command, autoEnter: false })
       .addText(` — ${entry.introduction}`);
 
     if (entry.command === '/灵脉攻防战') {

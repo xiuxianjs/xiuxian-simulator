@@ -43,7 +43,9 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     Boolean(payResult.vipUpgrade) ||
     payResult.newcomerDayGranted !== null ||
     payResult.monthCardExtended ||
-    payResult.seclusionPassActivated;
+    payResult.seclusionPassActivated ||
+    Boolean(payResult.spiritVein) ||
+    Boolean(payResult.dailyTreasurePack);
 
   if (!hasDetail) {
     successMd.addText('订单已完成，可查看到账奖励。');
@@ -74,6 +76,28 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
   if (payResult.monthCardExtended) {
     successMd.addText('月卡已激活/续期');
     successMd.addNewline();
+  }
+  if (payResult.spiritVein) {
+    successMd.addText(`灵脉租契已延长 ${payResult.spiritVein.days}收益日，每日 ${payResult.spiritVein.dailyCrystal}灵晶`);
+    successMd.addNewline();
+    successMd.addText(`本订单权益期间：${payResult.spiritVein.startDate} 至 ${payResult.spiritVein.endDate}`);
+    successMd.addNewline();
+    successMd.addButton('领取灵脉租契', { data: '/我的权益 灵脉租契', autoEnter: false });
+    successMd.addNewline();
+  }
+  if (payResult.dailyTreasurePack) {
+    const pack = payResult.dailyTreasurePack;
+
+    const name = ({ small: '每日1元礼包', medium: '每日6元礼包', large: '每日18元礼包', all: '每日全包' } as Record<string, string>)[pack.sku] ?? '每日礼包';
+
+    successMd.addText(`${name} · ${pack.businessDate}`).addNewline();
+    if (pack.treasureMaps) {
+      successMd.addText(`藏宝图 +${pack.treasureMaps}`).addNewline();
+    }
+    for (const fragment of pack.fragments) {
+      successMd.addText(`${fragment.name}碎片 ×${fragment.quantity}`).addNewline();
+    }
+    successMd.addButton('查看每日礼包', { data: '/充值 日礼包', autoEnter: false }).addNewline();
   }
 
   if (payResult.seclusionPassActivated) {

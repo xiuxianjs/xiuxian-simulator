@@ -29,7 +29,13 @@ const order = (value: unknown): BackendSponsorOrder => {
   return { orderNo: data.orderNo, payAmount, status: data.status };
 };
 
-export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string };
+export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string; promotionTexts?: string[] };
+
+export class CheckoutPromotionDecodeError extends Error {
+  constructor(readonly orderNo: string) {
+    super(`原订单 ${orderNo} 的返利参与说明暂未取得，请先查询原订单，再恢复支付。`);
+  }
+}
 
 export async function createBackendSponsorPayment(
   bid: string,
@@ -86,6 +92,13 @@ export type BackendNormalPaymentSettlement = {
   newcomerDayGranted: number | null;
   monthCardExtended: boolean;
   seclusionPassActivated: boolean;
+  spiritVein?: { days: number; dailyCrystal: number; startDate: string; endDate: string };
+  dailyTreasurePack?: {
+    sku: string;
+    businessDate: string;
+    treasureMaps: number;
+    fragments: { treasureId: number; name: string; rarity: number; quantity: number }[];
+  };
 };
 export async function getBackendNormalPaymentSettlement(bid: string, uid: number, orderNo: string): Promise<BackendNormalPaymentSettlement> {
   return parseBackendNormalPaymentSettlement(await requestBackend(bid, 'get_players_id_payments_orders_orderNo_settlement', { path: { id: uid, orderNo } }));
@@ -117,6 +130,53 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
   if (vip && (!Number.isInteger(vip.oldLevel) || !Number.isInteger(vip.newLevel))) {
     throw new Error('充值结算回执不完整');
   }
+  const spiritVein = data.spiritVein === undefined || data.spiritVein === null ? undefined : asRow(data.spiritVein, '灵脉租契回执不完整');
+  const daily = data.dailyTreasurePack === undefined || data.dailyTreasurePack === null ? undefined : asRow(data.dailyTreasurePack, '每日礼包回执不完整');
+
+  if (
+    daily &&
+    (!['small', 'medium', 'large', 'all'].includes(String(daily.sku)) ||
+      typeof daily.businessDate !== 'string' ||
+      !Number.isFinite(Date.parse(daily.businessDate)) ||
+      !Number.isSafeInteger(daily.treasureMaps) ||
+      Number(daily.treasureMaps) < 0 ||
+      !Array.isArray(daily.fragments))
+  ) {
+    throw new Error('每日礼包回执不完整');
+  }
+  const fragments = daily
+    ? (daily.fragments as unknown[]).map(value => {
+        const f = asRow(value, '每日礼包赠片回执不完整');
+
+        if (
+          !Number.isSafeInteger(f.treasureId) ||
+          typeof f.name !== 'string' ||
+          !Number.isSafeInteger(f.rarity) ||
+          Number(f.rarity) < 4 ||
+          Number(f.rarity) > 6 ||
+          !Number.isSafeInteger(f.quantity) ||
+          Number(f.quantity) < 1
+        ) {
+          throw new Error('每日礼包赠片回执不完整');
+        }
+
+        return { treasureId: f.treasureId as number, name: f.name, rarity: f.rarity as number, quantity: f.quantity as number };
+      })
+    : [];
+
+  if (
+    spiritVein &&
+    (!Number.isSafeInteger(spiritVein.days) ||
+      Number(spiritVein.days) <= 0 ||
+      !Number.isSafeInteger(spiritVein.dailyCrystal) ||
+      Number(spiritVein.dailyCrystal) <= 0 ||
+      typeof spiritVein.startDate !== 'string' ||
+      !Number.isFinite(Date.parse(spiritVein.startDate)) ||
+      typeof spiritVein.endDate !== 'string' ||
+      !Number.isFinite(Date.parse(spiritVein.endDate)))
+  ) {
+    throw new Error('灵脉租契回执不完整');
+  }
 
   return {
     orderNo: data.orderNo,
@@ -132,7 +192,20 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
     vipUpgrade: vip ? { oldLevel: vip.oldLevel as number, newLevel: vip.newLevel as number } : null,
     newcomerDayGranted: Number.isInteger(data.newcomerDayGranted) ? (data.newcomerDayGranted as number) : null,
     monthCardExtended: data.monthCardExtended,
-    seclusionPassActivated: data.seclusionPassActivated
+    seclusionPassActivated: data.seclusionPassActivated,
+    ...(daily
+      ? { dailyTreasurePack: { sku: daily.sku as string, businessDate: daily.businessDate as string, treasureMaps: daily.treasureMaps as number, fragments } }
+      : {}),
+    ...(spiritVein
+      ? {
+          spiritVein: {
+            days: spiritVein.days as number,
+            dailyCrystal: spiritVein.dailyCrystal as number,
+            startDate: spiritVein.startDate as string,
+            endDate: spiritVein.endDate as string
+          }
+        }
+      : {})
   };
 }
 
@@ -159,8 +232,22 @@ export function parseBackendNormalCheckout(value: unknown): BackendSponsorChecko
   if (paymentOrder.status !== 'PENDING') {
     throw new Error('新建充值订单状态异常');
   }
+  const promotionTexts = data.promotionTexts;
 
-  return { order: paymentOrder, payUrl: data.payUrl, packageName: data.packageName };
+  if (
+    (promotionTexts === undefined && paymentOrder.orderNo.startsWith('TD')) ||
+    (promotionTexts !== undefined &&
+      (!Array.isArray(promotionTexts) || !promotionTexts.length || promotionTexts.some(line => typeof line !== 'string' || !line.trim())))
+  ) {
+    throw new CheckoutPromotionDecodeError(paymentOrder.orderNo);
+  }
+
+  return {
+    order: paymentOrder,
+    payUrl: data.payUrl,
+    packageName: data.packageName,
+    ...(promotionTexts === undefined ? {} : { promotionTexts: promotionTexts as string[] })
+  };
 }
 export async function createBackendLimitedEventPayment(
   bid: string,

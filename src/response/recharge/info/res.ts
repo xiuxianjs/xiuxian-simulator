@@ -11,7 +11,9 @@ import { useMessage } from '@src/utils/useMessage';
 import { parseRobotRechargeCatalog } from '@src/api/bot/recharge-info';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures';
+import { createRechargeProductQuote as createQuoteMarkdown, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -19,6 +21,17 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = isPrivateEvent(e);
   const [, parentNext] = useEvent();
+  const category = e.MessageText.trim().replace(/^[/#＃!！]?(?:充值说明|充值信息|充值)\s*/, '');
+  const dailyCategory = /^(?:日礼包|每日礼包)(?:\s|$)/.test(category);
+  const pageTitle = dailyCategory ? '每日礼包' : category === '灵脉租契' ? '灵脉租契' : '充值';
+
+  if (dailyCategory && !isPrivate) {
+    await message.send(
+      FormatGui({ isPrivate, bid, title: '每日礼包', content: Format.createMarkdown().addText('日礼包仅支持私聊，请在私聊中发送 /充值 日礼包。'), bar: false })
+    );
+
+    return;
+  }
 
   try {
     const response = await runRobotBusiness(e, 'recharge.catalog', { private: isPrivate }, parseRobotRechargeCatalog, parentNext, async reply => {
@@ -26,9 +39,9 @@ export default onResponse(selects, async e => {
         FormatGui({
           isPrivate,
           bid,
-          title: '充值',
+          title: pageTitle,
           content: Format.createMarkdown().addText(activeFeatureText(reply.text)),
-          footer: [{ label: '返回权益', command: '/我的权益' }]
+          footer: [{ label: '返回权益', command: '/我的权益', autoEnter: false }]
         })
       );
     });
@@ -55,9 +68,14 @@ export default onResponse(selects, async e => {
       md.addBlockquote(quote);
     };
 
-    const category = e.MessageText.trim().replace(/^[/#＃!！]?(?:充值说明|充值信息|充值)\s*/, '');
     const giftPage = category.match(/^首充礼包(?:\s+(\d+))?$/);
-    const selected = giftPage ? '首充礼包' : ['道晶套餐', '月卡', '金手指', '优惠礼包'].includes(category) ? category : '';
+    const selected = dailyCategory
+      ? '日礼包'
+      : giftPage
+        ? '首充礼包'
+        : ['道晶套餐', '月卡', '金手指', '优惠礼包', '灵脉租契'].includes(category)
+          ? category
+          : '';
     let giftNav: { current: number; total: number; command: string } | undefined;
 
     // 首充赠礼属于充值入口，和付费优惠礼包分开展示；状态以服务端为准。
@@ -98,6 +116,8 @@ export default onResponse(selects, async e => {
         md.addBlockquote(createQuoteMarkdown([`双卡合计 ¥${total.toFixed(2)}`, '双卡权益可叠加']));
       }
       md.addBlockquote(createQuoteMarkdown([`道晶套餐 · ${result.normalPackages.length} 款`], [{ label: '查看', command: '/充值 道晶套餐' }]));
+      md.addBlockquote(createQuoteMarkdown(['灵脉租契'], [{ label: '查看', command: '/充值 灵脉租契' }]));
+      md.addBlockquote(createQuoteMarkdown(['每日礼包'], [{ label: '查看（私聊）', command: '/充值 日礼包' }]));
       md.addBlockquote(
         createQuoteMarkdown(
           [`月卡 · ${result.monthCard ? `¥${result.monthCard.package.yuan}` : '暂未开放'}`],
@@ -145,6 +165,23 @@ export default onResponse(selects, async e => {
       md.addNewline().addText('优惠礼包').addNewline();
       result.firstChargePackages.forEach(pkg => addPackage(pkg));
     }
+    if (selected === '灵脉租契' || selected === '日礼包') {
+      const loaded =
+        selected === '灵脉租契'
+          ? await runRobotBusiness(e, 'spirit-vein.overview', {}, parseSpiritVein, parentNext)
+          : await runRobotBusiness(e, 'treasures.daily-packs', {}, parseTreasureDailyPacks, parentNext);
+
+      if (loaded.handled) {
+        return;
+      }
+      if (selected === '灵脉租契') {
+        md.addBlockquote(buildSpiritVeinProductBlock(loaded.data as ReturnType<typeof parseSpiritVein>));
+      } else {
+        const input = category.split(/\s+/).slice(1);
+
+        md.absorb(buildDailyPackProductPage(loaded.data as ReturnType<typeof parseTreasureDailyPacks>, input.length > 1 ? undefined : dailyPackSku(input[0])));
+      }
+    }
 
     if (!isPrivate && selected) {
       md.addNewline().addText('请在私聊中购买。');
@@ -153,13 +190,17 @@ export default onResponse(selects, async e => {
       FormatGui({
         isPrivate,
         bid,
-        title: '充值',
+        title: pageTitle,
         content: md,
-        ...(giftNav ? { nav: giftNav } : {}),
-        header: [{ label: '返回权益', command: '/我的权益' }, ...(selected ? [{ label: '商品分类', command: '/充值' }] : [])],
+        ...(giftNav ? { nav: { ...giftNav, autoEnter: false } } : {}),
+        header: [
+          { label: '返回权益', command: '/我的权益', autoEnter: false },
+          ...(selected ? [{ label: '商品分类', command: '/充值', autoEnter: false }] : [])
+        ],
         footer: [
-          ...(result.showNewcomerRebate ? [{ label: '新人返利', command: '/新人返利' }] : []),
-          ...(result.showWeeklyRebate ? [{ label: '周周返利', command: '/周周返利' }] : [])
+          { label: '灵脉租契', command: '/充值 灵脉租契', autoEnter: false },
+          ...(result.showNewcomerRebate ? [{ label: '新人返利', command: '/新人返利', autoEnter: false }] : []),
+          ...(result.showWeeklyRebate ? [{ label: '周周返利', command: '/周周返利', autoEnter: false }] : [])
         ]
       })
     );
@@ -170,11 +211,11 @@ export default onResponse(selects, async e => {
       FormatGui({
         isPrivate,
         bid,
-        title: '充值',
+        title: pageTitle,
         content: Format.createMarkdown().addText('⚠️ 读取充值信息失败，请稍后重试'),
         footer: [
-          { label: '返回权益', command: '/我的权益' },
-          { label: '重试', command: '/充值' }
+          { label: '返回权益', command: '/我的权益', autoEnter: false },
+          { label: '重试', command: '/充值', autoEnter: false }
         ]
       })
     );

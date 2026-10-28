@@ -35,7 +35,11 @@ export default onResponse(selects, async e => {
     }
     const contentMd = Format.createMarkdown();
     const { currentPoints, tasks, rewards, taskRewardsCanClaim } = loaded.data;
-    const claimable = rewards.filter(r => r.canClaim);
+    const claimable = rewards.filter(r => r.canClaim || r.treasureMapClaimable);
+
+    if (loaded.data.treasureMapsUnavailableReason) {
+      contentMd.addText(loaded.data.treasureMapsUnavailableReason).addNewline();
+    }
 
     // ── 活跃度总览 ────────────────────────
     contentMd.addText(`当前活跃度：${currentPoints}`);
@@ -62,13 +66,21 @@ export default onResponse(selects, async e => {
       contentMd.addText('── 活跃度奖励 ──');
       contentMd.addNewline();
 
-      for (const reward of rewards) {
-        const status = reward.claimed ? '✅' : reward.canClaim ? '🔓' : '🔒';
+      for (const points of [...new Set(rewards.map(reward => reward.requiredPoints))]) {
+        const rows = rewards.filter(reward => reward.requiredPoints === points);
+        const reward = rows[0];
+        const backfill = rows.some(row => row.treasureMapClaimable);
+        const canClaim = rows.some(row => row.canClaim);
+        const status = backfill || canClaim ? '🔓' : reward.claimed ? '✅' : '🔒';
 
-        contentMd.addText(`${status}${reward.requiredPoints}点 → ${reward.name} x${reward.quantity}`);
+        contentMd.addText(`${status}${points}点 → ${rows.map(row => `${row.name} x${row.quantity}`).join('、')}`);
+        const maps = Math.max(0, ...rows.map(row => row.treasureMapQuantity));
 
-        if (reward.canClaim) {
-          addOptions(contentMd, [{ label: '领取', command: `/领取周常活跃奖励 ${reward.requiredPoints}` }]);
+        if (maps) {
+          contentMd.addNewline().addText(`额外藏宝图 ×${maps} · ${backfill ? '可补领' : reward.treasureMapGranted ? '已到账' : '原档达标领取后到账'}`);
+        }
+        if (canClaim || backfill) {
+          addOptions(contentMd, [{ label: reward.claimed ? '补领藏宝图' : '领取', command: `/领取周常活跃奖励 ${points}`, autoEnter: false }]);
         } else {
           contentMd.addNewline();
         }
@@ -81,14 +93,14 @@ export default onResponse(selects, async e => {
         bid,
         title: '周常活跃',
         header: [
-          { label: '日常活跃', command: '/日常活跃' },
-          { label: '周常活跃', selected: true, command: '/周常活跃' }
+          { label: '日常活跃', command: '/日常活跃', autoEnter: false },
+          { label: '周常活跃', selected: true, command: '/周常活跃', autoEnter: false }
         ],
         content: contentMd,
         footer: [
-          ...(claimable.length > 0 || taskRewardsCanClaim ? [{ label: '一键领取', command: '/一键领取周常活跃奖励' }] : []),
-          { label: '签到', command: '/日常签到' },
-          { label: '更多', command: '/更多' }
+          ...(claimable.length > 0 || taskRewardsCanClaim ? [{ label: '一键领取', command: '/一键领取周常活跃奖励', autoEnter: false }] : []),
+          { label: '签到', command: '/日常签到', autoEnter: false },
+          { label: '更多', command: '/更多', autoEnter: false }
         ]
       })
     );
