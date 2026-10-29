@@ -105,11 +105,19 @@ const numericFields = [
   'dodgeRate'
 ] as const;
 
-type Attributes = { uid: number; daoName: string; realmName: string } & Record<(typeof numericFields)[number], number>;
+type Attributes = {
+  uid: number;
+  daoName: string;
+  realmName: string;
+  maxAttributeBonus: number;
+  access: { canUseMeridian: boolean; canUseSoulArtifact: boolean; canUseSoulPath: boolean };
+  mpRecoveryEfficiency?: number;
+  mentalRecoveryEfficiency?: number;
+} & Record<(typeof numericFields)[number], number>;
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.149.0',
+  version: '1.155.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
     ...membershipActions,
@@ -227,9 +235,18 @@ export const gameExpose = Expose.create().provide({
           uid: { type: 'integer', minimum: 1 },
           daoName: { type: 'string' },
           realmName: { type: 'string' },
+          maxAttributeBonus: { type: 'integer' },
+          access: {
+            type: 'object',
+            properties: { canUseMeridian: { type: 'boolean' }, canUseSoulArtifact: { type: 'boolean' }, canUseSoulPath: { type: 'boolean' } },
+            required: ['canUseMeridian', 'canUseSoulArtifact', 'canUseSoulPath'],
+            additionalProperties: false
+          },
+          mpRecoveryEfficiency: { type: 'number' },
+          mentalRecoveryEfficiency: { type: 'number' },
           ...Object.fromEntries(numericFields.map(key => [key, { type: 'integer' as const }]))
         },
-        required: ['uid', 'daoName', 'realmName', ...numericFields],
+        required: ['uid', 'daoName', 'realmName', 'maxAttributeBonus', 'access', ...numericFields],
         additionalProperties: false
       },
       authorize,
@@ -241,6 +258,10 @@ export const gameExpose = Expose.create().provide({
           uid: panel.uid,
           daoName: panel.daoName,
           realmName: panel.realmName,
+          maxAttributeBonus: panel.maxAttributeBonus,
+          access: panel.access,
+          ...(panel.mpRecoveryEfficiency === undefined ? {} : { mpRecoveryEfficiency: panel.mpRecoveryEfficiency }),
+          ...(panel.mentalRecoveryEfficiency === undefined ? {} : { mentalRecoveryEfficiency: panel.mentalRecoveryEfficiency }),
           ...Object.fromEntries(numericFields.map(key => [key, panel[key]]))
         } as Attributes;
       }

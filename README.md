@@ -29,7 +29,10 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.149.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.155.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+
+`get_meditation_active` 读取当前玩家的闭关活跃标记，不开始、结束或结算闭关。
+`get_meditation_progress` 查询闭关状态与服务端收益预估；预估不代表结算入账。
 
 `checkin_celestial` 执行登仙台签到并返回实际时段及奖励；可先用 `get_checkin_status` 查询当前时段状态。
 `get_checkin_calendar` 查询签到概览、日常、日期、累计、新人、活动、狂欢及登仙台时段日历和奖励预览。

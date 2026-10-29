@@ -1,4 +1,4 @@
-import { ExposeError } from 'alemonjs';
+import { ExposeError, type ExposeReadonly } from 'alemonjs';
 import {
   parseDailyPackFreePreview,
   parseDailyPackFreeReceipt,
@@ -28,7 +28,8 @@ function preview<I extends Record<string, unknown>>(
   description: string,
   schema: ReturnType<typeof object>,
   command: (input: I) => string,
-  argumentsFor: (input: I) => Record<string, unknown>
+  argumentsFor: (input: I) => Record<string, unknown>,
+  validateInput?: (input: ExposeReadonly<I>) => void
 ) {
   return mutation<I>(
     description,
@@ -46,7 +47,8 @@ function preview<I extends Record<string, unknown>>(
 
       return { ...result, ...(row.data === undefined ? {} : { detailsJson: JSON.stringify(row.data) }) };
     },
-    input => ({ kind, ...argumentsFor(input) })
+    input => ({ kind, ...argumentsFor(input) }),
+    validateInput
   );
 }
 
@@ -114,8 +116,13 @@ export const treasureActions = {
       ...fields(boolean, 'freeAvailable spiritTenDiscountAvailable'),
       balances: object(fields(integer, 'spiritCrystal daoCrystal treasureMaps')),
       shapeRates: object(fields(number, 'singleComplete tenExpectedComplete tenAverageComplete')),
-      pity: list(object({ rarity: integer, name: text, counter: integer, hardPity: integer, nextProbability: number })),
-      wholeRates: list(object({ rarity: integer, name: text, probability: number })),
+      pity: list(
+        object({ rarity: integer, name: text, counter: integer, hardPity: integer, nextProbability: number, conditionalProbability: number, scope: text }, [
+          'conditionalProbability',
+          'scope'
+        ])
+      ),
+      wholeRates: list(object({ rarity: integer, name: text, probability: number, scope: text }, ['scope'])),
       rules: list(text),
       detailsJson: text
     }),
@@ -128,13 +135,18 @@ export const treasureActions = {
   ),
   preview_treasure_exploration: preview<{ source: 'free' | 'spirit_crystal' | 'dao_crystal' | 'treasure_map'; count: number }>(
     'explore',
-    '预览探索次数和原费用；必须核对 summary，确认使用返回的原引用，禁止根据最新价格重建。',
+    '预览探索次数和原费用；仅支持 1 或 10 次，免费探索仅支持 1 次。核对 summary，确认时使用原引用。',
     object({
       source: { type: 'string', enum: ['free', 'spirit_crystal', 'dao_crystal', 'treasure_map'] },
       count: { type: 'integer', minimum: 1, maximum: 10 }
     }),
     () => '/上古遗珍',
-    input => ({ source: input.source, count: input.count })
+    input => ({ source: input.source, count: input.count }),
+    input => {
+      if (![1, 10].includes(input.count) || (input.source === 'free' && input.count !== 1)) {
+        throw new ExposeError('INVALID_INPUT', '探索次数仅支持 1 或 10，免费探索仅支持 1 次');
+      }
+    }
   ),
   preview_treasure_synthesis: preview<Single>(
     'synthesize',

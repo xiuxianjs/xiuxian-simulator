@@ -472,6 +472,16 @@ for (const mode of ['extra-reward','wrong-xp','unknown-version'] as const) test(
  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));const view=facts(await app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'})));
  assert.match(view.text,/结果尚未获完整确认/);assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
 });
+for (const version of ['treasure-v4-independent-20261029', 'treasure-v5-priority-20261029']) for (const mode of ['valid', 'extra-reward', 'wrong-xp'] as const) test(`${version} ${mode} 校验原始结算`, async t => {
+ const data=receipt('explore',{source:'free',count:1});data.result.rulesVersion=version;
+ if(mode==='extra-reward')data.result.rewards.push({...data.result.rewards[0]});
+ if(mode==='wrong-xp')data.result.experienceGranted=0;
+ const {app}=await gameFixture(t, r=>businessEnvelope(r.bid,data));
+ const run=app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'}));
+ const view=facts(mode==='valid' ? await completeExploration(app,run) : await run, mode==='valid' ? 2 : 1);
+ if(mode==='valid') { assert.match(view.text,/上古遗珍探索完成/); assert.ok(!view.commands.includes(`/确认宝物 ${confirmationRef}`)); }
+ else { assert.match(view.text,/结果尚未获完整确认/); assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`)); }
+});
 for(const rulesVersion of ['treasure-v1-20261027','treasure-v2-20261027-first-drop'])test(`旧版${rulesVersion}藏宝图0经验多奖励回执继续恢复`,async t=>{
  const data=receipt('explore',{source:'treasure_map',count:1});data.result.rulesVersion=rulesVersion;data.result.experienceGranted=0;data.result.rewards.push({...data.result.rewards[0],treasureId:401,name:'采薇竹篮',rarity:4});
  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));const view=facts(await completeExploration(app,app.runHandler(handler,app.events.privateMessage({text:`/确认宝物 ${confirmationRef}`,platform:'qq-bot'}))),2);

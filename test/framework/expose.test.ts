@@ -25,7 +25,7 @@ for (const scenario of ['success', 'default config', 'default enabled', 'extra u
       assert.equal(request.method, 'GET');
       assert.ok(request.signal instanceof AbortSignal);
       assert.equal(request.headers['x-bid'], 'owner');
-      const data = isPanel ? { ...panel, uid: scenario === 'wrong player' ? 8 : 7 } : { bid: 'owner', account: scenario === 'unregistered' ? { status: 'unregistered', playerId: null } : { status: 'registered', playerId: 7 } };
+      const data = isPanel ? { ...panel, uid: scenario === 'wrong player' ? 8 : 7, ...(scenario === 'success' ? { mpRecoveryEfficiency: 1.5, mentalRecoveryEfficiency: 2.25 } : {}) } : { bid: 'owner', account: scenario === 'unregistered' ? { status: 'unregistered', playerId: null } : { status: 'registered', playerId: 7 } };
       return { status: scenario === 'server failure' ? 503 : 200, headers: {}, data: JSON.stringify({ data }) };
     } }));
     const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' }), () => {
@@ -42,6 +42,10 @@ for (const scenario of ['success', 'default config', 'default enabled', 'extra u
       assert.equal(data.uid, 7);
       assert.equal(data.combatPower, 12);
       assert.equal(data.daoName, '道友');
+      assert.equal(data.maxAttributeBonus, 12);
+      assert.deepEqual(data.access, panel.access);
+      if (scenario === 'success') { assert.equal(data.mpRecoveryEfficiency, 1.5); assert.equal(data.mentalRecoveryEfficiency, 2.25); }
+      else assert.equal('mpRecoveryEfficiency' in data, false);
       assert.equal('theme' in data, false);
       assert.equal(requests.length, 2);
     } else {

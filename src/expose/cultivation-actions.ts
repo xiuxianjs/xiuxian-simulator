@@ -1,8 +1,10 @@
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseMeditationBoostOptions, parseMeditationEnd, parseMeditationStart } from '../api/bot/meditation';
 import { parseMeridianPulse } from '../api/bot/meridian';
 import { parseRealmBreakthrough } from '../api/bot/realm-breakthrough';
+import { query } from './query';
+import { requestBackend } from '../api/bot/client';
 
 const empty = object({});
 const boost = object(
@@ -25,23 +27,21 @@ const benefits = {
   ...fields(text, 'message elapsedText bonusLine'),
   elapsedMinutes: integer
 };
-const start = object(
-  {
-    ...benefits,
-    button: text,
-    buttonText: text,
-    alreadyMeditating: boolean,
-    ...fields(integer, 'qiSoFar expSoFar dailyRemaining maxDurationHours'),
-    config: object(
-      fields(
-        number,
-        'QI_PER_INTERVAL INTERVAL_MINUTES DAILY_QI_CAP EXP_PER_ENERGY EXP_RECOVERY_EFFICIENCY RECOVERED_MENTAL_PER_INTERVAL EXP_PER_INTERVAL MAX_DURATION_MINUTES'
-      )
-    ),
-    passPreview: object({ maxDurationMinutes: integer, ...fields(number, 'qiBonusRate expBonusRate') })
-  },
-  ['bonusLines', 'boost', 'button', 'buttonText']
-);
+const startFields = {
+  ...benefits,
+  button: text,
+  buttonText: text,
+  alreadyMeditating: boolean,
+  ...fields(integer, 'qiSoFar expSoFar dailyRemaining maxDurationHours'),
+  config: object(
+    fields(
+      number,
+      'QI_PER_INTERVAL INTERVAL_MINUTES DAILY_QI_CAP EXP_PER_ENERGY EXP_RECOVERY_EFFICIENCY RECOVERED_MENTAL_PER_INTERVAL EXP_PER_INTERVAL MAX_DURATION_MINUTES'
+    )
+  ),
+  passPreview: object({ maxDurationMinutes: integer, ...fields(number, 'qiBonusRate expBonusRate') })
+};
+const start = object(startFields, ['bonusLines', 'boost', 'button', 'buttonText']);
 const end = object(
   {
     ...benefits,
@@ -62,7 +62,21 @@ const pulse = object({
 });
 
 export const cultivationActions = {
-  get_meditation_boost_options: mutation(
+  get_meditation_progress: query(
+    '查询闭关进度和服务端收益预估；不会启动或结算，预估不代表实际入账。reason 区分未开始和进行中。',
+    object({ ...startFields, reason: { type: 'string', enum: ['not_started', 'active'] } }, ['bonusLines', 'boost', 'button', 'buttonText']),
+    async ({ bid, uid, request }) => {
+      const raw = await requestBackend(bid, 'get_players_id_meditation_progress', { path: { id: uid }, ...request });
+      const reason = (raw as Record<string, unknown> | null)?.reason;
+
+      if (reason !== 'not_started' && reason !== 'active') {
+        throw new Error('闭关进度状态不完整');
+      }
+
+      return { ...parseMeditationStart(raw), reason };
+    }
+  ),
+  get_meditation_boost_options: observation(
     '查询闭关自动加速设置、倍率、每结算周期灵石费用和余额。经过服务端准入，可能结算常规资源；不购买加速、不修改设置。',
     'meditation.boost-options',
     empty,

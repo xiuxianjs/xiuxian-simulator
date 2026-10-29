@@ -90,3 +90,39 @@ test('锻造：真实入门及普通预览、确认、作品重放回执', async
     if (current.result.data.equipment) assert.equal(actual.equipment.id, current.result.data.equipment.id);
   }
 });
+
+test('锻造概览同一消息内重复读取使用新快照', async t => {
+  const row = [...output.matchAll(/EXPOSE_FORGE_HTTP=([^|]+)\|([^|]+)\|(.+)/g)].map(match => ({ operation: match[1], result: JSON.parse(match[3]) })).find(item => item.operation === 'forge.overview');
+  assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => { keys.push(request.headers['idempotency-key']); return { status: 200, headers: {}, data: JSON.stringify({ data: row.result }) }; } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  for (let i = 0; i < 2; i++) {
+    const run = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_forge_overview', {}), 'ai-plugin');
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  }
+  assert.notEqual(keys[0], keys[1]);
+});
+
+test('炼丹丹方同一消息内重复读取使用新快照', async t => {
+  const row = alchemyRows.find(item => item.command === '/炼丹 丹方 1');
+  assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    keys.push(request.headers['idempotency-key']);
+    const middleware = { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } };
+    return { status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', middleware, data: row.reply } }) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  for (let i = 0; i < 2; i++) {
+    const run = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_alchemy_recipes', { page: 1 }), 'ai-plugin');
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  }
+  assert.notEqual(keys[0], keys[1]);
+});

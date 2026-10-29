@@ -7,13 +7,13 @@ import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
 const backend = { api_url: 'https://backend.invalid', robot_auth_token: 'offline' };
-const item = { id: 11, userItemId: 11, itemId: 3, name: '灵草', type: 'material', subtype: null, quantity: 10, listedQuantity: 2, stackMax: 999, permission: 0, isStackable: true, isLocked: 2, grade: null, realm: null, effect: null, capabilities: [{ kind: 'viewRecipe', recipeId: 8 }] };
+const item = { id: 11, userItemId: 11, itemId: 3, name: '灵草', type: 'material', subtype: null, quantity: 10, listedQuantity: 2, stackMax: 999, permission: 0, isStackable: true, isLocked: 2, grade: { id: 1, name: '凡品', realmId: 2 }, realm: { id: 2, name: '炼气', level: 1 }, effect: null, capabilities: [{ kind: 'viewRecipe', recipeId: 8 }] };
 const inventory = { activeSubcategory: 'herb', playerStageLevel: 4, pagination: { page: 2, pageSize: 5, total: 6, totalPages: 2 }, items: [item], capabilities: [{ kind: 'viewProfile' }] };
 const summary = { slot: 0, name: '当前', equipmentCount: 1, equipmentNames: ['铁剑'], skillNames: { attack: '剑诀' }, missingEquipmentCount: 0, missingSkillCount: 1 };
 const templates = { current: summary, templates: [{ ...summary, slot: 1, name: '常用' }] };
 
 for (const action of ['get_inventory', 'get_battle_templates'] as const) {
-  for (const scenario of ['success', 'empty', 'malformed', 'forbidden', 'disabled', 'spoof uid', 'cancel pending'] as const) {
+  for (const scenario of ['success', 'empty', 'nullable', 'extra', 'malformed', 'forbidden', 'disabled', 'spoof uid', 'cancel pending'] as const) {
     test(`${action}: ${scenario}`, async t => {
       const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend, ...(scenario === 'disabled' ? { expose: { enabled: false } } : {}) } } });
       t.after(() => app.dispose());
@@ -40,6 +40,8 @@ for (const action of ['get_inventory', 'get_battle_templates'] as const) {
         });
         let data: unknown = action === 'get_inventory' ? inventory : templates;
         if (scenario === 'empty') data = action === 'get_inventory' ? { ...inventory, items: [], pagination: { page: 2, pageSize: 5, total: 0, totalPages: 0 } } : { ...templates, templates: [] };
+        if (scenario === 'nullable' && action === 'get_inventory') data = { ...inventory, items: [{ ...item, grade: null, realm: null }] };
+        if (scenario === 'extra' && action === 'get_inventory') data = { ...inventory, items: [{ ...item, grade: { ...item.grade, extra: true }, realm: { ...item.realm, extra: true } }] };
         if (scenario === 'malformed') data = action === 'get_inventory' ? { ...inventory, items: [{ ...item, quantity: '10' }] } : { ...templates, current: { ...summary, skillNames: { attack: 99 } } };
         return { status: scenario === 'forbidden' ? 403 : 200, headers: {}, data: JSON.stringify({ data }) };
       } }));
@@ -48,14 +50,14 @@ for (const action of ['get_inventory', 'get_battle_templates'] as const) {
       assert.deepEqual(result.errors, []);
       assert.deepEqual(result.messages, []);
       assert.deepEqual(result.actions, []);
-      if (scenario === 'success' || scenario === 'empty') {
+      if (scenario === 'success' || scenario === 'empty' || scenario === 'nullable' || scenario === 'extra') {
         assert.equal(result.value.ok, true);
         if (!result.value.ok) return;
         const data = result.value.data as any;
         if (action === 'get_inventory') {
           assert.deepEqual(data.pagination, scenario === 'empty' ? { page: 2, pageSize: 5, total: 0, totalPages: 0 } : inventory.pagination);
-          if (scenario === 'success') assert.deepEqual(data.items, [{ userItemId: 11, itemId: 3, name: '灵草', type: 'material', quantity: 10, listedQuantity: 2, stackMax: 999, permission: 0, isStackable: true, lockState: 2, capabilities: item.capabilities }]);
-          else assert.deepEqual(data.items, []);
+          if (scenario === 'empty') assert.deepEqual(data.items, []);
+          else assert.deepEqual(data.items, [{ userItemId: 11, itemId: 3, name: '灵草', type: 'material', quantity: 10, listedQuantity: 2, stackMax: 999, permission: 0, isStackable: true, lockState: 2, ...(scenario === 'nullable' ? {} : { grade: item.grade, realm: item.realm }), capabilities: item.capabilities }]);
         } else {
           assert.deepEqual(data.current.skills, [{ slot: 'attack', name: '剑诀' }]);
           assert.equal(data.current.missingSkillCount, 1);

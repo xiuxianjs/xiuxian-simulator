@@ -249,13 +249,15 @@ export function parseRelicsOverview(value: unknown) {
         name: text(p.name),
         counter: integer(p.counter),
         hardPity: integer(p.hardPity),
-        nextProbability: number(p.nextProbability)
+        nextProbability: number(p.nextProbability),
+        ...(p.conditionalProbability === undefined ? {} : { conditionalProbability: number(p.conditionalProbability) }),
+        ...(p.scope === undefined ? {} : { scope: text(p.scope) })
       };
     }),
     wholeRates: array(item.wholeRates, value => {
       const p = row(value);
 
-      return { rarity: rarity(p.rarity), name: text(p.name), probability: number(p.probability) };
+      return { rarity: rarity(p.rarity), name: text(p.name), probability: number(p.probability), ...(p.scope === undefined ? {} : { scope: text(p.scope) }) };
     }),
     rules: array(item.rules, text),
     records: array(item.records, value => {
@@ -341,7 +343,7 @@ export function parseTreasureReceipt(value: unknown) {
     if (![1, 10].includes(count)) {
       return invalid();
     }
-    if (result.rulesVersion === 'treasure-v3-complete-20261027') {
+    if (['treasure-v3-complete-20261027', 'treasure-v4-independent-20261029', 'treasure-v5-priority-20261029'].includes(String(result.rulesVersion))) {
       if ((result.rewards as unknown[]).length !== count || result.experienceGranted !== count * 100) {
         return invalid();
       }

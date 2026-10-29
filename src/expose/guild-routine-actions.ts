@@ -142,7 +142,7 @@ export const guildRoutineActions = {
     input => `/一键领取宗门${label(input.type)}奖励`,
     parseGuildMilestonesClaimAll
   ),
-  get_guild_worship_options: mutation(
+  get_guild_worship_options: observation(
     '查看今日祭祀状态及三种供品的服务端消耗、活跃和贡献回报，不执行祭祀。',
     'guild.worship',
     object({}),
@@ -183,7 +183,7 @@ export const guildRoutineActions = {
       return result.data;
     }
   ),
-  get_guild_shop: mutation(
+  get_guild_shop: observation(
     '查看本人宗门商店、贡献、已兑换/锁定状态和原商品快照；不手动刷新或兑换，返回当前自动刷新配置。兑换须携带本次商品的原 id、itemId、名称、类别、数量及贡献价格。',
     'guild.shop',
     object({}),

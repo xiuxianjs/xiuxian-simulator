@@ -1,5 +1,5 @@
 import type { TribulationParticipationResult } from '../../schemas/public-tribulation';
-// HTTP contract aligned with Go docs/openapi.yaml. Update alongside OpenAPI and verify with yarn test:contracts.
+// HTTP contract aligned with Go docs/openapi.yaml. Verify with test/query-registration-contract.test.ts.
 // Unspecified domain payloads intentionally remain unknown.
 import type { Schemas } from '../../schemas/index.js';
 import type { PeiyuanCancelResult } from '../../schemas/peiyuan-cancel';
@@ -144,6 +144,7 @@ export interface CultivationOperations {
     response: { current: number; cap: number; nextTickRemainingMs: number };
   };
   get_players_id_meditation_active: { path: { id: number }; query: never; headers: { 'X-Request-ID'?: string }; body: never; response: unknown };
+  get_players_id_meditation_progress: { path: { id: number }; query: never; headers: { 'X-Request-ID'?: string }; body: never; response: unknown };
   post_players_id_meditation_guard: {
     path: { id: number };
     query: never;

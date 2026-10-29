@@ -103,7 +103,7 @@ export const itemActions = {
       }
     }
   ),
-  get_green_bottle_capacity: mutation(
+  get_green_bottle_capacity: observation(
     '查询当前角色溢出修为存储资格、每瓶修为成本和最大可存储量，不执行转换。',
     'green-bottle.capacity',
     object({}),

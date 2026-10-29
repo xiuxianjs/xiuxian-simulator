@@ -1,4 +1,4 @@
-// HTTP metadata aligned with Go docs/openapi.yaml; keep DTOs separately reviewed and verify with yarn test:contracts.
+// HTTP metadata aligned with Go docs/openapi.yaml; verify with test/query-registration-contract.test.ts.
 export const cultivationOperationDefinitions = {
   post_players_id_seclusion_command: {
     method: 'POST',
@@ -485,6 +485,44 @@ export const cultivationOperationDefinitions = {
   get_players_id_meditation_active: {
     method: 'GET',
     path: '/api/v1/players/{id}/meditation/active',
+    security: [
+      {
+        RobotBearer: [],
+        RobotBid: []
+      },
+      {
+        UserBearer: []
+      }
+    ],
+    requestContentType: null,
+    bodyRequired: false,
+    responseKind: 'json',
+    responseEnvelope: true,
+    pathParams: [
+      {
+        schema: {
+          type: 'integer',
+          minimum: 1
+        },
+        name: 'id',
+        required: true,
+        style: 'simple',
+        explode: false
+      }
+    ],
+    queryParams: [],
+    headerParams: [
+      {
+        name: 'X-Request-ID',
+        required: false,
+        style: 'simple',
+        explode: false
+      }
+    ]
+  },
+  get_players_id_meditation_progress: {
+    method: 'GET',
+    path: '/api/v1/players/{id}/meditation/progress',
     security: [
       {
         RobotBearer: [],

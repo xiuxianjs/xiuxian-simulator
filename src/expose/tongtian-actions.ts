@@ -2,7 +2,7 @@ import { parseRobotTowerOverview } from '../api/bot/ranking-robot-query';
 import { parseTongtianBatch, parseTongtianChallenge, parseTongtianSweep } from '../api/bot/tongtian-tower';
 import { parseTowerFirstRewards, parseTowerMonthlyRewards } from '../api/bot/tower-rewards-queries';
 import { parseTowerRewardClaim } from '../api/bot/tower-reward-claims';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const rank = { type: 'integer' as const, minimum: 1, maximum: 1999 };
@@ -55,7 +55,7 @@ function claimData(value: unknown, batch: boolean, monthly: boolean, expectedRan
   return { ...result, outcome: row.outcome };
 }
 export const tongtianActions = {
-  get_tongtian_tower: mutation(
+  get_tongtian_tower: observation(
     '查询通天塔开放状态、本人排名、榜单附近玩家、挑战成本与可扫荡目标；查询可能按服务端规则初始化排名，不挑战、不领取。',
     'ranking.overview',
     object({}),
@@ -121,7 +121,7 @@ export const tongtianActions = {
     },
     input => ({ rankArg: String(input.targetRank), countArg: String(input.count) })
   ),
-  get_tongtian_first_rewards: mutation(
+  get_tongtian_first_rewards: observation(
     '查询通天塔首通档位、已领与可领状态，保留服务端开放条件；查询不领取奖励。',
     'ranking.first-rewards',
     object({}),
@@ -138,7 +138,7 @@ export const tongtianActions = {
     () => '/首通排名奖励',
     parseTowerFirstRewards
   ),
-  get_tongtian_monthly_rewards: mutation(
+  get_tongtian_monthly_rewards: observation(
     '查询通天塔月度档位、当前与最佳排名、领取记录及资格；档位配置不代表已经获得奖励。',
     'ranking.monthly-rewards',
     object({}),

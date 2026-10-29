@@ -83,7 +83,8 @@ for (const action of actions) test(`${action}: 真实服务端状态与结算回
     assert.equal(again.value.ok, true);
     assert.deepEqual(again.value.ok && again.value.data, run.value.data);
     assert.ok(requests.at(-1).headers['idempotency-key']);
-    assert.equal(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    if (action.startsWith('get_')) assert.notEqual(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    else assert.equal(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
   }
   assert.ok(succeeded > 0);
   if (action.startsWith('claim_') || action === 'challenge_tongtian_rank' || action === 'sweep_tongtian_rank') assert.ok(refused > 0);

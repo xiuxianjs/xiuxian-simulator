@@ -1,4 +1,4 @@
-// HTTP contract aligned with Go docs/openapi.yaml. Update alongside OpenAPI and verify with yarn test:contracts.
+// HTTP contract aligned with Go docs/openapi.yaml. Verify with test/query-registration-contract.test.ts.
 // Unspecified domain payloads intentionally remain unknown.
 import type { APIClient, RequestArguments } from '../../core/index.js';
 export type { CultivationOperations } from './types.js';
@@ -29,6 +29,7 @@ export function createCultivationApi(client: APIClient) {
     get_players_id_meditation_active: (...args: RequestArguments<'get_players_id_meditation_active'>) => {
       return client.request('get_players_id_meditation_active', ...args);
     },
+    get_players_id_meditation_progress: (...args: RequestArguments<'get_players_id_meditation_progress'>) => client.request('get_players_id_meditation_progress', ...args),
     post_players_id_meditation_guard: (...args: RequestArguments<'post_players_id_meditation_guard'>) => {
       return client.request('post_players_id_meditation_guard', ...args);
     },

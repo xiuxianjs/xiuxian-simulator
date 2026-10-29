@@ -210,7 +210,36 @@ const equipped = object(
     playerName: text,
     canUseFifthLayerFeature: boolean,
     slots: list(object({ type: object({ id: integer, name: text }), item: equippedItem }, ['item'])),
-    items: list(equippedItem)
+    items: list(equippedItem),
+    sets: list(
+      object(
+        {
+          id: integer,
+          name: text,
+          count: integer,
+          effects: list(
+            object({
+              active: boolean,
+              effect: object({
+                ...fields(integer, 'pieces physicalAttack magicAttack physicalDefense magicDefense hp speed'),
+                ...fields(
+                  number,
+                  'physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent speedPercent critRate critDamage antiCritRate hitRate dodgeRate normalAttackCritRate skillCritRate ultimateCritRate allSkillCritRate'
+                )
+              })
+            })
+          ),
+          recoveryEffects: list(
+            object({
+              ...fields(text, 'source name status statusText conditionText'),
+              ...fields(number, 'templateId mp mental pieces currentPieces'),
+              active: boolean
+            })
+          )
+        },
+        ['name', 'recoveryEffects']
+      )
+    )
   },
   ['playerName']
 );
@@ -218,6 +247,9 @@ const learnedBook = object(
   {
     ...fields(integer, 'id status isHidden upgradeCount proficiency physicalAttack magicAttack physicalDefense magicDefense hp'),
     ...fields(number, 'speed critRate critDamage physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent'),
+    ...fields(integer, 'maxPhysicalAttack maxMagicAttack maxPhysicalDefense maxMagicDefense maxHp maxSpeed'),
+    ...fields(number, 'maxPhysicalAttackPercent maxMagicAttackPercent maxPhysicalDefensePercent maxMagicDefensePercent maxHpPercent maxCritRate maxCritDamage'),
+    ...fields(boolean, 'canHide canReset'),
     ...fields(text, 'name skillType statusText damageType')
   },
   ['damageType']
@@ -351,6 +383,11 @@ const spiritRootMaterials = list(
 );
 
 export const commonQueryActions = {
+  get_meditation_active: query(
+    '查询当前玩家闭关的服务端 Redis 活跃标记；只读取标记，不开始或结束闭关，也不表示收益已结算。',
+    object({ active: boolean }),
+    ({ bid, uid, request }) => requestBackend(bid, 'get_players_id_meditation_active', { path: { id: uid }, ...request })
+  ),
   get_spirit_root: query('查询灵根品质、培养进度、下阶段条件及闭关加成快照，不补发或重抽灵根。', spiritRoot, async ({ bid, uid, request }) => parseSpiritRoot(await requestBackend(bid, 'get_players_id_spirit_root', { path: { id: uid }, ...request }))
   ),
   get_spirit_root_materials: query(
@@ -371,8 +408,19 @@ export const commonQueryActions = {
   ),
   get_soul_path: query('查询神魂道路、养成材料、节点条件和可用方向；不选择或培养神魂。服务端可能初始化状态。', soul, async ({ bid, uid, request }) => parseSoulPathState(await requestBackend(bid, 'get_players_id_soul_path', { path: { id: uid }, ...request }))
   ),
-  get_equipped: query('查询当前装备与空槽位；不穿戴或卸下装备。', equipped, async ({ bid, uid, request }) => parseBackendEquipped(await requestBackend(bid, 'get_players_id_equipment_equipped', { path: { id: uid }, ...request }))
-  ),
+  get_equipped: query('查询当前装备、空槽位与套装效果；缺省恢复效果表示服务端未提供，不穿戴或卸下装备。', equipped, async ({ bid, uid, request }) => {
+    const raw = await requestBackend(bid, 'get_players_id_equipment_equipped', { path: { id: uid }, ...request });
+    const parsed = parseBackendEquipped(raw);
+    const rawSets = (raw as { sets: Array<{ recoveryEffects?: unknown }> }).sets;
+
+    return {
+      ...parsed,
+      sets: parsed.sets.map((set, index) => ({
+        ...set,
+        recoveryEffects: rawSets[index].recoveryEffects === null || rawSets[index].recoveryEffects === undefined ? undefined : set.recoveryEffects
+      }))
+    };
+  }),
   get_learned_books: query(
     '分页查询已学功法和使用中功法；visibility 默认 visible，可指定 hidden。',
     learned,

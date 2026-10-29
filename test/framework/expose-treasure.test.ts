@@ -26,6 +26,12 @@ test('宝物查询、原预览、结算和状态核对使用真实服务数据',
     return { status: 200, headers: {}, data: JSON.stringify(envelope) };
   } }));
   const call = (action: string, input: any) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+  for (const input of [{ source: 'free', count: 10 }, { source: 'treasure_map', count: 2 }]) {
+    const result = await call('preview_treasure_exploration', input);
+    assert.equal(result.value.ok, false);
+    if (!result.value.ok) assert.equal(result.value.error.code, 'INVALID_INPUT');
+    assert.equal(keys.length, 0);
+  }
   for (const [operation, action, fixture] of [['treasures.overview', 'get_treasures', 'overview'], ['ancient-relics.overview', 'get_ancient_relics', 'relics']] as const) {
     op = operation; data = fixtures[fixture]; expected = {};
     const result = await call(action, {}); assert.equal(result.value.ok, true, JSON.stringify(result.value));

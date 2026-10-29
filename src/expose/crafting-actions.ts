@@ -1,5 +1,5 @@
 import { confirmationReferenceSchema as reference, validateConfirmationReference as validateReference } from './confirmation';
-import { mutation, replySchema } from './mutation';
+import { mutation, observation, replySchema } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseAlchemyV2Reply } from '../api/bot/alchemy-v2';
 import { forgeStatFields, parseForgeOverview, parseForgePreview, parseForgeResult } from '../api/schemas/forge';
@@ -86,7 +86,7 @@ export const craftingActions = {
     () => '/炼丹 入门',
     alchemyReply
   ),
-  get_alchemy_recipes: mutation<{ page: number }>(
+  get_alchemy_recipes: observation<{ page: number }>(
     '查看指定页炼丹丹方；返回服务端说明及预览入口，不立即炼制。',
     'alchemy.v2',
     object({ page: { type: 'integer', minimum: 1, maximum: 2147483647 } }),
@@ -114,7 +114,7 @@ export const craftingActions = {
     () => ({}),
     input => validateReference(input.reference, 'a')
   ),
-  get_forge_overview: mutation(
+  get_forge_overview: observation(
     '查看锻造等级、图纸、材料库存、学习和制作资格；不保存或制作装备，服务端保留准入。',
     'forge.overview',
     empty,
