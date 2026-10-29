@@ -122,7 +122,7 @@ export const treasureActions = {
           'scope'
         ])
       ),
-      wholeRates: list(object({ rarity: integer, name: text, probability: number, scope: text }, ['scope'])),
+      wholeRates: list(object({ rarity: integer, name: text, probability: number, tenProbability: number, scope: text }, ['tenProbability', 'scope'])),
       rules: list(text),
       detailsJson: text
     }),

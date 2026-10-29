@@ -99,7 +99,7 @@ test('周常第5任务读取服务端打劫目标25与当前进度，不改其�
     tasks: [
       ...[1, 2, 3, 4].map(taskId => ({ ...taskBase, taskId, name: `周常任务示例${taskId}`, actionKey: `fixture_weekly_${taskId}`,
         targetValue: 10, currentValue: 10, completed: true })),
-      { ...taskBase, taskId: 5, name: '每周打劫', actionKey: 'fixture_robbery', targetValue: 25, currentValue: 7, completed: false }
+      { ...taskBase, taskId: 5, name: '打劫25次', actionKey: 'fixture_robbery', targetValue: 25, currentValue: 7, completed: false }
     ],
     rewards: thresholds.flatMap((requiredPoints, index) => ['灵石', '灵肥'].map((name, rewardIndex) => ({
       requiredPoints, name, category: 'item', currencyCode: '', itemId: rewardIndex + 1, quantity: rewardIndex ? 1 : 10,
@@ -109,9 +109,9 @@ test('周常第5任务读取服务端打劫目标25与当前进度，不改其�
   };
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
   const { view, nodes } = facts(await app.runHandler(weeklyHandler, app.events.privateMessage({ text: '/周常活跃', platform: 'qq-bot' })));
-  assert.match(view.text, /◇ 每周打劫（7\/25）\+10活跃/);
+  assert.match(view.text, /◇ 打劫25次（7\/25）\+10活跃/);
   assert.equal(view.text.split('\n').filter(line => /活跃$/.test(line) && /[◆◇]/.test(line)).length, 5);
-  assert.ok(view.text.indexOf('周常任务示例4') < view.text.indexOf('每周打劫'));
+  assert.ok(view.text.indexOf('周常任务示例4') < view.text.indexOf('打劫25次'));
   for (const [index, points] of thresholds.entries()) assert.ok(view.text.includes(`${points}点 → 灵石 x10、灵肥 x1、藏宝图 x${[2, 3, 5, 5, 5][index]}`));
   assert.ok(view.commands.includes('/一键领取周常活跃奖励'));
   assert.equal(requests.length, 1);
