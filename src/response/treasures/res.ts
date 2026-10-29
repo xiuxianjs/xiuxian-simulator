@@ -230,7 +230,7 @@ export default onResponse(selects, async event => {
           quote(
             [
               `${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''}`,
-              ...(r.autoSynthesized ? [`⭐ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
+              ...(r.autoSynthesized ? [`➥ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
             ],
             [{ label: '查看', command: `/宝物 详情 ${r.treasureId}` }]
           );

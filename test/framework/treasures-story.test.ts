@@ -18,7 +18,7 @@ const fragment = (rarity = 1) => ({ treasureId: rarity * 100 + 1, name: ({ 1: '�
 const body = { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true };
 const receipt = (rewards: ReturnType<typeof fragment>[], count = rewards.length) => ({
   kind: 'explore', operationId,
-  result: { operationId, rulesVersion: 'treasure-v5-priority-20261029', message: '上古遗珍探索完成', source: 'dao_crystal', count,
+  result: { operationId, rulesVersion: 'treasure-v8-first-guards-20261029', message: '上古遗珍探索完成', source: 'dao_crystal', count,
     paidAmount: count === 1 ? 12 : 108, experienceGranted: count * 100, rewards: rewards.map((reward, index) => ({ ...reward, pullIndex: index + 1 })) }
 });
 type App = Awaited<ReturnType<typeof gameFixture>>['app'];
@@ -97,18 +97,63 @@ for (const scenario of scenarios) {
   });
 }
 
-test('结果只给本体及自动合成本体加星，碎片不加星且不重复奖励', async t => {
-  const rewards = [body, { ...fragment(5), autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned: true }, ...Array.from({ length: 8 }, () => fragment())];
+test('直接本体保留星标，自动合成用➥且不重复奖励', async t => {
+  const rewards = [body, { ...fragment(5), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned: true }, ...Array.from({ length: 8 }, () => fragment())];
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards)));
   const { pending } = await start(app);
   await app.clock.advance(3000);
   const views = delivered(await pending);
   assert.match(views[1].text, /⭐ 乾坤鼎 · 本体 ×1 · 已激活/);
-  assert.match(views[1].text, /万木春符 · 碎片 ×1/);
+  assert.match(views[1].text, /万木春符 · 碎片 ×3/);
   assert.doesNotMatch(views[1].text, /⭐ .* · 碎片|直接完整本体/);
-  assert.match(views[1].text, /⭐ 自动合成1本体，余片2/);
+  assert.match(views[1].text, /➥ 自动合成1本体，余片2/);
+  assert.doesNotMatch(views[1].text, /⭐ 自动合成/);
   assert.equal(views[1].text.match(/⭐ 乾坤鼎/g)?.length, 1);
   assert.equal(views[1].text.match(/自动合成1本体/g)?.length, 1);
+});
+
+for (const rarity of [4, 5, 6]) for (const newlyOwned of [false, true]) {
+  test(`${['稀有', '史诗', '神话'][rarity - 4]}自动合成只用普通场景与➥ newlyOwned=${newlyOwned}`, async t => {
+    const reward = { ...fragment(rarity), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned };
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, receipt([reward], 1)));
+    const { pending } = await start(app);
+    const narrative = liveViews(app)[0];
+    assert.match(narrative.text, /你踏过断碑荒径/);
+    assert.doesNotMatch(narrative.text, /你越过瘴雾深谷|你横渡沧海|你踏尽四海八荒/);
+    await app.clock.advance(3000);
+    const done = await pending;
+    const views = delivered(done);
+    assert.equal(views.length, 2);
+    assert.match(views[1].text, /➥ 自动合成1本体，余片2/);
+    assert.ok(views[1].text.includes(`${reward.name} · 碎片 ×${reward.quantity}${newlyOwned ? ' · 已激活' : ''}`));
+    assert.equal(views[1].text.includes('已激活'), newlyOwned);
+    assert.doesNotMatch(views[1].text, /⭐|你越过瘴雾深谷|你横渡沧海|你踏尽四海八荒/);
+    assert.equal(views[1].text.match(/自动合成1本体/g)?.length, 1);
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].body.arguments, { confirmationRef });
+    const walk = (nodes: unknown[]) => {
+      for (const raw of nodes) {
+        const node = raw as { type?: string; value?: unknown; options?: { autoEnter?: boolean } };
+        if (node.type === 'MD.button') assert.equal(node.options?.autoEnter, false);
+        if (Array.isArray(node.value)) walk(node.value);
+      }
+    };
+    for (const message of done.messages) walk(message.nodes);
+    assert.doesNotMatch(JSON.stringify(done.messages.map(message => message.nodes)), /"show"\s*:/);
+    if (rarity === 6 && newlyOwned) previews.set('神话碎片自动合成首次激活', `## 神话碎片自动合成首次激活（真实处理器离线示例）\n\n${views[0].text}\n\n${views[1].text}\n`);
+  });
+}
+
+for (const [rarity, story] of [[3, '你踏过断碑荒径'], [4, '你越过瘴雾深谷'], [5, '你横渡沧海']] as const) test(`${rarity}档直接本体与神话自动合成同次出现时，场景不被合成提升`, async t => {
+  const rewards = [directBody(rarity), { ...fragment(6), autoSynthesized: 1, fragmentsRemaining: 0, newlyOwned: true }, ...Array.from({ length: 8 }, () => fragment())];
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards, 10)));
+  const { pending } = await start(app);
+  assert.ok(liveViews(app)[0].text.includes(story));
+  await app.clock.advance(3000);
+  const views = delivered(await pending);
+  assert.match(views[1].text, /➥ 自动合成1本体，余片0/);
+  assert.doesNotMatch(views[0].text, /你踏尽四海八荒/);
+  assert.equal(requests.length, 1);
 });
 
 for (const failedSend of [1, 2]) {
