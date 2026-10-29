@@ -4,6 +4,9 @@ import { parseRobotMarketSell } from '../api/bot/market-sell-query';
 import { parseBackendMarketSellable } from '../api/bot/market-trade';
 import { parseBackendMarketTrades } from '../api/bot/queries';
 import { parseMarketCredibility } from '../api/bot/market-credibility';
+import { parseBackendOwnPlayerShop } from '../api/bot/player-shop-own';
+import { parseBackendShopList, parseBackendShopRanking } from '../api/bot/shop-queries';
+import { parseBackendPlayerShopVisit } from '../api/bot/player-shop-visit-query';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
 import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
@@ -32,6 +35,111 @@ const priceRange = object({
 });
 
 export const marketActions = {
+  visit_player_shop: observation<{ ownerUid: number; page?: number }>(
+    '分页查看指定店铺及在售挂单；购买资格和价格是当前快照，实际购买需使用珍宝楼原报价确认。',
+    'player-shop.visit',
+    object({ ownerUid: id, page }, ['page']),
+    object({
+      currencies: object(fields(integer, 'spiritStone spiritsCrystal spiritsMilk signInCoin towerScore reputation tongxin greenBottle')),
+      shop: object(
+        {
+          ...fields(integer, 'shopId userId heatScore totalSales totalVolume level status activeListings'),
+          ...fields(text, 'ownerName shopName description levelName')
+        },
+        ['description']
+      ),
+      pagination,
+      items: list(
+        object(
+          {
+            ...commonItem,
+            ...fields(integer, 'sellerUserId status templateItemId'),
+            ...fields(text, 'sellerName itemType itemSubtype purchaseUnavailableReason lockedUntil createdAt expiresAt'),
+            canPurchase: boolean,
+            attributeAvailable: boolean,
+            hasUpgraded: boolean,
+            attributesJson: text
+          },
+          ['templateItemId', 'itemType', 'itemSubtype', 'purchaseUnavailableReason', 'lockedUntil', 'expiresAt', 'hasUpgraded']
+        )
+      )
+    }),
+    input => `/逛店 ${input.ownerUid} ${input.page ?? 1}`,
+    (data, input) => {
+      const result = parseBackendPlayerShopVisit(data);
+
+      if (result.shop?.userId !== input.ownerUid) {
+        throw new Error('店铺目标不匹配');
+      }
+
+      return {
+        ...result,
+        items: result.items.map(item => ({
+          ...item,
+          attributesJson: JSON.stringify({ attributes: item.attributes, attributeView: item.attributeView })
+        }))
+      };
+    },
+    input => ({ mode: 'visit', target: { uid: input.ownerUid }, page: String(input.page ?? 1) })
+  ),
+  get_my_player_shop: observation(
+    '查询本人小店及成交统计；服务端可能先创建尚不存在的小店，再读取详情。',
+    'player-shop.mine',
+    object({}),
+    object(
+      {
+        ...fields(integer, 'shopId userId heatScore totalSales totalVolume activeListings level status'),
+        ...fields(text, 'ownerName shopName description levelName')
+      },
+      ['ownerName', 'shopName', 'description', 'level', 'status']
+    ),
+    () => '/我的小店',
+    parseBackendOwnPlayerShop
+  ),
+  list_player_shops: observation<{ page?: number }>(
+    '分页查询营业中的玩家小店；userId 可作为逛店目标。',
+    'player-shop.list',
+    object({ page }, ['page']),
+    object({
+      data: list(
+        object(
+          {
+            ...fields(integer, 'shopId userId heatScore totalSales totalVolume level status activeListings'),
+            ...fields(text, 'ownerName shopName description levelName')
+          },
+          ['description']
+        )
+      ),
+      pagination
+    }),
+    input => `/小店 ${input.page ?? 1}`,
+    parseBackendShopList,
+    input => ({ page: String(input.page ?? 1) })
+  ),
+  get_player_shop_ranking: observation(
+    '查询服务端提供的小店热度前 20 名。',
+    'player-shop.ranking',
+    object({}),
+    list(object({ ...fields(integer, 'rank heatScore totalSales'), ...fields(text, 'shopName ownerName levelName') })),
+    () => '/小店排行',
+    parseBackendShopRanking
+  ),
+  rename_player_shop: mutation<{ name: string }>(
+    '修改本人小店名称，服务端检查名称格式和占用情况。',
+    'player-shop.rename',
+    object({ name: { type: 'string', minLength: 1, maxLength: 100 } }),
+    object({ message: text }),
+    input => `/命名店铺 ${input.name}`,
+    data => parseRobotMarketMessage(data)
+  ),
+  set_player_shop_description: mutation<{ description: string }>(
+    '设置本人小店简介，服务端检查长度和内容。',
+    'player-shop.description',
+    object({ description: { type: 'string', minLength: 1, maxLength: 1000 } }),
+    object({ message: text }),
+    input => `/店铺简介 ${input.description}`,
+    data => parseRobotMarketMessage(data)
+  ),
   browse_market: observation<BrowseInput>(
     '分页查询珍宝楼挂单、价格、购买资格和交易额度；数据是当前快照，不能作为后续购买报价的保证。',
     'market.browse',

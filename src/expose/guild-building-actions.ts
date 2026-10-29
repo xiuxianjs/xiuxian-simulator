@@ -1,10 +1,27 @@
 import { parseRobotGuildUpgrade } from '../api/bot/guild-upgrade-robot-query';
 import type { GuildUpgradeKind } from '../api/bot/guild-upgrade';
 import { parseGuildShopPage } from '../api/bot/guild-shop-page';
-import { mutation } from './mutation';
-import { fields, integer, object, text } from './schema';
+import { parseRobotGuildAutoRefresh } from '../api/bot/guild-auto-refresh-robot-query';
+import { parseGuildShopAutoRefresh } from '../api/bot/guild-shop-auto-refresh';
+import { ExposeError } from 'alemonjs';
+import { mutation, observation } from './mutation';
+import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
+const refreshState = object({ outcome: text, enabled: boolean, hours: list(integer), version: text, isLeader: boolean, isViceLeader: boolean });
+
+function parseRefreshState(data: unknown, expected: 'view' | 'set') {
+  const result = parseRobotGuildAutoRefresh(data);
+
+  if (result.outcome !== expected) {
+    throw new Error('宗门自动刷新状态不完整');
+  }
+  if (result.outcome === 'view') {
+    return result.state;
+  }
+
+  return parseGuildShopAutoRefresh((data as { data: unknown }).data);
+}
 const upgradeResult = object({
   message: text,
   receipt: object({ ...fields(integer, 'guildId level spiritStoneCost prestigeCost'), ...fields(text, 'guildName kind message') })
@@ -21,6 +38,33 @@ function upgrade(kind: GuildUpgradeKind, word: string) {
   );
 }
 export const guildBuildingActions = {
+  get_guild_auto_refresh: observation(
+    '查询宗门商店自动刷新状态、整点及本人权限；不修改设置。',
+    'guild.auto-refresh',
+    empty,
+    refreshState,
+    () => '/宗门商店自动刷新',
+    data => parseRefreshState(data, 'view'),
+    () => ({ mode: 'view' })
+  ),
+  set_guild_auto_refresh: mutation<{ mode: 'enable' | 'disable' | 'hours'; hours?: number[] }>(
+    '设置宗门商店自动刷新；hours 设置整点并开启，disable 清空整点，enable 需要已有整点。失败时可能已修改配置，先重新查询。',
+    'guild.auto-refresh',
+    object({ mode: { type: 'string', enum: ['enable', 'disable', 'hours'] }, hours: list({ type: 'integer', minimum: 0, maximum: 23 }) }, ['hours']),
+    refreshState,
+    input => `/宗门商店自动刷新 ${input.mode === 'hours' ? input.hours?.join(' ') : input.mode === 'enable' ? '开启' : '关闭'}`,
+    data => parseRefreshState(data, 'set'),
+    input => (input.mode === 'hours' ? { mode: input.mode, hours: input.hours } : { mode: input.mode }),
+    input => {
+      if (
+        input.mode === 'hours'
+          ? !input.hours || input.hours.length < 1 || input.hours.length > 3 || new Set(input.hours).size !== input.hours.length
+          : input.hours !== undefined
+      ) {
+        throw new ExposeError('INVALID_INPUT', '请按模式提供 1 至 3 个不同整点，或省略整点');
+      }
+    }
+  ),
   upgrade_guild_level: upgrade('level', '等级'),
   upgrade_guild_vein: upgrade('vein', '灵脉'),
   upgrade_guild_shop: upgrade('shop', '商店'),

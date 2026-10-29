@@ -11,6 +11,9 @@ after(() => shutdownLogger());
 const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotEquipmentDetailExposeFixture$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
 const rows = [...output.matchAll(/ROBOT_EQUIPMENT_QUERIES=(.+)/g)].map(row => JSON.parse(row[1])).filter(row => row.op === 'equipment.detail');
 assert.ok(rows.some(row => row.result.success) && rows.some(row => !row.result.success));
+const supplied = structuredClone(rows.find(row => row.result.success && row.result.data?.item));
+supplied.result.data.item.recoveryEffects = [];
+rows.push(supplied);
 test('穿戴装备详情保留属性和服务端拒绝', async t => {
   const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
   t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
@@ -32,7 +35,8 @@ test('穿戴装备详情保留属性和服务端拒绝', async t => {
     if (result.success && result.branch === 'business') {
       const source = current.result.data.item;
       for (const key of ['id', 'name', 'isLocked', 'physicalAttack', 'critRate', 'dodgeRate']) assert.equal(result.result.item[key], source[key]);
-      assert.deepEqual(result.result.item.recoveryEffects, source.recoveryEffects ?? []);
+      if (source.recoveryEffects == null) assert.equal('recoveryEffects' in result.result.item, false);
+      else assert.deepEqual(result.result.item.recoveryEffects, source.recoveryEffects);
     } else assert.equal(result.result, undefined);
     await call(); assert.notEqual(keys.at(-1), keys.at(-2));
   }

@@ -7,10 +7,19 @@ import { parseBackendCompanionDualCultivation } from '../api/bot/companion-relat
 import { parseBackendGiftRecords } from '../api/bot/queries';
 import { parseCompanionProposalInbox } from '../api/bot/companion-proposal-queries';
 import { parseRobotCompanionPropose } from '../api/bot/companion-propose-robot';
+import { parseRobotCompanionProposalAction, parseRobotCompanionRejection } from '../api/bot/companion-actions-robot';
 import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
+
+type ProposalDecision = { name: string; proposalId: number; proposerId: number; createdAt: string };
+const proposalDecision = object({
+  name: { type: 'string', minLength: 1, maxLength: 100 },
+  proposalId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+  proposerId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+  createdAt: { type: 'string', minLength: 1 }
+});
 const companion = object(
   {
     ...fields(integer, 'partnerId intimacy tongxin blessingPercent dualCultivationExp dailyDualCultivationUsed dailyDungeonUsed dailyGiftUsed'),
@@ -23,6 +32,67 @@ const companion = object(
 );
 
 export const companionActions = {
+  propose_companion: mutation<{ targetUid: number; oathItemId: number }>(
+    '向指定好友发起道侣申请，使用候选列表中的原誓约道具 ID；服务端重新校验道具、库存及关系，不按变化后的序号替换道具。',
+    'companion.propose',
+    object({
+      targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+      oathItemId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }
+    }),
+    object(
+      {
+        code: text,
+        preflight: object(
+          {
+            initiatorName: text,
+            target: object({ id: integer, name: text }),
+            oathItems: list(object({ itemId: integer, name: text, quantity: integer, oathType: text, desc: text })),
+            friends: list(object({ friendId: integer, friendName: text, friendRealm: text, intimacy: { type: 'number' }, spiritBondLevel: text })),
+            ...fields(integer, 'currentPage totalPages totalCount')
+          },
+          ['target']
+        ),
+        result: object({ success: boolean, message: text, narrativeText: text, initiatorName: text }),
+        mutationError: text
+      },
+      ['result', 'mutationError']
+    ),
+    input => `/结为道侣 ${input.targetUid}`,
+    data => {
+      const result = parseRobotCompanionPropose(data);
+
+      if (result.mode !== 'command') {
+        throw new Error('道侣申请响应不完整');
+      }
+
+      return result.command;
+    },
+    input => ({ mode: 'command', target: String(input.targetUid), oathItemId: input.oathItemId, fallbackPage: 1 })
+  ),
+  accept_companion_proposal: mutation<ProposalDecision>(
+    '同意玩家选中的原道侣申请；必须传入申请列表中的申请编号、申请人编号与原创建时间，服务端事务内核验。',
+    'companion.accept',
+    proposalDecision,
+    object({ mode: text, message: text }),
+    input => `/同意道侣 ${input.name}`,
+    data => {
+      const result = parseRobotCompanionProposalAction(data);
+
+      if (result.mode !== 'result') {
+        throw new Error('同意道侣申请响应不完整');
+      }
+
+      return result;
+    }
+  ),
+  reject_companion_proposal: mutation<ProposalDecision>(
+    '拒绝玩家选中的原道侣申请；必须传入申请列表中的申请编号、申请人编号与原创建时间，服务端事务内核验。',
+    'companion.reject',
+    proposalDecision,
+    object({ mode: text, message: text }),
+    input => `/拒绝道侣 ${input.name}`,
+    parseRobotCompanionRejection
+  ),
   get_companion_candidates: observation<{ page?: number }>(
     '分页查询服务端提供的结缘候选好友和誓约道具库存；候选不保证申请一定成功，本查询不会发起申请。',
     'companion.propose',

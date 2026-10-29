@@ -31,6 +31,15 @@ test('本命物详情和培养使用服务端回执', async t => {
     const response = await call(); assert.equal(response.value.ok, true, `${action}: ${JSON.stringify(response.value)}`);
     if (response.value.ok && action === 'promote_soul_artifact') assert.equal((response.value.data as any).result.artifact.id, 9);
     await call(); if (read) assert.notEqual(keys.at(-1), keys.at(-2)); else assert.equal(keys.at(-1), keys.at(-2));
+    if (action === 'get_soul_artifact_detail') {
+      const item = envelope.data.data.overview.items[0];
+      delete item.recoveryEffects;
+      let run = await call(); assert.equal(run.value.ok, true);
+      if (run.value.ok) assert.equal('recoveryEffects' in (run.value.data as any).result, false);
+      item.recoveryEffects = [];
+      run = await call(); assert.equal(run.value.ok, true);
+      if (run.value.ok) assert.deepEqual((run.value.data as any).result.recoveryEffects, []);
+    }
     if (action === 'promote_soul_artifact') { envelope.data.data.artifact.id = 10; const mismatch = await call(); assert.equal(mismatch.value.ok, false); }
   }
 });

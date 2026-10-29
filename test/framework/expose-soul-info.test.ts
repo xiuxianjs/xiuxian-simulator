@@ -28,6 +28,15 @@ test('查询当前炼化本命物与持有状态', async t => {
     const response = await call(); assert.equal(response.value.ok, true, `${fixture.state}: ${JSON.stringify(response.value)}`);
     if (response.value.ok) { const result = (response.value.data as any).result; assert.equal(result.code, { ready: 'EQUIPPED', unrefined: 'NOT_EQUIPPED', empty: 'EMPTY' }[fixture.state]); if (fixture.state === 'ready') assert.equal(result.artifact.instanceId, 9); }
     await call(); assert.notEqual(keys.at(-1), keys.at(-2));
-    if (fixture.state === 'ready') { envelope.data.data.overview.items[0].capabilities[0].instanceId = 999; assert.equal((await call()).value.ok, false); }
+    if (fixture.state === 'ready') {
+      const item = envelope.data.data.overview.items[0];
+      delete item.recoveryEffects;
+      let run = await call(); assert.equal(run.value.ok, true);
+      if (run.value.ok) assert.equal('recoveryEffects' in (run.value.data as any).result.artifact, false);
+      item.recoveryEffects = [];
+      run = await call(); assert.equal(run.value.ok, true);
+      if (run.value.ok) assert.deepEqual((run.value.data as any).result.artifact.recoveryEffects, []);
+      item.capabilities[0].instanceId = 999; assert.equal((await call()).value.ok, false);
+    }
   }
 });

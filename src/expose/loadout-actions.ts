@@ -47,20 +47,22 @@ export const loadoutActions = {
               })
             )
           },
-          ['gradeName', 'crafterName']
+          ['gradeName', 'crafterName', 'recoveryEffects']
         )
       },
       ['playerName']
     ),
     input => `/我的${input.typeName}`,
     data => {
+      const rawItem = (data as { item?: { recoveryEffects?: unknown } | null } | null)?.item;
+      const hasRecoveryEffects = rawItem?.recoveryEffects !== undefined && rawItem?.recoveryEffects !== null;
       const result = parseBackendEquipmentDetail(data);
 
       if (!result.item) {
         throw new Error('装备详情成功响应缺少装备');
       }
 
-      return result;
+      return { ...result, item: { ...result.item, recoveryEffects: hasRecoveryEffects ? result.item.recoveryEffects : undefined } };
     },
     input => ({ typeName: input.typeName })
   ),

@@ -1,16 +1,44 @@
 import { ExposeError } from 'alemonjs';
 import { parseMasterAction, parseMasterClaimTitle, parseMasterTargetAction, parseMasterDecision } from '../api/bot/master-actions';
 import { parseMasterInfo } from '../api/bot/master-info-queries';
+import { parseMasterLineage, type MasterLineageDisplayNode } from '../api/bot/master-lineage-queries';
+import { parseMasterRanking } from '../api/bot/queries';
 import { mutation, observation } from './mutation';
-import { boolean, integer, list, object, text } from './schema';
+import { boolean, fields, integer, list, object, text } from './schema';
 
 const targetId = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 
 type TargetInput = { targetUid: number };
 type GiftInput = TargetInput & { itemKey?: 'peiyuan' | 'zhuji' };
+type ProposalInput = { proposalId: number; discipleId: number; createdAt: string };
 const targetResult = object({ targetUid: integer, message: text });
 
-function targetAction(action: '传功' | '赐福' | '赐丹' | '拜师') {
+function decideProposal(operation: 'master.binding-accept' | 'master.graduation-accept' | 'master.graduation-reject', command: string) {
+  return mutation<ProposalInput>(
+    `处理玩家指定的原${command}申请；申请编号、徒弟 UID 和创建时间必须来自申请列表，服务端锁定原记录并核验。`,
+    operation,
+    object({ proposalId: targetId, discipleId: targetId, createdAt: { type: 'string', minLength: 1 } }),
+    object({ outcome: text, message: text }),
+    input => `/${command} ${input.discipleId}`,
+    data => {
+      const result = parseMasterDecision(data);
+
+      if (result.outcome !== 'decided') {
+        throw new Error('师门审批回执不完整');
+      }
+
+      return result;
+    },
+    input => ({ discipleArg: String(input.discipleId), proposalId: input.proposalId, createdAt: input.createdAt }),
+    input => {
+      if (!Number.isFinite(Date.parse(input.createdAt))) {
+        throw new ExposeError('INVALID_INPUT', '申请创建时间无效');
+      }
+    }
+  );
+}
+
+function targetAction(action: '传功' | '赐福' | '赐丹' | '拜师' | '逐出师门') {
   return (data: unknown, input: TargetInput) => {
     const result = parseMasterTargetAction(data, action);
     const row = data as Record<string, unknown>;
@@ -134,6 +162,84 @@ function supportConfirm(action: 'bless' | 'gift') {
 }
 
 export const masterActions = {
+  approve_master_application: decideProposal('master.binding-accept', '同意拜师'),
+  approve_master_graduation: decideProposal('master.graduation-accept', '同意出师'),
+  reject_master_graduation: decideProposal('master.graduation-reject', '拒绝出师'),
+  expel_disciple: mutation<TargetInput>(
+    '将指定徒弟逐出师门，直接改变师徒关系；须由玩家明确要求，服务端校验关系并返回实际回执。',
+    'master.expel',
+    object({ targetUid: targetId }),
+    targetResult,
+    input => `/逐出师门 ${input.targetUid}`,
+    targetAction('逐出师门'),
+    input => ({ targetArg: String(input.targetUid) })
+  ),
+  leave_master: mutation(
+    '叛离当前师门，直接结束本人师徒关系；须由玩家明确要求，实际结果以服务端回执为准。',
+    'master.rebel',
+    object({}),
+    object({ message: text }),
+    () => '/叛离师门',
+    parseMasterAction
+  ),
+  get_master_lineage: observation(
+    '查询本人师承谱系；nodes 为先序列表，parentIndex 指向父节点在列表中的下标，根节点没有 parentIndex。',
+    'master.lineage',
+    object({}),
+    object({
+      nodes: list(
+        object({ userId: integer, userName: text, realmName: text, isSelf: boolean, relationStatusText: text, parentIndex: integer }, [
+          'relationStatusText',
+          'parentIndex'
+        ])
+      )
+    }),
+    () => '/师谱',
+    (data, _input, uid) => {
+      const { root } = parseMasterLineage(data, uid);
+      const nodes: Array<Omit<MasterLineageDisplayNode, 'disciples'> & { parentIndex?: number }> = [];
+      const visit = (node: MasterLineageDisplayNode, parentIndex?: number) => {
+        const { disciples, ...row } = node;
+        const index = nodes.length;
+
+        nodes.push({ ...row, ...(parentIndex === undefined ? {} : { parentIndex }) });
+        for (const child of disciples) {
+          visit(child, index);
+        }
+      };
+
+      if (root) {
+        visit(root);
+      }
+
+      return { nodes };
+    }
+  ),
+  get_master_ranking: observation(
+    '查询圣人榜、本人及附近排名，返回服务端师德和弟子统计。',
+    'master.ranking',
+    object({}),
+    object(
+      {
+        top: list(
+          object({
+            ...fields(integer, 'rank userId masterVirtueLevel masterVirtueExp totalGraduatedCount activeDiscipleCount'),
+            ...fields(text, 'userName virtueTitle')
+          })
+        ),
+        nearby: list(
+          object({
+            ...fields(integer, 'rank userId masterVirtueLevel masterVirtueExp totalGraduatedCount activeDiscipleCount'),
+            ...fields(text, 'userName virtueTitle')
+          })
+        ),
+        self: object({ ...fields(integer, 'rank masterVirtueLevel masterVirtueExp totalGraduatedCount activeDiscipleCount'), virtueTitle: text })
+      },
+      ['self']
+    ),
+    () => '/圣人榜',
+    parseMasterRanking
+  ),
   preview_bless_all_disciples: supportPreview('bless'),
   confirm_bless_all_disciples: supportConfirm('bless'),
   preview_gift_all_disciples: supportPreview('gift'),

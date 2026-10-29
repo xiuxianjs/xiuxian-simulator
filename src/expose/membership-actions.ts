@@ -1,7 +1,13 @@
+import { parseBackendFirstRechargeInfo } from '../api/bot/first-recharge-queries';
+import { parseRobotFirstRechargeClaim } from '../api/bot/first-recharge-claim';
+import { parseBackendNewcomerRechargeInfo } from '../api/bot/newcomer-recharge-queries';
+import { parseBackendNewcomerRechargeClaim } from '../api/bot/newcomer-recharge-claim';
+import { parseBackendWeeklyRebate } from '../api/bot/weekly-rebate-queries';
+import { parseRobotWeeklyRebateClaim } from '../api/bot/weekly-rebate-claim';
 import { parseBackendRechargeRights } from '../api/bot/recharge-rights-queries';
 import { parseBackendVipPrivileges } from '../api/bot/vip-privileges-queries';
-import { observation } from './mutation';
-import { boolean, fields, list, number, object, text } from './schema';
+import { mutation, observation } from './mutation';
+import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const reward = object({ id: number, name: text, quantity: number }, ['name']);
 const pack = object({ ...fields(number, 'id priceAmount grantSpiritStone grantSpiritCrystal grantSpiritMilk'), items: list(reward), skills: list(reward) });
@@ -22,7 +28,96 @@ const card = object({ active: boolean, expireTime: text, ...fields(number, 'rema
 ]);
 const privilege = object({ minLevel: number, text, unlocked: boolean, needText: text }, ['minLevel', 'needText']);
 
+const issued = list(object({ type: text, name: text, amount: integer }));
+const day = (maximum: number) => ({ type: 'integer' as const, minimum: 1, maximum });
+const commandArgs = (command: string) => ({ input: command });
+
 export const membershipActions = {
+  get_first_recharge_rewards: observation(
+    '查询首充礼包档位、状态及服务端奖励内容；金额单位为元。',
+    'recharge.first-info',
+    object({}),
+    object({
+      tiers: list(
+        object({
+          tierAmountYuan: number,
+          status: { type: 'string', enum: ['locked', 'claimable', 'claimed'] },
+          rewards: list(object({ type: text, currencyCode: text, itemId: number, quantity: number })),
+          rewardText: text
+        })
+      )
+    }),
+    () => '/礼包奖励',
+    parseBackendFirstRechargeInfo
+  ),
+  claim_first_recharge_reward: mutation<{ tierYuan: number }>(
+    '领取指定首充礼包档位，tierYuan 使用查询结果中的整数元档位；是否符合资格以服务端结果为准。',
+    'recharge.first-claim',
+    object({ tierYuan: day(Math.floor(Number.MAX_SAFE_INTEGER / 100)) }),
+    object({ tierYuan: number, issued }),
+    input => `/领取礼包奖励 ${input.tierYuan}`,
+    parseRobotFirstRechargeClaim,
+    input => commandArgs(`/领取礼包奖励 ${input.tierYuan}`)
+  ),
+  get_newcomer_recharge_rebate: observation(
+    '查询新人返利周期、充值门槛和各日领取状态；金额字段单位为分。',
+    'recharge.newcomer-info',
+    object({}),
+    object({
+      ...fields(integer, 'contentDays daysSinceRegistration currentDay todayRechargedAmount thresholdAmount maxClaimableDay'),
+      ...fields(boolean, 'isInPeriod todayRewardClaimed'),
+      claimedDays: list(integer),
+      rewards: list(
+        object({
+          ...fields(integer, 'day spiritStone spiritCrystal spiritMilk'),
+          ...fields(boolean, 'claimed canClaim'),
+          ...fields(text, 'rewardText statusTag'),
+          items: list(object({ itemId: integer, quantity: integer }))
+        })
+      )
+    }),
+    () => '/新人返利',
+    parseBackendNewcomerRechargeInfo
+  ),
+  claim_newcomer_recharge_rebate: mutation<{ dayIndex: number }>(
+    '领取新人返利指定天数奖励，服务端检查周期、充值门槛和领取状态。',
+    'recharge.newcomer-claim',
+    object({ dayIndex: day(14) }),
+    object({ dayIndex: integer, reward: object({ ...fields(integer, 'spiritStone spiritCrystal spiritMilk'), itemIds: text }), rewardText: text }),
+    input => `/新人返利领取 ${input.dayIndex}`,
+    parseBackendNewcomerRechargeClaim,
+    input => commandArgs(`/新人返利领取 ${input.dayIndex}`)
+  ),
+  get_weekly_recharge_rebate: observation(
+    '查询本周返利资格、充值门槛和各日奖励；amount 字段单位为分，Yuan 字段单位为元。',
+    'recharge.weekly-info',
+    object({}),
+    object({
+      ...fields(boolean, 'eligible canClaimToday canClaimBonus'),
+      ...fields(number, 'minAccountDays dailyThresholdAmount daysSinceRegistration todayDayOfWeek todayRechargedAmount todayRechargedYuan thresholdYuan'),
+      ...fields(text, 'todayLabel weekStart todayRechargeText'),
+      claimedDays: list(number),
+      rewards: list(
+        object({
+          ...fields(number, 'day spiritStone spiritCrystal spiritMilk'),
+          ...fields(text, 'label statusTag rewardText'),
+          canClaim: boolean,
+          items: list(object({ itemId: number, quantity: number, name: text }, ['name']))
+        })
+      )
+    }),
+    () => '/周周返利',
+    parseBackendWeeklyRebate
+  ),
+  claim_weekly_recharge_rebate: mutation<{ dayIndex: number }>(
+    '领取周返利指定天数奖励；第 8 项为满勤奖励，服务端判断领取资格。',
+    'recharge.weekly-rebate-claim',
+    object({ dayIndex: day(8) }),
+    object({ dayIndex: integer, issued }),
+    input => `/周周返利领取 ${input.dayIndex}`,
+    parseRobotWeeklyRebateClaim,
+    input => commandArgs(`/周周返利领取 ${input.dayIndex}`)
+  ),
   get_membership_rights: observation(
     '查询本人权益、月卡到期与每日奖励状态、探索通行证和充值进度；金额单位为分。reviewRequired 表示奖励状态需要核对，不领取或购买。',
     'membership.rights',

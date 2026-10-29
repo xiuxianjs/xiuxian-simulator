@@ -1,0 +1,41 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { goTestFixture } from '../helpers/go-fixture.mjs';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+
+after(() => shutdownLogger());
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusinessGuildRole(OptionsTransferConfirmationAndReplay|ActionsHierarchyTargetsConfirmationAndReplay)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8', maxBuffer: 24 * 1024 * 1024 }).toString();
+const rows = [...output.matchAll(/ROBOT_GUILD_ROLE_(?:QUERY|ACTION)_RESPONSE=([^|]+)\|player\|(.+)/g)].map(row => ({ op: row[1], envelope: JSON.parse(row[2]) }));
+const options = rows.find(row => row.op === 'guild.role-options' && row.envelope.data.success && row.envelope.data.data?.membershipStatus === 'joined');
+const appoint = rows.find(row => row.op === 'guild.role-appoint' && row.envelope.data.data?.receipt?.targetUserId === 2 && row.envelope.data.data.receipt.roleName === '长老');
+const candidates = rows.find(row => row.op === 'guild.leadership-transfer' && row.envelope.data.data?.outcome === 'candidates');
+const confirmation = rows.find(row => row.op === 'guild.role-resign' && row.envelope.data.data?.outcome === 'confirmation');
+assert.ok(options && appoint && confirmation && candidates);
+test('宗门职位查询、任命和卸任确认保留真实服务端结果', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = options; let args: any = {};
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${current.op}`);
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data; assert.deepEqual(body.arguments, args);
+    return { status: 200, headers: {}, data: JSON.stringify(current.envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (action: string, input: any) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+  let result = await call('get_guild_role_options', {}); assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) assert.equal((result.value.data as any).result.guildName, options.envelope.data.data.guildName);
+  current = candidates; args = { index: 0 };
+  result = await call('get_guild_leadership_candidates', {}); assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) assert.equal((result.value.data as any).result.candidates[0].name, candidates.envelope.data.data.candidates[0].name);
+  current = appoint; args = { roleName: '长老', targetUid: 2 };
+  result = await call('appoint_guild_member', args); assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) assert.equal((result.value.data as any).result.outcome, 'result');
+  current = confirmation; args = { mode: 'action', targetUid: 1 };
+  result = await call('resign_guild_role', { targetUid: 1 }); assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) assert.equal((result.value.data as any).result.outcome, 'confirmation');
+  assert.deepEqual(result.messages, []);
+});

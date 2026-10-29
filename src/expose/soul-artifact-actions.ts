@@ -11,6 +11,13 @@ import { confirmationReferenceSchema, validateConfirmationReference } from './co
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
+
+function hasRecoveryEffects(data: unknown, instanceId: number): boolean {
+  const overview = (data as { overview?: { items?: Array<{ instanceId?: number; recoveryEffects?: unknown }> } } | null)?.overview;
+  const item = overview?.items?.find(row => row.instanceId === instanceId);
+
+  return item?.recoveryEffects !== undefined && item.recoveryEffects !== null;
+}
 const panel = object({ key: text, name: text, value: number });
 const capability = object(
   { kind: text, available: boolean, instanceId: integer, reasonCode: text, ...fields(integer, 'maxLevels requiredItemId requiredQuantity availableQuantity') },
@@ -348,7 +355,15 @@ export const soulArtifactActions = {
           throw new Error('本命物操作目标不匹配');
         }
 
-        return { code: result.code, capabilities: result.capabilities, ...result.data };
+        return {
+          code: result.code,
+          capabilities: result.capabilities,
+          ...result.data,
+          artifact: {
+            ...result.data.artifact,
+            recoveryEffects: hasRecoveryEffects(data, result.data.artifact.instanceId) ? result.data.artifact.recoveryEffects : undefined
+          }
+        };
       }
 
       return { code: result.code, ...result.data, ...(result.code === 'NOT_EQUIPPED' ? { capabilities: result.capabilities } : {}) };
@@ -367,7 +382,7 @@ export const soulArtifactActions = {
         throw new Error('本命物详情实例不匹配');
       }
 
-      return result;
+      return { ...result, recoveryEffects: hasRecoveryEffects(data, result.instanceId) ? result.recoveryEffects : undefined };
     },
     input => ({ instanceId: String(input.instanceId) })
   ),

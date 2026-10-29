@@ -1,6 +1,9 @@
 import { parseGuildCreate } from '../api/bot/guild-membership-mutations';
 import { parseRobotGuildContent } from '../api/bot/guild-content-robot-query';
 import { parseGuildLogs } from '../api/bot/queries';
+import { parseRobotGuildSetting } from '../api/bot/guild-settings-robot-query';
+import { parseGuildRename } from '../api/bot/guild-rename';
+import { parseGuildWorkflow } from '../api/bot/guild-workflow';
 import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
@@ -8,6 +11,48 @@ const empty = object({});
 const content = object({ guildName: text, notice: text, intro: text }, ['notice', 'intro']);
 
 export const guildInformationActions = {
+  rename_guild: mutation<{ name: string }>(
+    '修改当前宗门名称，会消耗更名卡；服务端校验宗主权限、名称和库存，返回实际名称。',
+    'guild.rename',
+    object({ name: { type: 'string', minLength: 1, maxLength: 100 } }),
+    object({ outcome: text, guildName: text, message: text }, ['guildName']),
+    input => `/宗门改名 ${input.name}`,
+    data => {
+      const parsed = parseRobotGuildSetting(data, 'rename');
+
+      if (parsed.outcome !== 'result') {
+        throw new Error('宗门改名回执不完整');
+      }
+      const receipt = parseGuildRename((data as { receipt: unknown }).receipt);
+
+      return { ...receipt, message: parsed.message };
+    }
+  ),
+  set_guild_min_realm: mutation<{ searchTerm: string }>(
+    '设置入宗最低境界；传境界名称或“无”取消。服务端按名称匹配，实际结果和匹配境界以回执为准。',
+    'guild.min-realm',
+    object({ searchTerm: { type: 'string', minLength: 1, maxLength: 100 } }),
+    object({ outcome: text, cleared: boolean, minRealmId: integer, realmName: text, matchedRealmName: text, message: text }, [
+      'minRealmId',
+      'realmName',
+      'matchedRealmName'
+    ]),
+    input => `/设置申请宗门最低境界 ${input.searchTerm}`,
+    data => {
+      const parsed = parseRobotGuildSetting(data, 'min-realm');
+
+      if (parsed.outcome !== 'result') {
+        throw new Error('宗门境界设置回执不完整');
+      }
+      const receipt = parseGuildWorkflow({ action: 'min_realm', searchTerm: '' }, 0, (data as { receipt: unknown }).receipt);
+
+      if (receipt.outcome !== 'updated') {
+        throw new Error('宗门境界设置回执不完整');
+      }
+
+      return { ...receipt, cleared: receipt.minRealmId === null, message: parsed.message };
+    }
+  ),
   create_guild: mutation<{ name: string }>(
     '创建指定名称的宗门，消耗由服务端规定的资源；服务端校验名称、境界、余额和当前宗门状态。',
     'guild.create',

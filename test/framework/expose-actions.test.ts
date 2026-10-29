@@ -198,7 +198,7 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       assert.deepEqual(again.value.ok && again.value.data, value);
       assert.equal(requests.length, 2);
       assert.ok(requests[0].headers['idempotency-key']);
-      if (['get_onboarding', 'get_skill_switch_options', 'get_profession_dashboard', 'get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly', 'get_meditation_boost_options', 'get_guild_worship_options', 'get_guild_shop', 'get_green_bottle_capacity'].includes(entry.action)) {
+      if (['get_alchemy_recipes', 'get_onboarding', 'get_skill_switch_options', 'get_profession_dashboard', 'get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly', 'get_meditation_boost_options', 'get_guild_worship_options', 'get_guild_shop', 'get_green_bottle_capacity'].includes(entry.action)) {
         assert.notEqual(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
       } else {
         assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);

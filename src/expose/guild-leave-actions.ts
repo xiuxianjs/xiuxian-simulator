@@ -1,6 +1,7 @@
 import { parseRobotGuildLeave, parseRobotGuildLeaderLeave } from '../api/bot/guild-leave-robot-query';
 import { parseGuildLeaveCancel } from '../api/bot/guild-leave-confirmation-cancel';
 import { mutation } from './mutation';
+import { parseRobotGuildImpeach } from '../api/bot/guild-leadership-end-robot-query';
 import { boolean, fields, integer, object, text } from './schema';
 
 const empty = object({});
@@ -21,6 +22,37 @@ function leave(data: unknown) {
 }
 
 export const guildLeaveActions = {
+  impeach_guild_leader: mutation(
+    '对当前宗主发起弹劾，可能累计次数或直接更换宗主；应由玩家明确请求。失败时服务端仍可能清理旧计数，结果以回执及后续状态为准。',
+    'guild.impeach',
+    empty,
+    object(
+      {
+        ...fields(text, 'outcome message leaderName successorName successorRoleName'),
+        ...fields(integer, 'guildId impeachCount requiredImpeachCount successorUserId')
+      },
+      ['successorName', 'successorRoleName', 'successorUserId']
+    ),
+    () => '/弹劾宗主',
+    data => {
+      const result = parseRobotGuildImpeach(data);
+      const receipt = (data as { receipt: Record<string, unknown> }).receipt;
+
+      if (!['guildId', 'impeachCount', 'requiredImpeachCount'].every(key => Number.isSafeInteger(receipt[key])) || typeof receipt.leaderName !== 'string') {
+        throw new Error('宗门弹劾回执不完整');
+      }
+      if (receipt.successorUserId !== undefined && (!Number.isSafeInteger(receipt.successorUserId) || Number(receipt.successorUserId) < 1)) {
+        throw new Error('宗门继任者回执不完整');
+      }
+      for (const key of ['successorName', 'successorRoleName']) {
+        if (receipt[key] !== undefined && typeof receipt[key] !== 'string') {
+          throw new Error('宗门继任者回执不完整');
+        }
+      }
+
+      return { ...receipt, ...result };
+    }
+  ),
   request_or_confirm_guild_leave: mutation(
     '请求或确认退出宗门：若已有有效待确认请求，本次会直接退出；否则创建 60 秒确认。确认必须来自用户新的明确请求，服务端按当前待确认状态执行。',
     'guild.leave',
