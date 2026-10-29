@@ -82,7 +82,7 @@ export function withBusinessRecovery(operation: RobotBusinessOperation, reply: R
       }
     }
 
-    return { ...reply, buttons };
+    return { ...reply, buttons: operation === 'recharge.catalog' ? buttons.map(button => ({ ...button, autoEnter: false })) : buttons };
   }
   if (['soul-artifacts.upgrade', 'soul-artifacts.grade-upgrade', 'soul-artifacts.unequip', 'skill-books.switch'].includes(operation)) {
     const text = reply.rawLines?.join('\n') ?? reply.text;

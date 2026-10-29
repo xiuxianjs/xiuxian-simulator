@@ -23,6 +23,7 @@ import { buildDailyPackProductPage, buildSpiritVeinProductBlock, dailyPackSku } 
 import { buildOwnedTreasurePage, buildTreasureFortunePage, buildTreasureEffectsPage, buildTreasureDetailPage } from './treasurePages';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
+import { SDKError } from '@src/api/core/error';
 import { Format, logger, onResponse, ResultCode, setTimeout as scheduleTimeout, useEvent } from 'alemonjs';
 
 const number = (value: number) => new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value);
@@ -524,7 +525,7 @@ export default onResponse(selects, async event => {
         const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(data.rulesVersion ?? '');
 
         if (
-          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(data.rulesVersion ?? '') ||
+          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029'].includes(data.rulesVersion ?? '') ||
           rates.length !== 3 ||
           new Set(rates.map(rate => rate.rarity)).size !== 3 ||
           rates.some(
@@ -678,7 +679,11 @@ export default onResponse(selects, async event => {
     content.addBlockquote(buildSpiritVeinProductBlock(lease));
     await send();
   } catch (error) {
-    logger.error('宝物指令未完成', { operation, message: error instanceof Error ? error.message : '未知异常' });
+    logger.error('宝物指令未完成', {
+      operation,
+      message: error instanceof Error ? error.message : '未知异常',
+      ...(error instanceof SDKError ? { code: error.code, status: error.status, requestId: error.requestId } : {})
+    });
     content = Format.createMarkdown();
     if (originalFreeRef) {
       quote(
