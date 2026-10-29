@@ -1,5 +1,5 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { acquirePlatformDeliveryLease, readPlatformAvailability, storePlatformDeliveryReceipt } from '@src/api/bot/notification-cache';
+import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, type Events } from 'alemonjs';
 import { createHash, randomUUID } from 'crypto';
@@ -65,7 +65,7 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
       .addText(' ')
       .addButton(markdownButtonLabel('我的主页'), { data: '/我' })
       .addText(' ')
-      .addButton(markdownButtonLabel('帮助'), { data: '/帮助' })
+      .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
       .addButton(markdownButtonLabel('登录'), { data: '/登录' });
   } else if (joined) {
     quote.addText('道友们好，我是修仙机器人，陪大家一起修行、闯秘境、争夺机缘！').addNewline().addNewline();
@@ -79,7 +79,7 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
     quote.addText('特别推荐：虾仁夺宝（打劫）是游戏主要的修为获取方式之一！').addNewline();
     quote.addText('秘境与夺宝分别使用精力、元力，可以一起参与，增加修为来源。别只刷秘境，错过另一条重要的成长途径！').addNewline();
     quote
-      .addButton(markdownButtonLabel('帮助'), { data: '/帮助' })
+      .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
       .addText(' ')
       .addButton(markdownButtonLabel('踏入仙途'), { data: '/踏入仙途' })
       .addText(' ')

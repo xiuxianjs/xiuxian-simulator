@@ -245,7 +245,7 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               { label: '签到', command: '/签到' },
               { label: '任务', command: '/任务面板' },
               { label: '天书', command: '/天书' },
-              { label: '帮助', command: '/帮助' }
+              { label: '帮助', command: '/修仙帮助' }
             ];
 
             const footer = [

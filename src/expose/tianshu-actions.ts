@@ -1,5 +1,5 @@
-import { parseBackendTianshuContent } from '../api/bot/tianshu-content';
 import { parseBackendNavigation } from '../api/bot/navigation';
+import { parseBackendTianshuContent } from '../api/bot/tianshu-content';
 import { observation } from './mutation';
 import { boolean, integer, list, object, text } from './schema';
 
@@ -32,7 +32,7 @@ export const tianshuActions = {
     'navigation.help',
     object({}),
     object({ registered: boolean, moreVisibleCommands: list(text), foldVisibleCommands: list(text) }),
-    () => '/帮助',
+    () => '/修仙帮助',
     parseBackendNavigation
   ),
   get_tianshu: observation(

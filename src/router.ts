@@ -109,7 +109,7 @@ app.res(
   // 旧版资料查询独立于新版注册、结算和引导流程。
   publicXiuxian.use(['继承', '前世'], () => import('@src/response/legacyArchive/res'));
   publicXiuxian.use(
-    ['帮助', '修仙帮助', 'help', 'menu', '菜单'],
+    ['修仙帮助'],
     withAccessFacts(['realm'], () => import('@src/response/help'))
   );
   publicXiuxian.use(['踏入仙途', '开始游戏', '开始修仙', '开始降临', '降临世界', '我是'], () => import('@src/response/start/res'));

@@ -1,7 +1,7 @@
 import { getCurrentEvent } from 'alemonjs';
+import type { RealmAccessQuery } from '../schemas/realm-access-query';
 import { getEventAccessFacts } from './access-facts';
 import { requestBackend } from './client';
-import type { RealmAccessQuery } from '../schemas/realm-access-query';
 
 export const emptyRealmAccess: RealmAccessQuery = {
   registered: false,
@@ -11,7 +11,7 @@ export const emptyRealmAccess: RealmAccessQuery = {
   foldVisibleCommands: [
     '/我',
     '/踏入仙途',
-    '/帮助',
+    '/修仙帮助',
     '/攻略',
     '/图鉴',
     '/词典',

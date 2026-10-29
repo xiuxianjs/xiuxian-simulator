@@ -8,7 +8,7 @@ export const canonicalOnboardingCommand = (value: string): string => value
     .join(' ');
 
 // Exact read-only entries; arguments and unrelated commands remain controlled.
-export const isOnboardingHelp = (command: string): boolean => ['帮助', '修仙帮助', 'help', 'menu', '菜单', '攻略', '我的天赋'].includes(command);
+export const isOnboardingHelp = (command: string): boolean => ['修仙帮助', '攻略', '我的天赋'].includes(command);
 
 // A realm lesson must not swallow an explicit resolution of existing work.
 // Normal handlers still validate the actual pending session/token.

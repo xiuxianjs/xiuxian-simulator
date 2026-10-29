@@ -46,7 +46,7 @@ const NEWCOMER_STAGE_GUIDES = {
       }
     ],
     footer: [
-      { label: '下阶段', command: '/帮助 2' },
+      { label: '下阶段', command: '/修仙帮助 2' },
       { label: '签到', command: '/签到' },
       { label: '任务', command: '/初入仙途' },
       { label: '主线', command: '/查看主线' },
@@ -120,8 +120,8 @@ const NEWCOMER_STAGE_GUIDES = {
       }
     ],
     footer: [
-      { label: '上阶段', command: '/帮助 1' },
-      { label: '下阶段', command: '/帮助 3' },
+      { label: '上阶段', command: '/修仙帮助 1' },
+      { label: '下阶段', command: '/修仙帮助 3' },
       { label: '秘境', command: '/查看秘境' },
       { label: '功法', command: '/我的功法' },
       { label: '通天塔', command: '/通天塔' },
@@ -192,7 +192,7 @@ const NEWCOMER_STAGE_GUIDES = {
       }
     ],
     footer: [
-      { label: '上阶段', command: '/帮助 2' },
+      { label: '上阶段', command: '/修仙帮助 2' },
       { label: '通天塔', command: '/通天塔' },
       { label: '声望', command: '/商店 声望' },
       { label: '我的职业', command: '/我的职业' },
@@ -260,7 +260,7 @@ export default onResponse(selects, async e => {
           ? [
               shortcuts,
               [
-                { label: '成长指引', command: '/帮助 1' },
+                { label: '成长指引', command: '/修仙帮助 1' },
                 { label: '更多玩法', command: '/更多' },
                 { label: '主页', command: '/我' }
               ]
@@ -268,7 +268,7 @@ export default onResponse(selects, async e => {
           : [
               [
                 { label: '踏入仙途', command: '/踏入仙途' },
-                { label: '成长指引', command: '/帮助 1' }
+                { label: '成长指引', command: '/修仙帮助 1' }
               ]
             ]
       })

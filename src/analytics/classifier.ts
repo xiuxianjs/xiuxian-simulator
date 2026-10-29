@@ -377,7 +377,7 @@ const classificationRules: Array<{
   { pattern: /^(!|！|\/|#|＃)?(消耗|服用|炼化)/, feature_name: '消耗', feature_category: '经济系统' },
 
   // ==================== 信息系统 ====================
-  { pattern: /^(!|！|\/|#|＃)?(修仙)?(帮助|help|menu|菜单)/, feature_name: '帮助', feature_category: '信息系统' },
+  { pattern: /^(!|！|\/|#|＃)?(修仙)(帮助|help|menu|菜单)/, feature_name: '帮助', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?(我|我的|个人)(信息|资料|编号|控制台)?$/, feature_name: '我的信息', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?查看信息/, feature_name: '查看他人', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?更多/, feature_name: '更多', feature_category: '信息系统' },
