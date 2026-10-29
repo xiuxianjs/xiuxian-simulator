@@ -53,14 +53,20 @@ for (const [action, operation] of specs) test(`${action}: 真实 Go 奖励契约
         assert.deepEqual(actual.result, data);
       } else if (operation.includes('claim-all-')) {
         assert.deepEqual(actual.result, {
-          claimed: data.claimed.map((item: any) => ({ userName: item.userName, requiredPoints: item.requiredPoints, issued: item.issued })),
+          claimed: data.claimed.map((item: any) => ({ userName: item.userName, requiredPoints: item.requiredPoints, issued: item.issued,
+            ...(item.treasureMapBackfillOnly !== undefined ? { treasureMapBackfillOnly: item.treasureMapBackfillOnly } : {}),
+            ...(item.treasureMaps != null ? { treasureMaps: item.treasureMaps } : {}),
+            ...(item.treasureMapsUnavailableReason !== undefined ? { treasureMapsUnavailableReason: item.treasureMapsUnavailableReason } : {}) })),
           partial: data.partial,
           ...(data.userName !== undefined ? { userName: data.userName } : {}),
           ...(data.taskRewards !== undefined ? { taskRewards: data.taskRewards } : {}),
           ...(data.error !== undefined ? { error: data.error } : {})
         });
       } else {
-        assert.deepEqual(actual.result, { userName: data.userName, requiredPoints: data.requiredPoints, issued: data.issued });
+        assert.deepEqual(actual.result, { userName: data.userName, requiredPoints: data.requiredPoints, issued: data.issued,
+          ...(data.treasureMapBackfillOnly !== undefined ? { treasureMapBackfillOnly: data.treasureMapBackfillOnly } : {}),
+          ...(data.treasureMaps != null ? { treasureMaps: data.treasureMaps } : {}),
+          ...(data.treasureMapsUnavailableReason !== undefined ? { treasureMapsUnavailableReason: data.treasureMapsUnavailableReason } : {}) });
       }
       if (data.partial) partial++;
     } else if (operation === 'membership.claim-month-card') {

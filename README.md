@@ -29,7 +29,7 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.143.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.149.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
 
 `checkin_celestial` 执行登仙台签到并返回实际时段及奖励；可先用 `get_checkin_status` 查询当前时段状态。
 `get_checkin_calendar` 查询签到概览、日常、日期、累计、新人、活动、狂欢及登仙台时段日历和奖励预览。
@@ -39,6 +39,8 @@ release
 `get_gift_records` 支持按全部、送出和收到分页查看本人赠礼记录。
 `get_companion_proposals` 查询本人待处理道侣申请及其原始编号。
 `get_companion_candidates` 分页查询结缘候选好友及誓约道具库存，不发起申请。
+`get_navigation` 查询账号注册状态和服务端可见导航入口，可见不代表满足全部操作条件。
+周常活跃查询保留服务端提供的藏宝图独立档位、领取状态和不可用原因。
 
 以下是近期补充的常用入口，其他玩法见后续各节及框架提供的 action schema：
 

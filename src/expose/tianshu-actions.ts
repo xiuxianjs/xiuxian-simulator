@@ -1,4 +1,5 @@
 import { parseBackendTianshuContent } from '../api/bot/tianshu-content';
+import { parseBackendNavigation } from '../api/bot/navigation';
 import { observation } from './mutation';
 import { boolean, integer, list, object, text } from './schema';
 
@@ -26,6 +27,14 @@ const feature = object(
 );
 
 export const tianshuActions = {
+  get_navigation: observation(
+    '查询当前账号注册状态和服务端可见导航指令；入口可见不代表满足操作的所有条件。未注册账号也可查询。',
+    'navigation.help',
+    object({}),
+    object({ registered: boolean, moreVisibleCommands: list(text), foldVisibleCommands: list(text) }),
+    () => '/帮助',
+    parseBackendNavigation
+  ),
   get_tianshu: observation(
     '查询天书的玩法规则、境界开放条件和当前角色的服务端功能状态；未注册账号也可查询公共内容。visible 和 realmReached 不保证满足所有业务条件。',
     'tianshu.content',

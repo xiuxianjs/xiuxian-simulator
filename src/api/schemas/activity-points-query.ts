@@ -1,5 +1,14 @@
 export interface ActivityPointsQueryData {
   treasureMapsUnavailableReason?: string;
+  weeklyTreasureMaps?: {
+    requiredPoints: number;
+    quantity: number;
+    boxClaimed: boolean;
+    granted: boolean;
+    grantedQuantity: number;
+    claimable: boolean;
+    backfillOnly: boolean;
+  }[];
   rewardType: 'daily' | 'weekly';
   cyclePeriod: string;
   currentPoints: number;

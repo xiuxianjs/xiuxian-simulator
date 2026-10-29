@@ -30,6 +30,7 @@ test('宝物查询、原预览、结算和状态核对使用真实服务数据',
     op = operation; data = fixtures[fixture]; expected = {};
     const result = await call(action, {}); assert.equal(result.value.ok, true, JSON.stringify(result.value));
     if (result.value.ok && fixture === 'overview') assert.equal((result.value.data as any).result.items.length, data.items.length);
+    if (result.value.ok && fixture === 'relics') { const actual = (result.value.data as any).result; assert.deepEqual(actual.balances, data.balances); assert.deepEqual(actual.pity, data.pity); assert.deepEqual(actual.shapeRates, data.shapeRates); assert.deepEqual(actual.wholeRates, data.wholeRates); assert.deepEqual(actual.rules, data.rules); }
   }
   for (const [kind, action, input, args] of [
     ['explore', 'preview_treasure_exploration', { source: 'spirit_crystal', count: 1 }, { kind: 'explore', source: 'spirit_crystal', count: 1 }],

@@ -9,7 +9,17 @@ import { boolean, fields, integer, list, object, text } from './schema';
 const empty = object({});
 const points = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 const issued = list(object({ type: text, name: text, amount: integer }));
-const claim = object({ userName: text, requiredPoints: integer, issued });
+const claim = object(
+  {
+    userName: text,
+    requiredPoints: integer,
+    issued,
+    treasureMapBackfillOnly: boolean,
+    treasureMapsUnavailableReason: text,
+    treasureMaps: object({ week: text, requiredPoints: integer, itemId: integer, quantity: integer, alreadyGranted: boolean, configVersion: text })
+  },
+  ['treasureMapBackfillOnly', 'treasureMaps', 'treasureMapsUnavailableReason']
+);
 const claimAll = object({ claimed: list(claim), partial: boolean, userName: text, taskRewards: issued, error: text }, ['userName', 'taskRewards', 'error']);
 const activity = object(
   {
@@ -17,6 +27,10 @@ const activity = object(
     cyclePeriod: text,
     currentPoints: integer,
     taskRewardsCanClaim: boolean,
+    treasureMapsUnavailableReason: text,
+    weeklyTreasureMaps: list(
+      object({ ...fields(integer, 'requiredPoints quantity grantedQuantity'), ...fields(boolean, 'boxClaimed granted claimable backfillOnly') })
+    ),
     tasks: list(
       object({
         ...fields(integer, 'taskId activityPoints targetValue currentValue rewardQuantity'),
@@ -25,14 +39,18 @@ const activity = object(
       })
     ),
     rewards: list(
-      object({
-        ...fields(integer, 'requiredPoints itemId quantity'),
-        ...fields(text, 'name category currencyCode'),
-        ...fields(boolean, 'claimed canClaim')
-      })
+      object(
+        {
+          ...fields(integer, 'requiredPoints itemId quantity'),
+          ...fields(text, 'name category currencyCode'),
+          ...fields(boolean, 'claimed canClaim treasureMapGranted treasureMapClaimable treasureMapBackfillOnly'),
+          treasureMapQuantity: integer
+        },
+        ['treasureMapGranted', 'treasureMapClaimable', 'treasureMapBackfillOnly', 'treasureMapQuantity']
+      )
     )
   },
-  ['taskRewardsCanClaim']
+  ['taskRewardsCanClaim', 'treasureMapsUnavailableReason', 'weeklyTreasureMaps']
 );
 
 const activityPanel = (type: 'daily' | 'weekly', label: string) => observation(

@@ -3,7 +3,14 @@ import type { BackendRequestContext } from './context';
 import { parsePositiveIssuedRewards, type IssuedReward } from '../schemas/issued-reward';
 
 export type BackendActivityIssuedReward = IssuedReward;
-export type BackendActivityClaim = { userName: string; requiredPoints: number; issued: BackendActivityIssuedReward[]; treasureMapBackfillOnly?: boolean };
+export type BackendActivityClaim = {
+  userName: string;
+  requiredPoints: number;
+  issued: BackendActivityIssuedReward[];
+  treasureMapBackfillOnly?: boolean;
+  treasureMapsUnavailableReason?: string;
+  treasureMaps?: { week: string; requiredPoints: number; itemId: number; quantity: number; alreadyGranted: boolean; configVersion: string };
+};
 export type BackendActivityClaimAll = {
   claimed: BackendActivityClaim[];
   partial: boolean;
@@ -30,12 +37,40 @@ export function parseBackendActivityClaim(value: unknown): BackendActivityClaim 
   if (item.treasureMapBackfillOnly !== undefined && typeof item.treasureMapBackfillOnly !== 'boolean') {
     throw new Error('周活补图回执不完整');
   }
+  if (item.treasureMapsUnavailableReason !== undefined && typeof item.treasureMapsUnavailableReason !== 'string') {
+    throw new Error('周活藏宝图回执不完整');
+  }
+
+  let treasureMaps: BackendActivityClaim['treasureMaps'];
+
+  if (item.treasureMaps !== undefined && item.treasureMaps !== null) {
+    const grant = row(item.treasureMaps);
+
+    if (
+      typeof grant.week !== 'string' ||
+      typeof grant.configVersion !== 'string' ||
+      typeof grant.alreadyGranted !== 'boolean' ||
+      !['requiredPoints', 'itemId', 'quantity'].every(key => Number.isSafeInteger(grant[key]) && Number(grant[key]) > 0)
+    ) {
+      throw new Error('周活藏宝图回执不完整');
+    }
+    treasureMaps = {
+      week: grant.week,
+      requiredPoints: grant.requiredPoints as number,
+      itemId: grant.itemId as number,
+      quantity: grant.quantity as number,
+      alreadyGranted: grant.alreadyGranted,
+      configVersion: grant.configVersion
+    };
+  }
 
   return {
     userName: item.userName,
     requiredPoints: item.requiredPoints,
     issued: parsePositiveIssuedRewards(item.issued, '活跃奖励响应不完整'),
-    treasureMapBackfillOnly: item.treasureMapBackfillOnly === true
+    ...(item.treasureMapBackfillOnly !== undefined ? { treasureMapBackfillOnly: item.treasureMapBackfillOnly } : {}),
+    ...(typeof item.treasureMapsUnavailableReason === 'string' ? { treasureMapsUnavailableReason: item.treasureMapsUnavailableReason } : {}),
+    ...(treasureMaps ? { treasureMaps } : {})
   };
 }
 

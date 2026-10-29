@@ -24,7 +24,7 @@ const hReference = 'r1_1_h_abc_' + 'a'.repeat(24);
 const tribulationUnit = { Name: '修士', HP: 100, MP: 50, PhysicalAttack: 20, MagicAttack: 20, PhysicalDefense: 5, MagicDefense: 5, Speed: 10 };
 const activityPanel = { rewardType: 'daily', cyclePeriod: '2026-10-28', currentPoints: 100, taskRewardsCanClaim: true, tasks: [], rewards: [{ requiredPoints: 10, itemId: 0, quantity: 11, name: '灵石', category: 'currency', currencyCode: 'SPIRIT_STONE', claimed: false, canClaim: true }] };
 const activityClaim = { userName: '修士', requiredPoints: 10, issued: [{ type: 'currency', name: '灵石', amount: 11 }] };
-const activityAll = { claimed: [activityClaim], partial: true, error: '第二档未完成' };
+const activityAll = { claimed: [{ ...activityClaim, treasureMapsUnavailableReason: '藏宝图配置不可用' }], partial: true, error: '第二档未完成' };
 const monthStatus = { total: 1, claimableCount: 0, claimedCount: 1, upcomingCount: 0, prepaidCount: 0, dailyRewards: { spiritCrystal: 150, mentalPillItemId: 38, mentalPillQuantity: 2, qiPillItemId: 39, qiPillQuantity: 2 }, records: [{ day: 1, rewardDate: '2026-10-28', status: 'claimed' }] };
 const shopReference = 'r1_1_s_abc_' + 'a'.repeat(24);
 const soulToken = '12345678-1234-1234-1234-123456789abc';
@@ -86,9 +86,9 @@ const cases = [
   { action: 'get_skill_switch_options', operation: 'skill-books.switch', command: '/切换战技', input: { skillType: '战技' }, args: { skillType: '战技', bookId: null, confirm: null }, data: { code: 'SHOW_LIST', skillType: '战技', options: [{ id: 2, name: '剑诀', skillType: '战技', status: 2, isInUse: false, canSwitch: true }] } },
   { action: 'switch_skill_book', operation: 'skill-books.switch', command: '/切换战技 2', input: { skillType: '战技', bookId: 2 }, args: { skillType: '战技', bookId: '2', confirm: null }, data: { code: 'OK', skillType: '战技', result: { outcome: 'switched', skillBook: { id: 2, name: '剑诀', skillType: '战技' } } } },
   { action: 'get_daily_activity', operation: 'activity-points.daily', command: '/日常活跃', input: {}, data: activityPanel },
-  { action: 'get_weekly_activity', operation: 'activity-points.weekly', command: '/周常活跃', input: {}, data: { ...activityPanel, rewardType: 'weekly' } },
+  { action: 'get_weekly_activity', operation: 'activity-points.weekly', command: '/周常活跃', input: {}, data: { ...activityPanel, rewardType: 'weekly', treasureMapsUnavailableReason: '配置不可用', weeklyTreasureMaps: [{ requiredPoints: 20, quantity: 2, grantedQuantity: 0, boxClaimed: true, granted: false, claimable: true, backfillOnly: true }], rewards: [{ ...activityPanel.rewards[0], treasureMapQuantity: 2, treasureMapGranted: false, treasureMapClaimable: true, treasureMapBackfillOnly: true }] } },
   { action: 'claim_daily_activity', operation: 'activity-points.claim-daily', command: '/领取日常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: activityClaim },
-  { action: 'claim_weekly_activity', operation: 'activity-points.claim-weekly', command: '/领取周常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: activityClaim },
+  { action: 'claim_weekly_activity', operation: 'activity-points.claim-weekly', command: '/领取周常活跃奖励 10', input: { requiredPoints: 10 }, args: { mode: 'claim', requiredPoints: 10 }, data: { ...activityClaim, treasureMapBackfillOnly: true, treasureMaps: { week: '2026-W44', requiredPoints: 10, itemId: 5, quantity: 2, alreadyGranted: false, configVersion: 'v1' } } },
   { action: 'claim_all_daily_activity', operation: 'activity-points.claim-all-daily', command: '/一键领取日常活跃奖励', input: {}, data: activityAll },
   { action: 'claim_all_weekly_activity', operation: 'activity-points.claim-all-weekly', command: '/一键领取周常活跃奖励', input: {}, data: activityAll },
   { action: 'claim_month_card_rewards', operation: 'membership.claim-month-card', command: '/一键领取月卡', input: {}, data: { beforeTotal: 1, claim: { days: 1, rewards: { spiritCrystal: 150, mentalPill: 2, qiPill: 2 } }, status: monthStatus } },
@@ -203,7 +203,10 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       } else {
         assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
       }
-      if (entry.action === 'claim_all_daily_activity' || entry.action === 'claim_all_weekly_activity') { assert.equal(value.result.partial, true); assert.equal(value.result.error, '第二档未完成'); assert.deepEqual(value.result.claimed, [activityClaim]); }
+      if (entry.action === 'claim_all_daily_activity' || entry.action === 'claim_all_weekly_activity') { assert.equal(value.result.partial, true); assert.equal(value.result.error, '第二档未完成'); assert.deepEqual(value.result.claimed, activityAll.claimed); }
+      if (entry.action === 'get_weekly_activity') { assert.equal(value.result.treasureMapsUnavailableReason, '配置不可用'); assert.equal(value.result.rewards[0].treasureMapQuantity, 2); assert.equal(value.result.rewards[0].treasureMapGranted, false); assert.equal(value.result.rewards[0].treasureMapClaimable, true); assert.equal(value.result.rewards[0].treasureMapBackfillOnly, true); }
+      if (entry.action === 'get_weekly_activity') assert.deepEqual(value.result.weeklyTreasureMaps, (entry.data as any).weeklyTreasureMaps);
+      if (entry.action === 'claim_weekly_activity') assert.deepEqual(value.result, entry.data);
       if (entry.action === 'checkin_all') assert.equal(value.result[0].status, 'error');
     }
   } else {

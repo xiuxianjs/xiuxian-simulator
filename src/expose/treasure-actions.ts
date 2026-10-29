@@ -14,7 +14,7 @@ import {
 } from '../api/bot/treasures';
 import type { GameEvent } from '../types/event';
 import { mutation, observation } from './mutation';
-import { boolean, fields, integer, list, object, text } from './schema';
+import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 const reference = { type: 'string' as const, minLength: 1, maxLength: 64 };
@@ -112,6 +112,11 @@ export const treasureActions = {
     object({
       ...fields(integer, 'totalExplorations milestoneProgress pendingSelections'),
       ...fields(boolean, 'freeAvailable spiritTenDiscountAvailable'),
+      balances: object(fields(integer, 'spiritCrystal daoCrystal treasureMaps')),
+      shapeRates: object(fields(number, 'singleComplete tenExpectedComplete tenAverageComplete')),
+      pity: list(object({ rarity: integer, name: text, counter: integer, hardPity: integer, nextProbability: number })),
+      wholeRates: list(object({ rarity: integer, name: text, probability: number })),
+      rules: list(text),
       detailsJson: text
     }),
     () => '/上古遗珍',

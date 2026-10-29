@@ -20,6 +20,21 @@ export function parseBackendActivityPoints(value: unknown, type: 'daily' | 'week
   if (row.treasureMapsUnavailableReason !== undefined && typeof row.treasureMapsUnavailableReason !== 'string') {
     throw new Error('周活藏宝图状态不完整');
   }
+  if (row.weeklyTreasureMaps !== undefined) {
+    if (!Array.isArray(row.weeklyTreasureMaps)) {
+      throw new Error('周活藏宝图状态不完整');
+    }
+    for (const value of row.weeklyTreasureMaps) {
+      const tier = record(value);
+
+      if (
+        !['requiredPoints', 'quantity', 'grantedQuantity'].every(key => Number.isSafeInteger(tier[key]) && Number(tier[key]) >= 0) ||
+        !['boxClaimed', 'granted', 'claimable', 'backfillOnly'].every(key => typeof tier[key] === 'boolean')
+      ) {
+        throw new Error('周活藏宝图状态不完整');
+      }
+    }
+  }
 
   if (
     row.rewardType !== type ||
