@@ -408,7 +408,7 @@ export function parseTreasureReceipt(value: unknown) {
     if (![1, 10].includes(count)) {
       return invalid();
     }
-    if (['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029'].includes(String(result.rulesVersion))) {
+    if (['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029', 'treasure-v10-exploration-pity-20261029'].includes(String(result.rulesVersion))) {
       if (result.experienceGranted !== count * 100) {
         return invalid();
       }

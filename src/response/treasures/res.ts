@@ -522,12 +522,16 @@ export default onResponse(selects, async event => {
       }
       if (args[0] === '概率') {
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
-        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(data.rulesVersion ?? '');
+        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(data.rulesVersion ?? '');
+        const actualPity = data.rulesVersion === 'treasure-v10-exploration-pity-20261029';
+        const highPity = data.pity.filter(item => item.rarity >= 4);
 
         if (
-          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029'].includes(data.rulesVersion ?? '') ||
+          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029', 'treasure-v10-exploration-pity-20261029'].includes(data.rulesVersion ?? '') ||
           rates.length !== 3 ||
           new Set(rates.map(rate => rate.rarity)).size !== 3 ||
+          (actualPity && (highPity.length !== 3 || new Set(highPity.map(pity => pity.rarity)).size !== 3 ||
+            highPity.some(pity => pity.scope !== 'actual_exploration' || pity.hardPity < 1 || pity.counter > pity.hardPity + 3))) ||
           rates.some(
             rate => rate.probability > 1 ||
               (byMode
@@ -545,14 +549,17 @@ export default onResponse(selects, async event => {
           content.addNewline();
           content.addText('综合概率').addNewline().addNewline();
           content
-            .addText(`单抽出整品概率${probability(data.shapeRates.singleComplete)}`)
+            .addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`)
             .addNewline()
             .addNewline();
-          content.addText('十连至少出一件整品').addNewline().addNewline();
+          content.addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品').addNewline().addNewline();
+          if (actualPity) { content.addText('保底按实际探索累计').addNewline().addNewline(); }
           for (const rate of rates) {
             const counters = data.pity.filter(item => item.rarity === rate.rarity);
             const pity = counters.length === 1 ? counters[0] : undefined;
-            const progress = pity && pity.hardPity > 0 && pity.counter < pity.hardPity ? `保底(${pity.counter}/${pity.hardPity})` : '保底信息暂未同步';
+            const progress = pity && pity.hardPity > 0 && (actualPity ? pity.counter <= pity.hardPity + 3 : pity.counter < pity.hardPity)
+              ? `保底(${pity.counter}/${pity.hardPity})${actualPity && pity.counter >= pity.hardPity ? ' · 已到保底／高档优先待发' : ''}`
+              : '保底信息暂未同步';
 
             const tenProbability = rate.tenProbability === undefined ? '暂未同步' : probability(rate.tenProbability);
             const block = Format.createMarkdown()

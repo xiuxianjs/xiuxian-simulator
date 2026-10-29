@@ -6,9 +6,9 @@ import { businessEnvelope, gameFixture } from './fixture';
 
 after(async () => { await shutdownLogger(); });
 
-for (const rulesVersion of ['treasure-v5-priority-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029']) {
+for (const rulesVersion of ['treasure-v5-priority-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029', 'treasure-v10-exploration-pity-20261029']) {
   test(`Expose探索概览保留概率模式且兼容旧回执 ${rulesVersion}`, async t => {
-    const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(rulesVersion);
+    const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(rulesVersion);
     const rates = [
       { rarity: 4, name: '稀有', single: .04058164382274883, ten: .05 },
       { rarity: 5, name: '史诗', single: .017044290405554594, ten: .021 },
@@ -26,7 +26,8 @@ for (const rulesVersion of ['treasure-v5-priority-20261029', 'treasure-v7-v5-sha
       shapeRates: rulesVersion.startsWith('treasure-v9-')
         ? { singleComplete: .12, tenExpectedComplete: 1.2, tenAverageComplete: .12 }
         : { singleComplete: .12, tenExpectedComplete: 1.478500976009402, tenAverageComplete: .1478500976009402 },
-      pity: rates.map((rate, index) => ({ rarity: rate.rarity, name: rate.name, counter: [13, 28, 119][index], hardPity: [20, 50, 120][index], nextProbability: .05 })),
+      pity: rates.map((rate, index) => ({ rarity: rate.rarity, name: rate.name, counter: [13, 28, 119][index], hardPity: [20, 50, 120][index], nextProbability: .05,
+        ...(rulesVersion.startsWith('treasure-v10-') ? { scope: 'actual_exploration' } : {}) })),
       wholeRates: rates.map(rate => ({ rarity: rate.rarity, name: rate.name, probability: byMode ? rate.single : rate.ten, ...(byMode ? { tenProbability: rate.ten } : {}), scope: byMode ? 'all_explorations_by_mode' : 'all_explorations' })),
       rules: ['每次探索获得100经验'],
       records: []
