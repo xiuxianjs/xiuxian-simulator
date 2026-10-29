@@ -521,18 +521,59 @@ export default onResponse(selects, async event => {
       }
       if (args[0] === '概率') {
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
+        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(data.rulesVersion ?? '');
 
         if (
-          data.rulesVersion !== 'treasure-v5-priority-20261029' ||
+          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(data.rulesVersion ?? '') ||
           rates.length !== 3 ||
           new Set(rates.map(rate => rate.rarity)).size !== 3 ||
-          rates.some(rate => rate.scope !== 'all_explorations' || rate.probability > 1)
+          rates.some(
+            rate => rate.probability > 1 ||
+              (byMode
+                ? rate.scope !== 'all_explorations_by_mode' || rate.tenProbability === undefined || rate.tenProbability > 1
+                : rate.scope !== 'all_explorations')
+          )
         ) {
           quote(['概率资料未同步，请稍后刷新。'], [{ label: '刷新', command: '/上古遗珍 概率' }]);
         } else {
-          quote(['综合概率']);
+          if (byMode) {
+            content.addNewline();
+          }
+          content.addText('综合概率').addNewline().addNewline();
+          if (byMode) {
+            content
+              .addText(`单抽出整品概率${probability(data.shapeRates.singleComplete)}`)
+              .addNewline()
+              .addNewline();
+            content.addText('十连至少出一件整品').addNewline().addNewline();
+          }
           for (const rate of rates) {
-            quote([`${rate.name} 综合概率 ${probability(rate.probability)}`]);
+            const counters = data.pity.filter(item => item.rarity === rate.rarity);
+            const pity = counters.length === 1 ? counters[0] : undefined;
+            const progress = pity && pity.hardPity > 0 && pity.counter < pity.hardPity ? `保底(${pity.counter}/${pity.hardPity})` : '保底信息暂未同步';
+
+            if (byMode) {
+              const tenProbability = rate.tenProbability === undefined ? '暂未同步' : probability(rate.tenProbability);
+              const block = Format.createMarkdown()
+                .addBold(rate.name)
+                .addNewline()
+                .addText(`单抽综合概率 ${probability(rate.probability)}`)
+                .addNewline()
+                .addText(`十连综合概率 ${tenProbability}`)
+                .addNewline()
+                .addText(progress);
+
+              content.addBlockquote(block);
+              continue;
+            }
+            quote([`${rate.name} 综合概率 ${probability(rate.probability)}`, progress]);
+          }
+          if (!byMode) {
+            content
+              .addText(`单抽出整品概率${probability(data.shapeRates.singleComplete)}`)
+              .addNewline()
+              .addNewline();
+            content.addText('十连至少出一件整品').addNewline().addNewline();
           }
         }
       } else if (args[0] === '记录') {

@@ -316,7 +316,13 @@ export function parseRelicsOverview(value: unknown) {
     wholeRates: array(item.wholeRates, value => {
       const p = row(value);
 
-      return { rarity: rarity(p.rarity), name: text(p.name), probability: number(p.probability), ...(p.scope === undefined ? {} : { scope: text(p.scope) }) };
+      return {
+        rarity: rarity(p.rarity),
+        name: text(p.name),
+        probability: number(p.probability),
+        ...(p.tenProbability === undefined ? {} : { tenProbability: number(p.tenProbability) }),
+        ...(p.scope === undefined ? {} : { scope: text(p.scope) })
+      };
     }),
     rules: array(item.rules, text),
     records: array(item.records, value => {
@@ -402,7 +408,7 @@ export function parseTreasureReceipt(value: unknown) {
     if (![1, 10].includes(count)) {
       return invalid();
     }
-    if (result.rulesVersion === 'treasure-v5-priority-20261029') {
+    if (['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029'].includes(String(result.rulesVersion))) {
       if (result.experienceGranted !== count * 100) {
         return invalid();
       }

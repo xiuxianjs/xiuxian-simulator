@@ -61,13 +61,17 @@ export default onResponse(selects, async e => {
       contentMd.addText('── 活跃度奖励 ──');
       contentMd.addNewline();
 
-      for (const reward of rewards) {
-        const status = reward.claimed ? '✅' : reward.canClaim ? '🔓' : '🔒';
+      for (const points of [...new Set(rewards.map(reward => reward.requiredPoints))].sort((a, b) => a - b)) {
+        const rows = rewards.filter(reward => reward.requiredPoints === points);
+        const canClaim = rows.some(reward => reward.canClaim);
+        const claimed = rows.every(reward => reward.claimed);
+        const status = canClaim ? '🔓' : claimed ? '✅' : '🔒';
+        const rewardNames = rows.map(reward => `${reward.name} x${reward.quantity}`);
 
-        contentMd.addText(`${status}${reward.requiredPoints}点 → ${reward.name} x${reward.quantity}`);
+        contentMd.addText(`${status}${points}点 → ${rewardNames.join('、')}`);
 
-        if (reward.canClaim) {
-          addOptions(contentMd, [{ label: '领取', command: `/领取日常活跃奖励 ${reward.requiredPoints}` }]);
+        if (canClaim) {
+          addOptions(contentMd, [{ label: '领取', command: `/领取日常活跃奖励 ${points}`, autoEnter: false }]);
         } else {
           contentMd.addNewline();
         }
@@ -80,14 +84,14 @@ export default onResponse(selects, async e => {
         bid,
         title: '日常活跃',
         header: [
-          { label: '日常活跃', selected: true, command: '/日常活跃' },
-          { label: '周常活跃', command: '/周常活跃' }
+          { label: '日常活跃', selected: true, command: '/日常活跃', autoEnter: false },
+          { label: '周常活跃', command: '/周常活跃', autoEnter: false }
         ],
         content: contentMd,
         footer: [
-          ...(claimable.length > 0 || taskRewardsCanClaim ? [{ label: '一键领取', command: '/一键领取日常活跃奖励' }] : []),
-          { label: '签到', command: '/日常签到' },
-          { label: '更多', command: '/更多' }
+          ...(claimable.length > 0 || taskRewardsCanClaim ? [{ label: '一键领取', command: '/一键领取日常活跃奖励', autoEnter: false }] : []),
+          { label: '签到', command: '/日常签到', autoEnter: false },
+          { label: '更多', command: '/更多', autoEnter: false }
         ]
       })
     );
