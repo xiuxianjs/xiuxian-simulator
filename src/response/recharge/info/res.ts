@@ -13,6 +13,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures';
+import { createBackendRequestContext } from '@src/api/bot/context';
 import { createRechargeProductQuote as createQuoteMarkdown, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
@@ -168,8 +169,8 @@ export default onResponse(selects, async e => {
     if (selected === '灵脉租契' || selected === '日礼包') {
       const loaded =
         selected === '灵脉租契'
-          ? await runRobotBusiness(e, 'spirit-vein.overview', {}, parseSpiritVein, parentNext)
-          : await runRobotBusiness(e, 'treasures.daily-packs', {}, parseTreasureDailyPacks, parentNext);
+          ? await runRobotBusiness(e, 'spirit-vein.overview', {}, parseSpiritVein, parentNext, undefined, createBackendRequestContext(e, 'spirit-vein.overview'))
+          : await runRobotBusiness(e, 'treasures.daily-packs', {}, parseTreasureDailyPacks, parentNext, undefined, createBackendRequestContext(e, 'treasures.daily-packs'));
 
       if (loaded.handled) {
         return;

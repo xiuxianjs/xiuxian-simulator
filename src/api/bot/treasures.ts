@@ -220,8 +220,48 @@ function reward(value: unknown) {
     newlyOwned: bool(item.newlyOwned),
     autoSynthesized,
     fragmentsRemaining,
+    ...(item.pullIndex === undefined ? {} : { pullIndex: integer(item.pullIndex) }),
     forcedComplete: item.forcedComplete === undefined ? false : bool(item.forcedComplete)
   };
+}
+
+function validateIndependentRewards(rewards: ReturnType<typeof reward>[], count: number, priority = false) {
+  if ((priority && rewards.length !== count) || rewards.length < count || rewards.length > count * 3) { return invalid(); }
+  const pulls = new Map<number, ReturnType<typeof reward>[]>();
+
+  for (const item of rewards) {
+    if (
+      item.pullIndex === undefined || item.pullIndex < 1 || item.pullIndex > count ||
+      Math.floor(item.treasureId / 100) !== item.rarity || item.treasureId % 100 < 1 || item.treasureId % 100 > 4 ||
+      !item.name.trim()
+    ) { return invalid(); }
+    const group = pulls.get(item.pullIndex) ?? [];
+
+    group.push(item);
+    pulls.set(item.pullIndex, group);
+  }
+  let previousBody = false;
+
+  for (let index = 1; index <= count; index++) {
+    const group = pulls.get(index);
+
+    if (!group?.length || group.length > (priority ? 1 : 3)) { return invalid(); }
+    if (group.length === 1 && group[0].kind === 'fragment') {
+      const item = group[0];
+
+      if (item.quantity < 1 || item.quantity > 3 || item.autoSynthesized > 1 || item.forcedComplete) { return invalid(); }
+      continue;
+    }
+    if (
+      group.some(item => item.kind !== 'body' || item.quantity !== 1 || item.autoSynthesized !== 0 || (item.fragmentsRemaining ?? 0) !== 0) ||
+      (group.length > 1 && (group.some(item => item.rarity < 4) || new Set(group.map(item => item.rarity)).size !== group.length))
+    ) { return invalid(); }
+    const forced = count === 10 && index === 10 && !previousBody;
+
+    if (group.some(item => item.forcedComplete !== forced)) { return invalid(); }
+    previousBody = true;
+  }
+  if (count === 10 && !previousBody) { return invalid(); }
 }
 export function parseRelicsOverview(value: unknown) {
   const item = row(value);
@@ -229,6 +269,7 @@ export function parseRelicsOverview(value: unknown) {
   const shape = row(item.shapeRates);
 
   return {
+    ...(item.rulesVersion === undefined ? {} : { rulesVersion: text(item.rulesVersion) }),
     serverDate: date(item.serverDate),
     balances: { spiritCrystal: integer(balances.spiritCrystal), daoCrystal: integer(balances.daoCrystal), treasureMaps: integer(balances.treasureMaps) },
     freeAvailable: bool(item.freeAvailable),
@@ -249,13 +290,14 @@ export function parseRelicsOverview(value: unknown) {
         name: text(p.name),
         counter: integer(p.counter),
         hardPity: integer(p.hardPity),
-        nextProbability: number(p.nextProbability)
+        nextProbability: number(p.nextProbability),
+        ...(p.scope === undefined ? {} : { scope: text(p.scope) })
       };
     }),
     wholeRates: array(item.wholeRates, value => {
       const p = row(value);
 
-      return { rarity: rarity(p.rarity), name: text(p.name), probability: number(p.probability) };
+      return { rarity: rarity(p.rarity), name: text(p.name), probability: number(p.probability), ...(p.scope === undefined ? {} : { scope: text(p.scope) }) };
     }),
     rules: array(item.rules, text),
     records: array(item.records, value => {
@@ -341,7 +383,13 @@ export function parseTreasureReceipt(value: unknown) {
     if (![1, 10].includes(count)) {
       return invalid();
     }
-    if (result.rulesVersion === 'treasure-v3-complete-20261027') {
+    if (result.rulesVersion === 'treasure-v5-priority-20261029') {
+      if (result.experienceGranted !== count * 100) { return invalid(); }
+      validateIndependentRewards(array(result.rewards, reward), count, true);
+    } else if (result.rulesVersion === 'treasure-v4-independent-20261029') {
+      if (result.experienceGranted !== count * 100) { return invalid(); }
+      validateIndependentRewards(array(result.rewards, reward), count);
+    } else if (result.rulesVersion === 'treasure-v3-complete-20261027') {
       if ((result.rewards as unknown[]).length !== count || result.experienceGranted !== count * 100) {
         return invalid();
       }

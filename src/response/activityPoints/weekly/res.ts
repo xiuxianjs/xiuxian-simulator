@@ -73,12 +73,11 @@ export default onResponse(selects, async e => {
         const canClaim = rows.some(row => row.canClaim);
         const status = backfill || canClaim ? '🔓' : reward.claimed ? '✅' : '🔒';
 
-        contentMd.addText(`${status}${points}点 → ${rows.map(row => `${row.name} x${row.quantity}`).join('、')}`);
         const maps = Math.max(0, ...rows.map(row => row.treasureMapQuantity));
+        const rewardNames = rows.map(row => `${row.name} x${row.quantity}`);
 
-        if (maps) {
-          contentMd.addNewline().addText(`额外藏宝图 ×${maps} · ${backfill ? '可补领' : reward.treasureMapGranted ? '已到账' : '原档达标领取后到账'}`);
-        }
+        if (maps) { rewardNames.push(`藏宝图 x${maps}`); }
+        contentMd.addText(`${status}${points}点 → ${rewardNames.join('、')}${reward.claimed && backfill ? '（可补领）' : ''}`);
         if (canClaim || backfill) {
           addOptions(contentMd, [{ label: reward.claimed ? '补领藏宝图' : '领取', command: `/领取周常活跃奖励 ${points}`, autoEnter: false }]);
         } else {
