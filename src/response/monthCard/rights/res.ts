@@ -4,6 +4,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendRechargeRights } from '@src/api/bot/recharge-rights-queries';
 import { parseSpiritVein, parseSpiritVeinCalendar } from '@src/api/bot/treasures';
 import { requestRobotBusiness } from '@src/api/bot/robot-business';
+import { createBackendRequestContext } from '@src/api/bot/context';
 import { getBackendFirstRechargeInfo } from '@src/api/bot/first-recharge-queries';
 import { getBackendWorldMilestoneView } from '@src/api/bot/world-milestone-queries';
 import { selects } from '@src/response/config';
@@ -199,7 +200,7 @@ export default onResponse(selects, async e => {
       getBackendFirstRechargeInfo(bid, e.uid as number),
       getBackendWorldMilestoneView(bid, e.uid as number),
       // This secondary read must not dispatch a standalone middleware reply.
-      requestRobotBusiness(e, 'spirit-vein.overview', {}, parseSpiritVein).then(result => result.success && result.branch === 'business' && result.middleware.identity.account.playerId === rightsUid ? result.data : undefined
+      requestRobotBusiness(e, 'spirit-vein.overview', {}, parseSpiritVein, createBackendRequestContext(e, 'spirit-vein.overview')).then(result => result.success && result.branch === 'business' && result.middleware.identity.account.playerId === rightsUid ? result.data : undefined
       )
     ]);
     const countText = (count: number) => (count > 0 ? `${count} 档可领` : '暂无可领');
