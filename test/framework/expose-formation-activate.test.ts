@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { goTestFixture } from '../helpers/go-fixture.mjs';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+after(() => shutdownLogger());
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusinessExposeFormationActivate$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const previewMatch = output.match(/EXPOSE_FORMATION_PREVIEW=(.+)/);
+const activateMatch = output.match(/EXPOSE_FORMATION_ACTIVATE=(.+)/);
+assert.ok(previewMatch && activateMatch);
+const preview = JSON.parse(previewMatch[1]);
+const activation = JSON.parse(activateMatch[1]);
+test('阵盘原预览到激活与重试', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(request.headers['x-bid'], 'player');
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    keys.push(request.headers['idempotency-key']);
+    return { status: 200, headers: {}, data: JSON.stringify(body.arguments.preview ? preview : activation) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = async (action: string, input: any) => {
+    const run = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+    assert.deepEqual(run.errors, []); assert.deepEqual(run.messages, []); assert.deepEqual(run.actions, []);
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+    return run.value.ok ? run.value.data as any : undefined;
+  };
+  const view = await call('preview_cave_formation_activation', { keyword: '隐息阵盘' });
+  assert.equal(view.success, true);
+  assert.deepEqual(view.result.expected, preview.data.data.expected);
+  const receipt = await call('activate_cave_formation', { keyword: '隐息阵盘', reference: view.result.reference });
+  assert.equal(receipt.success, true);
+  assert.equal(receipt.result.formation.formationKey, view.result.expected.targetKey);
+  assert.deepEqual(await call('activate_cave_formation', { keyword: '隐息阵盘', reference: view.result.reference }), receipt);
+  assert.equal(keys[1], keys[2]);
+});

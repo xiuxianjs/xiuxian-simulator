@@ -1,0 +1,538 @@
+{
+  "info": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": true,
+          "resourcesSettled": true
+        }
+      },
+      "data": {
+        "access": {
+          "allowed": true,
+          "realmName": "炼气"
+        },
+        "discipleSide": {
+          "activeDays": 5,
+          "dailyProgress": {
+            "blessCount": 0,
+            "blessLimit": 2,
+            "giftCount": 0,
+            "giftLimit": 1,
+            "hasAnyActionToday": false,
+            "rewardClosed": false,
+            "teachCount": 0,
+            "teachLimit": 3
+          },
+          "discipleResponseProgress": {
+            "activeDays": 0,
+            "canLeaveWithoutPenalty": true,
+            "inactiveDays": 10,
+            "interactionCount": 0,
+            "lastInteractionDate": "2026-10-19",
+            "thresholdDays": 5
+          },
+          "displayMasterName": "师父",
+          "displayMasterRealm": "炼气",
+          "graduationProgress": {
+            "activeDays": 5,
+            "breakthroughRewarded": true,
+            "canGraduate": true,
+            "interactionCount": 15,
+            "reachedGoldenCore": true,
+            "relationDays": 11,
+            "requiredActiveDays": 5,
+            "requiredInteractionCount": 15,
+            "requiredRelationDays": 5,
+            "statusText": "可申请出师"
+          },
+          "interactionCount": 15,
+          "masterName": "师父",
+          "masterRealm": "炼气",
+          "masterSupportProgress": {
+            "activeDays": 0,
+            "canLeaveWithoutPenalty": true,
+            "inactiveDays": 10,
+            "interactionCount": 0,
+            "lastInteractionDate": "2026-10-19",
+            "thresholdDays": 5
+          },
+          "masterUserId": 2,
+          "startedAt": "2026-10-19"
+        },
+        "masterSide": {
+          "disciples": [
+            {
+              "activeDays": 0,
+              "dailyProgress": {
+                "blessCount": 0,
+                "blessLimit": 2,
+                "giftCount": 0,
+                "giftLimit": 1,
+                "hasAnyActionToday": false,
+                "rewardClosed": false,
+                "teachCount": 0,
+                "teachLimit": 3
+              },
+              "discipleName": "徒弟",
+              "discipleRealm": "炼气",
+              "discipleResponseProgress": {
+                "activeDays": 0,
+                "canLeaveWithoutPenalty": true,
+                "inactiveDays": 10,
+                "interactionCount": 0,
+                "lastInteractionDate": "2026-10-19",
+                "thresholdDays": 5
+              },
+              "discipleUserId": 3,
+              "displayDiscipleName": "徒弟",
+              "displayDiscipleRealm": "炼气",
+              "graduationProgress": {
+                "activeDays": 0,
+                "breakthroughRewarded": false,
+                "canGraduate": false,
+                "interactionCount": 0,
+                "reachedGoldenCore": true,
+                "relationDays": 11,
+                "requiredActiveDays": 5,
+                "requiredInteractionCount": 15,
+                "requiredRelationDays": 5,
+                "statusText": "暂不可出师，还差 活跃5天、互动15次、达到金丹"
+              },
+              "interactionCount": 0,
+              "masterSupportProgress": {
+                "activeDays": 0,
+                "canLeaveWithoutPenalty": true,
+                "inactiveDays": 10,
+                "interactionCount": 0,
+                "lastInteractionDate": "2026-10-19",
+                "thresholdDays": 5
+              },
+              "startedAt": "2026-10-19"
+            }
+          ],
+          "history": [],
+          "stats": {
+            "activeDiscipleCount": 1,
+            "discipleCap": 3,
+            "masterVirtueExp": 300,
+            "masterVirtueLevel": 3,
+            "totalAcceptedDiscipleCount": 0,
+            "totalGraduatedCount": 2
+          },
+          "virtueProgress": {
+            "progressExp": 0,
+            "progressRequired": 400
+          },
+          "virtueTitle": "授业"
+        },
+        "discipleHistory": []
+      }
+    }
+  },
+  "teach": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "message": "本次共完成 3 次传功\n徒弟 UID 3：完成 3 次",
+        "count": 3,
+        "items": [
+          {
+            "discipleId": 3,
+            "count": 3
+          }
+        ]
+      }
+    }
+  },
+  "title": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "title": "桃李满天下"
+      }
+    }
+  },
+  "master.teach": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "relationId": 11,
+        "rewardExperience": 3,
+        "virtueExperience": 5,
+        "virtueLevel": 1,
+        "message": "传功",
+        "outcome": "result",
+        "targetUid": 2
+      }
+    }
+  },
+  "master.bless": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "relationId": 11,
+        "rewardExperience": 1,
+        "virtueExperience": 8,
+        "virtueLevel": 1,
+        "message": "赐福",
+        "outcome": "result",
+        "targetUid": 2
+      }
+    }
+  },
+  "master.gift": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "relationId": 11,
+        "virtueExperience": 9,
+        "virtueLevel": 1,
+        "message": "赠送筑基丹×1",
+        "outcome": "result",
+        "targetUid": 2
+      }
+    }
+  },
+  "master.apply": {
+    "data": {
+      "success": true,
+      "branch": "business",
+      "middleware": {
+        "outcome": "allow",
+        "reason": "ALLOWED",
+        "identity": {
+          "bid": "player",
+          "account": {
+            "status": "registered",
+            "playerId": 1
+          }
+        },
+        "replies": [],
+        "contextWarnings": [],
+        "mute": {
+          "muted": false,
+          "claimed": false,
+          "replyCount": 0,
+          "muteTtlSeconds": -2,
+          "replyTtlSeconds": -2,
+          "muteUnlockTime": ""
+        },
+        "entry": {
+          "agreementAccepted": false,
+          "agreements": [
+            {
+              "index": 1,
+              "type": "terms",
+              "title": "游戏使用协议许可及服务协议"
+            },
+            {
+              "index": 2,
+              "type": "privacy",
+              "title": "游戏隐私政策"
+            },
+            {
+              "index": 3,
+              "type": "children",
+              "title": "游戏儿童个人信息保护规则及监护人须知"
+            }
+          ],
+          "maintenance": {
+            "disabled": false
+          },
+          "routeAllowed": true,
+          "nativeComebackProcessed": false,
+          "resourcesSettled": false
+        }
+      },
+      "data": {
+        "message": "已向师父发起拜师申请，等待对方同意",
+        "outcome": "result",
+        "targetUid": 2
+      }
+    }
+  }
+}

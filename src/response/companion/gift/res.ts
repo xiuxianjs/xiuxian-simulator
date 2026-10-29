@@ -27,7 +27,7 @@ export default onResponse(selects, async e => {
   const match = text.match(/^[!！/#＃]?赠送(?:\s+(\S+))?(?:\s+(.+))?\s*$/);
 
   if (!match) {
-    return;
+    return next();
   }
 
   const mentioned = await mention.findOne();

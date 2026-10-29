@@ -1125,7 +1125,7 @@ export const cultivationOperationDefinitions = {
       {
         schema: {
           type: 'integer',
-          enum: [48, 72, 96, 120]
+          enum: [1, 2, 4, 8, 12]
         },
         name: 'duration',
         required: true,

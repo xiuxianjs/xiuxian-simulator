@@ -7,7 +7,7 @@ import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
 const stats = { physicalAttack: 5, magicAttack: 3, physicalDefense: 2, magicDefense: 2, hp: 10, speed: 1, physicalAttackPercent: 1.5, magicAttackPercent: 0, physicalDefensePercent: 0, magicDefensePercent: 0, hpPercent: 0, critRate: 0.2, critDamage: 1.5 };
-const maxStats = Object.fromEntries(Object.entries(stats).map(([key, value]) => ['max' + key[0].toUpperCase() + key.slice(1), value]));
+const maxStats = Object.fromEntries(Object.entries(stats).map(([key, value]) => ['max' + key[0].toUpperCase() + key.slice(1), value * 2]));
 const cases = [
   { action: 'get_equipment_bag', path: 'equipment/bag', filter: { equipmentType: '武器' }, data: { types: ['武器'], activeType: '武器', page: 2, total: 6, totalPages: 2, capabilities: [], items: [{ ...stats, id: 11, equipmentId: 5, isEquipped: 0, isLocked: 2, name: '剑', equipmentType: '武器', grade: '凡', displayName: '剑', displayEquipmentType: '武器', displayGrade: '凡', attributeParts: ['物攻+5'], canEquip: false, canLock: false, canDecompose: false, capabilities: [] }] } },
   { action: 'get_skill_book_bag', path: 'skill-books/bag', filter: { skillType: '战技' }, data: { skillType: '战技', page: 2, total: 6, totalPages: 2, capabilities: [], items: [{ ...stats, ...maxStats, gradeId: 1, id: 11, skillBookId: 6, status: 0, isLocked: 1, quantity: 2, identifiableCount: 0, displayName: '剑诀', displayGrade: '凡', displaySkillType: '战技', unidentified: false, attributeParts: ['物攻+5'], name: '剑诀', grade: '凡', realm: null, skillType: '战技', capabilities: [] }] } },
@@ -51,6 +51,7 @@ for (const entry of cases) for (const mode of ['success', 'empty', 'malformed', 
     if (mode === 'success') {
       assert.equal(data.items[0].id, 11);
       if (entry.action === 'get_equipment_bag') { assert.equal(data.items[0].isLocked, 2); assert.equal(data.items[0].physicalAttackPercent, 1.5); }
+      if (entry.action === 'get_skill_book_bag') { assert.equal(data.items[0].physicalAttack, 5); assert.equal(data.items[0].maxPhysicalAttack, 10); assert.equal(data.items[0].maxCritRate, 0.4); assert.equal(data.items[0].gradeId, 1); assert.equal('realm' in data.items[0], false); }
       if (entry.action === 'get_lootboxes') assert.equal(data.items[0].capabilities[0].options[0].effectiveCount, 2);
     }
   } else if (mode === 'cancel') { assert.equal(result.value.error.code, 'ABORTED'); assert.equal(aborted, true); }

@@ -1,3 +1,9 @@
+import {
+  parseGuildBattleTrainingState,
+  parseGuildBattleTrainingUpgrade,
+  type GuildBattleTrainingBranch,
+  type GuildBattleTrainingKey
+} from '../api/bot/guild-battle-training';
 import { parseGuildDailyTask } from '../api/bot/guild-daily-task-query';
 import { parseGuildWeeklyTask } from '../api/bot/guild-weekly-task-query';
 import { parseRobotGuildMilestoneClaim } from '../api/bot/guild-claims-robot-query';
@@ -22,7 +28,48 @@ const milestone = object(
 );
 const expectedItem = object({ shopItemId: positive, itemId: positive, name: text, category: text, quantity: positive, priceContribution: nonnegative });
 
+const trainingLine = object(
+  { ...fields(text, 'key name effectText'), ...fields(integer, 'level maxLevel nextCostPrestige nextCostSpiritStone nextCostContribution') },
+  ['nextCostPrestige', 'nextCostSpiritStone', 'nextCostContribution']
+);
+
 export const guildRoutineActions = {
+  get_guild_battle_training: observation(
+    '查询宗门战备等级、权限、资源和每项下次升级消耗；不执行升级。',
+    'guild.training-overview',
+    object({}),
+    object({
+      ...fields(integer, 'guildId guildLevel prestige spiritStone contributionPoints teamMaxLevel personalMaxLevel'),
+      guildName: text,
+      unlocked: boolean,
+      canUpgradeTeam: boolean,
+      team: list(trainingLine),
+      personal: list(trainingLine)
+    }),
+    () => '/宗门战备',
+    parseGuildBattleTrainingState
+  ),
+  upgrade_guild_battle_training: mutation<{ branch: GuildBattleTrainingBranch; key: GuildBattleTrainingKey }>(
+    '升级指定宗门战备项目；团队升级消耗宗门资源，个人升级消耗个人贡献，实际资格、消耗和等级以服务端回执为准。',
+    'guild.training-upgrade',
+    object({ branch: { type: 'string', enum: ['团队', '个人'] }, key: { type: 'string', enum: ['攻', '守', '血', '速', '命', '会'] } }),
+    object(
+      {
+        branch: text,
+        key: text,
+        name: text,
+        newLevel: integer,
+        effectText: text,
+        costText: text,
+        contributionPoints: integer,
+        prestige: integer,
+        spiritStone: integer
+      },
+      ['contributionPoints', 'prestige', 'spiritStone']
+    ),
+    input => `/宗门战备 ${input.branch} ${input.key}`,
+    (data, input) => parseGuildBattleTrainingUpgrade(data, input.branch, input.key)
+  ),
   get_guild_daily: observation(
     '查询本人宗门日常任务、活跃、贡献和可领取里程碑；沿用服务端周期重置与结算，不自动完成任务。',
     'guild.daily',

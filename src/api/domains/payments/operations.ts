@@ -293,7 +293,7 @@ export const paymentsOperationDefinitions = {
       required: false,
       style: 'form' as const,
       explode: true,
-      schema: { type: 'integer' as const, minimum: 1 }
+      schema: { type: 'integer' as const, minimum: 1, ...(name === 'pageSize' ? { maximum: 50 } : {}) }
     })),
     headerParams: []
   },

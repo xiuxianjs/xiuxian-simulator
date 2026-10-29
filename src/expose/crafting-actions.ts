@@ -20,36 +20,54 @@ function alchemyReply(value: unknown) {
 }
 const alchemy = object({ reply: replySchema, confirmations: list(object({ reference: text, label: text })) });
 const stats = Object.fromEntries(Object.keys(forgeStatFields).map(key => [key, number]));
-const material = object({ ...fields(text, 'source name'), ...fields(integer, 'itemId required available listed'), locked: boolean });
+
+export const forgeMaterialSchema = object({ ...fields(text, 'source name'), ...fields(integer, 'itemId required available listed'), locked: boolean });
 const attribute = object({ ...fields(text, 'key name unit'), min: number, max: number });
-const recipe = object(
+
+export const forgeRecipeSchema = object(
   {
     attributes: list(attribute),
     ...fields(boolean, 'tradeable canEquip earlyCraft learned assessment completed canCraft'),
     ...fields(integer, 'id requiredLevel craftRequiredLevel spiritStoneCost toolGrade'),
     ...fields(text, 'name grade type requiredRealm reason toolType'),
     equipment: object({ id: integer, name: text, ...stats }),
-    materials: list(material)
+    materials: list(forgeMaterialSchema)
   },
   ['craftRequiredLevel', 'earlyCraft']
 );
 const tutorialTool = { ...fields(integer, 'templateId gradeLevel permission'), ...fields(text, 'name type grade') };
 const preview = object(
-  { token: reference, expiresAt: integer, tutorial: boolean, recipe, expGained: integer, assessmentNew: boolean, tutorialTool: object(tutorialTool) },
+  {
+    token: reference,
+    expiresAt: integer,
+    tutorial: boolean,
+    recipe: forgeRecipeSchema,
+    expGained: integer,
+    assessmentNew: boolean,
+    tutorialTool: object(tutorialTool)
+  },
   ['tutorialTool']
 );
-const result = object(
+
+export const forgeResultSchema = object(
   {
     ...fields(integer, 'crafterId craftId recipeId expGained spiritStoneCost'),
     ...fields(text, 'currentEquipment name crafter createdAt'),
     ...fields(boolean, 'canEquip assessmentNew tutorial replayed'),
     comparisons: list(object({ ...fields(text, 'key name unit'), ...fields(number, 'value current delta') })),
     equipment: object({ ...fields(integer, 'id equipmentId userId permission'), crafterName: text, ...stats }, ['crafterName']),
-    materials: list(material),
+    materials: list(forgeMaterialSchema),
     tutorialTool: object({ ...tutorialTool, instanceId: integer, equipped: boolean })
   },
   ['tutorialTool']
 );
+
+export const forgeOverviewSchema = object({
+  ...fields(boolean, 'available joined canAdvance canJoin'),
+  ...fields(text, 'reason title advanceReason nextTitle entryRealm'),
+  ...fields(integer, 'level exp expRequired assessmentDone assessmentRequired'),
+  recipes: list(forgeRecipeSchema)
+});
 
 export const craftingActions = {
   get_alchemy_dashboard: mutation(
@@ -100,12 +118,7 @@ export const craftingActions = {
     '查看锻造等级、图纸、材料库存、学习和制作资格；不保存或制作装备，服务端保留准入。',
     'forge.overview',
     empty,
-    object({
-      ...fields(boolean, 'available joined canAdvance canJoin'),
-      ...fields(text, 'reason title advanceReason nextTitle entryRealm'),
-      ...fields(integer, 'level exp expRequired assessmentDone assessmentRequired'),
-      recipes: list(recipe)
-    }),
+    forgeOverviewSchema,
     () => '/我的锻造',
     parseForgeOverview
   ),
@@ -131,7 +144,7 @@ export const craftingActions = {
     '用户明确确认原预览后，使用原 r1_f 引用打造；服务端校验原材料、图纸和预览有效期，返回实际装备及重放标记。不得重建最新预览后自动提交。',
     'forge.confirm',
     object({ reference }),
-    result,
+    forgeResultSchema,
     input => `/确认打造 ${input.reference}`,
     parseForgeResult,
     input => ({ token: input.reference }),

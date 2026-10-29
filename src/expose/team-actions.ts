@@ -1,6 +1,10 @@
-import { parseTeamAcknowledgement, parseTeamCreated, requireTeamObject } from '../api/bot/team-actions';
+import { parseTeamRealmUpdate } from '../api/bot/team-realm-update';
+import { parseBackendTeamWorkflow } from '../api/bot/social-workflows';
+import { parseBackendTeamInvitationInbox } from '../api/bot/team-invitation-inbox';
+import { parseTeamAcknowledgement, parseTeamCreated, parseTeamTargetMutation, requireTeamObject } from '../api/bot/team-actions';
 import { parseBackendTeamInfo } from '../api/bot/team-info-queries';
 import { parseBackendTeams, parseBackendTeamPendingApplications } from '../api/bot/queries';
+import { parseBackendTeamBattleRecords, parseBackendTeamBattleDetail } from '../api/bot/queries';
 import { parseBackendTeamMatchSnapshot } from '../api/bot/team-match-queries';
 import { parseBackendTeamMatchStart } from '../api/bot/team-match-start';
 import { parseBackendTeamMatchCancel } from '../api/bot/team-match-cancel';
@@ -8,6 +12,18 @@ import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
+const battleRecord = object(
+  { ...fields(integer, 'id teamId leaderUserId participantCount'), ...fields(text, 'battleMode targetLabel battleResult settledAt battleLogId') },
+  ['battleLogId']
+);
+const battleDetail = object(
+  {
+    ...fields(integer, 'id teamId leaderUserId participantCount'),
+    ...fields(text, 'battleMode targetLabel battleResult settledAt battleLogId'),
+    members: list(object({ ...fields(integer, 'userId position'), userName: text, isLeader: boolean, rewardSnapshotJson: text }, ['rewardSnapshotJson']))
+  },
+  ['battleLogId']
+);
 const teamSchema = object(
   {
     ...fields(integer, 'teamId memberCount maxMembers'),
@@ -59,6 +75,206 @@ function started(data: unknown) {
 }
 
 export const teamActions = {
+  set_team_minimum_realm: mutation<{ realmName: string }>(
+    '设置本人队伍的最低加入境界；境界名称来自游戏数据，服务端校验境界及队长权限。',
+    'teams.realm',
+    object({ realmName: { type: 'string', minLength: 1, maxLength: 64 } }),
+    object({ outcome: { type: 'string', enum: ['updated'] }, realmId: integer }),
+    input => `/设置队伍境界门槛 ${input.realmName}`,
+    data => {
+      const result = parseTeamRealmUpdate(data);
+
+      if (result.outcome !== 'updated' || result.realmId === null) {
+        throw new Error('队伍境界设置未返回成功回执');
+      }
+
+      return result;
+    },
+    input => ({ realmName: input.realmName })
+  ),
+  cancel_team_invitation: mutation<{ invitationId: number }>(
+    '取消本人队伍发出的指定待处理邀请；服务端校验队长权限和邀请状态。',
+    'teams.invitation-cancel',
+    object({ invitationId: positive }),
+    object({ outcome: { type: 'string', enum: ['cancelled'] } }),
+    input => `/取消队伍邀请 ${input.invitationId}`,
+    data => {
+      const result = requireTeamObject(data, '取消队伍邀请');
+
+      if (result.outcome !== 'cancelled') {
+        throw new Error('取消队伍邀请未返回成功回执');
+      }
+
+      return result;
+    },
+    input => ({ invitationId: String(input.invitationId) })
+  ),
+  invite_team_player: mutation<{ targetUid: number }>(
+    '邀请指定玩家加入本人队伍；targetUid 为目标玩家编号，服务端校验队长权限和自动接受设置。',
+    'teams.invite',
+    object({ targetUid: positive }),
+    object({ outcome: { type: 'string', enum: ['done', 'target_missing'] }, autoAccepted: boolean, invitationId: integer }, ['autoAccepted', 'invitationId']),
+    input => `/邀请入队 ${input.targetUid}`,
+    data => parseTeamTargetMutation(data, true),
+    input => ({ target: { uid: input.targetUid } })
+  ),
+  kick_team_member: mutation<{ targetUid: number }>(
+    '从本人队伍移除指定成员；服务端校验队长权限和目标成员身份。',
+    'teams.kick',
+    object({ targetUid: positive }),
+    object({ outcome: { type: 'string', enum: ['done', 'target_missing'] }, autoAccepted: boolean }, ['autoAccepted']),
+    input => `/队伍踢出 ${input.targetUid}`,
+    data => parseTeamTargetMutation(data, false),
+    input => ({ target: { uid: input.targetUid } })
+  ),
+  set_team_position: mutation<{ targetUid: number; position: number }>(
+    '调整指定队伍成员阵位，位置为 1 至 6；服务端校验队长权限和目标状态。',
+    'teams.position',
+    object({ targetUid: positive, position: { type: 'integer', minimum: 1, maximum: 6 } }),
+    object({ outcome: { type: 'string', enum: ['updated', 'target_missing'] } }),
+    input => `/队伍位置设置 ${input.targetUid} ${input.position}`,
+    data => parseBackendTeamWorkflow(data, 'position'),
+    input => ({ targetUid: String(input.targetUid), position: String(input.position) })
+  ),
+  transfer_team_leadership: mutation<{ targetUid: number }>(
+    '将队长身份转让给指定队伍成员；服务端校验权限、成员身份和不能转让给自己。',
+    'teams.leadership',
+    object({ targetUid: positive }),
+    object({ outcome: { type: 'string', enum: ['transferred', 'target_missing'] } }),
+    input => `/转让队长 ${input.targetUid}`,
+    data => parseBackendTeamWorkflow(data, 'leadership'),
+    input => ({ targetUid: String(input.targetUid) })
+  ),
+  get_team_invitations: observation(
+    '查询本人队伍邀请及资格；服务端会先将过期邀请标记为失效，邀请编号可用于接受。',
+    'teams.invitations',
+    object({}),
+    object({
+      access: object({ ok: boolean, realmName: text }, ['realmName']),
+      invitations: list(
+        object({ ...fields(integer, 'id teamId'), ...fields(text, 'leaderName inviterName createdAt') }, ['leaderName', 'inviterName', 'createdAt'])
+      )
+    }),
+    () => '/我的队伍邀请',
+    parseBackendTeamInvitationInbox
+  ),
+  get_my_team_applications: observation(
+    '查询本人提交的待处理队伍申请；队长同时可查看待审核申请。资格未解锁时以 records.canUseSecondLayerFeature 判断。',
+    'teams.my-applications',
+    object({}),
+    object(
+      {
+        records: object({
+          isLeader: boolean,
+          canUseSecondLayerFeature: boolean,
+          realmName: text,
+          applications: list(object({ id: integer, leaderName: text, createdAt: text }, ['leaderName', 'createdAt']))
+        }),
+        pending: object({ leaderName: text, applications: list(object({ ...fields(integer, 'id userId'), userName: text }, ['userName'])) }, ['leaderName'])
+      },
+      ['pending']
+    ),
+    () => '/我的队伍申请',
+    data => parseBackendTeamWorkflow(data, 'applications')
+  ),
+  cancel_team_application: mutation<{ applicationId: number }>(
+    '取消本人指定待处理队伍申请；not_pending 表示申请不存在或已处理，不能报告取消成功。',
+    'teams.application-cancel',
+    object({ applicationId: positive }),
+    object({ outcome: { type: 'string', enum: ['cancelled', 'not_pending'] }, leaderName: text, message: text }, ['leaderName', 'message']),
+    input => `/取消队伍申请 ${input.applicationId}`,
+    data => {
+      const row = requireTeamObject(data, '取消队伍申请');
+
+      if (
+        (row.outcome === 'cancelled' && row.leaderName !== null && typeof row.leaderName !== 'string') ||
+        (row.outcome === 'not_pending' && typeof row.message !== 'string') ||
+        !['cancelled', 'not_pending'].includes(String(row.outcome))
+      ) {
+        throw new Error('取消队伍申请回执不完整');
+      }
+
+      return row;
+    },
+    input => ({ applicationId: String(input.applicationId) })
+  ),
+  reject_team_invitation: mutation<{ invitationId: number }>(
+    '拒绝本人收到的指定队伍邀请；服务端校验邀请归属和待处理状态。',
+    'teams.invitation-reject',
+    object({ invitationId: positive }),
+    object({ rejected: boolean }),
+    input => `/队伍邀请拒绝 ${input.invitationId}`,
+    data => parseTeamAcknowledgement(data, 'rejected'),
+    input => ({ invitationId: String(input.invitationId) })
+  ),
+  accept_team_invitation: mutation<{ invitationId: number }>(
+    '接受本人收到的指定队伍邀请；服务端校验邀请归属、队伍容量和境界，并返回实际队伍成员。',
+    'teams.invitation-accept',
+    object({ invitationId: positive }),
+    object({ ...fields(integer, 'id leaderId'), members: list(object({ ...fields(integer, 'userId position'), isLeader: boolean })) }),
+    input => `/队伍邀请同意 ${input.invitationId}`,
+    data => {
+      const row = requireTeamObject(data, '接受队伍邀请');
+
+      if (
+        !Number.isSafeInteger(row.id) ||
+        !Number.isSafeInteger(row.leaderId) ||
+        !Array.isArray(row.members) ||
+        row.members.some(
+          member => !member || !Number.isSafeInteger(member.userId) || !Number.isSafeInteger(member.position) || typeof member.isLeader !== 'boolean'
+        )
+      ) {
+        throw new Error('接受队伍邀请回执不完整');
+      }
+
+      return row;
+    },
+    input => ({ invitationId: String(input.invitationId) })
+  ),
+  get_team_battle_records: observation<{ page?: number }>(
+    '分页查看本人有权查看的队伍战斗记录，记录编号可用于查询详情；战斗日志编号仅作数据，不自动打开或执行链接。',
+    'teams.battle-records',
+    object({ page }, ['page']),
+    object({ currentPage: integer, total: integer, totalPages: integer, records: list(battleRecord) }),
+    input => `/队伍战斗记录 ${input.page ?? 1}`,
+    data => {
+      const result = parseBackendTeamBattleRecords(data);
+
+      return { ...result, records: result.records.map(item => ({ ...item, settledAt: item.settledAt.toISOString() })) };
+    },
+    input => ({ page: input.page ?? 1, pageSize: 5 })
+  ),
+  get_team_battle_detail: observation<{ recordId: number }>(
+    '查询指定队伍战斗记录及成员奖励快照；found=false 为不存在，error 为服务端权限拒绝，不把它们当作空战报。',
+    'teams.battle-detail',
+    object({ recordId: positive }),
+    object({ found: boolean, error: text, detail: battleDetail }, ['error', 'detail']),
+    input => `/队伍战斗详情 ${input.recordId}`,
+    (data, input) => {
+      const row = data as Record<string, unknown> | null;
+
+      if (row?.found === false) {
+        return { found: false };
+      }
+      if (typeof row?.error === 'string') {
+        return { found: false, error: row.error };
+      }
+      const detail = parseBackendTeamBattleDetail(data, input.recordId);
+
+      return {
+        found: true,
+        detail: {
+          ...detail,
+          settledAt: detail.settledAt.toISOString(),
+          members: detail.members.map(member => ({
+            ...member,
+            ...(member.rewardSnapshot === null ? {} : { rewardSnapshotJson: JSON.stringify(member.rewardSnapshot) })
+          }))
+        }
+      };
+    },
+    input => ({ recordId: String(input.recordId) })
+  ),
   get_my_team: observation(
     '查询当前角色队伍、成员、阵位与服务端可用操作；access.ok=false 表示资格未解锁，hasTeam 根据服务端 exists 判定是否存在队伍。不会创建队伍。',
     'teams.overview',

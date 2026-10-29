@@ -21,7 +21,7 @@ test('同一实例配置更新后，更多按钮立即使用新官群链接，�
     const sent = result.messages[0];
     assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
     const links = sent.nodes.flatMap(node => node.type === 'BT.group' ? node.value.flatMap(row => row.value) : []);
-    const group = links.find(button => button.value === '点击加入官方群聊');
+    const group = links.find(button => button.value === '加入群聊');
     assert.equal(group?.options?.type, 'link');
     assert.equal(group?.options?.data, configured || 'https://qm.qq.com/q/vdFtnG7SEK');
     oldMessages.push(String(group?.options?.data));

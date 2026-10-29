@@ -1,3 +1,4 @@
+import { parseBackendLimitedEventCheckinStatus } from '../api/bot/limited-event-checkin-status';
 import { parseSpiritRoot, parseSpiritRootMaterials } from '../api/bot/spirit-root';
 import { ExposeError } from 'alemonjs';
 import { requestBackend } from '../api/bot/client';
@@ -92,6 +93,8 @@ const boss = object(
 const chapters = object({
   mentalValue: number,
   inTeam: boolean,
+  canUseMeridian: boolean,
+  canUseSecondLayerFeature: boolean,
   overview: object({
     ...fields(number, 'totalClaimableChests currentPage totalPages totalCount milestoneTotalStars milestoneTotal milestoneClaimed milestoneClaimable'),
     showClaimAllChests: boolean,
@@ -101,40 +104,56 @@ const chapters = object({
 const chapter = object({
   mentalValue: number,
   inTeam: boolean,
+  canUseMeridian: boolean,
+  canUseSecondLayerFeature: boolean,
   detail: object({
     ...fields(text, 'status statusMessage chapterName arc'),
     ...fields(number, 'chapterNumber totalStars maxStars canClaimChestCount maxChapterNumber'),
     eliteStagesCleared: boolean,
     chests: list(object({ ...fields(number, 'index requiredStars reward'), claimed: boolean, unlocked: boolean })),
     stages: list(
-      object({
-        ...fields(number, 'id stageNumber spiritCost expReward spiritStoneReward bestStars dailyUsed dailyLimit maxSweepTimes'),
-        ...fields(text, 'stageLabel monsterDisplayName rewardText'),
-        ...fields(boolean, 'isElite canSweep canMatch'),
-        drops: list(
-          object({ ...fields(text, 'category currencyType itemName'), ...fields(number, 'itemId amount probability') }, ['currencyType', 'itemName', 'itemId'])
-        )
-      })
+      object(
+        {
+          ...fields(number, 'id stageNumber spiritCost expReward spiritStoneReward bestStars dailyUsed dailyLimit maxSweepTimes'),
+          ...fields(text, 'stageLabel monsterDisplayName monsterName rewardText'),
+          ...fields(boolean, 'isElite canSweep canMatch showBulkSweep'),
+          drops: list(
+            object({ ...fields(text, 'category currencyType itemName'), ...fields(number, 'itemId amount probability') }, [
+              'currencyType',
+              'itemName',
+              'itemId'
+            ])
+          )
+        },
+        ['monsterName']
+      )
     )
   })
 });
 
-export const caveSchema = object({
-  ...fields(number, 'maxPlots cultivatedCount plantedCount matureCount abnormalCount auraScore'),
-  ...fields(text, 'auraLevel auraLabel'),
-  plots: list(
-    object(
-      {
-        ...fields(number, 'plotIndex fieldGrade baseYield expReward abnormalFlags abnormalStateCount remainingSeconds'),
-        ...fields(text, 'plotState seedName cropName title detail plantedAt matureAt'),
-        isMature: boolean,
-        capabilities: list(object({ kind: text, careAction: text }, ['careAction']))
-      },
-      ['plantedAt', 'matureAt']
-    )
-  ),
-  activeFormations: list(object(fields(text, 'formationKey formationCategory formationName formationEffect expiresAt')))
-});
+export const caveSchema = object(
+  {
+    ...fields(number, 'maxPlots cultivatedCount plantedCount matureCount abnormalCount auraScore'),
+    ...fields(text, 'auraLevel auraLabel'),
+    cultivationCostText: text,
+    plots: list(
+      object(
+        {
+          ...fields(number, 'plotIndex fieldGrade baseYield expReward abnormalFlags abnormalStateCount remainingSeconds'),
+          ...fields(text, 'plotState seedName cropName title detail plantedAt matureAt'),
+          seedMatureHours: number,
+          seedStageSplit: text,
+          isMature: boolean,
+          capabilities: list(object({ kind: text, careAction: text }, ['careAction']))
+        },
+        ['plantedAt', 'matureAt', 'seedMatureHours', 'seedStageSplit']
+      )
+    ),
+    activeFormations: list(object(fields(text, 'formationKey formationCategory formationName formationEffect expiresAt'))),
+    stasisFormation: object({ name: text, remainingText: text })
+  },
+  ['cultivationCostText', 'stasisFormation']
+);
 
 const meridianItem = object({
   ...fields(integer, 'index phase phaseIndex Progress RequiredProgress normalPulsesRemaining'),
@@ -379,6 +398,36 @@ export const commonQueryActions = {
     emails,
     async ({ bid, uid, request }, input) => parseBackendEmails(await requestBackend(bid, 'get_players_id_emails', { path: { id: uid }, query: { page: input.page ?? 1, pageSize: 5 }, ...request })),
     object({ page }, ['page'])
+  ),
+  get_limited_event_checkin_status: query(
+    '查询本人限时活动签到进度、今日资格与奖励状态；不会执行签到。',
+    list(
+      object(
+        {
+          ...fields(text, 'eventTitle subTitle startTime endTime'),
+          ...fields(integer, 'subActivityId totalDays todayDayIndex'),
+          signedDays: list(integer),
+          canClaimToday: boolean,
+          rewards: list(object({ dayIndex: integer, rewardName: text, signed: boolean, quantity: integer }, ['quantity']))
+        },
+        ['endTime', 'todayDayIndex']
+      )
+    ),
+    async ({ bid, uid, request }) => {
+      const raw = await requestBackend(bid, 'get_players_id_limited_events_check_ins', { path: { id: uid }, ...request });
+      const parsed = parseBackendLimitedEventCheckinStatus(raw);
+      const rows = raw as Array<{ endTime?: unknown; todayDayIndex?: unknown; rewards: Array<{ quantity?: unknown }> }>;
+
+      return parsed.map((item, i) => ({
+        ...item,
+        ...(typeof rows[i].endTime === 'string' ? { endTime: rows[i].endTime } : {}),
+        ...(Number.isSafeInteger(rows[i].todayDayIndex) ? { todayDayIndex: rows[i].todayDayIndex } : {}),
+        rewards: item.rewards.map((reward, j) => ({
+          ...reward,
+          ...(Number.isSafeInteger(rows[i].rewards[j].quantity) ? { quantity: rows[i].rewards[j].quantity } : {})
+        }))
+      }));
+    }
   ),
   get_checkin_status: query('查询每日、新人、宗门和天时签到状态及可用时段，不代为签到。', checkin, ({ bid, uid, request }) => requestBackend(bid, 'get_players_id_check_ins_status', { path: { id: uid }, ...request })
   ),

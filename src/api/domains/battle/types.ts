@@ -10,6 +10,7 @@ import type { RobberyRecordPage, RobberyNotificationsReadResult } from '../../sc
 // Unspecified domain payloads intentionally remain unknown.
 
 export interface BattleOperations {
+  get_battle_memory_by_id: { path: { id: string }; query: never; headers: never; body: never; response: unknown };
   post_players_id_battle_log_query: {
     path: { id: number };
     query: never;

@@ -48,7 +48,7 @@ export interface CommunityOperations {
     body: never;
     response: { read: boolean };
   };
-  get_encyclopedia_categories: { path: never; query: never; headers: never; body: never; response: unknown };
+  get_encyclopedia_categories: { path: never; query: { includeVisuals?: boolean }; headers: never; body: never; response: unknown };
   get_encyclopedia: {
     path: never;
     query: { cursor?: string; category: string; subCategory?: string; page?: number; pageSize?: number };

@@ -2,16 +2,15 @@ import { platform } from '@alemonjs/qq-bot';
 import { Format, getAppConfigValue, useEvent, useMe, useMessage } from 'alemonjs';
 
 export default async () => {
-  const [ref] = useEvent();
+  const [ref, next] = useEvent();
   const event = ref.current;
+  const match = /^(?:\/|#|＃)?(?:管理|权限|设置)(?:\s+(\d+))?\s*$/.exec(event.MessageText?.trim() ?? '');
 
-  if (/(管理|权限|设置)/.test(event.MessageText) && event.Platform === platform) {
+  if (match && event.Platform === platform) {
     // 尝试提取出群QQ
-    const match = event.MessageText.match(/(管理|权限|设置)\s+(\d+)/);
-
     let groupQQ: string | null = null;
 
-    if (match) {
+    if (match[1]) {
       groupQQ = match[1];
     }
     const [message] = useMessage();
@@ -22,7 +21,7 @@ export default async () => {
 
     bt.addRow();
 
-    if (match) {
+    if (groupQQ) {
       md.addBold('「修仙模拟器」权限设置');
       md.addNewline();
       md.addText('> ⚠️ 仅限群主可操作');
@@ -85,5 +84,7 @@ export default async () => {
     format.addButtonGroup(bt);
 
     void message.send({ format });
+  } else {
+    next();
   }
 };

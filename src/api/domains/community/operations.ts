@@ -370,35 +370,19 @@ export const communityOperationDefinitions = {
   get_encyclopedia_categories: {
     method: 'GET',
     path: '/api/v1/encyclopedia/categories',
-    security: [
-      {
-        RobotBearer: [],
-        RobotBid: []
-      },
-      {
-        UserBearer: []
-      }
-    ],
+    security: [],
     requestContentType: null,
     bodyRequired: false,
     responseKind: 'json',
     responseEnvelope: true,
     pathParams: [],
-    queryParams: [],
+    queryParams: [{ name: 'includeVisuals', required: false, style: 'form', explode: true, schema: { type: 'boolean' } }],
     headerParams: []
   },
   get_encyclopedia: {
     method: 'GET',
     path: '/api/v1/encyclopedia',
-    security: [
-      {
-        RobotBearer: [],
-        RobotBid: []
-      },
-      {
-        UserBearer: []
-      }
-    ],
+    security: [],
     requestContentType: null,
     bodyRequired: false,
     responseKind: 'json',
@@ -455,15 +439,7 @@ export const communityOperationDefinitions = {
   get_encyclopedia_category_entryId: {
     method: 'GET',
     path: '/api/v1/encyclopedia/{category}/{entryId}',
-    security: [
-      {
-        RobotBearer: [],
-        RobotBid: []
-      },
-      {
-        UserBearer: []
-      }
-    ],
+    security: [],
     requestContentType: null,
     bodyRequired: false,
     responseKind: 'json',

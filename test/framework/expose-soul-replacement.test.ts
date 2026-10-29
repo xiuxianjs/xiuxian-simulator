@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { goTestFixture } from '../helpers/go-fixture.mjs';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+
+after(() => shutdownLogger());
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusinessExposeSoulReplacement$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const fixtures = [...output.matchAll(/SOUL_REPLACEMENT_EXPOSE=([^|]+)\|(.+)/g)].map(row => ({ key: row[1], envelope: JSON.parse(row[2]) }));
+test('本命物替换绑定原预览并返回实际退款', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const preview = fixtures.find(row => row.key === 'preview'); const confirm = fixtures.find(row => row.key === 'confirm'); assert.ok(preview && confirm);
+  let operation = 'soul-artifacts.replacement-preview'; let envelope = structuredClone(preview.envelope); let args: any = { instanceId: 10 };
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${operation}`);
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.deepEqual(body.arguments, args); return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const prepared = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'prepare_soul_artifact_replacement', args), 'ai-plugin');
+  assert.equal(prepared.value.ok, true, JSON.stringify(prepared.value)); if (!prepared.value.ok) return;
+  const quote = (prepared.value.data as any).result; assert.equal(quote.preview.target.instanceId, 10); assert.equal(quote.preview.current.instanceId, 9); assert.equal(quote.preview.refundQuantity, 300);
+  operation = 'soul-artifacts.replacement-confirm'; args = { reference: quote.reference }; envelope = structuredClone(confirm.envelope);
+  const response = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'confirm_soul_artifact_replacement', args), 'ai-plugin');
+  assert.equal(response.value.ok, true, JSON.stringify(response.value)); if (response.value.ok) assert.equal((response.value.data as any).result.separated.refundQuantity, 300);
+});

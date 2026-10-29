@@ -52,3 +52,41 @@ for (const fixture of cases) test(`Expose 修炼实际服务端契约 ${fixture.
     else assert.equal(actual.alreadyMeditating, fixture.data.alreadyMeditating);
   }
 });
+
+test('结算后的教学提示或异常不覆盖实际业务回执', async t => {
+  const fixture = cases.find(row => row.action === 'end_meditation' && row.data.success);
+  assert.ok(fixture);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const backend = fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url));
+  const logs = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotOnboardingMilestoneDoesNotBlockActualPendingSettlement$', '-v', '-count=1'], { cwd: backend, encoding: 'utf8' }).toString();
+  const milestone = logs.match(/ROBOT_ONBOARDING_MILESTONE_FOLLOWUP=(.+)/);
+  assert.ok(milestone);
+  const view = JSON.parse(milestone[1]);
+  assert.equal(view.status, 'active');
+  let followup: Record<string, unknown> = { onboarding: view };
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify({ data: {
+    success: true, branch: 'business', data: fixture.data, ...followup,
+    middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'owner', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [],
+      entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } }
+  } }) }) }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'end_meditation', {}), 'ai-plugin');
+  for (const [extra, expected] of [
+    [{ onboarding: view }, 'view'],
+    [{ onboarding: { ...view, status: 'completed' } }, 'completed'],
+    [{ onboardingPending: true }, 'pending'],
+    [{ onboarding: { ...view, version: 'invalid' } }, 'pending']
+  ] as const) {
+    followup = extra;
+    const response = await call();
+    assert.equal(response.value.ok, true, JSON.stringify(response.value));
+    if (!response.value.ok) continue;
+    const result = response.value.data as any;
+    assert.equal(result.result.creditedExperience, fixture.data.creditedExperience);
+    if (expected === 'view') assert.deepEqual(result.onboarding, view);
+    else if (expected === 'completed') assert.deepEqual(result.onboarding, { ...view, status: 'completed' });
+    else { assert.equal(result.onboardingPending, true); assert.equal(result.onboarding, undefined); }
+  }
+});

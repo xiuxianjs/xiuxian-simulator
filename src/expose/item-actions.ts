@@ -1,8 +1,9 @@
+import { parseItemDetail } from '../api/bot/item-detail-queries';
 import { ExposeError } from 'alemonjs';
 import { parseConsumeResult, parseMingwuSelection, parsePeiyuanPending } from '../api/bot/consume';
 import { parseGreenBottleCapacity } from '../api/bot/green-bottle-storage-capacity';
 import { parseGreenBottleStore } from '../api/bot/green-bottle-store';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const quantity = { type: 'integer' as const, minimum: 1, maximum: 2147483647 };
@@ -26,7 +27,49 @@ const mingwu = object({
   books: list(object({ ...fields(integer, 'skillBookId proficiency'), ...fields(text, 'name statusText'), canSelect: boolean }))
 });
 
+type ItemCategory = 'item' | 'equipment' | 'profession_tool' | 'skill_book';
+const itemCategoryLabels: Record<ItemCategory, string> = { item: '物品', equipment: '装备', profession_tool: '天工', skill_book: '功法' };
+const itemDetails = object({ entries: list(object({ category: text, entryId: integer, name: text, detailsJson: text })), memorialJson: text }, [
+  'memorialJson'
+]);
+
+function itemDetail(data: unknown, query: { name?: string; category?: ItemCategory; entryId?: number }) {
+  const result = parseItemDetail(data, query);
+
+  return {
+    entries: result.entries.map(entry => ({
+      category: entry.category,
+      entryId: entry.record.id,
+      name: entry.record.name,
+      detailsJson: JSON.stringify(entry)
+    })),
+    ...(result.memorial === null ? {} : { memorialJson: JSON.stringify(result.memorial) })
+  };
+}
+
 export const itemActions = {
+  find_item_detail: observation<{ name: string }>(
+    '按名称查询物品、装备、天工或功法模板及来源；可能返回多个同名类别。详情 JSON 为服务端原始结构，不表示本人持有。',
+    'items.detail',
+    object({ name: { type: 'string', minLength: 1, maxLength: 100 } }),
+    itemDetails,
+    input => `/物品详情 ${input.name}`,
+    (data, input) => itemDetail(data, { name: input.name }),
+    input => ({ name: input.name })
+  ),
+  get_item_detail_by_id: observation<{ category: ItemCategory; entryId: number }>(
+    '按类别及模板编号查询物品详情和来源；entryId 是模板编号，不是背包实例编号。',
+    'items.detail',
+    object({
+      category: { type: 'string', enum: ['item', 'equipment', 'profession_tool', 'skill_book'] },
+      entryId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }
+    }),
+    itemDetails,
+    input => `/物品详情 ${itemCategoryLabels[input.category]} ${input.entryId}`,
+    (data, input) => itemDetail(data, input),
+    input => ({ category: input.category, entryId: input.entryId })
+  ),
+
   consume_item: mutation<{ itemName: string; quantity: number }>(
     '按背包中的精确道具名称消耗库存，由服务端解释效果和数量。检查 outcome：rejected 未使用；peiyuan_pending 用原 snapshot 调用 get_peiyuan_confirmation，再以原 reference 确认或取消；mingwu_select 尚需选择。不能把待确认报告为已完成培养。',
     'items.consume',

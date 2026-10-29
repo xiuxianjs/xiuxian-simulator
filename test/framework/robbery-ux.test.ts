@@ -81,8 +81,8 @@ for (const isPrivate of [false, true]) {
    const memory = buttons.filter(button => button.value === '查看战斗回忆');
    assert.equal(memory.length, 1);
    assert.equal(memory[0].options?.type, 'link');
-   assert.equal(memory[0].options?.data, battleMemoryUrl('counter-71'));
-   assert.ok(!buttons.some(button => button.options?.data === battleMemoryUrl('battle-71')));
+   assert.equal(memory[0].options?.data, app.run(() => battleMemoryUrl('counter-71')));
+   assert.ok(!buttons.some(button => button.options?.data === app.run(() => battleMemoryUrl('battle-71'))));
   });
  }
 }

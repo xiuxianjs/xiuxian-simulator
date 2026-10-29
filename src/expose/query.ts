@@ -4,6 +4,7 @@ import { object, project } from './schema';
 
 type Player = Awaited<ReturnType<typeof currentPlayer>>;
 type Input = {
+  instanceId?: number;
   eventId?: number;
   plotIndex?: number;
   sessionId?: string;

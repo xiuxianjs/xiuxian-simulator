@@ -235,7 +235,7 @@ export interface CultivationOperations {
   };
   get_players_id_seclusion_preview: {
     path: { id: number };
-    query: { duration: 48 | 72 | 96 | 120; dungeonId: number };
+    query: { duration: 1 | 2 | 4 | 8 | 12; dungeonId: number };
     headers: { 'X-Request-ID'?: string };
     body: never;
     response: unknown;
@@ -244,7 +244,7 @@ export interface CultivationOperations {
     path: { id: number };
     query: never;
     headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
-    body: { duration: 48 | 72 | 96 | 120; dungeonId: number };
+    body: { duration: 1 | 2 | 4 | 8 | 12; dungeonId: number };
     response: unknown;
   };
   post_players_id_seclusion_start_by_name: {

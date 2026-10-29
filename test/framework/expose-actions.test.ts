@@ -38,6 +38,14 @@ const guildExpected = { shopItemId: 1, itemId: 9, name: '药草', category: 'mat
 const guildShop = { contributionPoints: 100, autoRefreshEnabled: false, isLeader: true, autoRefreshHours: [], autoRefreshStatusText: '未开启', refreshDailyLimit: 3, items: [{ id: 1, index: 1, itemId: 9, name: '药草', category: 'material', quantity: 2, priceContribution: 20, purchased: false, canExchange: true, statusText: '未兑换', itemType: 'material', itemSubtype: null }] };
 const teamFacts = { teamId: 8, exists: true, leaderName: '队长', memberCount: 1, maxMembers: 6, minRealmName: null, target: null, isMember: false, isLeader: false, ownMembershipLeader: false, members: [{ userId: 9, name: '队长', isLeader: true, position: 1 }], actions: { canApply: true, canInvite: false, canManageMembers: false, canReviewApplications: false, canUseTeamMail: false, canViewDungeon: false, canLeave: false, canDisband: false, canViewInvitations: false } };
 const cases = [
+  { action: 'rename_player', operation: 'profile.rename', command: '/改名 青云', input: { value: '青云' }, data: { action: 'rename', value: '青云', cleared: false } },
+  { action: 'change_player_gender', operation: 'profile.gender', command: '/改性 女', input: { value: '女' }, data: { action: 'gender', value: '女', cleared: false } },
+  { action: 'set_player_signature', operation: 'profile.signature', command: '/改签名', input: { value: '' }, data: { action: 'signature', value: '', cleared: true } },
+  { action: 'register_player', operation: 'account.register', command: '/我是 清风 男', input: { name: '清风', gender: '男' }, args: { region: '' }, data: { code: 'EXISTING_USER' } },
+  { action: 'get_onboarding', operation: 'onboarding.view', command: '/查看主线 1', input: {}, data: { status: 'active', phase: 'checkin', version: 2, title: '教学', lines: [], feedback: [], actions: [{ label: '签到', command: '/签到' }] } },
+  { action: 'resume_onboarding', operation: 'onboarding.view', command: '/继续引导', input: {}, data: { status: 'active', phase: 'checkin', version: 2, title: '教学', lines: [], feedback: [], actions: [{ label: '签到', command: '/签到' }] } },
+  { action: 'exit_onboarding', operation: 'onboarding.exit', command: '/退出引导', input: {}, data: { status: 'exited', phase: 'checkin', version: 3, title: '教学', lines: [], feedback: [], actions: [] } },
+  { action: 'perform_onboarding_action', operation: 'onboarding.action', command: '/签到', input: { version: 2, command: '/签到' }, data: { status: 'active', phase: 'story', version: 3, title: '教学', lines: [], feedback: ['已签到'], actions: [{ label: '主线', command: '/查看主线 1' }] } },
   { action: 'get_my_team', operation: 'teams.overview', command: '/我的队伍', input: {}, data: { access: { ok: true, realmName: '炼气' }, team: null } },
   { action: 'get_team_info', operation: 'teams.info', command: '/队伍信息 8', input: { teamId: 8 }, args: { teamId: '8' }, data: { access: { ok: false, realmName: null }, team: teamFacts } },
   { action: 'get_team_list', operation: 'teams.list', command: '/队伍列表 1', input: {}, args: { page: 1, pageSize: 5 }, data: { items: [{ id: 8, leaderId: 9, leaderName: '队长', memberCount: 1, maxMembers: 6, minRealmName: null }], page: 1, pageSize: 5, total: 1 } },
@@ -103,7 +111,7 @@ const cases = [
   { action: 'remove_cave_worms', operation: 'cave.worm', command: '/除虫', input: {}, args: { plotIndex: null }, data: { mode: 'command', result: caveCommand } },
   { action: 'remove_cave_weeds', operation: 'cave.weed', command: '/除草', input: {}, args: { plotIndex: null }, data: { mode: 'command', result: caveCommand } },
   { action: 'harvest_cave_plots', operation: 'cave.harvest', command: '/收割', input: {}, args: { plotIndex: null }, data: { mode: 'command', result: caveCommand } },
-  { action: 'tend_cave_plots', operation: 'cave.tend-all', command: '/一键打理灵田', input: {}, args: { harvest: false }, data: { message: '浇灌：1 项\n收割：暂不可用' } },
+  { action: 'tend_cave_plots', operation: 'cave.tend-all', command: '/一键打理灵田', input: {}, args: { harvest: false }, data: { message: '浇灌：2 项\n除虫：2 项\n除草：2 项\n收割：暂无成熟灵植', ownerId: 1, water: 2, worm: 2, weed: 2, harvested: 0 } },
   { action: 'checkin_guild', operation: 'guild.checkin', command: '/宗门签到', input: {}, data: { message: '签到完成', receipt: { message: '已签到', guildId: 1, contributionAdded: 1, prestigeAdded: 2, dailyActivityAdded: 3, weeklyActivityAdded: 4, weeklyBonusSpiritStone: 0, weeklyCheckinCount: 1 } } },
   { action: 'mine_guild', operation: 'guild.mining', command: '/宗门采矿', input: {}, data: { message: '采矿进行中', receipt: { outcome: 'in_progress', message: '进行中', guildName: '宗门', guildId: 1, veinLevel: 1, miningQuota: 2, remainingSeconds: 100, settledHours: 0, spiritStoneAdded: 0, contributionAdded: 0, dailyActivityAdded: 0, started: false, capReached: false } } },
   { action: 'claim_guild_stipend', operation: 'guild.stipend-claim', command: '/领取宗门俸禄', input: {}, data: { message: '领取完成', receipt: { guildId: 1, amount: 123, weeklyActivity: 40, guildLevel: 2, baseAmount: 100, levelMultiplier: 1.2, activityMultiplier: 1.025 } } },
@@ -190,7 +198,7 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       assert.deepEqual(again.value.ok && again.value.data, value);
       assert.equal(requests.length, 2);
       assert.ok(requests[0].headers['idempotency-key']);
-      if (['get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly'].includes(entry.action)) {
+      if (['get_onboarding', 'get_skill_switch_options', 'get_profession_dashboard', 'get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly'].includes(entry.action)) {
         assert.notEqual(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
       } else {
         assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);

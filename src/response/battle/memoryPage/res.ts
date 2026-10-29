@@ -1,12 +1,20 @@
-import { Format, onResponse } from 'alemonjs';
+import { Format, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { battleMemoryPage } from '@src/utils/battleMemoryMessage';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 
 export default onResponse(selects, async e => {
+  const [, next] = useEvent();
+  const text = (e.MessageText ?? '').trim();
+
+  if (!/^[/#＃!！]?战斗回忆翻页(?:\s|$)/i.test(text)) {
+    next();
+
+    return;
+  }
   const [message] = useMessage();
-  const match = (e.MessageText ?? '').match(/^[/#＃!！]?战斗回忆翻页\s+([\da-f-]+)\s+(\d+)$/i);
+  const match = text.match(/^[/#＃!！]?战斗回忆翻页\s+([\da-f-]+)\s+(\d+)$/i);
   const page = match ? battleMemoryPage(match[1], Number(match[2]), e.UserId) : undefined;
 
   await message.send(

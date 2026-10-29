@@ -4,7 +4,7 @@ import { parseSkillBookBatchUpgrade } from '../api/bot/skill-book-batch-upgrade'
 import { parseProfessionDashboard } from '../api/bot/profession-dashboard-query';
 import { parseLingzhiGuideState } from '../api/bot/lingzhi-guide';
 import { requestBackend } from '../api/bot/client';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { query } from './query';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
@@ -280,7 +280,7 @@ export const growthActions = {
     },
     input => ({ bookId: String(input.bookId), count: String(input.count) })
   ),
-  get_profession_dashboard: mutation(
+  get_profession_dashboard: observation(
     '查询炼丹师与灵药师职业等级、经验、装备、入门引导状态和开放条件；不报名、不领取、不消耗资源。功能条件以 access 为准，缺失可选字段不等于零。',
     'profession.dashboard',
     object({}),

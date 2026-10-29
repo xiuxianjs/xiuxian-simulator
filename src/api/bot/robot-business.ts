@@ -19,6 +19,7 @@ export type RobotBusinessResult<T = unknown> =
 export type RobotBusinessOperation =
   | 'treasures.overview'
   | 'treasures.catalog'
+  | 'treasures.operation-status'
   | 'treasures.preview'
   | 'treasures.confirm'
   | 'treasures.daily-packs'
@@ -66,6 +67,7 @@ export type RobotBusinessOperation =
   | 'lootboxes.open'
   | 'items.consume'
   | 'soul-artifacts.refine'
+  | 'soul-artifacts.refine-empty'
   | 'items.detail'
   | 'shops.list'
   | 'shops.purchase'
@@ -165,18 +167,28 @@ export type RobotBusinessOperation =
   | 'notifications.history'
   | 'realm.overview'
   | 'soul-artifacts.wash'
+  | 'soul-artifacts.wash-prepare-reference'
+  | 'soul-artifacts.wash-decide-reference'
   | 'soul-artifacts.detail'
   | 'soul-artifacts.info'
   | 'soul-artifacts.upgrade'
   | 'soul-artifacts.grade-upgrade'
   | 'soul-artifacts.unequip'
+  | 'soul-artifacts.separation-preview'
+  | 'soul-artifacts.separation-confirm'
+  | 'soul-artifacts.replacement-preview'
+  | 'soul-artifacts.replacement-confirm'
   | 'soul-artifacts.wash-confirm'
   | 'soul-artifacts.wash-cancel'
   | 'storage.lock'
   | 'storage.unlock'
   | 'skill-books.wudao'
   | 'skill-books.reroll'
+  | 'skill-books.reroll-prepare-reference'
+  | 'skill-books.reroll-decide-reference'
   | 'skill-books.reset'
+  | 'skill-books.reset-preview-reference'
+  | 'skill-books.reset-confirm-reference'
   | 'skill-books.batch-upgrade'
   | 'skill-books.switch'
   | 'skill-books.detail'
@@ -630,8 +642,8 @@ export function parseRobotBusinessEnvelope<T>(
     try {
       const view = parseOnboarding(result.onboarding);
 
-      if (view.status !== 'completed') {
-        throw new Error('结算后的指引必须保持已完成状态');
+      if (!['active', 'soft', 'completed'].includes(view.status)) {
+        throw new Error('结算后的指引状态无效');
       }
       followup.onboarding = view;
     } catch (error) {

@@ -16,6 +16,10 @@ export default onResponse(selects, async e => {
   const match = text.match(/^[!！/#＃]?拒绝道侣\s+(.+)$/);
 
   const [, next] = useEvent();
+
+  if (!/^[!！/#＃]?拒绝道侣(?:\s+.+)?$/.test(text)) {
+    return next();
+  }
   const response = await runRobotBusiness(e, 'companion.reject', { name: match?.[1]?.trim() ?? '' }, parseRobotCompanionRejection, next, async reply => {
     const md = Format.createMarkdown();
 

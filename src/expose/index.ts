@@ -1,4 +1,47 @@
 import { Expose } from 'alemonjs';
+import { membershipActions } from './membership-actions';
+import { tianshuActions } from './tianshu-actions';
+import { battleMemoryActions } from './battle-memory-actions';
+import { personalHistoryActions } from './personal-history-actions';
+import { baoluActions } from './baolu-actions';
+import { activityActions } from './activity-actions';
+import { referralActions } from './referral-actions';
+import { profileActions } from './profile-actions';
+import { registrationActions } from './registration-actions';
+import { onboardingActions } from './onboarding-actions';
+import { wudaoActions } from './wudao-actions';
+import { talentActions } from './talent-actions';
+import { explorationActions } from './exploration-actions';
+import { storageLockActions } from './storage-lock-actions';
+import { guildBuildingActions } from './guild-building-actions';
+import { guildContentActions } from './guild-content-actions';
+import { guildInformationActions } from './guild-information-actions';
+import { guildLeaveActions } from './guild-leave-actions';
+import { guildRedPacketActions } from './guild-red-packet-actions';
+import { limitedEventActions } from './limited-event-actions';
+import { professionActions } from './profession-actions';
+import { forgeOrderActions } from './forge-order-actions';
+import { returnRewardsActions } from './return-rewards-actions';
+import { soulArtifactActions } from './soul-artifact-actions';
+import { decompositionActions } from './decomposition-actions';
+import { caveSocialActions } from './cave-social-actions';
+import { tianjiaoActions } from './tianjiao-actions';
+import { competitionActions } from './competition-actions';
+import { blackBoxActions } from './black-box-actions';
+import { friendActions } from './friend-actions';
+import { treasureActions } from './treasure-actions';
+import { pkBattleActions } from './pk-battle-actions';
+import { pkActions } from './pk-actions';
+import { pvpActions } from './pvp-actions';
+import { bountyActions } from './bounty-actions';
+import { marketActions } from './market-actions';
+import { masterActions } from './master-actions';
+import { companionActions } from './companion-actions';
+import { encyclopediaActions } from './encyclopedia-actions';
+import { guildStorylineActions } from './guild-storyline-actions';
+import { secretRealmActions } from './secret-realm-actions';
+import { settingsActions } from './settings-actions';
+import { taskActions } from './task-actions';
 import { guildMembershipActions } from './guild-membership-actions';
 import { newcomerActions } from './newcomer-actions';
 import { peiyuanActions } from './peiyuan-actions';
@@ -66,10 +109,51 @@ type Attributes = { uid: number; daoName: string; realmName: string } & Record<(
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.32.0',
+  version: '1.143.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
+    ...membershipActions,
+    ...tianshuActions,
+    ...battleMemoryActions,
+    ...personalHistoryActions,
+    ...baoluActions,
+    ...activityActions,
+    ...referralActions,
+    ...profileActions,
+    ...registrationActions,
+    ...onboardingActions,
+    ...wudaoActions,
+    ...talentActions,
+    ...explorationActions,
+    ...storageLockActions,
+    ...guildBuildingActions,
+    ...guildContentActions,
+    ...guildInformationActions,
+    ...guildLeaveActions,
+    ...guildRedPacketActions,
+    ...limitedEventActions,
+    ...professionActions,
+    ...forgeOrderActions,
+    ...returnRewardsActions,
+    ...soulArtifactActions,
+    ...decompositionActions,
+    ...caveSocialActions,
+    ...tianjiaoActions,
+    ...competitionActions,
+    ...blackBoxActions,
     ...guildMembershipActions,
+    ...friendActions,
+    ...masterActions,
+    ...marketActions,
+    ...bountyActions,
+    ...pvpActions,
+    ...pkActions,
+    ...pkBattleActions,
+    ...treasureActions,
+    ...companionActions,
+    ...encyclopediaActions,
+    ...guildStorylineActions,
+    ...secretRealmActions,
     ...newcomerActions,
     ...peiyuanActions,
     ...mingwuActions,
@@ -77,6 +161,8 @@ export const gameExpose = Expose.create().provide({
     ...tongtianActions,
     ...growthActions,
     ...teamActions,
+    ...settingsActions,
+    ...taskActions,
     ...guildRoutineActions,
     ...soulActions,
     ...spiritRootActions,

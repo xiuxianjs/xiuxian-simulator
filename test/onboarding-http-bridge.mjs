@@ -154,7 +154,7 @@ test('real bot HTTP bridge to isolated Go registration fixture', { skip: !proces
     const businessTotal = values => Object.entries(values).filter(([key]) => !key.startsWith('HTTP ')).reduce((sum, [, count]) => sum + count, 0);
     assert.equal(businessTotal(after) - businessTotal(before), early ? 6 : 4, 'only deliberate gameplay requests and replay checks');
     assert.ok(after['HTTP /api/v1/content/tianshu'] > 1, 'real startup and send-time feature checks must run');
-    for (const bad of [{}, null, { ...view, status: 'active' }, { ...view, actions: [{}, {}, {}] }]) {
+    for (const bad of [{}, null, { ...view, status: 'exited' }, { ...view, actions: [{}, {}, {}] }]) {
       const parsed = parseRobotBusinessEnvelope({ success: true, branch: 'business', middleware, data: { committed: true }, onboarding: bad }, process.env.ONBOARDING_BRIDGE_BID, data => data);
       assert.equal(parsed.data.committed, true); assert.equal(parsed.onboardingPending, true); assert.equal(parsed.onboarding, undefined);
     }

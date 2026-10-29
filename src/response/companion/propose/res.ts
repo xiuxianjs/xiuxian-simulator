@@ -22,6 +22,10 @@ export default onResponse(selects, async e => {
   const text = e.MessageText?.trim() ?? '';
   const match = text.match(/^[!！/#＃]?结为道侣(\s+(.+))?$/);
 
+  if (!match) {
+    return next();
+  }
+
   const args = (match?.[2]?.trim() ?? '').split(/\s+/).filter(Boolean);
 
   const first = args[0];

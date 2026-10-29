@@ -7,17 +7,19 @@ import { FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
-  const [message] = useMessage();
+  const [, next] = useEvent();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
 
   const match = e.MessageText.match(/^(!|！|\/|#|＃)?天书(?:\s+([1-9]\d*|通用))?$/);
 
   if (!match) {
+    next();
+
     return;
   }
 
-  const [, next] = useEvent();
+  const [message] = useMessage();
   const md = Format.createMarkdown();
   let content;
 

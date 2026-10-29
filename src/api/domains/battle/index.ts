@@ -9,6 +9,7 @@ export function createBattleApi(client: APIClient) {
     post_players_id_battle_log_query: (...args: RequestArguments<'post_players_id_battle_log_query'>) => client.request('post_players_id_battle_log_query', ...args),
     post_players_id_robbery_records_view: (...args: RequestArguments<'post_players_id_robbery_records_view'>) => client.request('post_players_id_robbery_records_view', ...args),
     get_battle_logs: (...args: RequestArguments<'get_battle_logs'>) => client.request('get_battle_logs', ...args),
+    get_battle_memory_by_id: (...args: RequestArguments<'get_battle_memory_by_id'>) => client.request('get_battle_memory_by_id', ...args),
     get_players_id_kill_god_ranking: (...args: RequestArguments<'get_players_id_kill_god_ranking'>) => {
       return client.request('get_players_id_kill_god_ranking', ...args);
     },

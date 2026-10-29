@@ -27,13 +27,13 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
   const text = (e.MessageText ?? '').trim();
+  const [, next] = useEvent();
 
   if (!/^[!！/#＃]?赠礼记录(?:\s+(送出|收到))?(?:\s+\d+)?\s*$/.test(text)) {
-    return;
+    return next();
   }
 
   const query = parseQuery(text);
-  const [, next] = useEvent();
   let response;
 
   try {

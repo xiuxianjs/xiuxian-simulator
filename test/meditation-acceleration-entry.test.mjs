@@ -76,7 +76,8 @@ test('exit displays credited rewards and actual cost, with legacy refund only wh
  for(const refund of [0,450]){
   const page=await render('end','/出关',{success:true,elapsedText:'3小时44分钟',qiGained:21,expGained:100,creditedExperience:87,bonusLines:['金手指：修为+10% · 真气+30%'],boost:{consumedStone:350,refundedStone:refund}});
   const text=JSON.stringify(page.content);
-  assert.ok(text.includes('本次获得：修为87 · 真气21'));
+  assert.ok(text.includes('本次获得修为：87'));
+  assert.ok(text.includes('本次获得真气：21'));
   assert.ok(text.includes('本次加速费用：350灵石'));
   assert.equal(text.includes('历史预付退回'),refund>0);
   assert.deepEqual(buttons(page.content).map(b=>b.options.data),['/闭关']);

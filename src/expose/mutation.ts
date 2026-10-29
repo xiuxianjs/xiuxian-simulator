@@ -1,10 +1,14 @@
 import { Expose, ExposeError, type ExposeReadonly, type ExposeValueSchema } from 'alemonjs';
 import { authorizedEvent } from './access';
 import { boolean, integer, list, object, project, text } from './schema';
+import { guideSchema, projectGuideReceipt } from './guide-receipt';
+import { onboardingSchema } from './onboarding-schema';
 import { createBackendRequestContext } from '../api/bot/context';
 import { requestBackend, writeContext } from '../api/bot/client';
 import { middlewareInputFromEvent } from '../api/bot/middleware-entry';
-import { parseRobotBusinessEnvelope, type RobotBusinessOperation } from '../api/bot/robot-business';
+import { isRobotPublicEntry, parseRobotBusinessEnvelope, type RobotBusinessOperation } from '../api/bot/robot-business';
+import { invalidateEventBackendRobotIdentity } from '../api/bot/identity';
+import { invalidateEventCommandEntry } from '../api/bot/command-entry';
 import type { GameEvent } from '../types/event';
 
 const button = object({ label: text, command: text });
@@ -16,8 +20,8 @@ export function observation<I extends Record<string, unknown>>(
   inputSchema: ExposeValueSchema,
   resultSchema: ExposeValueSchema,
   command: (input: I) => string,
-  decode: (data: unknown, input: I) => unknown,
-  argumentsFor: (input: I) => Record<string, unknown> = input => input,
+  decode: (data: unknown, input: I, uid: number) => unknown,
+  argumentsFor: (input: I, event: GameEvent) => Record<string, unknown> = input => input,
   validateInput?: (input: ExposeReadonly<I>) => void
 ) {
   return mutation(description, operation, inputSchema, resultSchema, command, decode, argumentsFor, validateInput, { freshRead: true });
@@ -45,8 +49,8 @@ export function mutation<I extends Record<string, unknown>>(
   inputSchema: ExposeValueSchema,
   resultSchema: ExposeValueSchema,
   command: (input: I) => string,
-  decode: (data: unknown, input: I) => unknown,
-  argumentsFor: (input: I) => Record<string, unknown> = input => input,
+  decode: (data: unknown, input: I, uid: number) => unknown,
+  argumentsFor: (input: I, event: GameEvent) => Record<string, unknown> = input => input,
   validateInput?: (input: ExposeReadonly<I>) => void,
   options: { freshRead?: boolean } = {}
 ) {
@@ -56,9 +60,12 @@ export function mutation<I extends Record<string, unknown>>(
       branch: { type: 'string', enum: ['business', 'middleware'] },
       reason: text,
       replies: list(replySchema),
+      guide: guideSchema,
+      onboarding: onboardingSchema,
+      onboardingPending: boolean,
       result: resultSchema
     },
-    ['result']
+    ['result', 'guide', 'onboarding', 'onboardingPending']
   );
 
   return Expose.action<I, unknown>({
@@ -79,7 +86,7 @@ export function mutation<I extends Record<string, unknown>>(
     handler: async (input, context) => {
       const event = authorizedEvent(context) as GameEvent;
       // Stable across retries and property ordering, scoped to the actual message.
-      const prepared = argumentsFor(input);
+      const prepared = argumentsFor(input, event);
       const args = Object.fromEntries(
         Object.keys(prepared)
           .sort()
@@ -92,13 +99,23 @@ export function mutation<I extends Record<string, unknown>>(
       const request = createBackendRequestContext(event, `expose:${operation}:${JSON.stringify([messageText, args])}${observation}`);
 
       context.signal.throwIfAborted();
+      const middleware = middlewareInputFromEvent(event);
+
+      if (operation === 'daily-fortune.claim' && event.Target?.scope === 'group') {
+        middleware.channelId = event.Target.targetId;
+      }
       const raw = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {
         path: { operation },
-        body: { ...middlewareInputFromEvent(event), messageText, arguments: args },
+        body: { ...middleware, messageText, arguments: args },
         ...writeContext(request),
         signal: context.signal
       });
-      const response = parseRobotBusinessEnvelope(raw, event.UserId, data => decode(data, input));
+      const response = parseRobotBusinessEnvelope(raw, event.UserId, (data, uid) => decode(data, input, uid), isRobotPublicEntry(operation));
+
+      if (operation === 'account.register' && response.success && response.branch === 'business' && (response.data as { code?: string }).code === 'OK') {
+        invalidateEventBackendRobotIdentity(event);
+        invalidateEventCommandEntry(event);
+      }
 
       context.signal.throwIfAborted();
 
@@ -107,6 +124,9 @@ export function mutation<I extends Record<string, unknown>>(
         branch: response.branch,
         reason: response.middleware.reason,
         replies: response.middleware.replies,
+        ...(response.middleware.guide ? { guide: projectGuideReceipt(response.middleware.guide) } : {}),
+        ...(response.success && response.branch === 'business' && response.onboarding ? { onboarding: response.onboarding } : {}),
+        ...(response.success && response.branch === 'business' && response.onboardingPending ? { onboardingPending: true } : {}),
         ...(response.success && response.branch === 'business' ? { result: response.data } : {})
       });
     }

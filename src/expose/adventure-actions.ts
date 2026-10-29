@@ -1,6 +1,7 @@
 import { ExposeError } from 'alemonjs';
-import { mutation } from './mutation';
-import { boolean, fields, integer, list, object, text } from './schema';
+import { mutation, observation } from './mutation';
+import { boolean, fields, integer, list, number, object, text } from './schema';
+import { parseBackendDungeonDetail } from '../api/bot/queries';
 import { parseRobotDungeonChallenge } from '../api/bot/dungeon-challenge-robot-query';
 import { parseDungeonSweep, parseDungeonFreeSweep } from '../api/bot/dungeon-sweep';
 import { parseStorylineSweepBusiness } from '../api/bot/storyline-sweep';
@@ -32,6 +33,36 @@ function checkedChapter(data: unknown, chapterNumber: number) {
   return result;
 }
 export const adventureActions = {
+  get_dungeon_detail: observation<{ dungeonName: string }>(
+    '查询指定秘境的次数、精力与宗门贡献消耗、队伍要求、掉落和首通奖励；不发起挑战。',
+    'dungeon.detail',
+    object({ dungeonName }),
+    object(
+      {
+        ...fields(integer, 'id spiritCost guildContributionCost minPlayers usedToday dailyLimit freeUsed freeLimit freeRemaining expReward'),
+        ...fields(text, 'name typeLabel realmLimit'),
+        ...fields(boolean, 'isSingle hasCleared inTeam'),
+        currencyDrops: list(object({ ...fields(text, 'code name'), amount: integer })),
+        skillDrops: list(object({ ...fields(text, 'category name'), ...fields(integer, 'itemId amount probability') })),
+        materialDrops: list(object({ ...fields(text, 'category name'), ...fields(integer, 'itemId amount probability') })),
+        firstClearReward: object({ parts: list(text) }),
+        outputMultiplier: number,
+        outputAddPct: number
+      },
+      ['firstClearReward', 'outputMultiplier', 'outputAddPct']
+    ),
+    input => `/秘境详情 ${input.dungeonName}`,
+    data => {
+      const row = data as Record<string, unknown> | null;
+
+      if (row?.outcome !== 'result') {
+        throw new Error('秘境详情回执不完整');
+      }
+
+      return parseBackendDungeonDetail(row.data);
+    },
+    input => ({ name: input.dungeonName })
+  ),
   challenge_dungeon: mutation<{ dungeonName: string }>(
     '挑战指定秘境；队伍、资格、精力及各成员奖励由服务端决定。检查 won 和 rewardsByUser，胜利不代表所有队员都获得奖励。',
     'dungeon.challenge',

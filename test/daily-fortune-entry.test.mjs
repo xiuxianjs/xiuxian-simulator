@@ -19,7 +19,7 @@ const bundle = await build({
       if (args.path === './client') return { resolveDir: process.cwd(), contents: `import { SDKError } from ${JSON.stringify(resolve('src/api/core/error.ts'))}; export class BackendAPIError extends SDKError { constructor(message,code,status){super(message,{code,status})} }` };
       return { contents: `
         export const selects=['message.create','private.message.create','interaction.create','private.interaction.create'];
-        export const getBackendConfig=()=>({url:'http://backend.test',workerToken:'fake-worker',timeoutMs:1000});
+        export const getWorkerBackendConfig=()=>({url:'http://backend.test',workerToken:'fake-worker',timeoutMs:1000});
         export const FormatGui=p=>({...p,content:p.content.value});
         export { useMessage } from 'alemonjs';
         export const runRobotBusiness=async(event,operation,args,decode)=>{globalThis.__dailyFortuneEntry.calls.push({operation,args});return {handled:false,data:decode(globalThis.__dailyFortuneEntry.data)}};

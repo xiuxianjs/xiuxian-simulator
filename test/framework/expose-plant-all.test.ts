@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { goTestFixture } from '../helpers/go-fixture.mjs';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+
+after(() => shutdownLogger());
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusinessExposePlantAll$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const match = output.match(/EXPOSE_PLANT_ALL=(.+)/);
+assert.ok(match);
+const envelope = JSON.parse(match[1]);
+test('批量播种沿用服务端回执和稳定重试键', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(new URL(request.url).pathname, '/api/v2/robot/business/cave.plant');
+    assert.equal(request.headers['x-bid'], 'player');
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/播种 聚灵草种');
+    assert.deepEqual(body.arguments, { plotIndex: null, seedName: '聚灵草种' });
+    keys.push(request.headers['idempotency-key']);
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'plant_all_cave_plots', { seedName: '聚灵草种' }), 'ai-plugin');
+  const first = await call();
+  assert.deepEqual(first.errors, []);
+  assert.deepEqual(first.messages, []);
+  assert.deepEqual(first.actions, []);
+  assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  if (!first.value.ok) return;
+  const result = first.value.data as any;
+  assert.equal(result.success, true);
+  assert.equal(result.result.message, envelope.data.data.result.message);
+  const retry = await call();
+  assert.equal(retry.value.ok, true);
+  if (retry.value.ok) assert.deepEqual(retry.value.data, first.value.data);
+  assert.ok(keys[0]);
+  assert.equal(keys[0], keys[1]);
+});

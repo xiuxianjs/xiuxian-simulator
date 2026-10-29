@@ -1,0 +1,40 @@
+import assert from 'node:assert/strict';
+import { after, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { goTestFixture } from '../helpers/go-fixture.mjs';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+
+after(() => shutdownLogger());
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusiness(SkillBatchLearnV1ParityAndReplay|EmailActionsSettlementConfirmationPartialAndReplay)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const skills = [...output.matchAll(/ROBOT_SKILL_BATCH_LEARN=(.+)/g)].map(row => JSON.parse(row[1]));
+const emails = [...output.matchAll(/ROBOT_EMAIL_ACTION_RESPONSE=([^|]+)\|player\|(.+)/g)].map(row => ({ op: row[1], envelope: JSON.parse(row[2]) }));
+test('功法候选预览和邮件删除保留原状态与确认窗口', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let op = ''; let args: any = {}; let envelope: any; const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${op}`);
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.deepEqual(body.arguments, args); keys.push(request.headers['idempotency-key']);
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const first = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  op = 'skill-books.batch-learn'; args = { mode: 'preview' };
+  const skill = skills.find(row => row.mode === 'preview' && row.result.success && row.result.branch === 'business'); assert.ok(skill); envelope = { data: skill.result };
+  const preview = () => app.invoke(first, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'preview_batch_skill_learning', {}), 'ai-plugin');
+  let result = await preview(); assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  await preview(); assert.notEqual(keys.at(-1), keys.at(-2));
+  op = 'emails.delete'; args = { emailId: 1 };
+  const pending = emails.find(row => row.op === op && row.envelope.data.data?.emailId === 1 && row.envelope.data.data.confirmationRequired === true); assert.ok(pending); envelope = pending.envelope;
+  const invoke = (event: typeof first) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'delete_email', { emailId: 1 }), 'ai-plugin');
+  result = await invoke(first); assert.equal(result.value.ok, true);
+  if (result.value.ok) assert.equal((result.value.data as any).result.confirmationExpiresInSeconds, 60);
+  await invoke(first); assert.equal(keys.at(-1), keys.at(-2)); const firstKey = keys.at(-1);
+  const done = emails.find(row => row.op === op && row.envelope.data.data?.emailId === 1 && row.envelope.data.data.deleted === true); assert.ok(done); envelope = done.envelope;
+  result = await invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' })); assert.equal(result.value.ok, true);
+  if (result.value.ok) assert.equal((result.value.data as any).result.deleted, true);
+  assert.notEqual(keys.at(-1), firstKey);
+});

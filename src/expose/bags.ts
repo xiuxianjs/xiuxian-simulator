@@ -10,6 +10,10 @@ const attributes = {
   ...fields(integer, 'physicalAttack magicAttack physicalDefense magicDefense hp speed'),
   ...fields(number, 'physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent critRate critDamage')
 };
+const maxAttributes = {
+  ...fields(integer, 'maxPhysicalAttack maxMagicAttack maxPhysicalDefense maxMagicDefense maxHp maxSpeed'),
+  ...fields(number, 'maxPhysicalAttackPercent maxMagicAttackPercent maxPhysicalDefensePercent maxMagicDefensePercent maxHpPercent maxCritRate maxCritDamage')
+};
 const equipment = object(
   {
     ...pagination,
@@ -34,14 +38,20 @@ const books = object({
   skillType: text,
   capabilities: list(kind),
   items: list(
-    object({
-      ...fields(integer, 'id skillBookId status isLocked quantity identifiableCount'),
-      ...fields(text, 'displayName displayGrade displaySkillType'),
-      unidentified: boolean,
-      attributeParts: list(text),
-      ...attributes,
-      capabilities: list(kind)
-    })
+    object(
+      {
+        ...fields(integer, 'id skillBookId status isLocked quantity identifiableCount'),
+        gradeId: integer,
+        realm: text,
+        ...fields(text, 'displayName displayGrade displaySkillType'),
+        unidentified: boolean,
+        attributeParts: list(text),
+        ...attributes,
+        ...maxAttributes,
+        capabilities: list(kind)
+      },
+      ['gradeId', 'realm']
+    )
   )
 });
 const artifacts = object({
@@ -97,7 +107,7 @@ export const bagQueryActions = {
     object({ page, equipmentType: filter }, ['page', 'equipmentType'])
   ),
   get_skill_book_bag: query(
-    '分页查询功法背包、未鉴定状态、数量、属性和操作资格。',
+    '分页查询功法背包、未鉴定状态、数量、当前属性、服务端属性上限和操作资格；上限不代表当前属性。',
     books,
     async ({ bid, uid, request }, input) => parseSkillBookBag(
         await requestBackend(bid, 'get_players_id_skill_books_bag', {

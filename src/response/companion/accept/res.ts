@@ -17,6 +17,10 @@ export default onResponse(selects, async e => {
   const proposerName = match?.[1]?.trim();
 
   const [, next] = useEvent();
+
+  if (!/^[!！/#＃]?同意道侣(?:\s+.+)?$/.test(text)) {
+    return next();
+  }
   const response = await runRobotBusiness(e, 'companion.accept', { name: proposerName ?? '' }, parseRobotCompanionProposalAction, next, async reply => {
     await message.send(
       FormatGui({

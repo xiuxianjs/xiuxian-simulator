@@ -39,7 +39,8 @@ test('own profile renders actual root and local action between realm and experie
   }
   const profileRow=rows.find(row=>row.some(button=>button.options?.data==='/改签名 新内容'));
   assert.ok(profileRow,'profile action row missing');
-  assert.deepEqual(profileRow.filter(node=>node.type==='MD.button').map(button=>[button.value,button.options.data]),[['‹主题›','/我的主题'],['‹改签名›','/改签名 新内容'],['‹改称号›','/我的称号']]);
+  assert.deepEqual(profileRow.filter(node=>node.type==='MD.button').map(button=>[button.value,button.options.data]),[['‹改签名›','/改签名 新内容'],['‹改称号›','/我的称号']]);
+  assert.ok(!result.messages[0].commands.includes('/我的主题'));
 
   const text=state.sent[0].filter(n=>n.type==='Markdown').map(n=>createMarkdownText(n.value)).join('\n');
   const line=text.split('\n').find(line=>line.startsWith('灵根：'));

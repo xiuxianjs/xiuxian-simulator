@@ -1,5 +1,17 @@
 // HTTP metadata aligned with Go docs/openapi.yaml; keep DTOs separately reviewed and verify with yarn test:contracts.
 export const battleOperationDefinitions = {
+  get_battle_memory_by_id: {
+    method: 'GET',
+    path: '/api/v1/battle-memories/{id}',
+    security: [],
+    requestContentType: null,
+    bodyRequired: false,
+    responseKind: 'json',
+    responseEnvelope: true,
+    pathParams: [{ name: 'id', required: true, style: 'simple', explode: false, schema: { type: 'string' } }],
+    queryParams: [],
+    headerParams: []
+  },
   post_players_id_battle_log_query: {
     method: 'POST',
     path: '/api/v1/players/{id}/battle-log-query',

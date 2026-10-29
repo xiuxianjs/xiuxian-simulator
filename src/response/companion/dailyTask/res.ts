@@ -17,10 +17,14 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
   const rawText = e.MessageText.trim();
-  const match = rawText.match(/道侣任务\s*(.*)/);
-  const args = match ? match[1].trim() : '';
+  const match = rawText.match(/^[!！/#＃]?道侣任务(?:\s+(.*))?\s*$/);
+  const args = match?.[1]?.trim() ?? '';
 
   const [, next] = useEvent();
+
+  if (!match) {
+    return next();
+  }
   let response;
 
   try {

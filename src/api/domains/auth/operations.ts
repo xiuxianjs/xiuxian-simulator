@@ -1,4 +1,6 @@
 // HTTP metadata aligned with Go docs/openapi.yaml; keep DTOs separately reviewed and verify with yarn test:contracts.
+import { robotBusinessV1Operations, robotBusinessV2Operations } from './business-operations.js';
+
 export const authOperationDefinitions = {
   post_v2_robot_business_operation: {
     method: 'POST',
@@ -8,7 +10,7 @@ export const authOperationDefinitions = {
     bodyRequired: true,
     responseKind: 'json',
     responseEnvelope: true,
-    pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false }],
+    pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false, schema: { type: 'string', enum: robotBusinessV2Operations } }],
     queryParams: [],
     headerParams: [
       { name: 'Idempotency-Key', required: true, style: 'simple', explode: false },
@@ -38,7 +40,7 @@ export const authOperationDefinitions = {
     bodyRequired: true,
     responseKind: 'json',
     responseEnvelope: true,
-    pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false }],
+    pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false, schema: { type: 'string', enum: robotBusinessV1Operations } }],
     queryParams: [],
     headerParams: [
       { name: 'Idempotency-Key', required: true, style: 'simple', explode: false },

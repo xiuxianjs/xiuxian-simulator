@@ -35,12 +35,14 @@ function parseCommand(msg: string): ParsedCmd | null {
 /** 原资料修改规则由后端执行；失败反馈及重复提示也由同次请求返回。 */
 export default onResponse(selects, async e => {
   const parsed = parseCommand(e.MessageText ?? '');
+  const [, next] = useEvent();
 
   if (!parsed) {
+    next();
+
     return;
   }
   const [message] = useMessage();
-  const [, next] = useEvent();
   const bid = e.UserId;
   const isPrivate = e.isPrivate ?? false;
   const action = parsed.type === 'rename' ? '改名' : parsed.type === 'gender' ? '改性' : '改签名';

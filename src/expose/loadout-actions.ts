@@ -1,4 +1,5 @@
-import { mutation } from './mutation';
+import { parseBackendEquipmentDetail } from '../api/bot/equipment-detail-queries';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseBackendEquipmentEquip } from '../api/bot/equipment-equip';
 import { parseRobotEquipmentAutoEquip } from '../api/bot/equipment-auto-equip';
@@ -23,6 +24,47 @@ const visibility = object({ code: { type: 'string', enum: ['UPDATED'] }, bookId:
 const bookInput = object({ bookId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } });
 
 export const loadoutActions = {
+  get_equipped_detail: observation<{ typeName: string }>(
+    '查询本人指定类型当前穿戴的装备实例、属性及恢复效果；未穿戴时保留服务端拒绝。',
+    'equipment.detail',
+    object({ typeName: { type: 'string', enum: ['武器', '饰品', '法袍', '衣服', '鞋', '鞋子', '头饰', '羽翼'] } }),
+    object(
+      {
+        playerName: text,
+        item: object(
+          {
+            ...fields(integer, 'id isLocked physicalAttack magicAttack physicalDefense magicDefense hp speed'),
+            ...fields(
+              number,
+              'physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent critRate critDamage antiCritRate hitRate dodgeRate'
+            ),
+            ...fields(text, 'name gradeName crafterName'),
+            recoveryEffects: list(
+              object({
+                ...fields(text, 'source name status statusText conditionText'),
+                ...fields(number, 'templateId mp mental pieces currentPieces'),
+                active: boolean
+              })
+            )
+          },
+          ['gradeName', 'crafterName']
+        )
+      },
+      ['playerName']
+    ),
+    input => `/我的${input.typeName}`,
+    data => {
+      const result = parseBackendEquipmentDetail(data);
+
+      if (!result.item) {
+        throw new Error('装备详情成功响应缺少装备');
+      }
+
+      return result;
+    },
+    input => ({ typeName: input.typeName })
+  ),
+
   equip_equipment: mutation<{ identifier: string }>(
     '穿戴指定装备实例编号或名称；优先传背包返回的实例编号字符串，服务端检查所有权、状态和境界。',
     'equipment.equip',

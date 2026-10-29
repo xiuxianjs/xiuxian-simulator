@@ -8,11 +8,16 @@ const entries = JSON.parse(readFileSync(new URL('test/framework/migrated-files.j
 assert.equal(new Set(entries.map(entry => entry.file)).size, entries.length, 'Duplicate migration entry');
 const leftovers = [];
 let goFixtures = 0;
+const sharedFixture = readFileSync(new URL('test/framework/fixture.ts', root), 'utf8');
+
+assert.ok(/createTestApp\s*\(/.test(sharedFixture) && /app\.dispose\s*\(/.test(sharedFixture), 'shared game fixture must create and dispose its test app');
 
 for (const { file } of entries) {
   const source = readFileSync(new URL(`test/${file}`, root), 'utf8');
 
-  assert.ok(/createPresentationHarness|createTestApp/.test(source), `${file}: missing framework harness`);
+  const usesSharedFixture = /import\s*\{[^}]*\bgameFixture\b[^}]*\}\s*from\s*['"]\.\/framework\/fixture(?:\.ts)?['"]/.test(source) && /\bgameFixture\s*\(/.test(source);
+
+  assert.ok(/createPresentationHarness|createTestApp/.test(source) || usesSharedFixture, `${file}: missing framework harness`);
   assert.ok(!/withEventContext/.test(source), `${file}: direct legacy context binding`);
   assert.ok(!/export const useMessage\s*=/.test(source), `${file}: mocked message hook`);
   if (/goTestFixture\s*\(|execFileSync\s*\(\s*['"]go['"]/.test(source)) { goFixtures++; }
