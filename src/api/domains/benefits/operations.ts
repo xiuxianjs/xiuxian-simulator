@@ -531,7 +531,7 @@ export const benefitsOperationDefinitions = {
         UserBearer: []
       }
     ],
-    requestContentType: null,
+    requestContentType: 'application/json',
     bodyRequired: false,
     responseKind: 'json',
     responseEnvelope: true,
@@ -550,7 +550,7 @@ export const benefitsOperationDefinitions = {
         schema: {
           type: 'integer',
           minimum: 1,
-          maximum: 8
+          maximum: 648
         },
         name: 'dayIndex',
         required: true,
@@ -572,6 +572,21 @@ export const benefitsOperationDefinitions = {
         style: 'simple',
         explode: false
       }
+    ]
+  },
+  post_players_id_recharge_weekly_rebate_loop_claim: {
+    method: 'POST',
+    path: '/api/v1/players/{id}/recharge/weekly-rebate/loop/claim',
+    security: [{ RobotBearer: [], RobotBid: [] }, { UserBearer: [] }],
+    requestContentType: 'application/json',
+    bodyRequired: true,
+    responseKind: 'json',
+    responseEnvelope: true,
+    pathParams: [{ schema: { type: 'integer', minimum: 1 }, name: 'id', required: true, style: 'simple', explode: false }],
+    queryParams: [],
+    headerParams: [
+      { name: 'Idempotency-Key', required: true, style: 'simple', explode: false },
+      { name: 'X-Request-ID', required: false, style: 'simple', explode: false }
     ]
   },
   post_players_id_recharge_newcomer_claim: {

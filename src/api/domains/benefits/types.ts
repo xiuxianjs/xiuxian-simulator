@@ -81,7 +81,14 @@ export interface BenefitsOperations {
     path: { id: number; dayIndex: number };
     query: never;
     headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
-    body: never;
+    body: { expectedWeekStart: string };
+    response: unknown;
+  };
+  post_players_id_recharge_weekly_rebate_loop_claim: {
+    path: { id: number };
+    query: never;
+    headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
+    body: { expectedWeekStart: string; expectedLoopCount: number };
     response: unknown;
   };
   post_players_id_recharge_newcomer_claim: {

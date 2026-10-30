@@ -13,15 +13,24 @@ export default onResponse(selects, async e => {
   const [, parentNext] = useEvent();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
-  const send = async (title: string, md: ReturnType<typeof Format.createMarkdown>) => {
+  const send = async (title: string, md: ReturnType<typeof Format.createMarkdown>, cumulative = false) => {
     await message.send(
       FormatGui({
-        header: [{ label: '返回权益', command: '/我的权益' }],
+        header: [{ label: '返回权益', command: '/我的权益', autoEnter: false }],
         isPrivate,
         bid,
         title,
         content: md,
-        footer: [{ label: '周周返利', command: '/周周返利' }]
+        footer: cumulative
+          ? [
+              [{ label: '周周返利', command: '/周周返利', autoEnter: false }],
+              [
+                { label: '日礼包', command: '/充值 日礼包', autoEnter: false },
+                { label: '周礼包', command: '/充值 周礼包', autoEnter: false },
+                { label: '月礼包', command: '/充值 月礼包', autoEnter: false }
+              ]
+            ]
+          : [{ label: '周周返利', command: '/周周返利', autoEnter: false }]
       })
     );
   };
@@ -37,7 +46,7 @@ export default onResponse(selects, async e => {
       async reply => {
         await message.send(
           FormatGui({
-            header: [{ label: '返回权益', command: '/我的权益' }],
+            header: [{ label: '返回权益', command: '/我的权益', autoEnter: false }],
             isPrivate,
             bid,
             title: '周周返利',
@@ -57,8 +66,23 @@ export default onResponse(selects, async e => {
 
     return;
   }
-  const label = DAY_LABELS[data.dayIndex] ?? `第${data.dayIndex}天`;
   const rewardText = issuedRewardText(data.issued);
+
+  if ('kind' in data) {
+    const mailed = data.delivery === 'mail';
+    const quote = Format.createMarkdown()
+      .addBold(`${data.label} · ${mailed ? '已发个人邮件' : '已领取'}`)
+      .addNewline();
+
+    if (data.kind === 'loop') {
+      quote.addText(`本次领取：${data.claimedCount}次`).addNewline();
+    }
+    quote.addText(`${mailed ? '邮件奖励' : '获得'}：${rewardText}`);
+    await send('周周返利', Format.createMarkdown().addBlockquote(quote), true);
+
+    return;
+  }
+  const label = DAY_LABELS[data.dayIndex] ?? `第${data.dayIndex}天`;
 
   await send('周周返利', Format.createMarkdown().addBlockquote(createQuoteMarkdown([`${label} · 已领取`, `获得：${rewardText}`])));
 });

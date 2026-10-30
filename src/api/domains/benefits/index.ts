@@ -39,6 +39,9 @@ export function createBenefitsApi(client: APIClient) {
     post_players_id_recharge_weekly_rebate_dayIndex_claim: (...args: RequestArguments<'post_players_id_recharge_weekly_rebate_dayIndex_claim'>) => {
       return client.request('post_players_id_recharge_weekly_rebate_dayIndex_claim', ...args);
     },
+    post_players_id_recharge_weekly_rebate_loop_claim: (...args: RequestArguments<'post_players_id_recharge_weekly_rebate_loop_claim'>) => {
+      return client.request('post_players_id_recharge_weekly_rebate_loop_claim', ...args);
+    },
     post_players_id_recharge_newcomer_claim: (...args: RequestArguments<'post_players_id_recharge_newcomer_claim'>) => {
       return client.request('post_players_id_recharge_newcomer_claim', ...args);
     },

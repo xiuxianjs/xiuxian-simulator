@@ -1,4 +1,5 @@
 import { getBackendWeeklyRebate } from '@src/api/bot/weekly-rebate-queries';
+import type { CumulativeWeeklyRebateQueryData } from '@src/api/schemas/weekly-rebate-query';
 
 type DayReward = {
   day: number;
@@ -11,6 +12,7 @@ type DayReward = {
 export type WeeklyRebateInfoResult =
   | { code: 'NOT_ELIGIBLE'; daysSinceRegistration: number; minAccountDays: number }
   | { code: 'FAILED' }
+  | { code: 'CUMULATIVE'; data: CumulativeWeeklyRebateQueryData }
   | {
       code: 'OK';
       todayLabel: string;
@@ -24,6 +26,9 @@ export const getWeeklyRebateInfoData = async (uid: number, bid?: string): Promis
 
   if (!status.eligible) {
     return { code: 'NOT_ELIGIBLE', daysSinceRegistration: status.daysSinceRegistration, minAccountDays: status.minAccountDays };
+  }
+  if ('weekRechargedAmount' in status) {
+    return { code: 'CUMULATIVE', data: status };
   }
 
   const dayRewards: DayReward[] = status.rewards.map(reward => ({
