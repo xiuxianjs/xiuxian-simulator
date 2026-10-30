@@ -29,22 +29,59 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.290.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.316.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
 
 常用玩法的查询与操作入口：
 
-| 玩法       | 查询与后续操作                                                                                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 待办       | `get_task_panel` 按分类读取状态和选项；返回的聊天命令只是提示，使用对应 Expose 操作执行。                                                                                                         |
-| 签到与活跃 | `get_checkin_status` → 对应签到操作；`get_daily_activity` / `get_weekly_activity` 的 `rewards[].requiredPoints` → 对应领取操作。                                                                  |
-| 主线       | `get_storyline_chapters` 的 `chapterNumber` → `get_storyline_chapter`；章节及关卡编号 → `challenge_storyline` / `sweep_storyline`。                                                               |
-| 秘境       | `get_dungeons` 的 `items[].id` → `get_dungeon_detail_by_id` / `challenge_dungeon_by_id` / `sweep_dungeon_by_id` / `start_dungeon_match`。按 ID 查询、挑战或扫荡需先部署配套服务端。               |
-| 背包       | `get_inventory` 的 `userItemId` → `consume_inventory_item`；`get_lootboxes` 的 `lootboxId` → `open_lootbox_by_id`。                                                                               |
-| 装备与功法 | `get_equipment_bag` 的 `items[].id` → `equip_equipment_by_id`；`get_equipped_detail` 的 `item.id` → `unequip_equipment_by_id`。功法使用对应背包的实例编号。批量分解先准备预览，再使用原引用确认。 |
-| 商店       | `get_shop_products` 的 `products[].productId` → `preview_shop_purchase` → `confirm_shop_purchase`。                                                                                               |
-| 邮件       | `get_emails` 的 `list[]."email.id"` → `get_email_detail` / `claim_email` / `delete_email`；详情查询会标记已读。                                                                                   |
+| 玩法       | 查询与后续操作                                                                                                                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 待办       | `get_task_panel` 按分类读取状态和选项；返回的聊天命令只是提示，使用对应 Expose 操作执行。                                                                                                                            |
+| 排行榜     | `get_leaderboard_catalog` 查询目录，再用对应榜单查询读取数据；目录中的聊天命令仅作入口提示。                                                                                                                         |
+| 签到与活跃 | `get_checkin_status` → 对应签到操作；`get_daily_activity` / `get_weekly_activity` 的 `rewards[].requiredPoints` → 对应领取操作。                                                                                     |
+| 主线       | `get_storyline_chapters` 的 `chapterNumber` → `get_storyline_chapter`；章节及关卡编号 → `challenge_storyline` / `sweep_storyline`。                                                                                  |
+| 秘境       | `get_dungeons` 的 `items[].id` → `get_dungeon_detail_by_id` / `challenge_dungeon_by_id` / `sweep_dungeon_by_id` / `start_dungeon_match`。按 ID 查询、挑战或扫荡需先部署配套服务端。                                  |
+| 背包       | `get_inventory` 的 `userItemId` → `consume_inventory_item`；`get_lootboxes` 的 `lootboxId` → `open_lootbox_by_id`。                                                                                                  |
+| 装备与功法 | `get_equipment_bag` 的 `items[].id` → `equip_equipment_by_id`；`get_equipped_detail` 的 `item.id` → `unequip_equipment_by_id`。功法使用对应背包的实例编号。批量分解先准备预览，再使用原引用确认。                    |
+| 商店       | `get_shop_products` 的 `products[].productId` → `preview_shop_purchase` → `confirm_shop_purchase`。                                                                                                                  |
+| 邮件       | `get_emails` 的 `list[]."email.id"` → `get_email_detail` / `claim_email` / `delete_email`；详情查询会标记已读。                                                                                                      |
+| 修行与突破 | `get_meditation_progress` → `start_meditation` / `end_meditation`；`get_realm` → `breakthrough_realm`；`get_meridians` → `pulse_meridian`。以服务端资格和结算为准。                                                  |
+| 灵田       | `get_cave` / `get_cave_plant_options` → `plant_cave_seed`、`water_cave_plots`、`remove_cave_worms`、`remove_cave_weeds`、`harvest_cave_plots`；以地块状态和实际回执为准。                                            |
+| 炼丹与锻造 | `get_alchemy_recipes` → `preview_alchemy` → `confirm_alchemy`；`get_forge_overview` → `preview_forge` → `confirm_forge`。确认使用玩家同意的原预览引用。                                                              |
+| 宗门       | `get_my_guild` / `get_guild_daily` / `get_guild_weekly` → `checkin_guild`、`mine_guild`、`claim_guild_stipend` 等；先核对入宗状态、职位和服务端开放条件。                                                            |
+| 师门与道侣 | `get_master_info`、`get_master_applications`；`get_companion`、`get_companion_tasks` → 传功、签到、双修等对应动作。申请处理使用原申请编号和服务端状态。                                                              |
+| 赠礼       | `get_gift_targets` 按礼物名称查询候选好友 → `get_gift_options` 查看目标的礼物库存和限制 → `send_gift`；以服务端实际结算为准。                                                                                        |
+| 物品转赠   | `get_gift_targets` 可指定类别检查物品 → `send_direct_item` 使用目标 UID、物品名称、类别和数量直接转赠；资格、库存与锁定状态由服务端校验。                                                                            |
+| 神魂与渡劫 | `get_soul_path` → 对应预览及 `confirm_soul_path`；`get_tribulation_preparation` / `promote_realm` → 按事件状态 `open_tribulation`、`preview_tribulation` → `confirm_tribulation`。确认保留原凭据，实际结果重新查询。 |
 
 每次写操作后以服务端回执为准，再重新查询受影响的状态。部分成功、待确认和拒绝不能报告为完整成功；确认操作必须使用用户同意的原预览引用。
+
+AI 插件可以在实际 QQ 消息处理上下文内发现并调用修仙能力。以下示例只查询任务面板；`provider.name` 是框架实际加载的提供者名称，不需要猜测包名：
+
+```js
+import { Expose } from 'alemonjs';
+
+async function readGameTasks() {
+  const client = Expose.create();
+  const provider = client.list('xiuxian.player.v1').find(item => item.actions.get_task_panel);
+  if (!provider) return { status: 'unavailable' };
+
+  // actions 中包含 description、effect、inputSchema 和 outputSchema，
+  // 可以用来构造 AI 工具定义；调用前仍须按 schema 校验参数。
+  const action = provider.actions.get_task_panel;
+  const call = await client.call('xiuxian.player.v1', provider.name, 'get_task_panel', { tab: 'checkin' });
+  if (!call.ok) {
+    // unknown 表示执行结果可能不明；尤其是写操作，先核对状态。
+    return { status: 'call_error', code: call.error.code, outcome: call.error.outcome };
+  }
+  const response = call.data;
+  if (!response || typeof response !== 'object' || response.success !== true || response.branch !== 'business') {
+    return { status: 'not_completed', response };
+  }
+  return { status: 'ok', data: response.result, schema: action.outputSchema };
+}
+```
+
+调用需处在框架识别的真实消息事件中，使用当前消息玩家身份，并受 `allowed_callers` 等配置约束。动作目录的 `command` 是游戏现有指令提示，不应当作任意指令执行器；应根据能力描述和输入 schema 选择对应的结构化动作。需要连锁任务推进时，传入对应动作支持的 `taskInput`，分别检查 `taskContinuation` 与业务回执。同一消息里的新写操作使用新的 `intentId`，同次重试使用原值；跨消息不能假定沿用同一个幂等键。执行结果不明时先查询状态。
 
 版本 `1.186.0` 的道具使用 Expose 需要配套支持 `items.consume` 的 `expose` 模式；先发布服务端，再发布机器人。该模式要求阵盘使用原预览引用确认，旧聊天指令保持原行为。`consume_inventory_item` 的储物记录只用于定位模板，同模板存在多条库存记录时不保证扣除所选行。
 
@@ -609,3 +646,41 @@ release
 版本 `1.289.0` 为功法学习、原引用确认和一键学习增加可选连锁任务支持；替换确认保留原引用与用户确认边界。
 
 版本 `1.290.0` 为功法隐藏和恢复显示增加可选连锁任务步骤及操作重试编号。
+
+版本 `1.291.0` 增加连锁任务中已穿戴装备部位详情查询，保留任务推进与装备查询的独立回执。
+
+版本 `1.292.0` 为天师宝录增加连锁任务步骤与操作重试编号，保留收藏同步可能先于面板读取完成的语义。
+
+版本 `1.293.0` 增加词典编辑权限申请、词条录入及删除；服务端权限、配额与部分提交提示仍为准。
+
+版本 `1.294.0` 为注册剧情和教学动作增加可选操作编号，同一消息内的新步骤可分别执行，同次重试沿用原编号。
+
+版本 `1.295.0` 为称号佩戴和卸下增加连锁任务及操作重试编号支持。
+
+版本 `1.296.0` 为首充礼包、新人返利和周返利领取增加连锁任务及操作重试编号支持，领取资格仍由服务端决定。
+
+版本 `1.297.0` 为礼包码兑换和一键删除已读邮件增加连锁任务及操作重试编号支持；单封邮件删除仍遵循原确认流程。
+
+版本 `1.298.0` 支持礼包码任务中的“礼品码”别名及兑换码大小写、空格的既有规范化规则。
+
+版本 `1.299.0` 增加按游戏 UID 查询公开玩家资料，隐私及洞府可见性由服务端决定。
+
+版本 `1.300.0` 增加本人宗门主页查询及连锁任务步骤，保留未入宗状态、职位、宗门资源和主线进度。
+
+版本 `1.301.0` 在宗门主页返回服务端提供的各宗门玩法境界开放条件；缺省时不补造条件。
+
+版本 `1.302.0` 对旧服务端缺失的宗门创建资格保留缺省，不将未知资格当作不允许。
+
+版本 `1.303.0` 支持使用聊天平台提供的目标玩家标识查询公开资料，服务端解析目标并校验隐私。
+
+版本 `1.304.0` 为邀请码绑定及邀请奖励领取增加连锁任务及操作重试编号支持；绑定仍须使用玩家明确提供的邀请码。
+
+版本 `1.305.0` 增加连锁任务中的我的装备查询，返回穿戴、空槽和套装效果。
+
+版本 `1.306.0` 增加连锁任务中的活动中心查看，支持已有活动入口别名。
+
+版本 `1.307.0` 为稻草人伤害测试增加连锁任务及操作重试编号，同消息中的新测试可使用不同编号。
+
+版本 `1.308.0` 为榜单点赞增加连锁任务及操作重试编号；实际资格、奖励和每日限制仍由服务端决定。
+
+版本 `1.309.0` 修正好友申请的路由指令，并为好友申请、同意及拒绝增加连锁任务和操作重试编号。
