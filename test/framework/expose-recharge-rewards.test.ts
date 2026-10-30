@@ -53,3 +53,36 @@ for (const item of cases) test(`${item.action}: 使用服务端真实回执`, as
     else assert.notEqual(keys.at(-1), keys.at(-2));
   }
 });
+
+for (const item of cases.filter(entry => entry.action.startsWith('claim_'))) test(`${item.action}: 连锁任务与重试`, async t => {
+  const current = item.rows.find(row => row.result.success && row.result.branch === 'business') ?? item.rows[0];
+  assert.ok(current);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, item.command.slice(1));
+    assert.deepEqual(body.arguments, { input: item.command });
+    keys.push(request.headers['idempotency-key']);
+    const result = structuredClone(current.result);
+    result.middleware.taskContinuation = { outcome: 'next', command: '我的权益' };
+    return { status: 200, headers: {}, data: JSON.stringify({ data: result }) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (taskInput: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', item.action, { ...item.input(), taskInput, intentId: 'claim-1' }), 'ai-plugin');
+  const first = await call(item.command.slice(1));
+  assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  if (first.value.ok) {
+    const actual = first.value.data as any;
+    assert.equal(actual.success, current.result.success);
+    assert.equal(actual.taskContinuation.outcome, 'next');
+    if (actual.success && actual.branch === 'business') assert.ok(actual.result);
+    else assert.equal(actual.result, undefined);
+  }
+  assert.equal((await call(item.command.slice(1))).value.ok, true);
+  assert.equal(keys[0], keys[1]);
+  assert.equal((await call(`${item.command.slice(1)} 错误`)).value.ok, false);
+  assert.equal(keys.length, 2);
+});

@@ -13,6 +13,39 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotB
 }).toString();
 const fixtures = [...output.matchAll(/EXPOSE_ACHIEVEMENT_HTTP=(.+)/g)].map(match => JSON.parse(match[1]));
 const actions = ['get_achievement_overview', 'get_achievement_category', 'get_all_achievements', 'get_completed_achievements', 'get_combat_power_achievements', 'claim_combat_power_achievements', 'get_titles', 'activate_title', 'deactivate_title'];
+test('称号操作区分新操作和重试，并验证任务步骤', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current: any;
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, current.command.slice(1));
+    assert.deepEqual(body.arguments, current.args);
+    keys.push(request.headers['idempotency-key']);
+    const envelope = structuredClone(current.envelope);
+    envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的称号' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  for (const action of ['activate_title', 'deactivate_title']) {
+    current = fixtures.find(row => row.action === action && row.status === 200 && row.envelope.data.success);
+    assert.ok(current);
+    const command = current.command.slice(1);
+    const call = (intentId: string, taskInput: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...current.input, intentId, taskInput }), 'ai-plugin');
+    const first = await call('first', command);
+    assert.equal(first.value.ok, true, JSON.stringify(first.value));
+    if (first.value.ok) assert.equal((first.value.data as any).taskContinuation.outcome, 'next');
+    assert.equal((await call('first', command)).value.ok, true);
+    assert.equal(keys.at(-1), keys.at(-2));
+    assert.equal((await call('second', command)).value.ok, true);
+    assert.notEqual(keys.at(-1), keys.at(-2));
+    const before = keys.length;
+    assert.equal((await call('third', `${command} 无效`)).value.ok, false);
+    assert.equal(keys.length, before);
+  }
+});
 for (const action of actions) test(`${action}: 真实服务端状态与结算回执`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);

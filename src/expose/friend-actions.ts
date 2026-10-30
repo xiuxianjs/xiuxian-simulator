@@ -283,10 +283,13 @@ export const friendActions = {
       return result;
     }
   ),
-  request_friend: mutation<{ targetUid: number }>(
+  request_friend: mutation<{ targetUid: number; intentId?: string; taskInput?: string }>(
     '向指定目标玩家发起好友申请；targetUid 是目标而非调用者，服务端校验资格、关系和申请设置。',
     'friends.request',
-    object({ targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object(
       {
         outcome: text,
@@ -297,14 +300,19 @@ export const friendActions = {
       },
       ['realmName', 'target', 'request']
     ),
-    input => `/结交好友 ${input.targetUid}`,
+    input => `/结交 ${input.targetUid}`,
     data => parseBackendFriendWorkflow(data, 'request'),
-    input => ({ targetUid: String(input.targetUid) })
+    input => ({ targetUid: String(input.targetUid) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  accept_friend_request: mutation<{ requestId: number }>(
+  accept_friend_request: mutation<{ requestId: number; intentId?: string; taskInput?: string }>(
     '接受本人收到的指定好友申请；服务端校验申请归属和有效状态。',
     'friends.accept',
-    object({ requestId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ requestId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object({ access, data: object({ success: boolean, requestId: integer, ...fields(text, 'targetName fromUserName message') }) }, ['data']),
     input => `/同意结交 ${input.requestId}`,
     (data, input) => parseGuardedSocialQuery(data, value => {
@@ -316,16 +324,23 @@ export const friendActions = {
 
         return result;
       }),
-    input => ({ requestId: String(input.requestId) })
+    input => ({ requestId: String(input.requestId) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  reject_friend_request: mutation<{ requestId: number }>(
+  reject_friend_request: mutation<{ requestId: number; intentId?: string; taskInput?: string }>(
     '拒绝本人收到的指定好友申请；服务端校验申请归属和有效状态。',
     'friends.reject',
-    object({ requestId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ requestId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object({ access, data: object({ outcome: text, listed: boolean, fromUserName: text, realmName: text }, ['fromUserName', 'realmName']) }, ['data']),
     input => `/拒绝结交 ${input.requestId}`,
     data => parseGuardedSocialQuery(data, parseBackendFriendReject),
-    input => ({ requestId: String(input.requestId) })
+    input => ({ requestId: String(input.requestId) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_friends: observation<{ page?: number }>(
     '分页查询本人好友、关系及亲密度；好友编号可作为赠礼目标。未解锁时 access.ok=false，不将缺失列表当作空列表。',

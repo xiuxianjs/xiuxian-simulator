@@ -4,13 +4,79 @@ import { parseGuildLogs } from '../api/bot/queries';
 import { parseRobotGuildSetting } from '../api/bot/guild-settings-robot-query';
 import { parseGuildRename } from '../api/bot/guild-rename';
 import { parseGuildWorkflow } from '../api/bot/guild-workflow';
-import { mutation, observation } from './mutation';
-import { boolean, fields, integer, list, object, page, text } from './schema';
+import { parseGuildHome } from '../api/bot/guild-home-query';
+import { parseFeatureAccess } from '../api/bot/tianshu-content';
+import { ExposeError } from 'alemonjs';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
+import { boolean, fields, integer, list, number, object, page, text } from './schema';
 
 const empty = object({});
 const content = object({ guildName: text, notice: text, intro: text }, ['notice', 'intro']);
+const guildHome = object(
+  {
+    hasGuild: boolean,
+    access: object(
+      {
+        canCreateOrApplyGuild: boolean,
+        canCreateGuild: boolean,
+        features: list(object({ key: text, realmReached: boolean, requiredRealm: text, lockedReason: text }))
+      },
+      ['canCreateGuild', 'features']
+    ),
+    membership: object({ guildId: integer, guildName: text, roleName: text, ...fields(boolean, 'isDeputy canUpgrade isLeader') }, ['guildName', 'roleName']),
+    guild: object(
+      {
+        ...fields(
+          integer,
+          'level spiritStone spiritStoneCap prestige prestigeCap veinLevel shopLevel viceLeaderCount viceLeaderLimit elderCount elderLimit memberCount memberCapacity'
+        ),
+        leader: object({ userId: integer, name: text }, ['name']),
+        ...fields(text, 'minRealmName notice'),
+        titles: list(text),
+        shopAutoRefresh: object({ enabled: boolean, hours: list(number) })
+      },
+      ['veinLevel', 'shopLevel', 'minRealmName', 'notice']
+    ),
+    unlockLevels: object(fields(integer, 'shop viceLeader elder'), ['shop', 'viceLeader', 'elder']),
+    pendingApplications: integer,
+    storyline: object({ ...fields(boolean, 'initialized allCleared'), stageIndex: integer }, ['stageIndex'])
+  },
+  ['membership', 'guild']
+);
+
+function parseGuildHomeExpose(data: unknown) {
+  const result = parseGuildHome(data);
+  const access = (data as { access: { canCreateGuild?: unknown; features?: unknown } }).access;
+  const features = access.features === undefined ? undefined : Object.entries(parseFeatureAccess(access.features)).map(([key, value]) => ({ key, ...value }));
+
+  return { ...result, access: { ...result.access, canCreateGuild: access.canCreateGuild === undefined ? undefined : result.access.canCreateGuild, features } };
+}
 
 export const guildInformationActions = {
+  get_my_guild: observation(
+    '查询本人宗门主页：是否入宗、职位、宗门资源、成员容量、待处理申请、宗门主线进度及服务端提供的境界开放条件；未入宗时返回申请和创建资格。',
+    'guild.home',
+    empty,
+    guildHome,
+    () => '/我的宗门',
+    parseGuildHomeExpose
+  ),
+  execute_task_guild_home: mutation<{ taskInput: string; intentId?: string }>(
+    '执行连锁任务中的我的宗门或查看势力步骤；先推进任务再查询宗门主页，分别检查任务和业务回执。同消息新操作使用新 intentId，同次重试沿用原编号。',
+    'guild.home',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    guildHome,
+    input => `/${input.taskInput.trim().replace(/^[!！/#＃]\s*/, '')}`,
+    parseGuildHomeExpose,
+    () => ({}),
+    input => {
+      validateIntentId(input.intentId);
+      if (!/^(?:我的宗门|查看势力)(?:\s+(?:活动|资料|管理))?$/u.test(input.taskInput.trim().replace(/^[!！/#＃]\s*/, ''))) {
+        throw new ExposeError('INVALID_INPUT', '任务步骤不是宗门主页指令');
+      }
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   rename_guild: mutation<{ name: string }>(
     '修改当前宗门名称，会消耗更名卡；服务端校验宗主权限、名称和库存，返回实际名称。',
     'guild.rename',

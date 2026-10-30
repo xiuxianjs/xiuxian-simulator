@@ -1,6 +1,6 @@
 import { ExposeError } from 'alemonjs';
 import { parseWudaoOptions, parseWudaoResult } from '../api/bot/skill-book-wudao';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -61,18 +61,20 @@ export const wudaoActions = {
     (data, input) => parse(data, input.bookId),
     input => ({ bookId: String(input.bookId), label: '' })
   ),
-  perform_skill_wudao: mutation<{ bookId: number; label: string }>(
-    '消耗悟道石对已学功法的指定属性悟道，先查询可选属性；实际增长及剩余数量以服务端回执为准。',
+  perform_skill_wudao: mutation<{ bookId: number; label: string; intentId?: string }>(
+    '消耗悟道石对已学功法的指定属性悟道，先查询可选属性；实际增长及剩余数量以服务端回执为准。同消息新悟道使用新 intentId，同次重试沿用原编号。',
     'skill-books.wudao',
-    object({ bookId: id, label: { type: 'string', minLength: 1 } }),
+    object({ bookId: id, label: { type: 'string', minLength: 1 }, intentId: intentIdSchema }, ['intentId']),
     object({ bookId: integer, options, result: resultSchema }),
     input => `/悟道 ${input.bookId} ${input.label}`,
     (data, input) => parse(data, input.bookId, input.label),
     input => ({ bookId: String(input.bookId), label: input.label }),
     input => {
+      validateIntentId(input.intentId);
       if (!/^\S+$/.test(input.label)) {
         throw new ExposeError('INVALID_INPUT', '悟道属性必须是单个标签');
       }
-    }
+    },
+    { intentId: input => input.intentId }
   )
 };

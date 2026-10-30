@@ -56,6 +56,25 @@ test('邮件详情和批量删除保留真实回执及重试', async t => {
   }
 });
 
+test('批量删除已读邮件保留任务推进、业务回执及重试编号', async t => {
+  const source = deletes.find(row => row.data.success); assert.ok(source);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, '一键删除邮件'); assert.deepEqual(body.arguments, {}); keys.push(request.headers['idempotency-key']);
+    const envelope = structuredClone(source); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的邮件' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (taskInput: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'delete_read_emails', { taskInput, intentId: 'delete-1' }), 'ai-plugin');
+  const first = await call('一键删除邮件'); assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  if (first.value.ok) { assert.equal((first.value.data as any).taskContinuation.outcome, 'next'); assert.deepEqual((first.value.data as any).result, source.data.data); }
+  assert.equal((await call('一键删除邮件')).value.ok, true); assert.equal(keys[0], keys[1]);
+  assert.equal((await call('删除邮件 1')).value.ok, false); assert.equal(keys.length, 2);
+});
+
 test('邮件任务步骤解析服务端列表并校验页码', async t => {
   const rows = [...output.matchAll(/ROBOT_EMAIL_QUERY_RESPONSE=emails\.list\|player\|(.+)/g)].map(match => JSON.parse(match[1]));
   const row = rows.find(item => item.data.success && item.data.branch === 'business' && item.data.data.pageText === '1'); assert.ok(row);

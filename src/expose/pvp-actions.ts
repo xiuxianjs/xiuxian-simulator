@@ -2,7 +2,7 @@ import { parseRobotSpar } from '../api/bot/spar';
 import { parseBackendEnemies } from '../api/bot/queries';
 import { parseRobberyRecords } from '../api/bot/robbery-records';
 import { parseBackendKillGodRanking, parseRobotKillGodTitleClaim, parseRobotShaQi } from '../api/bot/shaqi-queries';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -21,10 +21,10 @@ const record = object(
 );
 
 export const pvpActions = {
-  spar_with_player: mutation<{ targetUid: number; batch?: boolean }>(
-    '与指定玩家比试；batch=true 请求服务端批量比试，实际场次、元力消耗和修为以结算回执为准。',
+  spar_with_player: mutation<{ targetUid: number; batch?: boolean; intentId?: string; taskInput?: string }>(
+    '与指定玩家比试；batch=true 请求服务端批量比试，实际场次、元力消耗和修为以结算回执为准。同消息新比试使用新 intentId，同次重试沿用原编号；可传入一致的 taskInput，分别检查任务推进和战斗结果。',
     'pvp.spar',
-    object({ targetUid: id, batch: boolean }, ['batch']),
+    object({ targetUid: id, batch: boolean, intentId: intentIdSchema, taskInput: taskInputSchema }, ['batch', 'intentId', 'taskInput']),
     object({
       ...fields(integer, 'targetUid settledCount experience qiCost dailyMax newCount expGain'),
       ...fields(text, 'logId expBonusText'),
@@ -41,7 +41,9 @@ export const pvpActions = {
 
       return { ...result, qiCost: result.hpCost };
     },
-    input => ({ targetUid: String(input.targetUid), ...(input.batch ? { batch: true } : {}) })
+    input => ({ targetUid: String(input.targetUid), ...(input.batch ? { batch: true } : {}) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_robbery_records: observation<{ page?: number }>(
     '分页查询本人打劫记录及回击资格；服务端会更新相关通知的已读状态。',

@@ -1,4 +1,4 @@
-import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
+import { intentIdSchema, mutation, observation, taskAliasCommand, taskInputSchema, validateIntentId } from './mutation';
 import { parseRobotRealmOverview } from '../api/bot/realm-overview';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseMeditationBoostOptions, parseMeditationEnd, parseMeditationStart } from '../api/bot/meditation';
@@ -112,7 +112,7 @@ export const cultivationActions = {
     'meditation.end',
     object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     end,
-    () => '/出关',
+    input => taskAliasCommand(input.taskInput, ['出关', '打坐结束', '结束打坐']),
     parseMeditationEnd,
     () => ({}),
     input => validateIntentId(input.intentId),

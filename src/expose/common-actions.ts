@@ -13,9 +13,9 @@ import { parseEmailClaim } from '../api/bot/email-claim';
 import { parseEmailClaimAll } from '../api/bot/email-claim-all';
 import { parseCelestialCheckIn } from '../api/bot/celestial-checkin';
 import { parseCheckInView } from '../api/bot/checkin-view';
+import { ExposeError } from 'alemonjs';
 
 const reward = object({ name: text, amount: integer });
-const empty = object({});
 const calendarScopes = {
   overview: '概览',
   daily: '日常',
@@ -137,7 +137,21 @@ export const commonActions = {
     'checkin.hub',
     object({ taskInput: { type: 'string', minLength: 1, maxLength: 200 }, intentId: intentIdSchema }, ['taskInput', 'intentId']),
     list(object({ name: text, status: { type: 'string', enum: ['done', 'skip', 'error'] }, message: text })),
-    () => '/签到',
+    input => {
+      if (input.taskInput === undefined) {
+        return '/签到';
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim();
+
+      if (!['签到', '一键签到'].includes(command)) {
+        throw new ExposeError('INVALID_INPUT', '签到任务指令不匹配');
+      }
+
+      return `/${command}`;
+    },
     parseCheckInHub,
     () => ({}),
     input => validateIntentId(input.intentId),
@@ -156,12 +170,12 @@ export const commonActions = {
     undefined,
     { taskInput: input => input.taskInput }
   ),
-  redeem_gift_code: mutation<{ code: string }>(
-    '兑换指定礼包码；奖励按服务端回执发送邮件，兑换成功不代表附件已经领取。',
+  redeem_gift_code: mutation<{ code: string; intentId?: string; taskInput?: string }>(
+    '兑换指定礼包码；奖励按服务端回执发送邮件，兑换成功不代表附件已经领取。同消息新操作使用新 intentId，同次重试沿用原编号。',
     'gift-codes.redeem',
-    object({ code: { type: 'string', minLength: 1 } }),
+    object({ code: { type: 'string', minLength: 1 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, rewardSummary: list(text) }),
-    input => `/礼包码 ${input.code.replace(/\s+/g, '').toUpperCase()}`,
+    input => input.taskInput === undefined ? `/礼包码 ${input.code.replace(/\s+/g, '').toUpperCase()}` : `/${input.taskInput.trim().replace(/^[!！/#＃]\s*/, '')}`,
     data => {
       const result = parseRobotGiftCode(data);
 
@@ -173,10 +187,20 @@ export const commonActions = {
     },
     input => ({ code: input.code.replace(/\s+/g, '').toUpperCase() }),
     input => {
+      validateIntentId(input.intentId);
       if (!input.code.replace(/\s+/g, '')) {
-        throw new Error('礼包码不能为空');
+        throw new ExposeError('INVALID_INPUT', '礼包码不能为空');
       }
-    }
+      if (input.taskInput !== undefined) {
+        const command = input.taskInput.trim().replace(/^[!！/#＃]\s*/, '');
+        const match = command.match(/^(?:礼包码|礼品码)\s+(.+)$/u);
+
+        if (match?.[1].replace(/\s+/g, '').toUpperCase() !== input.code.replace(/\s+/g, '').toUpperCase()) {
+          throw new ExposeError('INVALID_INPUT', '任务步骤必须为礼包码或礼品码指令，且兑换码一致');
+        }
+      }
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_email_detail: observation<{ emailId: number }>(
     '查看本人指定邮件详情并将未读邮件标记为已读；不会领取附件。goodsJson 原样表示服务端附件 JSON，资格以 canClaim、canDelete 为准。',
@@ -207,13 +231,16 @@ export const commonActions = {
     (data, input) => parseEmailDelete(data, input.emailId),
     input => input
   ),
-  delete_read_emails: mutation(
-    '批量删除服务端允许删除的已读邮件，未领取附件的已读邮件会被跳过；以实际 deleted 和 total 回执为准。',
+  delete_read_emails: mutation<{ intentId?: string; taskInput?: string }>(
+    '批量删除服务端允许删除的已读邮件，未领取附件的已读邮件会被跳过；以实际 deleted 和 total 回执为准。同消息新操作使用新 intentId，同次重试沿用原编号。',
     'emails.delete-all',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ deleted: integer, total: integer }),
     () => '/一键删除邮件',
-    parseEmailDeleteAll
+    parseEmailDeleteAll,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   claim_email: mutation<{ emailId: number; intentId?: string; taskInput?: string }>(
     '领取指定邮件附件，服务端校验归属和领取状态。',

@@ -20,7 +20,7 @@ test('导航查询保留未注册与已注册账号的服务端状态', async t 
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     assert.equal(new URL(request.url).pathname, '/api/v2/robot/business/navigation.help');
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
-    assert.equal(body.messageText, '/帮助');
+    assert.equal(body.messageText, '/修仙帮助');
     return { status: 200, headers: {}, data: JSON.stringify({ data: current.result }) };
   } }));
   for (current of rows) {

@@ -33,6 +33,23 @@ export function validateIntentId(intentId: string | undefined) {
   }
 }
 
+export function taskAliasCommand(taskInput: string | undefined, commands: readonly string[]) {
+  if (taskInput === undefined) {
+    return `/${commands[0]}`;
+  }
+  const command = taskInput
+    .trim()
+    .replace(/^[!！/#＃]\s*/, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!commands.includes(command)) {
+    throw new ExposeError('INVALID_INPUT', '任务指令与所选操作不匹配');
+  }
+
+  return `/${command}`;
+}
+
 /** A new snapshot for each call; mutations continue to use stable retry keys. */
 export function observation<I extends Record<string, unknown>>(
   description: string,

@@ -50,14 +50,16 @@ export const membershipActions = {
     () => '/礼包奖励',
     parseBackendFirstRechargeInfo
   ),
-  claim_first_recharge_reward: mutation<{ tierYuan: number }>(
+  claim_first_recharge_reward: mutation<{ tierYuan: number; intentId?: string; taskInput?: string }>(
     '领取指定首充礼包档位，tierYuan 使用查询结果中的整数元档位；是否符合资格以服务端结果为准。',
     'recharge.first-claim',
-    object({ tierYuan: day(Math.floor(Number.MAX_SAFE_INTEGER / 100)) }),
+    object({ tierYuan: day(Math.floor(Number.MAX_SAFE_INTEGER / 100)), intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ tierYuan: number, issued }),
     input => `/领取礼包奖励 ${input.tierYuan}`,
     parseRobotFirstRechargeClaim,
-    input => commandArgs(`/领取礼包奖励 ${input.tierYuan}`)
+    input => commandArgs(`/领取礼包奖励 ${input.tierYuan}`),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_newcomer_recharge_rebate: observation(
     '查询新人返利周期、充值门槛和各日领取状态；金额字段单位为分。',
@@ -79,14 +81,16 @@ export const membershipActions = {
     () => '/新人返利',
     parseBackendNewcomerRechargeInfo
   ),
-  claim_newcomer_recharge_rebate: mutation<{ dayIndex: number }>(
+  claim_newcomer_recharge_rebate: mutation<{ dayIndex: number; intentId?: string; taskInput?: string }>(
     '领取新人返利指定天数奖励，服务端检查周期、充值门槛和领取状态。',
     'recharge.newcomer-claim',
-    object({ dayIndex: day(14) }),
+    object({ dayIndex: day(14), intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ dayIndex: integer, reward: object({ ...fields(integer, 'spiritStone spiritCrystal spiritMilk'), itemIds: text }), rewardText: text }),
     input => `/新人返利领取 ${input.dayIndex}`,
     parseBackendNewcomerRechargeClaim,
-    input => commandArgs(`/新人返利领取 ${input.dayIndex}`)
+    input => commandArgs(`/新人返利领取 ${input.dayIndex}`),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_weekly_recharge_rebate: observation(
     '查询本周返利资格、充值门槛和各日奖励；amount 字段单位为分，Yuan 字段单位为元。',
@@ -109,14 +113,16 @@ export const membershipActions = {
     () => '/周周返利',
     parseBackendWeeklyRebate
   ),
-  claim_weekly_recharge_rebate: mutation<{ dayIndex: number }>(
+  claim_weekly_recharge_rebate: mutation<{ dayIndex: number; intentId?: string; taskInput?: string }>(
     '领取周返利指定天数奖励；第 8 项为满勤奖励，服务端判断领取资格。',
     'recharge.weekly-rebate-claim',
-    object({ dayIndex: day(8) }),
+    object({ dayIndex: day(8), intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ dayIndex: integer, issued }),
     input => `/周周返利领取 ${input.dayIndex}`,
     parseRobotWeeklyRebateClaim,
-    input => commandArgs(`/周周返利领取 ${input.dayIndex}`)
+    input => commandArgs(`/周周返利领取 ${input.dayIndex}`),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_membership_rights: observation(
     '查询本人权益、月卡到期与每日奖励状态、探索通行证和充值进度；金额单位为分。reviewRequired 表示奖励状态需要核对，不领取或购买。',

@@ -1,7 +1,7 @@
 import { parseBackendReferralBind, parseBackendReferralClaim } from '../api/bot/referral-actions';
 import { parseReferralInvitees } from '../api/bot/referral-invitees';
 import { parseBackendReferralOverview } from '../api/bot/referral-overview';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { integer, list, object, page, text } from './schema';
 
 const reward = object({ name: text, amount: integer });
@@ -68,28 +68,34 @@ export const referralActions = {
     input => `/我的邀请 ${input.page}`,
     (data, input) => parseReferralInvitees(data, input.page)
   ),
-  bind_referral_code: mutation<{ code: string }>(
+  bind_referral_code: mutation<{ code: string; intentId?: string; taskInput?: string }>(
     '绑定玩家明确提供的邀请码，服务端校验绑定资格并发放实际奖励；绑定结果不能由调用方自行撤销。',
     'referral.bind',
-    object({ code: { type: 'string', minLength: 1, maxLength: 100 } }),
+    object({ code: { type: 'string', minLength: 1, maxLength: 100 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, issued: list(reward) }),
     input => `/绑定邀请码 ${input.code}`,
     data => {
       const row = result(data);
 
       return { message: row.message, issued: parseBackendReferralBind(row.data) };
-    }
+    },
+    input => ({ code: input.code }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_referral_rewards: mutation(
-    '领取本人已达成的邀请奖励；返回服务端实际领取条数和发放物品。',
+  claim_referral_rewards: mutation<{ intentId?: string; taskInput?: string }>(
+    '领取本人已达成的邀请奖励；返回服务端实际领取条数和发放物品。同消息新领取使用新 intentId，同次重试沿用原编号。',
     'referral.claim',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, claimed: integer, issued: list(reward) }),
     () => '/领取邀请奖励',
     data => {
       const row = result(data);
 
       return { message: row.message, ...parseBackendReferralClaim(row.data) };
-    }
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

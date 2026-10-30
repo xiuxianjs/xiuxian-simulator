@@ -72,7 +72,24 @@ const care = (operation: 'cave.water' | 'cave.worm' | 'cave.weed' | 'cave.harves
     operation,
     object({ plotIndex, intentId: intentIdSchema, taskInput: taskInputSchema }, ['plotIndex', 'intentId', 'taskInput']),
     commandResult,
-    input => `/${word}${input.plotIndex === undefined ? '' : ` ${input.plotIndex}`}`,
+    input => {
+      const suffix = `${word}${input.plotIndex === undefined ? '' : ` ${input.plotIndex}`}`;
+
+      if (input.taskInput === undefined) {
+        return `/${suffix}`;
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+      if (command !== suffix && command !== `一键${suffix}`) {
+        throw new ExposeError('INVALID_INPUT', '灵田任务指令与操作或地块不匹配');
+      }
+
+      return `/${command}`;
+    },
     data => {
       const result = parseRobotCaveAction(data);
 
@@ -365,7 +382,21 @@ export const caveActions = {
     'cave.cultivate',
     object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
-    () => '/开垦所有',
+    input => {
+      if (input.taskInput === undefined) {
+        return '/开垦所有';
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim();
+
+      if (!['开垦所有', '一键开垦'].includes(command)) {
+        throw new ExposeError('INVALID_INPUT', '批量开垦任务指令不匹配');
+      }
+
+      return `/${command}`;
+    },
     parseBackendCaveCommand,
     () => ({ plotIndex: null, all: true }),
     input => validateIntentId(input.intentId),

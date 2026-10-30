@@ -26,48 +26,64 @@ const bookInput = object({ bookId: { type: 'integer', minimum: 1, maximum: Numbe
   'taskInput'
 ]);
 
+const equipmentTypeName = { type: 'string' as const, enum: ['武器', '饰品', '法袍', '衣服', '鞋', '鞋子', '头饰', '羽翼'] };
+const equippedDetail = object(
+  {
+    playerName: text,
+    item: object(
+      {
+        ...fields(integer, 'id isLocked physicalAttack magicAttack physicalDefense magicDefense hp speed'),
+        ...fields(
+          number,
+          'physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent critRate critDamage antiCritRate hitRate dodgeRate'
+        ),
+        ...fields(text, 'name gradeName crafterName'),
+        recoveryEffects: list(
+          object({
+            ...fields(text, 'source name status statusText conditionText'),
+            ...fields(number, 'templateId mp mental pieces currentPieces'),
+            active: boolean
+          })
+        )
+      },
+      ['gradeName', 'crafterName', 'recoveryEffects']
+    )
+  },
+  ['playerName']
+);
+const parseEquippedDetail = (data: unknown) => {
+  const rawItem = (data as { item?: { recoveryEffects?: unknown } | null } | null)?.item;
+  const hasRecoveryEffects = rawItem?.recoveryEffects !== undefined && rawItem?.recoveryEffects !== null;
+  const result = parseBackendEquipmentDetail(data);
+
+  if (!result.item) {
+    throw new Error('装备详情成功响应缺少装备');
+  }
+
+  return { ...result, item: { ...result.item, recoveryEffects: hasRecoveryEffects ? result.item.recoveryEffects : undefined } };
+};
+
 export const loadoutActions = {
   get_equipped_detail: observation<{ typeName: string }>(
     '查询本人指定类型当前穿戴的装备实例、属性及恢复效果；item.id 可用于 unequip_equipment_by_id，未穿戴时保留服务端拒绝。',
     'equipment.detail',
-    object({ typeName: { type: 'string', enum: ['武器', '饰品', '法袍', '衣服', '鞋', '鞋子', '头饰', '羽翼'] } }),
-    object(
-      {
-        playerName: text,
-        item: object(
-          {
-            ...fields(integer, 'id isLocked physicalAttack magicAttack physicalDefense magicDefense hp speed'),
-            ...fields(
-              number,
-              'physicalAttackPercent magicAttackPercent physicalDefensePercent magicDefensePercent hpPercent critRate critDamage antiCritRate hitRate dodgeRate'
-            ),
-            ...fields(text, 'name gradeName crafterName'),
-            recoveryEffects: list(
-              object({
-                ...fields(text, 'source name status statusText conditionText'),
-                ...fields(number, 'templateId mp mental pieces currentPieces'),
-                active: boolean
-              })
-            )
-          },
-          ['gradeName', 'crafterName', 'recoveryEffects']
-        )
-      },
-      ['playerName']
-    ),
+    object({ typeName: equipmentTypeName }),
+    equippedDetail,
     input => `/我的${input.typeName}`,
-    data => {
-      const rawItem = (data as { item?: { recoveryEffects?: unknown } | null } | null)?.item;
-      const hasRecoveryEffects = rawItem?.recoveryEffects !== undefined && rawItem?.recoveryEffects !== null;
-      const result = parseBackendEquipmentDetail(data);
-
-      if (!result.item) {
-        throw new Error('装备详情成功响应缺少装备');
-      }
-
-      return { ...result, item: { ...result.item, recoveryEffects: hasRecoveryEffects ? result.item.recoveryEffects : undefined } };
-    },
+    parseEquippedDetail,
     input => ({ typeName: input.typeName })
+  ),
+
+  execute_task_equipped_detail: mutation<{ typeName: string; taskInput: string; intentId?: string }>(
+    '执行连锁任务中指定已穿戴装备部位的详情查询；服务端先推进任务再查询，分别检查任务和查询回执。新操作使用新 intentId，同次重试沿用原编号。',
+    'equipment.detail',
+    object({ typeName: equipmentTypeName, taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    equippedDetail,
+    input => `/我的${input.typeName}`,
+    parseEquippedDetail,
+    input => ({ typeName: input.typeName }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
 
   equip_equipment: mutation<{ identifier: string; intentId?: string; taskInput?: string }>(

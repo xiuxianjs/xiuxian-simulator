@@ -29,7 +29,14 @@ test('任务面板 Expose 保留真实师门、道侣及服务端错误状态', 
   const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
   for (const row of rows) {
     current = row;
-    const response = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_task_panel', { tab: row.arguments.tab }), 'ai-plugin');
+    const response = await app.invoke(event, () => {
+      const client = Expose.create();
+      const provider = client.list(GAME_EXPOSE_PROTOCOL).find(item => item.actions.get_task_panel);
+      assert.ok(provider);
+      assert.ok(provider.actions.get_task_panel.inputSchema);
+      assert.ok(provider.actions.get_task_panel.outputSchema);
+      return client.call(GAME_EXPOSE_PROTOCOL, provider.name, 'get_task_panel', { tab: row.arguments.tab });
+    }, 'ai-plugin');
     assert.equal(response.value.ok, true, JSON.stringify(response.value));
     if (!response.value.ok) continue;
     const result = (response.value.data as any).result;

@@ -247,6 +247,19 @@ const equipped = object(
   },
   ['playerName']
 );
+
+function parseEquippedForExpose(raw: unknown) {
+  const parsed = parseBackendEquipped(raw);
+  const rawSets = (raw as { sets: Array<{ recoveryEffects?: unknown }> }).sets;
+
+  return {
+    ...parsed,
+    sets: parsed.sets.map((set, index) => ({
+      ...set,
+      recoveryEffects: rawSets[index].recoveryEffects === null || rawSets[index].recoveryEffects === undefined ? undefined : set.recoveryEffects
+    }))
+  };
+}
 const learnedBook = object(
   {
     ...fields(integer, 'id status isHidden upgradeCount proficiency physicalAttack magicAttack physicalDefense magicDefense hp'),
@@ -468,6 +481,17 @@ export const commonQueryActions = {
     input => validateIntentId(input.intentId),
     { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
+  execute_task_equipped: mutation<{ taskInput: string; intentId?: string }>(
+    '执行连锁任务中的我的装备步骤，返回当前穿戴、空槽及套装效果；分别检查任务推进和查询回执。同消息新操作使用新 intentId，同次重试沿用原编号。',
+    'equipment.equipped',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    equipped,
+    () => '/我的装备',
+    parseEquippedForExpose,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   execute_task_meridians: mutation<{ taskInput: string; intentId?: string }>(
     '执行经络连锁任务查看步骤，返回经络状态和任务推进回执。',
     'meridians.view',
@@ -524,16 +548,8 @@ export const commonQueryActions = {
     equipped,
     async ({ bid, uid, request }) => {
       const raw = await requestBackend(bid, 'get_players_id_equipment_equipped', { path: { id: uid }, ...request });
-      const parsed = parseBackendEquipped(raw);
-      const rawSets = (raw as { sets: Array<{ recoveryEffects?: unknown }> }).sets;
 
-      return {
-        ...parsed,
-        sets: parsed.sets.map((set, index) => ({
-          ...set,
-          recoveryEffects: rawSets[index].recoveryEffects === null || rawSets[index].recoveryEffects === undefined ? undefined : set.recoveryEffects
-        }))
-      };
+      return parseEquippedForExpose(raw);
     }
   ),
   get_learned_books: query(

@@ -33,6 +33,10 @@ test('宗门升级与刷新保留实际消耗和页面失败边界', async t => 
     if (response.value.ok && action === 'upgrade_guild_level') assert.equal((response.value.data as any).result.receipt.spiritStoneCost, 40);
     await call(); assert.equal(keys.at(-1), keys.at(-2));
     if (action === 'refresh_guild_shop') {
+      const refresh = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { intentId }), 'ai-plugin');
+      assert.equal((await refresh('first')).value.ok, true); const first = keys.at(-1);
+      assert.equal((await refresh('first')).value.ok, true); assert.equal(keys.at(-1), first);
+      assert.equal((await refresh('second')).value.ok, true); assert.notEqual(keys.at(-1), first);
       envelope.data.data.page = null;
       const partial = await call(); assert.equal(partial.value.ok, true);
       if (partial.value.ok) assert.match((partial.value.data as any).result.pageError, /刷新已完成/);

@@ -38,3 +38,37 @@ for (const scenario of ['success', 'failure'] as const) test(`天师宝录：${s
   await call();
   assert.equal(keys[0], keys[1]);
 });
+
+test('天师宝录任务保留原指令、服务端回执和同次重试编号', async t => {
+  const fixture = fixtures.find(row => row.args.category === 'all' && row.args.page === 1 && row.envelope.data.success);
+  assert.ok(fixture);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/天师宝录');
+    assert.equal(body.taskInput, '天师宝录');
+    assert.deepEqual(body.arguments, { category: 'all', page: 1 });
+    keys.push(request.headers['idempotency-key']);
+    const envelope = structuredClone(fixture.envelope);
+    envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (taskInput: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_tianshi_baolu', { category: 'all', page: 1, taskInput, intentId: 'baolu-1' }), 'ai-plugin');
+  const first = await call('天师宝录');
+  assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  if (first.value.ok) {
+    const result = first.value.data as any;
+    assert.deepEqual(result.result, fixture.envelope.data.data);
+    assert.equal(result.taskContinuation.outcome, 'next');
+  }
+  assert.equal((await call('天师宝录')).value.ok, true);
+  assert.equal(keys[0], keys[1]);
+  for (const invalid of ['天师宝录 功法', '天师宝录 p2', '天师宝录 未知']) {
+    assert.equal((await call(invalid)).value.ok, false);
+    assert.equal(keys.length, 2);
+  }
+});

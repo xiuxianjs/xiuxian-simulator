@@ -156,24 +156,33 @@ export const achievementActions = {
       return data;
     }
   ),
-  activate_title: mutation<{ titleId: number }>(
-    '佩戴本人持有的有效称号，titleId 来自 get_titles 的 id；所有权和过期由服务端检查，返回实际佩戴回执。',
+  activate_title: mutation<{ titleId: number; intentId?: string; taskInput?: string }>(
+    '佩戴本人持有的有效称号，titleId 来自 get_titles 的 id；所有权和过期由服务端检查。新操作使用新 intentId，同次重试沿用原编号。',
     'titles.activate',
-    object({ titleId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ titleId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object({ id: integer, title: text, isActive: boolean, description: text, ...titleFacts }, ['description', ...optionalTitleFacts]),
     input => `/佩戴称号 ${input.titleId}`,
     (data, input) => {
       validateBackendActivatedTitle(data, input.titleId);
 
       return data;
-    }
+    },
+    input => ({ titleId: input.titleId }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  deactivate_title: mutation(
-    '卸下本人当前称号；removed=false 表示当前没有需要卸下的称号，不能报告已卸下一个称号。',
+  deactivate_title: mutation<{ intentId?: string; taskInput?: string }>(
+    '卸下本人当前称号；removed=false 表示当前没有需要卸下的称号。新操作使用新 intentId，同次重试沿用原编号。',
     'titles.deactivate',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ removed: boolean }),
     () => '/卸下称号',
-    validateBackendDeactivatedTitle
+    validateBackendDeactivatedTitle,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

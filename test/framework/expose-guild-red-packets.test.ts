@@ -18,6 +18,7 @@ test('宗门红包查询、发送及结算保持原身份和服务端回执', as
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${op}`);
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    if (op === 'guild.red-packet-claim') assert.equal(body.messageText, '/领红包 1');
     assert.deepEqual(body.arguments, args); keys.push(request.headers['idempotency-key']);
     return { status: 200, headers: {}, data: JSON.stringify(envelope) };
   } }));
@@ -39,6 +40,12 @@ test('宗门红包查询、发送及结算保持原身份和服务端回执', as
     const result = await call(); assert.equal(result.value.ok, true, `${action}: ${JSON.stringify(result.value)}`);
     if (result.value.ok && action === 'recycle_guild_red_packet') assert.equal((result.value.data as any).result.refundAmount, 300);
     await call(); if (read) assert.notEqual(keys.at(-1), keys.at(-2)); else assert.equal(keys.at(-1), keys.at(-2));
+    if (action === 'send_guild_red_packet') {
+      const send = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...input, intentId }), 'ai-plugin');
+      assert.equal((await send('first')).value.ok, true); const key = keys.at(-1);
+      assert.equal((await send('first')).value.ok, true); assert.equal(keys.at(-1), key);
+      assert.equal((await send('second')).value.ok, true); assert.notEqual(keys.at(-1), key);
+    }
     if (action === 'claim_guild_red_packet') { envelope.data.data.packetId = 2; const mismatch = await call(); assert.equal(mismatch.value.ok, false); }
   }
   const before = keys.length;

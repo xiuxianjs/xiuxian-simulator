@@ -1,7 +1,7 @@
 import { ExposeError } from 'alemonjs';
 import { parseBackendRegistration } from '../api/bot/registration';
 import { spiritRoot } from './common-queries';
-import { mutation } from './mutation';
+import { intentIdSchema, mutation, validateIntentId } from './mutation';
 import { boolean, integer, list, object, text } from './schema';
 
 const talents = object({
@@ -33,20 +33,26 @@ export const registrationActions = {
       }
     }
   ),
-  continue_registration_guide: mutation(
-    '继续注册后的剧情引导；服务端返回实际步骤和可能发生的奖励或晋级。',
+  continue_registration_guide: mutation<{ intentId?: string }>(
+    '继续注册后的剧情引导；服务端返回实际步骤和可能发生的奖励或晋级。同消息每次新推进使用新 intentId，同次重试沿用原编号。',
     'guide.continue',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({}),
     () => '/继续',
-    () => ({})
+    () => ({}),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  skip_registration_guide: mutation(
+  skip_registration_guide: mutation<{ intentId?: string }>(
     '跳过注册后的剧情引导；服务端决定奖励和晋级结果。',
     'guide.skip',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({}),
     () => '/跳过引导',
-    () => ({})
+    () => ({}),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

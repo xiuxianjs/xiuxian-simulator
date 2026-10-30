@@ -1,4 +1,4 @@
-import { intentIdSchema, mutation, taskInputSchema, validateIntentId } from './mutation';
+import { intentIdSchema, mutation, taskAliasCommand, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, number, object, text } from './schema';
 import { parseGuildCheckin } from '../api/bot/guild-checkin';
 import { parseRobotGuildCheckin } from '../api/bot/guild-daily-robot-query';
@@ -19,7 +19,7 @@ export const guildActions = {
         ...fields(integer, 'guildId contributionAdded prestigeAdded dailyActivityAdded weeklyActivityAdded weeklyBonusSpiritStone weeklyCheckinCount')
       })
     }),
-    () => '/宗门签到',
+    input => taskAliasCommand(input.taskInput, ['宗门签到', '联盟签到']),
     data => {
       const parsed = parseRobotGuildCheckin(data);
 
@@ -49,7 +49,7 @@ export const guildActions = {
         ['baseSpiritStone', 'spiritStoneBonus', 'outputMultiplier']
       )
     }),
-    () => '/宗门采矿',
+    input => taskAliasCommand(input.taskInput, ['宗门采矿', '宗门挖矿']),
     data => {
       const parsed = parseRobotGuildMining(data);
 

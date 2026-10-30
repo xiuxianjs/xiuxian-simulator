@@ -8,6 +8,8 @@ import { parseTowerRanking } from '../api/bot/tower-ranking-queries';
 import { parseStorylineRankingQuery } from '../api/bot/storyline-ranking-queries';
 import { parseAlchemyRanking } from '../api/bot/alchemy-ranking-queries';
 import { parseRobotPopularityLike } from '../api/bot/popularity-like';
+import { parseLeaderboardMenu } from '../api/bot/leaderboard-catalog';
+import { activeFeatureText, mentionsRetiredFeature } from '../response/retiredFeatures';
 import { parseReset, parseRobotDemonTowerBuff, parseSweep } from '../api/bot/demon-tower-actions';
 import { parseRobotDemonTowerChallenge } from '../api/bot/demon-tower-challenge-robot-query';
 import { parseDemonTowerInfo } from '../api/bot/demon-tower-info-query';
@@ -123,10 +125,25 @@ const alchemyEntry = object({
 });
 
 export const battleActions = {
-  challenge_scarecrow: mutation<{ rounds?: number }>(
-    '进行稻草人伤害测试，测试本身不扣修为、精力或真气；入场可能结算常规资源。可指定 1 至 20 回合，省略时使用服务端默认回合。返回伤害统计与战斗日志编号。',
+  get_leaderboard_catalog: observation(
+    '查询当前排行榜目录和说明；command 是服务端聊天入口提示，不会自动执行，具体榜单请调用对应 Expose 查询。',
+    'leaderboard.menu',
+    empty,
+    object({ items: list(object(fields(text, 'group label command description'))), hint: text }),
+    () => '/排行榜',
+    data => {
+      const menu = parseLeaderboardMenu(data);
+
+      return {
+        items: menu.items.filter(item => !mentionsRetiredFeature(item.command) && !mentionsRetiredFeature(item.label)),
+        hint: activeFeatureText(menu.hint)
+      };
+    }
+  ),
+  challenge_scarecrow: mutation<{ rounds?: number; intentId?: string; taskInput?: string }>(
+    '进行稻草人伤害测试，测试本身不扣修为、精力或真气；入场可能结算常规资源。可指定 1 至 20 回合，省略时使用服务端默认回合。返回伤害统计与战斗日志编号；同消息新测试使用新 intentId，同次重试沿用原编号。',
     'scarecrow.challenge',
-    object({ rounds: { type: 'integer', minimum: 1, maximum: 20 } }, ['rounds']),
+    object({ rounds: { type: 'integer', minimum: 1, maximum: 20 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['rounds', 'intentId', 'taskInput']),
     object({
       logId: text,
       rounds: integer,
@@ -139,7 +156,9 @@ export const battleActions = {
     }),
     input => `/挑战稻草人${input.rounds === undefined ? '' : ` ${input.rounds}`}`,
     parseBackendScarecrow,
-    input => ({ roundsText: input.rounds === undefined ? null : String(input.rounds) })
+    input => ({ roundsText: input.rounds === undefined ? null : String(input.rounds) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_battle_log: observation<{ logId: string }>(
     '查询指定战斗日志；日志可能已过期，若仅有战斗回忆则 text 缺失且 memoryAvailable=true。仅使用战斗结果返回的 logId。',
@@ -159,13 +178,18 @@ export const battleActions = {
     },
     input => ({ logId: input.logId })
   ),
-  like_popularity: mutation<{ targetUid: number; boardType: string }>(
-    '为指定榜单上的目标玩家点赞；服务端校验目标、本人资格和每日限制，并返回实际奖励及剩余次数。targetUid 是目标，不是调用者身份。',
+  like_popularity: mutation<{ targetUid: number; boardType: string; intentId?: string; taskInput?: string }>(
+    '为指定榜单上的目标玩家点赞；服务端校验目标、本人资格和每日限制，并返回实际奖励及剩余次数。targetUid 是目标，不是调用者身份。同消息新点赞使用新 intentId，同次重试沿用原编号。',
     'popularity.like',
-    object({
-      targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
-      boardType: { type: 'string', enum: ['battle', 'realm', 'storyline', 'demonTower', 'regionBattle', 'regionRealm', 'alchemy'] }
-    }),
+    object(
+      {
+        targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        boardType: { type: 'string', enum: ['battle', 'realm', 'storyline', 'demonTower', 'regionBattle', 'regionRealm', 'alchemy'] },
+        intentId: intentIdSchema,
+        taskInput: taskInputSchema
+      },
+      ['intentId', 'taskInput']
+    ),
     object(
       {
         outcome: { type: 'string', enum: ['liked', 'ignored'] },
@@ -187,7 +211,9 @@ export const battleActions = {
 
       return result;
     },
-    input => ({ target: { uid: input.targetUid }, boardType: input.boardType })
+    input => ({ target: { uid: input.targetUid }, boardType: input.boardType }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_popularity_leaderboard: observation(
     '查询人气排行榜、本人及附近排名；未解锁时保留服务端拒绝。',

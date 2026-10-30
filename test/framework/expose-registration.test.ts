@@ -44,6 +44,15 @@ test('注册和剧情引导使用服务端真实回执并保留引导结果', as
     assert.equal((continued.value.data as any).guide.action, 'step-3');
     assert.deepEqual((continued.value.data as any).guide.progress.version, envelopes.continue.data.middleware.guide.progress.version);
   }
+  const firstIntentIndex = requests.length;
+  assert.equal((await call('continue_registration_guide', { intentId: 'step-1' })).value.ok, true);
+  assert.equal((await call('continue_registration_guide', { intentId: 'step-1' })).value.ok, true);
+  assert.equal((await call('continue_registration_guide', { intentId: 'step-2' })).value.ok, true);
+  assert.equal(requests[firstIntentIndex].headers['idempotency-key'], requests[firstIntentIndex + 1].headers['idempotency-key']);
+  assert.notEqual(requests[firstIntentIndex].headers['idempotency-key'], requests[firstIntentIndex + 2].headers['idempotency-key']);
+  const beforeInvalidIntent = requests.length;
+  assert.equal((await call('continue_registration_guide', { intentId: 'bad intent' })).value.ok, false);
+  assert.equal(requests.length, beforeInvalidIntent);
   const skipped = await call('skip_registration_guide');
   assert.equal(skipped.value.ok, true, JSON.stringify(skipped.value));
   if (skipped.value.ok) {

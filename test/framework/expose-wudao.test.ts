@@ -30,6 +30,12 @@ test('功法悟道查询和消耗返回真实候选与结算', async t => {
     const response = await call(); assert.equal(response.value.ok, true, JSON.stringify(response.value));
     if (response.value.ok && key === 'spend') { const result = (response.value.data as any).result.result; assert.equal(result.newMax, 20); assert.equal(result.remaining, 1); }
     await call(); if (key === 'options') assert.notEqual(keys.at(-1), keys.at(-2)); else assert.equal(keys.at(-1), keys.at(-2));
-    if (key === 'spend') { envelope.data.data.result.label = '暴击率'; assert.equal((await call()).value.ok, false); }
+    if (key === 'spend') {
+      const spend = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...input, intentId }), 'ai-plugin');
+      assert.equal((await spend('first')).value.ok, true); const first = keys.at(-1);
+      assert.equal((await spend('first')).value.ok, true); assert.equal(keys.at(-1), first);
+      assert.equal((await spend('second')).value.ok, true); assert.notEqual(keys.at(-1), first);
+      envelope.data.data.result.label = '暴击率'; assert.equal((await call()).value.ok, false);
+    }
   }
 });

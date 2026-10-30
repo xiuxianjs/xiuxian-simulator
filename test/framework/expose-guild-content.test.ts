@@ -42,4 +42,13 @@ test('宗门内容和精华保留服务端权限与回执', async t => {
   assert.equal(tooLong.value.ok, false); assert.equal(keys.length, before);
   const newline = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'add_guild_essence', { content: '内容\n其他命令' }), 'ai-plugin');
   assert.equal(newline.value.ok, false); assert.equal(keys.length, before);
+  op = 'guild.essence-add'; args = { content: '长老新增精华' };
+  envelope = structuredClone(fixtures.find(row => row.op === op && row.envelope.data.success && row.envelope.data.data?.outcome === 'result')?.envelope);
+  assert.ok(envelope);
+  const add = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'add_guild_essence', { content: args.content, intentId }), 'ai-plugin');
+  assert.equal((await add('first')).value.ok, true); const firstKey = keys.at(-1);
+  assert.equal((await add('first')).value.ok, true); assert.equal(keys.at(-1), firstKey);
+  assert.equal((await add('second')).value.ok, true); assert.notEqual(keys.at(-1), firstKey);
+  const count = keys.length;
+  assert.equal((await add('bad id')).value.ok, false); assert.equal(keys.length, count);
 });

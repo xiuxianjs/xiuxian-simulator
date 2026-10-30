@@ -70,7 +70,7 @@ for (const action of Object.keys(commonQueryActions)) test(`${action}: 关闭与
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => { throw new Error('unexpected HTTP'); });
   const taskInputs: Record<string, string> = {
-    execute_task_learned_books: '我的功法', execute_task_emails: '我的邮件', execute_task_shop: '商店',
+    execute_task_learned_books: '我的功法', execute_task_emails: '我的邮件', execute_task_shop: '商店', execute_task_equipped: '我的装备',
     execute_task_meridians: '经络', execute_task_world_boss: '凶兽'
   };
   const input = action === 'get_storyline_chapter' ? { chapterNumber: 1 } : taskInputs[action] ? { taskInput: taskInputs[action] } : {};

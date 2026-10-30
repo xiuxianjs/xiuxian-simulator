@@ -32,12 +32,12 @@ for (const match of output.matchAll(/ROBOT_DUNGEON_(?:CHALLENGE|SWEEP)_RESPONSE=
   const result = JSON.parse(match[3]).data;
   if (result.data?.outcome === 'no_match') continue;
   const operation = match[1];
-  const action = operation === 'dungeon.challenge' ? 'challenge_dungeon' : operation === 'dungeon.sweep' ? 'sweep_dungeon' : 'sweep_free_dungeons';
-  const input = action === 'sweep_free_dungeons' ? {} : { dungeonName: '测试秘境', ...(action === 'sweep_dungeon' ? { times: 1 } : {}) };
+  const action = operation === 'dungeon.challenge' ? 'challenge_dungeon' : operation === 'dungeon.sweep' ? 'sweep_dungeon' : operation === 'dungeon.sweep-free-detailed' ? 'sweep_free_dungeons_with_ids' : 'sweep_free_dungeons';
+  const input = action.startsWith('sweep_free_dungeons') ? {} : { dungeonName: '测试秘境', ...(action === 'sweep_dungeon' ? { times: 1 } : {}) };
   fixtures.push({ action, operation, input, bid: match[2], result });
 }
 assert.ok(fixtures.length > 100);
-for (const action of ['challenge_dungeon', 'sweep_dungeon', 'sweep_free_dungeons', 'sweep_storyline', 'claim_storyline_chest', 'claim_storyline_chapter_chests', 'claim_all_storyline_chests']) test(`${action}: 实际 Go 结算、拒绝、重复领取及部分奖励`, async t => {
+for (const action of ['challenge_dungeon', 'sweep_dungeon', 'sweep_free_dungeons', 'sweep_free_dungeons_with_ids', 'sweep_storyline', 'claim_storyline_chest', 'claim_storyline_chapter_chests', 'claim_all_storyline_chests']) test(`${action}: 实际 Go 结算、拒绝、重复领取及部分奖励`, async t => {
   const rows = fixtures.filter(row => row.action === action);
   assert.ok(rows.length > 0);
   const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
@@ -54,7 +54,7 @@ for (const action of ['challenge_dungeon', 'sweep_dungeon', 'sweep_free_dungeons
     assert.deepEqual(result.errors, []);
     assert.deepEqual(result.messages, []);
     assert.deepEqual(result.actions, []);
-    assert.equal(result.value.ok, true, `${action} ${JSON.stringify(current.input)} ${JSON.stringify(result.value)}`);
+    assert.equal(result.value.ok, true, `${action} ${JSON.stringify(current.input)} ${JSON.stringify(result.value)} server=${JSON.stringify(current.result.data)}`);
     if (!result.value.ok) continue;
     const actual = result.value.data as any;
     assert.equal(actual.success, current.result.success);

@@ -3,7 +3,7 @@ import { parseGuildRedPackets } from '../api/bot/guild-red-packets-queries';
 import { parseGuildMyRedPackets } from '../api/bot/guild-my-red-packets-queries';
 import { parseGuildRedPacketSettlement } from '../api/bot/guild-red-packet-mutations';
 import { parseRobotGuildRedPacketSend } from '../api/bot/guild-red-packet-send-robot-query';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -21,7 +21,7 @@ const ownPacket = object(
   ['expiresAt']
 );
 
-type Send = { currency: 'spirit_stone' | 'spirits_crystal' | 'contribution'; count: number; amount: number };
+type Send = { currency: 'spirit_stone' | 'spirits_crystal' | 'contribution'; count: number; amount: number; intentId?: string };
 const names = { spirit_stone: '灵石', spirits_crystal: '灵晶', contribution: '贡献点' } as const;
 const settlement = (action: '领取' | '回收') => (data: unknown, input: { packetId: number }) => {
   const result = parseGuildRedPacketSettlement(data, action);
@@ -55,7 +55,7 @@ export const guildRedPacketActions = {
     'guild.red-packet-claim',
     object({ packetId: id }),
     object({ packetId: integer, currencyType: text, amount: integer, message: text }),
-    input => `/领取红包 ${input.packetId}`,
+    input => `/领红包 ${input.packetId}`,
     settlement('领取'),
     input => input
   ),
@@ -69,13 +69,17 @@ export const guildRedPacketActions = {
     input => input
   ),
   send_guild_red_packet: mutation<Send>(
-    '发送宗门红包，会扣除红包道具及份数乘每份金额；发送者自动领取一份，以服务端实际回执为准。',
+    '发送宗门红包，会扣除红包道具及份数乘每份金额；发送者自动领取一份，以服务端实际回执为准。同消息新红包使用新 intentId，同次重试沿用原编号。',
     'guild.red-packet-send',
-    object({
-      currency: { type: 'string', enum: ['spirit_stone', 'spirits_crystal', 'contribution'] },
-      count: { type: 'integer', minimum: 5, maximum: 30 },
-      amount: { type: 'integer', minimum: 100, maximum: 100000 }
-    }),
+    object(
+      {
+        currency: { type: 'string', enum: ['spirit_stone', 'spirits_crystal', 'contribution'] },
+        count: { type: 'integer', minimum: 5, maximum: 30 },
+        amount: { type: 'integer', minimum: 100, maximum: 100000 },
+        intentId: intentIdSchema
+      },
+      ['intentId']
+    ),
     object({
       outcome: text,
       receipt: object({ ...fields(integer, 'packetId packetCount perAmount autoClaimedAmount'), ...fields(text, 'currencyType message') })
@@ -101,9 +105,11 @@ export const guildRedPacketActions = {
       amount: { text: String(input.amount), value: input.amount }
     }),
     input => {
+      validateIntentId(input.intentId);
       if (![5, 10, 15, 20, 25, 30].includes(input.count) || ![100, 1000, 10000, 100000].includes(input.amount)) {
         throw new ExposeError('INVALID_INPUT', '红包份数或每份金额不在服务端支持范围内');
       }
-    }
+    },
+    { intentId: input => input.intentId }
   )
 };

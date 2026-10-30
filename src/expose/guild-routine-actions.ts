@@ -1,3 +1,4 @@
+import { ExposeError } from 'alemonjs';
 import {
   parseGuildBattleTrainingState,
   parseGuildBattleTrainingUpgrade,
@@ -190,7 +191,23 @@ export const guildRoutineActions = {
     'guild.milestone-claim-all',
     object({ type: period, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, partial: boolean, claimed: list(object({ ...fields(integer, 'id threshold'), description: text })) }),
-    input => `/一键领取宗门${label(input.type)}奖励`,
+    input => {
+      const suffix = `宗门${label(input.type)}奖励`;
+
+      if (input.taskInput === undefined) {
+        return `/一键领取${suffix}`;
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim();
+
+      if (![`一键领取${suffix}`, `领取全部${suffix}`].includes(command)) {
+        throw new ExposeError('INVALID_INPUT', '宗门奖励任务指令与奖励周期不匹配');
+      }
+
+      return `/${command}`;
+    },
     parseGuildMilestonesClaimAll,
     input => ({ type: input.type }),
     input => validateIntentId(input.intentId),

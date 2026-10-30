@@ -175,17 +175,22 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
   const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
   for (current of [
     { action: 'checkin_guild', op: 'guild.checkin', command: '宗门签到', args: {}, input: {} },
+    { action: 'checkin_guild', op: 'guild.checkin', command: '联盟签到', args: {}, input: {} },
     { action: 'mine_guild', op: 'guild.mining', command: '宗门采矿', args: {}, input: {} },
+    { action: 'mine_guild', op: 'guild.mining', command: '宗门挖矿', args: {}, input: {} },
     { action: 'claim_guild_stipend', op: 'guild.stipend-claim', command: '领取宗门俸禄', args: {}, input: {} },
     { action: 'claim_companion_daily', op: 'companion.claim-daily', command: '道侣签到', args: {}, input: {} },
     { action: 'claim_companion_month_card', op: 'companion.claim-month-card', command: '道侣月卡', args: {}, input: {} },
     { action: 'cultivate_all_cave_plots', op: 'cave.cultivate', command: '开垦所有', args: { plotIndex: null, all: true }, input: {} },
+    { action: 'cultivate_all_cave_plots', op: 'cave.cultivate', command: '一键开垦', args: { plotIndex: null, all: true }, input: {} },
     { action: 'cultivate_cave_plot', op: 'cave.cultivate', command: '开垦 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
     { action: 'upgrade_cave_plot', op: 'cave.upgrade', command: '升级灵田 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
     { action: 'claim_newcomer_login', op: 'checkin.newcomer-login', command: '初入仙途签到', args: {}, input: {} },
     { action: 'claim_newcomer_task', op: 'newcomer-activity.claim-task', command: '新人任务领取 1', args: { taskConfigId: 1 }, input: { taskConfigId: 1 } },
     { action: 'claim_guild_milestone', op: 'guild.milestone-claim', command: '领取宗门日活奖励 1', args: { milestoneArg: '1', expectedType: 'daily_activity' }, input: { type: 'daily_activity', milestoneId: 1 } },
     { action: 'claim_all_guild_milestones', op: 'guild.milestone-claim-all', command: '一键领取宗门周活奖励', args: { type: 'weekly_activity' }, input: { type: 'weekly_activity' } },
+    { action: 'claim_all_guild_milestones', op: 'guild.milestone-claim-all', command: '领取全部宗门日活奖励', args: { type: 'daily_activity' }, input: { type: 'daily_activity' } },
+    { action: 'claim_all_guild_milestones', op: 'guild.milestone-claim-all', command: '领取全部宗门周活奖励', args: { type: 'weekly_activity' }, input: { type: 'weekly_activity' } },
     { action: 'worship_guild', op: 'guild.worship', command: '祭祀祖师 灵石', args: { offer: '灵石' }, input: { offer: '灵石' } },
     { action: 'dual_cultivate', op: 'companion.dual-cultivation', command: '双修', args: {}, input: {} },
     { action: 'challenge_guild_storyline', op: 'guild.storyline-challenge', command: '宗门主线挑战', args: {}, input: {} },
@@ -269,17 +274,26 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     { action: 'learn_current_skill_batch', op: 'skill-books.batch-learn', command: '一键学习功法 确认', args: { mode: 'execute' }, input: {} },
     { action: 'start_meditation', op: 'meditation.start', command: '闭关', args: {}, input: {} },
     { action: 'end_meditation', op: 'meditation.end', command: '出关', args: {}, input: {} },
+    { action: 'end_meditation', op: 'meditation.end', command: '打坐结束', args: {}, input: {} },
+    { action: 'end_meditation', op: 'meditation.end', command: '结束打坐', args: {}, input: {} },
     { action: 'pulse_meridian', op: 'meridians.pulse', command: '冲脉', args: {}, input: {} },
     { action: 'breakthrough_realm', op: 'realm.breakthrough', command: '突破', args: {}, input: {} },
     { action: 'water_cave_plots', op: 'cave.water', command: '浇灌 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
+    { action: 'water_cave_plots', op: 'cave.water', command: '一键浇灌 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
+    { action: 'water_cave_plots', op: 'cave.water', command: '一键浇灌', args: { plotIndex: null }, input: {} },
     { action: 'remove_cave_worms', op: 'cave.worm', command: '除虫', args: { plotIndex: null }, input: {} },
+    { action: 'remove_cave_worms', op: 'cave.worm', command: '一键除虫', args: { plotIndex: null }, input: {} },
     { action: 'remove_cave_weeds', op: 'cave.weed', command: '除草', args: { plotIndex: null }, input: {} },
+    { action: 'remove_cave_weeds', op: 'cave.weed', command: '一键除草', args: { plotIndex: null }, input: {} },
     { action: 'harvest_cave_plots', op: 'cave.harvest', command: '收割', args: { plotIndex: null }, input: {} },
+    { action: 'harvest_cave_plots', op: 'cave.harvest', command: '一键收割', args: { plotIndex: null }, input: {} },
     { action: 'challenge_dungeon', op: 'dungeon.challenge', command: '秘境挑战 青云', args: { mode: 'challenge', dungeonName: '青云' }, input: { dungeonName: '青云' } },
     { action: 'sweep_dungeon', op: 'dungeon.sweep', command: '扫荡秘境 青云 5', args: { mode: 'sweep', dungeonName: '青云', times: 5 }, input: { dungeonName: '青云', times: 5 } },
     { action: 'challenge_storyline', op: 'storyline.challenge', command: '主线挑战 1-2', args: { input: '/主线挑战 1-2' }, input: { chapterNumber: 1, stageNumber: 2 } },
     { action: 'sweep_storyline', op: 'storyline.sweep', command: '主线扫荡 1-2 5', args: { input: '/主线扫荡 1-2 5' }, input: { chapterNumber: 1, stageNumber: 2, times: 5 } },
     { action: 'challenge_world_boss', op: 'world-boss.challenge', command: '挑战凶兽', args: { mode: 'single' }, input: {} },
+    { action: 'spar_with_player', op: 'pvp.spar', command: '比试 2', args: { targetUid: '2' }, input: { targetUid: 2 } },
+    { action: 'spar_with_player', op: 'pvp.spar', command: '十连比试 2', args: { targetUid: '2', batch: true }, input: { targetUid: 2, batch: true } },
     { action: 'challenge_world_boss_all', op: 'world-boss.challenge', command: '挑战凶兽 全部', args: { mode: 'all' }, input: {} },
     { action: 'claim_world_boss_rewards', op: 'world-boss.reward-claim', command: '领取凶兽奖励', args: {}, input: {} },
     { action: 'sweep_free_dungeons_with_ids', op: 'dungeon.sweep-free-detailed', command: '扫荡免费秘境', args: {}, input: {} },
@@ -289,12 +303,16 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     { action: 'challenge_demon_tower', op: 'demon-tower.challenge', command: '妖塔挑战 2', args: { stars: 2 }, input: { stars: 2 } },
     { action: 'sweep_demon_tower', op: 'demon-tower.sweep', command: '妖塔扫荡', args: {}, input: {} },
     { action: 'checkin_daily', op: 'checkin.daily', command: '日常签到', args: {}, input: {} },
+    { action: 'checkin_all', op: 'checkin.hub', command: '一键签到', args: {}, input: {} },
     { action: 'checkin_newcomer', op: 'checkin.newcomer', command: '新人签到', args: {}, input: {} },
     { action: 'checkin_celestial', op: 'checkin.celestial', command: '登仙台签到', args: {}, input: {} },
     { action: 'checkin_limited_event', op: 'checkin.limited-event', command: '活动签到', args: {}, input: {} },
     { action: 'claim_all_daily_activity', op: 'activity-points.claim-all-daily', command: '一键领取日常活跃奖励', args: {}, input: {} },
     { action: 'claim_all_weekly_activity', op: 'activity-points.claim-all-weekly', command: '一键领取周常活跃奖励', args: {}, input: {} },
+    { action: 'claim_all_daily_activity', op: 'activity-points.claim-all-daily', command: '领取全部日常活跃奖励', args: {}, input: {} },
+    { action: 'claim_all_weekly_activity', op: 'activity-points.claim-all-weekly', command: '领取全部周常活跃奖励', args: {}, input: {} },
     { action: 'claim_all_achievements', op: 'achievements.claim-all', command: '一键领取成就', args: {}, input: {} },
+    { action: 'claim_all_achievements', op: 'achievements.claim-all', command: '成就 一键领取', args: {}, input: {} },
     { action: 'claim_all_emails', op: 'emails.claim-all', command: '一键领取邮件', args: {}, input: {} },
     { action: 'plant_for_alchemy_recipe', op: 'cave.plant', command: '一键播种 聚气丹 2', args: { recipeName: '聚气丹', count: '2' }, input: { recipeName: '聚气丹', count: 2 } },
     { action: 'plant_all_cave_plots', op: 'cave.plant', command: '播种 灵种', args: { plotIndex: null, seedName: '灵种' }, input: { seedName: '灵种' } },
@@ -302,6 +320,8 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     { action: 'tend_cave_plots', op: 'cave.tend-all', command: '一键打理灵田', args: { harvest: false }, input: {} },
     { action: 'tend_companion_cave_plots', op: 'cave.companion-tend-all', command: '一键照料道侣灵田 代收割', args: { harvest: true }, input: { harvest: true } },
     { action: 'consume_item', op: 'items.consume', command: '消耗 培元丹 2', args: { itemName: '培元丹', quantity: 2, mode: 'expose' }, input: { itemName: '培元丹', quantity: 2 } },
+    { action: 'consume_item', op: 'items.consume', command: '服用 培元丹', args: { itemName: '培元丹', quantity: 1, mode: 'expose' }, input: { itemName: '培元丹', quantity: 1 } },
+    { action: 'consume_item', op: 'items.consume', command: '炼化 培元丹 2', args: { itemName: '培元丹', quantity: 2, mode: 'expose' }, input: { itemName: '培元丹', quantity: 2 } },
     { action: 'open_lootbox', op: 'lootboxes.open', command: '开启礼盒 礼盒 1', args: { lootboxName: '礼盒', openCount: 1 }, input: { lootboxName: '礼盒', openCount: 1 } }
   ]) {
     const call = (taskInput: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', current.action, { ...current.input, taskInput, ...(!['checkin_daily', 'checkin_newcomer', 'checkin_celestial', 'checkin_limited_event'].includes(current.action) ? { intentId: 'first' } : {}) }), 'ai-plugin');
@@ -313,6 +333,12 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
       assert.equal((await call('妖塔选buff 攻击 1')).value.ok, false);
       assert.equal((await call('妖塔选buff 生命 2')).value.ok, false);
     }
+    if (current.action === 'claim_all_daily_activity') assert.equal((await call('领取全部周常活跃奖励')).value.ok, false);
+    if (current.action === 'water_cave_plots' && current.command === '一键浇灌 1') assert.equal((await call('一键浇灌 2')).value.ok, false);
+    if (current.action === 'consume_item') assert.equal((await call('服用 培元丹 3')).value.ok, false);
+    if (current.action === 'spar_with_player') assert.equal((await call('比试 3')).value.ok, false);
+    if (current.action === 'claim_all_weekly_activity') assert.equal((await call('领取全部日常活跃奖励')).value.ok, false);
+    if (current.action === 'claim_all_guild_milestones') assert.equal((await call(current.input && 'type' in current.input && current.input.type === 'daily_activity' ? '领取全部宗门周活奖励' : '领取全部宗门日活奖励')).value.ok, false);
     assert.equal((await call('其他指令')).value.ok, false);
     assert.equal(requests.length, before);
   }

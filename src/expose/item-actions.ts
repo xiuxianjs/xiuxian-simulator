@@ -3,7 +3,7 @@ import { ExposeError } from 'alemonjs';
 import { parseConsumeResult, parseMingwuSelection, parsePeiyuanPending } from '../api/bot/consume';
 import { parseGreenBottleCapacity } from '../api/bot/green-bottle-storage-capacity';
 import { parseGreenBottleStore } from '../api/bot/green-bottle-store';
-import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
+import { intentIdSchema, mutation, observation, taskAliasCommand, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const quantity = { type: 'integer' as const, minimum: 1, maximum: 2147483647 };
@@ -117,7 +117,13 @@ export const itemActions = {
       },
       ['remainingQuantity', 'peiyuanPending', 'mingwuSelection']
     ),
-    input => `/消耗 ${input.itemName} ${input.quantity}`,
+    input => taskAliasCommand(
+        input.taskInput,
+        ['消耗', '服用', '炼化'].flatMap(verb => [
+          `${verb} ${input.itemName} ${input.quantity}`,
+          ...(input.quantity === 1 ? [`${verb} ${input.itemName}`] : [])
+        ])
+      ),
     data => {
       const result = parseConsumeResult(data);
 

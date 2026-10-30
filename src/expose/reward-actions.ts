@@ -89,7 +89,21 @@ const claimAllActivity = (type: 'daily' | 'weekly', label: string) => mutation<{
     `activity-points.claim-all-${type}`,
     object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     claimAll,
-    () => `/一键领取${label}活跃奖励`,
+    input => {
+      if (input.taskInput === undefined) {
+        return `/一键领取${label}活跃奖励`;
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim();
+
+      if (![`一键领取${label}活跃奖励`, `领取全部${label}活跃奖励`].includes(command)) {
+        throw new ExposeError('INVALID_INPUT', '活跃奖励任务指令与奖励周期不匹配');
+      }
+
+      return `/${command}`;
+    },
     parseBackendActivityClaimAll,
     () => ({}),
     input => validateIntentId(input.intentId),
@@ -151,7 +165,22 @@ export const rewardActions = {
       },
       ['realmName', 'data']
     ),
-    () => '/一键领取成就',
+    input => {
+      if (input.taskInput === undefined) {
+        return '/一键领取成就';
+      }
+      const command = input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim()
+        .replace(/\s+/g, ' ');
+
+      if (!['一键领取成就', '成就 一键领取'].includes(command)) {
+        throw new ExposeError('INVALID_INPUT', '成就领取任务指令不匹配');
+      }
+
+      return `/${command}`;
+    },
     data => validateGuardedAchievement(data, validateBackendAchievementClaim),
     () => ({}),
     input => validateIntentId(input.intentId),

@@ -8,8 +8,9 @@ import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
-const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobotBusinessScarecrowV1BattleRoundsAndReplay|TestRobotBusinessScarecrowDomainFailureDoesNotSaveBattle|TestRobotBusinessScarecrowLogSaveFailure)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobotBusinessScarecrowV1BattleRoundsAndReplay|TestRobotBusinessScarecrowDomainFailureDoesNotSaveBattle|TestRobotBusinessScarecrowLogSaveFailure|TestRobotExposeScarecrowTaskAndDistinctIntent)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
 const rows = [...output.matchAll(/ROBOT_SCARECROW_RESPONSE=([^|]+)\|([^|]+)\|(.+)/g)].map(row => ({ args: JSON.parse(row[1]), envelope: JSON.parse(row[3]) })).filter(row => row.args.roundsText === null || row.args.roundsText === '20');
+const taskEnvelope = JSON.parse(output.match(/EXPOSE_SCARECROW_TASK=(.+)/)![1]);
 assert.ok(rows.some(row => row.envelope.data.success && row.envelope.data.branch === 'business'));
 test('稻草人伤害测试返回服务端统计并稳定重试', async t => {
   const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
@@ -36,4 +37,24 @@ test('稻草人伤害测试返回服务端统计并稳定重试', async t => {
     } else assert.equal(result.result, undefined);
     await call(); assert.equal(keys.at(-1), keys.at(-2));
   }
+});
+
+test('稻草人任务区分新测试与原请求重试', async t => {
+  assert.equal(taskEnvelope.data.success, true);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/挑战稻草人 20'); assert.equal(body.taskInput, '挑战稻草人 20'); assert.deepEqual(body.arguments, { roundsText: '20' });
+    keys.push(request.headers['idempotency-key']);
+    return { status: 200, headers: {}, data: JSON.stringify(taskEnvelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (intentId: string, taskInput = '挑战稻草人 20') => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'challenge_scarecrow', { rounds: 20, intentId, taskInput }), 'ai-plugin');
+  const first = await call('trial-1'); assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  if (first.value.ok) { const result = first.value.data as any; assert.deepEqual(result.taskContinuation, taskEnvelope.data.middleware.taskContinuation); assert.equal(result.result.logId, taskEnvelope.data.data.logId); }
+  assert.equal((await call('trial-1')).value.ok, true); assert.equal(keys[0], keys[1]);
+  assert.equal((await call('trial-2')).value.ok, true); assert.notEqual(keys[1], keys[2]);
+  assert.equal((await call('trial-3', '挑战稻草人 10')).value.ok, false); assert.equal(keys.length, 3);
 });
