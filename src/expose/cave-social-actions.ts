@@ -2,14 +2,14 @@ import { parseBackendCaveNearby } from '../api/bot/cave-nearby-queries';
 import { parseBackendCaveVisit } from '../api/bot/cave-visit-queries';
 import { parseBackendCaveLogs } from '../api/bot/cave-queries';
 import { parseBackendCaveCommand } from '../api/bot/cave-command';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const empty = object({});
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 const plotIndex = { type: 'integer' as const, minimum: 1, maximum: 2147483647 };
 
-type Target = { ownerUid: number; plotIndex?: number };
+type Target = { ownerUid: number; plotIndex?: number; intentId?: string };
 const visit = object(
   {
     ...fields(integer, 'ownerUid cultivatedCount plantedCount matureCount'),
@@ -88,6 +88,25 @@ export const caveSocialActions = {
     },
     input => ({ target: { uid: input.ownerUid } })
   ),
+  execute_task_visit_cave: mutation<{ ownerUid: number; taskInput: string; intentId?: string }>(
+    '查询指定玩家灵田，返回服务端允许查看的地块与协作、偷药资格；不可见的地块不会返回。',
+    'cave.visit',
+    object({ ownerUid: id, taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    visit,
+    input => `/查看灵田 ${input.ownerUid}`,
+    (data, input) => {
+      const response = parseBackendCaveVisit(data);
+
+      if (response.ownerUid !== input.ownerUid) {
+        throw new Error('访问回执目标不匹配');
+      }
+
+      return visibleVisit(response);
+    },
+    input => ({ target: { uid: input.ownerUid } }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   get_cave_logs: observation<{ page?: number }>(
     '分页查询本人灵田互动记录。',
     'cave.logs',
@@ -109,21 +128,25 @@ export const caveSocialActions = {
     input => ({ page: String(input.page ?? 1) })
   ),
   collaborate_cave: mutation<Target & { action: 'water' | 'worm' | 'weed' | 'harvest' }>(
-    '协作指定玩家灵田：浇灌、除虫、除草或协助收割；目标关系与权限由服务端验证。收割会改变对方灵田。',
+    '协作指定玩家灵田：浇灌、除虫、除草或协助收割；目标关系与权限由服务端验证。收割会改变对方灵田。同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'cave.collaborate',
-    object({ ...targetSchema, action: { type: 'string', enum: ['water', 'worm', 'weed', 'harvest'] } }, ['plotIndex']),
+    object({ ...targetSchema, action: { type: 'string', enum: ['water', 'worm', 'weed', 'harvest'] }, intentId: intentIdSchema }, ['plotIndex', 'intentId']),
     result,
     input => `/协作灵田 ${input.ownerUid} ${{ water: '浇灌', worm: '除虫', weed: '除草', harvest: '收割' }[input.action]}${input.plotIndex ? ` ${input.plotIndex}` : ''}`,
     parseSocial,
-    input => args(input, input.action)
+    input => args(input, input.action),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   steal_cave_crop: mutation<Target>(
-    '对指定玩家灵田执行偷药；可能影响对方收成，关系、次数和目标资格由服务端校验。',
+    '对指定玩家灵田执行偷药；可能影响对方收成，关系、次数和目标资格由服务端校验。同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'cave.steal',
-    object(targetSchema, ['plotIndex']),
+    object({ ...targetSchema, intentId: intentIdSchema }, ['plotIndex', 'intentId']),
     result,
     input => `/偷药 ${input.ownerUid}${input.plotIndex ? ` ${input.plotIndex}` : ''}`,
     parseSocial,
-    input => args(input, null)
+    input => args(input, null),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

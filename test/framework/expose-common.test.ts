@@ -69,7 +69,11 @@ for (const action of Object.keys(commonQueryActions)) test(`${action}: 关闭与
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   t.mock.method(axios, 'create', () => { throw new Error('unexpected HTTP'); });
-  const input = action === 'get_storyline_chapter' ? { chapterNumber: 1 } : {};
+  const taskInputs: Record<string, string> = {
+    execute_task_learned_books: '我的功法', execute_task_emails: '我的邮件', execute_task_shop: '商店',
+    execute_task_meridians: '经络', execute_task_world_boss: '凶兽'
+  };
+  const input = action === 'get_storyline_chapter' ? { chapterNumber: 1 } : taskInputs[action] ? { taskInput: taskInputs[action] } : {};
   for (const spoof of [false, true]) {
     const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...input, ...(spoof ? { uid: 999 } : {}) }), 'ai-plugin');
     assert.equal(result.value.ok, false);

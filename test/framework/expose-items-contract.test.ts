@@ -14,7 +14,10 @@ const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobot
 const fixtures: { action: string; operation: string; input: Record<string, unknown>; envelope: any }[] = [];
 for (const match of output.matchAll(/EXPOSE_ITEMS_HTTP=([^|]+)\|([^|]+)\|(.+)/g)) {
   const actions: Record<string, string> = { 'items.consume': 'consume_item', 'green-bottle.capacity': 'get_green_bottle_capacity', 'green-bottle.store': 'store_green_bottles' };
-  fixtures.push({ action: actions[match[1]], operation: match[1], input: JSON.parse(match[2]), envelope: JSON.parse(match[3]) });
+  const args = JSON.parse(match[2]);
+  if (match[1] === 'items.consume' && args.storageId !== undefined) continue;
+  const { mode: _mode, ...input } = args;
+  fixtures.push({ action: actions[match[1]], operation: match[1], input, envelope: JSON.parse(match[3]) });
 }
 for (const match of output.matchAll(/EXPOSE_SKILL_SWITCH_HTTP=(.+)/g)) fixtures.push({ action: 'switch_skill_book', operation: 'skill-books.switch', input: { skillType: '战技', bookId: 2 }, envelope: JSON.parse(match[1]) });
 for (const match of output.matchAll(/ROBOT_SKILL_(LEARN|SWITCH)=(.+)/g)) {

@@ -22,17 +22,17 @@ const getAction = (messageText: string): SubscriptionAction | null => {
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, parentNext] = useEvent();
   const bid = e.UserId;
-  const isPrivate = e.isPrivate ?? false;
+  const isPrivate = e.isPrivate === true || e.name === 'private.message.create';
   const action = getAction(e.MessageText ?? '');
 
   if (!action) {
-    return;
+    return parentNext();
   }
 
   const md = Format.createMarkdown();
 
-  const [, parentNext] = useEvent();
   const response = await runRobotBusiness(
     e,
     action === 'enable' ? 'notifications.group-enable' : 'notifications.group-disable',

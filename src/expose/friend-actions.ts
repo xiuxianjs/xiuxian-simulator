@@ -12,7 +12,7 @@ import { parseRobotFlyMailSend } from '../api/bot/flymail-send';
 import { parseRobotFlyMailMute } from '../api/bot/flymail-mute';
 import type { FlyMailScope } from '../api/schemas/fly-mail-query';
 import { ExposeError } from 'alemonjs';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const access = object({ ok: boolean, realmName: text, canUseSpar: boolean });
@@ -51,13 +51,13 @@ function validateFlyMail(input: FlyMailInput) {
   }
 }
 
-function privateFlyMail(event: { name?: string; isPrivate?: boolean }) {
-  if (event.name !== 'private.message.create' || event.isPrivate === false) {
+function privateFlyMail(event: { name?: string; isPrivate?: boolean; IsPrivate?: boolean }) {
+  if (event.name !== 'private.message.create' || event.isPrivate === false || event.IsPrivate === false) {
     throw new ExposeError('FORBIDDEN', '飞信仅限私聊');
   }
 }
 
-function flyMailArguments(input: FlyMailInput, event: { name?: string; isPrivate?: boolean }) {
+function flyMailArguments(input: FlyMailInput, event: { name?: string; isPrivate?: boolean; IsPrivate?: boolean }) {
   privateFlyMail(event);
 
   return {
@@ -198,7 +198,7 @@ export const friendActions = {
       return { ...result, list: result.list.map(item => ({ ...item, createdAt: item.createdAt.toISOString() })) };
     },
     (input, event) => {
-      if (event.name !== 'private.message.create' || event.isPrivate === false) {
+      if (event.name !== 'private.message.create' || event.isPrivate === false || event.IsPrivate === false) {
         throw new ExposeError('FORBIDDEN', '飞信仅限私聊');
       }
 
@@ -354,6 +354,36 @@ export const friendActions = {
     input => `/我的好友 ${input.page ?? 1}`,
     data => parseGuardedSocialQuery(data, parseBackendFriends),
     input => ({ page: input.page ?? 1, pageSize: 5 })
+  ),
+  execute_task_friends: mutation<{ taskInput: string; intentId?: string }>(
+    '分页查询本人好友、关系及亲密度；好友编号可作为赠礼目标。未解锁时 access.ok=false，不将缺失列表当作空列表。',
+    'friends.overview',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object(
+      {
+        access,
+        data: object({
+          ...fields(integer, 'total currentPage pageSize maxFriends myGender'),
+          hasCompanion: boolean,
+          list: list(
+            object(
+              {
+                ...fields(integer, 'friendId relationType intimacy gender'),
+                ...fields(text, 'friendName relationText spiritBondLevel'),
+                ...fields(boolean, 'canProposeCompanion hasCompanion')
+              },
+              ['gender']
+            )
+          )
+        })
+      },
+      ['data']
+    ),
+    () => '/我的好友',
+    data => parseGuardedSocialQuery(data, parseBackendFriends),
+    () => ({ page: 1, pageSize: 5 }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_friend_requests: observation(
     '查询本人收到的待处理好友申请；未解锁时 access.ok=false。',

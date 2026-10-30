@@ -2,7 +2,7 @@ import { parseForgeOverview } from '../api/schemas/forge';
 import { parseProfessionRobotTools } from '../api/bot/profession-robot-tools';
 import { parseProfessionToolReplace } from '../api/bot/profession-tool-replace';
 import { forgeOverviewSchema } from './crafting-actions';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -43,10 +43,10 @@ export const professionActions = {
     },
     () => ({ identifier: null })
   ),
-  replace_profession_tool: mutation<{ userToolId: number }>(
-    '切换到本人指定天工工具实例，替换同类型当前工具；服务端校验归属和资格。',
+  replace_profession_tool: mutation<{ userToolId: number; intentId?: string }>(
+    '切换到本人指定天工工具实例，服务端校验归属和资格。同消息重新切换使用新 intentId，同次重试沿用原编号。',
     'profession.replace-tool',
-    object({ userToolId: toolId }),
+    object({ userToolId: toolId, intentId: intentIdSchema }, ['intentId']),
     object({ ...fields(integer, 'toolId userToolId gradeLevel'), ...fields(text, 'toolName typeName gradeName message') }),
     input => `/切换 ${input.userToolId}`,
     (data, input) => {
@@ -61,6 +61,8 @@ export const professionActions = {
 
       return result;
     },
-    input => ({ identifier: String(input.userToolId) })
+    input => ({ identifier: String(input.userToolId) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

@@ -34,6 +34,7 @@ test('通知设置显示分类，按真实玩家修改单类并提供重新开�
   assert.ok(address && typeof address !== 'string');
   const app = createTestApp({ config: {
     processor: { repeated_user_time: 0 },
+    'qq-bot': { app_id: '123' },
     'xiuxian-game': { backend: { api_url: `http://127.0.0.1:${address.port}`, robot_auth_token: 'test', worker_token: 'test' } }
   } });
   try {

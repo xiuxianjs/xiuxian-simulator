@@ -7,7 +7,7 @@ import { parseRobotCompetitionMemberAdd } from '../api/bot/competition-member-ad
 import { parseRobotCompetitionChallenge } from '../api/bot/competition-challenge-robot-query';
 import { parseRobotCompetitionReward } from '../api/bot/competition-reward-robot-query';
 import { parseRobotCompetitionBet } from '../api/bot/competition-bets-robot-query';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, page, text } from './schema';
 
 const empty = object({});
@@ -104,6 +104,17 @@ export const competitionActions = {
     home,
     () => '/宗门大比',
     cleanHome
+  ),
+  execute_task_guild_competition: mutation<{ taskInput: string; intentId?: string }>(
+    '查询宗门大比赛程、队伍、可操作状态、排名与赔率；资格以服务端当前状态为准。',
+    'competition.home',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    home,
+    () => '/宗门大比',
+    cleanHome,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_guild_competition_candidates: observation(
     '查询淘汰赛可挑战宗门及其站位、剩余次数；不会发起挑战。',
@@ -232,10 +243,10 @@ export const competitionActions = {
     parseRobotCompetitionMemberAdd,
     input => ({ mode: 'direct', target: { uid: input.userId }, position: input.position })
   ),
-  challenge_guild_competition: mutation<{ guildId: number }>(
+  challenge_guild_competition: mutation<{ guildId: number; intentId?: string; taskInput?: string }>(
     '挑战指定候选宗门并消耗服务端规定的挑战次数；重复同一原消息使用幂等键。',
     'competition.challenge',
-    object({ guildId: id }),
+    object({ guildId: id, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ outcome: text, message: text, battleLogId: text, won: boolean, remaining: integer }, ['battleLogId']),
     input => `/挑战宗门 ${input.guildId}`,
     data => {
@@ -248,15 +259,20 @@ export const competitionActions = {
 
       return { ...result, won: raw.receipt.won, remaining: raw.receipt.remaining };
     },
-    input => ({ target: { defenderGuildId: input.guildId } })
+    input => ({ target: { defenderGuildId: input.guildId } }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_guild_competition_rewards: mutation(
+  claim_guild_competition_rewards: mutation<{ intentId?: string; taskInput?: string }>(
     '领取本人可领取的宗门大比奖励，结果与灵晶变动以服务端回执为准。',
     'competition.reward-claim',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, receipt: object({ code: text, ...fields(integer, 'changeAmount beforeAmount afterAmount'), detail: text }) }),
     () => '/领取宗门大比奖励',
-    parseRobotCompetitionReward
+    parseRobotCompetitionReward,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   place_guild_competition_bet: mutation<{ guildId: number; amount: number }>(
     '押注指定晋级宗门；实际赔率、阶段、余额和资格由服务端校验，直接扣除下注金额。',

@@ -1,3 +1,4 @@
+import { parseGroupSubscriptionResult } from '../api/bot/group-subscription-business';
 import { validateRobotSettingsOverview } from '../api/bot/settings-robot-query';
 import { parseNotificationHistory } from '../api/bot/notification-history-queries';
 import { validateBackendThemes } from '../api/bot/theme-queries';
@@ -48,6 +49,72 @@ function confirmationPreference(operation: RobotBusinessOperation, field: string
 const rules = { none: '关闭', all: '所有人', friend: '仅好友', companion: '仅道侣' } as const;
 
 export const settingsActions = {
+  get_group_notification_subscription: observation(
+    '查询本人群通知订阅及投递状态；found=false 表示没有订阅，blocked 表示平台主动通知受限。',
+    'settings.overview',
+    object({}),
+    object(
+      {
+        found: boolean,
+        subscription: object(
+          {
+            platform: text,
+            channelId: text,
+            targetScope: { type: 'string', enum: ['group', 'channel'] },
+            isEnabled: boolean,
+            failureCount: integer,
+            botId: text,
+            lastDeliveryAt: text,
+            lastError: text,
+            channelState: object({ state: { type: 'string', enum: ['allowed', 'blocked', 'unknown'] }, retryAt: integer, source: text, updatedAt: integer }, [
+              'retryAt',
+              'source',
+              'updatedAt'
+            ])
+          },
+          ['botId', 'lastDeliveryAt', 'lastError', 'channelState']
+        )
+      },
+      ['subscription']
+    ),
+    () => '/我的设置',
+    data => {
+      const { subscription } = validateRobotSettingsOverview(data);
+
+      return subscription ? { found: true, subscription } : { found: false };
+    },
+    () => ({ includeGroup: true })
+  ),
+  enable_group_notifications: mutation(
+    '为当前消息所在群开启或切换通知订阅，目标群仅来自真实消息上下文，服务端校验平台和可用性。',
+    'notifications.group-enable',
+    object({}),
+    object({ switched: boolean }),
+    () => '/开启群订阅',
+    data => parseGroupSubscriptionResult(data, 'enable'),
+    (_, event) => ({
+      isPrivate: event.isPrivate === true || event.name === 'private.message.create',
+      platform: String(event.Platform ?? ''),
+      channelId: event.ChannelId ? String(event.ChannelId) : '',
+      botId: event.BotId ?? null,
+      targetScope: event.Target?.scope === 'channel' || event.SpaceId?.startsWith('GUILD:') ? 'channel' : 'group'
+    })
+  ),
+  disable_group_notifications: mutation(
+    '关闭本人的群通知订阅，服务端按真实消息上下文校验。',
+    'notifications.group-disable',
+    object({}),
+    object({ disabled: boolean }),
+    () => '/关闭群订阅',
+    data => parseGroupSubscriptionResult(data, 'disable'),
+    (_, event) => ({
+      isPrivate: event.isPrivate === true || event.name === 'private.message.create',
+      platform: String(event.Platform ?? ''),
+      channelId: event.ChannelId ? String(event.ChannelId) : '',
+      botId: event.BotId ?? null,
+      targetScope: event.Target?.scope === 'channel' || event.SpaceId?.startsWith('GUILD:') ? 'channel' : 'group'
+    })
+  ),
   get_themes: observation(
     '查询本人可用主题、当前激活状态与自定义权限。',
     'themes.overview',
@@ -122,7 +189,7 @@ export const settingsActions = {
       return { ...result, items: result.items.map(item => ({ ...item, flymail: parseFlyMailNotice(item.flymail) })) };
     },
     (input, event) => {
-      if (event.name !== 'private.message.create' || event.isPrivate === false) {
+      if (event.name !== 'private.message.create' || event.isPrivate === false || event.IsPrivate === false) {
         throw new ExposeError('FORBIDDEN', '通知记录仅限私聊查询');
       }
 

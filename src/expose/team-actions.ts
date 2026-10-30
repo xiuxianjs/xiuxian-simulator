@@ -8,7 +8,7 @@ import { parseBackendTeamBattleRecords, parseBackendTeamBattleDetail } from '../
 import { parseBackendTeamMatchSnapshot } from '../api/bot/team-match-queries';
 import { parseBackendTeamMatchStart } from '../api/bot/team-match-start';
 import { parseBackendTeamMatchCancel } from '../api/bot/team-match-cancel';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -75,10 +75,10 @@ function started(data: unknown) {
 }
 
 export const teamActions = {
-  set_team_minimum_realm: mutation<{ realmName: string }>(
-    '设置本人队伍的最低加入境界；境界名称来自游戏数据，服务端校验境界及队长权限。',
+  set_team_minimum_realm: mutation<{ realmName: string; intentId?: string }>(
+    '设置当前队伍最低加入境界，服务端校验队长权限。同消息新设置使用新 intentId，同次重试沿用原编号。',
     'teams.realm',
-    object({ realmName: { type: 'string', minLength: 1, maxLength: 64 } }),
+    object({ realmName: { type: 'string', minLength: 1, maxLength: 64 }, intentId: intentIdSchema }, ['intentId']),
     object({ outcome: { type: 'string', enum: ['updated'] }, realmId: integer }),
     input => `/设置队伍境界门槛 ${input.realmName}`,
     data => {
@@ -90,7 +90,9 @@ export const teamActions = {
 
       return result;
     },
-    input => ({ realmName: input.realmName })
+    input => ({ realmName: input.realmName }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   cancel_team_invitation: mutation<{ invitationId: number }>(
     '取消本人队伍发出的指定待处理邀请；服务端校验队长权限和邀请状态。',
@@ -109,41 +111,49 @@ export const teamActions = {
     },
     input => ({ invitationId: String(input.invitationId) })
   ),
-  invite_team_player: mutation<{ targetUid: number }>(
-    '邀请指定玩家加入本人队伍；targetUid 为目标玩家编号，服务端校验队长权限和自动接受设置。',
+  invite_team_player: mutation<{ targetUid: number; intentId?: string }>(
+    '邀请指定玩家加入当前队伍，服务端校验权限和自动接受设置。同消息新邀请使用新 intentId，同次重试沿用原编号。',
     'teams.invite',
-    object({ targetUid: positive }),
+    object({ targetUid: positive, intentId: intentIdSchema }, ['intentId']),
     object({ outcome: { type: 'string', enum: ['done', 'target_missing'] }, autoAccepted: boolean, invitationId: integer }, ['autoAccepted', 'invitationId']),
     input => `/邀请入队 ${input.targetUid}`,
     data => parseTeamTargetMutation(data, true),
-    input => ({ target: { uid: input.targetUid } })
+    input => ({ target: { uid: input.targetUid } }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  kick_team_member: mutation<{ targetUid: number }>(
-    '从本人队伍移除指定成员；服务端校验队长权限和目标成员身份。',
+  kick_team_member: mutation<{ targetUid: number; intentId?: string }>(
+    '从当前队伍移除指定成员，先核对当前队伍和目标。同消息新移除使用新 intentId，同次重试沿用原编号。',
     'teams.kick',
-    object({ targetUid: positive }),
+    object({ targetUid: positive, intentId: intentIdSchema }, ['intentId']),
     object({ outcome: { type: 'string', enum: ['done', 'target_missing'] }, autoAccepted: boolean }, ['autoAccepted']),
     input => `/队伍踢出 ${input.targetUid}`,
     data => parseTeamTargetMutation(data, false),
-    input => ({ target: { uid: input.targetUid } })
+    input => ({ target: { uid: input.targetUid } }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  set_team_position: mutation<{ targetUid: number; position: number }>(
-    '调整指定队伍成员阵位，位置为 1 至 6；服务端校验队长权限和目标状态。',
+  set_team_position: mutation<{ targetUid: number; position: number; intentId?: string }>(
+    '调整当前队伍成员阵位，位置为 1 至 6。同消息新调整使用新 intentId，同次重试沿用原编号。',
     'teams.position',
-    object({ targetUid: positive, position: { type: 'integer', minimum: 1, maximum: 6 } }),
+    object({ targetUid: positive, position: { type: 'integer', minimum: 1, maximum: 6 }, intentId: intentIdSchema }, ['intentId']),
     object({ outcome: { type: 'string', enum: ['updated', 'target_missing'] } }),
     input => `/队伍位置设置 ${input.targetUid} ${input.position}`,
     data => parseBackendTeamWorkflow(data, 'position'),
-    input => ({ targetUid: String(input.targetUid), position: String(input.position) })
+    input => ({ targetUid: String(input.targetUid), position: String(input.position) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  transfer_team_leadership: mutation<{ targetUid: number }>(
-    '将队长身份转让给指定队伍成员；服务端校验权限、成员身份和不能转让给自己。',
+  transfer_team_leadership: mutation<{ targetUid: number; intentId?: string }>(
+    '将当前队伍的队长身份转让给指定成员；先核对队伍和权限。同消息新转让使用新 intentId，同次重试沿用原编号。',
     'teams.leadership',
-    object({ targetUid: positive }),
+    object({ targetUid: positive, intentId: intentIdSchema }, ['intentId']),
     object({ outcome: { type: 'string', enum: ['transferred', 'target_missing'] } }),
     input => `/转让队长 ${input.targetUid}`,
     data => parseBackendTeamWorkflow(data, 'leadership'),
-    input => ({ targetUid: String(input.targetUid) })
+    input => ({ targetUid: String(input.targetUid) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   get_team_invitations: observation(
     '查询本人队伍邀请及资格；服务端会先将过期邀请标记为失效，邀请编号可用于接受。',
@@ -283,6 +293,17 @@ export const teamActions = {
     () => '/我的队伍',
     data => info(data)
   ),
+  execute_task_my_team: mutation<{ taskInput: string; intentId?: string }>(
+    '查询当前角色队伍、成员、阵位与服务端可用操作；access.ok=false 表示资格未解锁，hasTeam 根据服务端 exists 判定是否存在队伍。不会创建队伍。',
+    'teams.overview',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    infoSchema,
+    () => '/我的队伍',
+    data => info(data),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   get_team_info: observation<{ teamId: number }>(
     '查询指定队伍的服务端可见资料与本人操作资格；不申请入队，不从成员行推断队长权限。',
     'teams.info',
@@ -314,18 +335,21 @@ export const teamActions = {
     },
     input => ({ page: input.page ?? 1, pageSize: 5 })
   ),
-  create_team: mutation(
-    '为当前角色创建队伍，沿用服务端身份、准入和既有队伍状态校验；返回实际队伍编号。',
+  create_team: mutation<{ intentId?: string }>(
+    '为当前角色创建队伍并返回编号。同消息新创建使用新 intentId，同次重试沿用原编号。',
     'teams.create',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({ teamId: positive }),
     () => '/创建队伍',
-    parseTeamCreated
+    parseTeamCreated,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  apply_to_team: mutation<{ teamId: number }>(
-    '向指定队伍申请加入，由服务端判断队伍、境界、容量和自动审批设置。autoApproved=false 表示等待审核，不能报告已经入队。',
+  apply_to_team: mutation<{ teamId: number; intentId?: string }>(
+    '向指定队伍申请加入；autoApproved=false 表示等待审核。同消息新申请使用新 intentId，同次重试沿用原编号。',
     'teams.apply',
-    object({ teamId: positive }),
+    object({ teamId: positive, intentId: intentIdSchema }, ['intentId']),
     object({ applicationId: positive, teamId: positive, status: { type: 'integer', minimum: 0, maximum: 1 }, autoApproved: boolean }),
     input => `/加入队伍 ${input.teamId}`,
     (data, input) => {
@@ -337,23 +361,31 @@ export const teamActions = {
 
       return { applicationId: row.id, teamId: row.teamId, status: row.status, autoApproved: row.status === 1 };
     },
-    input => ({ teamId: String(input.teamId) })
+    input => ({ teamId: String(input.teamId) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  leave_team: mutation(
-    '让当前角色按服务端原规则离队；队长离队时可能由剩余成员继任，需重新读取状态。不代替解散队伍或回滚战斗。',
+  leave_team: mutation<{ intentId?: string }>(
+    '离开执行时当前队伍，队长离队可能由成员继任；先核对队伍状态。同消息新离队使用新 intentId，同次重试沿用原编号。',
     'teams.leave',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({ left: boolean }),
     () => '/离开队伍',
-    data => parseTeamAcknowledgement(data, 'left')
+    data => parseTeamAcknowledgement(data, 'left'),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  disband_team: mutation(
-    '解散当前角色担任队长的队伍，所有成员离队，待处理申请和邀请按服务端原规则收尾；不会回滚已结算的战斗。',
+  disband_team: mutation<{ intentId?: string }>(
+    '解散执行时本人担任队长的队伍，所有成员离队；先核对当前队伍。同消息新解散使用新 intentId，同次重试沿用原编号。',
     'teams.disband',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({ disbanded: boolean }),
     () => '/解散队伍',
-    data => parseTeamAcknowledgement(data, 'disbanded')
+    data => parseTeamAcknowledgement(data, 'disbanded'),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   get_team_applications: observation(
     '查询本人当前队伍的待审核申请；canReview=false 时阅读 error，不代表申请列表为空。申请编号用于队长同意或拒绝操作。',
@@ -411,28 +443,37 @@ export const teamActions = {
       return { matching: snapshot !== null, ...(snapshot ? { snapshot } : {}) };
     }
   ),
-  start_mainline_match: mutation<{ chapterNumber: number; stageNumber: number }>(
-    '为当前角色发起指定章节关卡的主线匹配；返回目标标签仅表示已入队列，不保证已匹配成功、挑战或结算。',
+  start_mainline_match: mutation<{ chapterNumber: number; stageNumber: number; intentId?: string }>(
+    '发起指定章节关卡主线匹配；入队列不代表完成匹配或战斗。同消息新匹配使用新 intentId，同次重试沿用原编号。',
     'team-match.start-mainline',
-    object({ chapterNumber: page, stageNumber: page }),
+    object({ chapterNumber: page, stageNumber: page, intentId: intentIdSchema }, ['intentId']),
     object({ targetLabel: text }),
     input => `/匹配主线 ${input.chapterNumber}-${input.stageNumber}`,
-    started
+    started,
+    input => ({ chapterNumber: input.chapterNumber, stageNumber: input.stageNumber }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  start_dungeon_match: mutation<{ dungeonId: number }>(
-    '为当前角色发起指定秘境编号的组队匹配；服务端拒绝单人秘境及不合资格目标，不代表已发起或完成战斗。',
+  start_dungeon_match: mutation<{ dungeonId: number; intentId?: string }>(
+    '发起指定秘境编号的组队匹配，服务端校验资格，不代表完成战斗。同消息新匹配使用新 intentId，同次重试沿用原编号。',
     'team-match.start-dungeon',
-    object({ dungeonId: positive }),
+    object({ dungeonId: positive, intentId: intentIdSchema }, ['intentId']),
     object({ targetLabel: text }),
     input => `/匹配秘境 ${input.dungeonId}`,
-    started
+    started,
+    input => ({ dungeonId: input.dungeonId }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  cancel_team_match: mutation(
-    '取消当前角色匹配；cancelled=false 表示本次未取消有效队列记录，不能把它当成解散队伍或回滚战斗。',
+  cancel_team_match: mutation<{ intentId?: string }>(
+    '取消当前匹配，cancelled=false 表示未取消有效队列记录。同消息新取消使用新 intentId，同次重试沿用原编号。',
     'team-match.cancel',
-    object({}),
+    object({ intentId: intentIdSchema }, ['intentId']),
     object({ cancelled: boolean, targetLabel: text }, ['targetLabel']),
     () => '/取消匹配',
-    parseBackendTeamMatchCancel
+    parseBackendTeamMatchCancel,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

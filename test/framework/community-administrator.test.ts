@@ -23,7 +23,7 @@ for (const [role, queriedRole] of [['admin', undefined], ['owner', undefined], [
         throw new Error(`Unexpected request: ${path}`);
       }
     }));
-    const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
     t.after(() => app.dispose());
     let queries = 0;
     app.actions.on('member.info', () => {

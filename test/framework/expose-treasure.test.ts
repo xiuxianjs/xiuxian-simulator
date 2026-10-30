@@ -47,6 +47,8 @@ test('宝物查询、原预览、结算和状态核对使用真实服务数据',
   ] as const) {
     op = 'treasures.preview'; data = fixtures[`preview-${kind}`]; expected = args;
     const preview = await call(action, input); assert.equal(preview.value.ok, true, `${kind}: ${JSON.stringify(preview.value)}`);
+    const refreshed = await call(action, input); assert.equal(refreshed.value.ok, true, `${kind}: ${JSON.stringify(refreshed.value)}`);
+    assert.notEqual(keys.at(-1), keys.at(-2));
     const ref = data.confirmationRef; const operationId = data.operationId;
     if (preview.value.ok) assert.equal((preview.value.data as any).result.confirmationRef, ref);
     if (kind === 'decompose' && preview.value.ok) assert.equal(JSON.parse((preview.value.data as any).result.detailsJson).totalXianYun, data.data.totalXianYun);

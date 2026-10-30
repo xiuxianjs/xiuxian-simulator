@@ -4,7 +4,7 @@ import { parseGuildShopPage } from '../api/bot/guild-shop-page';
 import { parseRobotGuildAutoRefresh } from '../api/bot/guild-auto-refresh-robot-query';
 import { parseGuildShopAutoRefresh } from '../api/bot/guild-shop-auto-refresh';
 import { ExposeError } from 'alemonjs';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -28,13 +28,16 @@ const upgradeResult = object({
 });
 
 function upgrade(kind: GuildUpgradeKind, word: string) {
-  return mutation(
-    `提升当前宗门${word}；直接消耗宗门资源，服务端检查职位、当前等级和实际费用。`,
+  return mutation<{ intentId?: string }>(
+    `提升当前宗门${word}；直接消耗宗门资源，服务端检查职位和费用。同消息新升级使用新 intentId，同次重试沿用原编号。`,
     `guild.upgrade-${kind}`,
-    empty,
+    object({ intentId: intentIdSchema }, ['intentId']),
     upgradeResult,
     () => `/提升宗门${word}`,
-    data => parseRobotGuildUpgrade(data, kind)
+    data => parseRobotGuildUpgrade(data, kind),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   );
 }
 export const guildBuildingActions = {

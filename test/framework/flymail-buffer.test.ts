@@ -16,7 +16,7 @@ function fixture(t: TestContext) {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const login = process.env.login; process.env.login = 'qq-bot';
   t.after(() => { if (login === undefined) delete process.env.login; else process.env.login = login; });
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
   t.after(() => app.dispose());
   return app;
 }
@@ -69,6 +69,7 @@ test('飞信每批最多 5 条，处理中最多 32 条，剩余留在服务端�
     if (path.endsWith('/claim')) { const event = queue.shift() ?? null; if (event) claimed++; data = { event }; }
     else if (path.endsWith('/ack')) { await blocked; receipts.push(body); }
     else if (path.endsWith('/retry')) throw new Error(String(body.error));
+    else if (path.endsWith('/player/categories')) data = { enabled: true };
     else if (path.endsWith('/subscription')) data = { platform: 'qq-bot', channelId: 'group', botId: 'bot', targetScope: 'group', isEnabled: true, failureCount: 0, lastDeliveryAt: null, lastError: null };
     else if (path.endsWith('/private-target/read')) data = { platform: 'qq-bot', scope: 'c2c', targetId: 'private-recipient', BotId: 'bot' };
     else if (path.endsWith('/availability/read')) data = { available: true, updatedAt: 1 };

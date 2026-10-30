@@ -31,7 +31,7 @@ function fixture(t: TestContext) {
     }
   }));
   const app = createTestApp({ config: {
-    'qq-bot': { app_id: 'community-bot' },
+    'qq-bot': { app_id: '123' },
     'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'fixture' } }
   } });
   t.after(() => app.dispose());

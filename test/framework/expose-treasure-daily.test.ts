@@ -30,7 +30,7 @@ test('灵脉与私聊礼包保留服务端资格、原引用和领取回执', as
     ['spirit-vein.overview', 'get_spirit_vein', 'vein', {}, true],
     ['spirit-vein.calendar', 'get_spirit_vein_calendar', 'calendar', { page: 1 }, true],
     ['treasures.daily-packs', 'get_treasure_daily_packs', 'packs', {}, true],
-    ['treasures.daily-pack-free-preview', 'preview_treasure_free_daily_pack', 'preview', {}, false]
+    ['treasures.daily-pack-free-preview', 'preview_treasure_free_daily_pack', 'preview', {}, true]
   ] as const) {
     op = operation; data = fixtures[fixture]; expected = args;
     const first = await call(action, {}); assert.equal(first.value.ok, true, `${action}: ${JSON.stringify(first.value)}`);

@@ -46,3 +46,18 @@ for (const fixture of cases) test(`Expose 接收实际 Go 序列化响应 ${fixt
     assert.deepEqual(data.current, fixture.data.current ?? undefined);
   }
 });
+
+test('经络连锁任务解析 Go 序列化状态和推进回执', async t => {
+  const rows = Object.entries(meridians).filter(([name]) => name.startsWith('view:'));
+  assert.ok(rows.length);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = rows[0][1];
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'owner', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], taskContinuation: { outcome: 'next', command: '我的资料' }, entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } }, data: current } }) }) }));
+  for (const [, data] of rows) {
+    current = data;
+    const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_meridians', { taskInput: '经络' }), 'ai-plugin');
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+    if (run.value.ok) { assert.equal((run.value.data as any).result.TrueQi, data.TrueQi); assert.deepEqual((run.value.data as any).result.meridians, data.meridians); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  }
+});

@@ -5,7 +5,7 @@ import { parseSoulArtifactEquipPreview, parseSoulArtifactEquipResult } from '../
 import { parseSoulArtifactUnequipResult } from '../api/bot/soul-artifact-unequip';
 import { parseSoulArtifactWashPreview } from '../api/bot/soul-artifact-wash';
 import { requestBackend } from '../api/bot/client';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { query } from './query';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
@@ -139,7 +139,7 @@ export const soulArtifactActions = {
   ),
   confirm_soul_artifact_wash: washDecision('confirm'),
   cancel_soul_artifact_wash: washDecision('cancel'),
-  prepare_soul_artifact_replacement: mutation<{ instanceId: number }>(
+  prepare_soul_artifact_replacement: observation<{ instanceId: number }>(
     '预览替换指定本命物，保存原对象、属性对比和退款；引用有效 5 分钟。',
     'soul-artifacts.replacement-preview',
     object({ instanceId: id }),
@@ -192,7 +192,7 @@ export const soulArtifactActions = {
     input => ({ reference: input.reference }),
     input => validateConfirmationReference(input.reference, 'v')
   ),
-  prepare_soul_artifact_separation: mutation(
+  prepare_soul_artifact_separation: observation(
     '预览当前本命物分离、等级和返还，生成本人专用确认引用；预览有效 5 分钟，已结算回执保留 24 小时。',
     'soul-artifacts.separation-preview',
     object({}),
@@ -266,10 +266,10 @@ export const soulArtifactActions = {
     },
     () => ({ confirmed: false })
   ),
-  refine_soul_artifact_empty_slot: mutation<{ instanceId: number }>(
-    '在当前没有炼化本命物时炼化指定实例；如果执行时已有本命物则拒绝，不替换、不消耗同编号道具。',
+  refine_soul_artifact_empty_slot: mutation<{ instanceId: number; intentId?: string }>(
+    '空槽时炼化指定本命物；已有本命物则拒绝，不替换。同消息新炼化使用新 intentId，同次重试沿用原编号。',
     'soul-artifacts.refine-empty',
-    object({ instanceId: id }),
+    object({ instanceId: id, intentId: intentIdSchema }, ['intentId']),
     object({
       artifact: object({
         ...fields(integer, 'id artifactId gradeId level washCount'),
@@ -287,7 +287,9 @@ export const soulArtifactActions = {
 
       return result;
     },
-    input => ({ instanceId: input.instanceId })
+    input => ({ instanceId: input.instanceId }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   preview_soul_artifact_refine: query(
     '预览指定本命物的炼化与替换影响，查询不炼化或消耗道具；预览不构成绑定确认。',
@@ -386,10 +388,10 @@ export const soulArtifactActions = {
     },
     input => ({ instanceId: String(input.instanceId) })
   ),
-  upgrade_equipped_soul_artifact: mutation<{ levels: number }>(
-    '升级当前已炼化的本命物，消耗服务端实际计算的材料；目标是执行时当前炼化实例，返回实际实例、等级与消耗。',
+  upgrade_equipped_soul_artifact: mutation<{ levels: number; intentId?: string }>(
+    '升级执行时当前炼化的本命物，返回实际实例和消耗。同消息新升级使用新 intentId，同次重试沿用原编号；先核对当前实例。',
     'soul-artifacts.upgrade',
-    object({ levels: id }),
+    object({ levels: id, intentId: intentIdSchema }, ['intentId']),
     object({
       message: text,
       result: object({
@@ -402,12 +404,14 @@ export const soulArtifactActions = {
     }),
     input => `/本命物升级 ${input.levels}`,
     parseRobotSoulArtifactUpgrade,
-    input => ({ levels: String(input.levels) })
+    input => ({ levels: String(input.levels) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
-  promote_soul_artifact: mutation<{ instanceId: number }>(
-    '升品指定本命物实例，直接消耗同名材料；资格与实际消耗由服务端校验，执行后不可撤销。',
+  promote_soul_artifact: mutation<{ instanceId: number; intentId?: string }>(
+    '升品指定本命物实例，直接消耗同名材料，执行后不可撤销。同消息新升品使用新 intentId，同次重试沿用原编号。',
     'soul-artifacts.grade-upgrade',
-    object({ instanceId: id }),
+    object({ instanceId: id, intentId: intentIdSchema }, ['intentId']),
     object({
       artifact: object({ ...fields(integer, 'id artifactId gradeId level'), name: text }),
       ...fields(integer, 'consumed previousGrade newGrade'),
@@ -423,6 +427,8 @@ export const soulArtifactActions = {
 
       return result;
     },
-    input => ({ instanceId: String(input.instanceId) })
+    input => ({ instanceId: String(input.instanceId) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

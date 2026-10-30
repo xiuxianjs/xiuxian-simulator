@@ -23,7 +23,7 @@ for (const row of fixtures) test(`明悟丹实际选择到结算: ${row.scenario
     assert.equal(request.headers['x-bid'], 'player');
     assert.ok([...body.messageText].length <= 80);
     if (path.endsWith('/items.consume')) {
-      assert.deepEqual(body.arguments, { itemName: '明悟丹', quantity: row.input.quantity });
+      assert.deepEqual(body.arguments, { itemName: '明悟丹', quantity: row.input.quantity, mode: 'expose' });
       return { status: 200, headers: {}, data: JSON.stringify(row.preparation) };
     }
     assert.equal(path, '/api/v2/robot/business/mingwu.confirm');

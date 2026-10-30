@@ -105,3 +105,21 @@ test('取消正在进行的身份查询会终止 HTTP，且不再请求属性', 
   assert.equal(aborted, true);
   assert.deepEqual(result.messages, []);
 });
+
+
+test('Expose 能力目录说明任务步骤、幂等编号和任务回执的边界', async t => {
+  const app = createTestApp();
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const event = app.events.privateMessage({ platform: 'qq-bot' });
+  const result = await app.invoke(event, () => client.list(GAME_EXPOSE_PROTOCOL));
+  const actions = result.value[0].actions;
+  for (const name of ['checkin_guild', 'claim_daily_fortune', 'sweep_tongtian_rank', 'upgrade_skill_book']) {
+    const action = actions[name];
+    assert.ok(action.inputSchema && action.inputSchema.type === 'object');
+    assert.match(action.inputSchema.properties.taskInput.description ?? '', /先推进任务再执行业务/);
+    assert.match(action.inputSchema.properties.intentId.description ?? '', /重试同一次操作沿用原编号/);
+    assert.ok(action.outputSchema && action.outputSchema.type === 'object');
+    assert.match(action.outputSchema.properties.taskContinuation.description ?? '', /不代表业务结算成功/);
+  }
+});

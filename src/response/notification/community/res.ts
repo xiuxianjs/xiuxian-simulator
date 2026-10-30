@@ -1,7 +1,7 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
-import { Format, logger, onResponse } from 'alemonjs';
+import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { listCommunityJoinRequests, readCommunitySettings, writeCommunitySettings } from '@src/api/bot/notification-cache';
@@ -15,6 +15,11 @@ export default onResponse(selects, async e => {
   const text = (e.MessageText ?? '').trim().replace(/^[!！/#＃]/, '');
   const configuration = text.match(/^配置(群欢迎|加群提醒)\s+(开启|关闭)$/);
   const history = text.match(/^加群申请记录(?:\s+(\d+))?$/);
+  const [, next] = useEvent();
+
+  if (text !== '群通知管理' && !configuration && !history) {
+    return next();
+  }
 
   try {
     const target = await requireCommunityAdministrator(e);

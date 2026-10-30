@@ -5,7 +5,7 @@ import {
   parseBackendSecretRealmChallenge,
   parseBackendSecretRealmClaim
 } from '../api/bot/guild-secret-realm-war';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
 
 const empty = object({});
@@ -51,6 +51,25 @@ export const secretRealmActions = {
       };
     }
   ),
+  execute_task_spirit_vein_war: mutation<{ taskInput: string; intentId?: string }>(
+    '查询灵脉攻防战时段、本人宗门、剩余攻击次数和奖励提示；服务端查询可能维护周期状态。',
+    'secret-realm.home',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    home,
+    () => '/灵脉攻防战',
+    data => {
+      const result = parseBackendSecretRealmHome(data);
+
+      return {
+        ...result,
+        ...(result.activeData === null ? {} : { activeDataJson: JSON.stringify(result.activeData) }),
+        ...(result.settledData === null ? {} : { settledDataJson: JSON.stringify(result.settledData) })
+      };
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   list_spirit_vein_realms: observation<{ page?: number }>(
     '分页查询灵脉攻防战秘境及领先宗门；每页五条，返回秘境编号供查看阵位。',
     'secret-realm.list',
@@ -59,6 +78,28 @@ export const secretRealmActions = {
     input => `/灵脉攻防战列表 ${input.page ?? 1}`,
     parseBackendSecretRealmList,
     input => ({ page: String(input.page ?? 1) })
+  ),
+  execute_task_spirit_vein_list: mutation<{ taskInput: string; intentId?: string }>(
+    '执行灵脉攻防战列表查看步骤，返回第一页秘境编号及领先宗门，不发起挑战。',
+    'secret-realm.list',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object({ items: list(summary) }),
+    () => '/灵脉攻防战列表',
+    parseBackendSecretRealmList,
+    () => ({ page: '1' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_spirit_vein_view_help: mutation<{ taskInput: string; intentId?: string }>(
+    '执行无编号的灵脉攻防战查看任务步骤。服务端返回用法提示，不返回阵位；先查询灵脉列表并选择秘境编号。',
+    'secret-realm.view',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object({ positions: list(position) }),
+    () => '/灵脉攻防战查看',
+    parseBackendSecretRealmView,
+    () => ({ realmNo: null, page: '1' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_spirit_vein_positions: observation<{ realmNo: number; page?: number }>(
     '分页查询指定灵脉秘境的阵位、占领者和冻结时间；每页五条。',
@@ -69,10 +110,10 @@ export const secretRealmActions = {
     parseBackendSecretRealmView,
     input => ({ realmNo: String(input.realmNo), page: String(input.page ?? 1) })
   ),
-  challenge_spirit_vein_position: mutation<{ realmNo: number; positionNo: number }>(
-    '挑战指定灵脉阵位；服务端检查活动时段、宗门、次数和冻结状态，返回胜负及实际参与贡献。',
+  challenge_spirit_vein_position: mutation<{ realmNo: number; positionNo: number; intentId?: string; taskInput?: string }>(
+    '挑战执行时指定灵脉阵位，服务端检查时段、宗门、次数与冻结状态；阵位占领者可能变化。同消息新挑战使用新 intentId，同次重试沿用原编号。',
     'secret-realm.challenge',
-    object({ realmNo, positionNo: realmNo }),
+    object({ realmNo, positionNo: realmNo, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ won: boolean, ...fields(integer, 'realmNo positionNo participationContribution'), frozenUntil: text }, ['frozenUntil']),
     input => `/灵脉攻防战挑战 ${input.realmNo} ${input.positionNo}`,
     (data, input) => {
@@ -88,14 +129,19 @@ export const secretRealmActions = {
 
       return result;
     },
-    input => ({ realmNo: String(input.realmNo), positionNo: String(input.positionNo) })
+    input => ({ realmNo: String(input.realmNo), positionNo: String(input.positionNo) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_spirit_vein_war_rewards: mutation(
+  claim_spirit_vein_war_rewards: mutation<{ intentId?: string; taskInput?: string }>(
     '领取本人可领取的灵脉攻防战结算奖励，以实际灵晶、贡献和声望回执为准。',
     'secret-realm.claim',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ ...fields(integer, 'spiritCrystal contribution reputation ownedRealms'), reputationAlreadyClaimed: boolean }),
     () => '/灵脉攻防战领取奖励',
-    parseBackendSecretRealmClaim
+    parseBackendSecretRealmClaim,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

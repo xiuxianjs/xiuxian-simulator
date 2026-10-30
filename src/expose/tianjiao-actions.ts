@@ -1,7 +1,7 @@
 import { parseTianjiaoLeaderboard } from '../api/bot/tianjiao-leaderboard-queries';
 import { parseTianjiaoRewards } from '../api/bot/tianjiao-rewards-queries';
 import { parseTianjiaoChallenge } from '../api/bot/tianjiao-challenge';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const empty = object({});
@@ -27,6 +27,28 @@ export const tianjiaoActions = {
     () => '/登天梯',
     parseTianjiaoLeaderboard
   ),
+  execute_task_tianjiao_leaderboard: mutation<{ taskInput: string; intentId?: string }>(
+    '查询登天梯榜单、开放条件、本人排名、剩余次数与建议目标；能否挑战以服务端为准。',
+    'tianjiao.leaderboard',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object(
+      {
+        ...fields(boolean, 'isVisible canChallenge'),
+        ...fields(text, 'lockedMessage requiredText requiredRealmName stageName'),
+        stageLevel: integer,
+        attemptsLeft: number,
+        myRank: integer,
+        suggestedTarget: integer,
+        entries: list(object({ rank: integer, occupied: boolean, userName: text, realmName: text, power: integer, isMe: boolean, userId: integer }, ['userId']))
+      },
+      ['myRank', 'suggestedTarget']
+    ),
+    () => '/登天梯',
+    parseTianjiaoLeaderboard,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   get_tianjiao_rewards: observation(
     '查询登天梯当前奖励档位和本人领取记录；挑战时发放的奖励以服务端结果为准。',
     'tianjiao.rewards',
@@ -45,10 +67,13 @@ export const tianjiaoActions = {
     () => '/登天奖励',
     parseTianjiaoRewards
   ),
-  challenge_tianjiao: mutation<{ rank: number }>(
-    '挑战指定登天梯排名，空位可能直接占位；消耗次数与奖励以服务端回执为准，同一原消息重试保持幂等。',
+  challenge_tianjiao: mutation<{ rank: number; intentId?: string; taskInput?: string }>(
+    '挑战执行时指定登天梯排名，空位可能直接占位；排名对应人物可能变化。同消息新挑战使用新 intentId，同次重试沿用原编号。',
     'tianjiao.challenge',
-    object({ rank: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ rank: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object(
       {
         success: boolean,
@@ -72,6 +97,8 @@ export const tianjiaoActions = {
 
       return receipt;
     },
-    input => ({ rankArg: String(input.rank) })
+    input => ({ rankArg: String(input.rank) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

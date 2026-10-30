@@ -45,3 +45,13 @@ for (const item of [
     }
   });
 }
+
+test('凶兽连锁任务读取 Go 服务端真实状态', async t => {
+  const row = [...output.matchAll(/ROBOT_WORLD_BOSS_QUERY_RESPONSE=([^|]+)\|player\|(.+)/g)].filter(match => match[1] === 'world-boss.info').map(match => JSON.parse(match[2])).find(item => item.data.success && item.data.branch === 'business'); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(row); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_world_boss', { taskInput: '凶兽' }), 'ai-plugin');
+  assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) { assert.equal((result.value.data as any).result.remainingAttempts, String(row.data.data.remainingAttempts)); assert.equal((result.value.data as any).taskContinuation.outcome, 'next'); }
+});

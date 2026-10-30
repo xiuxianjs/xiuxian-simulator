@@ -1,5 +1,6 @@
+import { ExposeError } from 'alemonjs';
 import { confirmationReferenceSchema as reference, validateConfirmationReference as validateReference } from './confirmation';
-import { mutation, observation, replySchema } from './mutation';
+import { intentIdSchema, mutation, observation, replySchema, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseAlchemyV2Reply } from '../api/bot/alchemy-v2';
 import { forgeStatFields, parseForgeOverview, parseForgePreview, parseForgeResult } from '../api/schemas/forge';
@@ -69,7 +70,37 @@ export const forgeOverviewSchema = object({
   recipes: list(forgeRecipeSchema)
 });
 
+function taskAlchemyRecipes(input: { taskInput: string; page?: number }) {
+  const original = input.taskInput
+    .trim()
+    .replace(/^[!！/#＃]\s*/, '')
+    .trim();
+  const match = /^(?:丹方|丹方列表|查看丹方|炼丹\s+丹方)(?:\s+(\d+))?$/.exec(original);
+  const rawPage = match?.[1];
+  const number = rawPage === undefined ? 1 : Number(rawPage);
+
+  if (!match || !Number.isSafeInteger(number) || number < 1 || number > 100000 || (input.page !== undefined && input.page !== number)) {
+    throw new ExposeError('INVALID_INPUT', '丹方任务指令与页码不匹配');
+  }
+
+  return { original: `/${original}`, command: `/炼丹 丹方${rawPage === undefined ? '' : ` ${rawPage}`}` };
+}
+
 export const craftingActions = {
+  execute_task_alchemy_recipes: mutation<{ taskInput: string; page?: number; intentId?: string }>(
+    '执行丹方列表任务步骤，支持路由现有别名及页码；返回服务端列表和任务推进，不执行炼制。',
+    'alchemy.v2',
+    object({ taskInput: taskInputSchema, page: { type: 'integer', minimum: 1, maximum: 100000 }, intentId: intentIdSchema }, ['page', 'intentId']),
+    alchemy,
+    input => taskAlchemyRecipes(input).command,
+    alchemyReply,
+    () => ({}),
+    input => {
+      validateIntentId(input.intentId);
+      taskAlchemyRecipes(input);
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput, taskCommand: input => taskAlchemyRecipes(input).original }
+  ),
   get_alchemy_dashboard: mutation(
     '查看炼丹当前状态与功能入口；服务端可能处理入门状态，返回原始业务提示及可确认引用，不自动执行按钮。',
     'alchemy.v2',
@@ -95,7 +126,18 @@ export const craftingActions = {
     alchemyReply,
     () => ({})
   ),
-  preview_alchemy: mutation<{ recipeId: number; count: number }>(
+  execute_task_preview_alchemy: mutation<{ recipeId: number; count: number; taskInput: string; intentId?: string }>(
+    '执行炼丹预览任务步骤，返回原预览和确认引用；提交炼丹前必须向用户说明并取得明确确认。',
+    'alchemy.v2',
+    object({ recipeId: positive, count: { type: 'integer', minimum: 1, maximum: 1000 }, taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    alchemy,
+    input => `/炼丹 预览 ${input.recipeId} ${input.count}`,
+    alchemyReply,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  preview_alchemy: observation<{ recipeId: number; count: number }>(
     '预览指定丹方 1..1000 炉的材料、消耗及条件；返回绑定原预览的服务端确认引用，必须先向用户说明并取得确认。',
     'alchemy.v2',
     object({ recipeId: positive, count: { type: 'integer', minimum: 1, maximum: 1000 } }),
@@ -104,15 +146,16 @@ export const craftingActions = {
     alchemyReply,
     () => ({})
   ),
-  confirm_alchemy: mutation<{ reference: string }>(
+  confirm_alchemy: mutation<{ reference: string; taskInput?: string }>(
     '用户明确确认原预览后，使用原 r1_a 引用提交炼丹或天工获取。保留原操作编号、用户绑定和过期校验；失败不能重新预览后自动确认。',
     'alchemy.v2',
-    object({ reference }),
+    object({ reference, taskInput: taskInputSchema }, ['taskInput']),
     alchemy,
     input => `/炼丹 确认 ${input.reference}`,
     alchemyReply,
     () => ({}),
-    input => validateReference(input.reference, 'a')
+    input => validateReference(input.reference, 'a'),
+    { taskInput: input => input.taskInput }
   ),
   get_forge_overview: observation(
     '查看锻造等级、图纸、材料库存、学习和制作资格；不保存或制作装备，服务端保留准入。',
@@ -122,7 +165,7 @@ export const craftingActions = {
     () => '/我的锻造',
     parseForgeOverview
   ),
-  preview_forge: mutation<{ recipeId: number }>(
+  preview_forge: observation<{ recipeId: number }>(
     '预览指定锻造图纸的材料、费用、属性范围和原确认引用；不消耗制作材料。请先向用户说明并取得确认。',
     'forge.preview',
     object({ recipeId: positive }),
@@ -131,7 +174,7 @@ export const craftingActions = {
     parseForgePreview,
     input => ({ recipeId: input.recipeId, tutorial: false })
   ),
-  preview_forge_tutorial: mutation(
+  preview_forge_tutorial: observation(
     '预览加入锻造师的入门制作与工具奖励；取得用户确认后再用原引用调用 confirm_forge。',
     'forge.preview',
     empty,

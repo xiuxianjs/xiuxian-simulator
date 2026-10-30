@@ -1,9 +1,10 @@
 import { ExposeError } from 'alemonjs';
+import { parseSoulPathComparison } from '../api/bot/battle-attributes';
 import { parseSoulChoosePreview } from '../api/bot/soul-path-choose';
 import { parseSoulActionPreview } from '../api/bot/soul-path-action';
 import { parseSoulConfirm } from '../api/bot/soul-confirm-business';
 import { parseSoulNurture, parseSoulSupplyDirection } from '../api/bot/soul-path';
-import { mutation } from './mutation';
+import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 type Path = 'xuan_fa' | 'lian_ti' | 'yu_qi';
@@ -32,8 +33,16 @@ function preview(data: unknown, choose: boolean) {
 }
 
 export const soulActions = {
-  preview_soul_path_choose: mutation<{ pathKey: Path }>(
-    '预览首次选择玄法、炼体或御器道途，不执行选择；确认时将返回的 confirmationToken 原样传给 confirm_soul_path。沿用服务端原神魂 UUID 凭证和时效。',
+  get_soul_path_comparison: observation(
+    '查询当前配装下道途带来的属性变化；before 和 after 使用服务端战斗属性数值，变化不等同于伤害增幅。不改变道途或装备。',
+    'soul-path.compare',
+    object({}),
+    object({ changes: list(object({ label: text, before: integer, after: integer, deltaText: text })), emptyMessage: text, quote: text }),
+    () => '/道途印证',
+    parseSoulPathComparison
+  ),
+  preview_soul_path_choose: observation<{ pathKey: Path }>(
+    '预览首次选择玄法、炼体或御器道途，不执行选择；服务端可能初始化神魂状态并发放入门引导，每次预览生成新的确认记录。确认时将返回的 confirmationToken 原样传给 confirm_soul_path。',
     'soul-path.choose-preview',
     object({ pathKey }),
     previewSchema,
@@ -41,7 +50,7 @@ export const soulActions = {
     data => preview(data, true),
     input => ({ input: pathNames[input.pathKey] })
   ),
-  preview_soul_path_switch: mutation<{ pathKey: Path }>(
+  preview_soul_path_switch: observation<{ pathKey: Path }>(
     '预览切换道途的材料、冷却和效果；不执行切换，需确认原 confirmationToken。',
     'soul-path.switch-preview',
     object({ pathKey }),
@@ -50,7 +59,7 @@ export const soulActions = {
     data => preview(data, false),
     input => ({ input: pathNames[input.pathKey] })
   ),
-  preview_soul_path_advance: mutation(
+  preview_soul_path_advance: observation(
     '预览当前道途下一节点的突破条件，不执行突破，需确认原 confirmationToken。',
     'soul-path.advance-preview',
     object({}),
@@ -59,7 +68,7 @@ export const soulActions = {
     data => preview(data, false),
     () => ({ input: '' })
   ),
-  preview_soul_path_reroll: mutation(
+  preview_soul_path_reroll: observation(
     '预览最近温养结果的神魂重选，不执行重选；保留服务端材料、结果与次数限制。',
     'soul-path.reroll-preview',
     object({}),
@@ -96,10 +105,10 @@ export const soulActions = {
       }
     }
   ),
-  nurture_soul_path: mutation<{ direction: Direction }>(
-    '消耗本人神魂材料进行一次温养；以服务端实际结果、当日次数和额外材料为准，不保证随机档位。',
+  nurture_soul_path: mutation<{ direction: Direction; intentId?: string }>(
+    '消耗本人神魂材料进行一次温养，以服务端结果为准。相同消息内不同次操作使用不同 intentId，重试同一次使用原 intentId；未提供时相同消息和方向按一次操作处理。',
     'soul-path.nurture',
-    object({ direction }),
+    object({ direction, intentId: intentIdSchema }, ['intentId']),
     object({
       ...nurtureFields,
       ...fields(integer, 'dailyNurtureCount dailyNurtureLimit'),
@@ -116,7 +125,9 @@ export const soulActions = {
 
       return result;
     },
-    input => ({ input: directionNames[input.direction] })
+    input => ({ input: directionNames[input.direction] }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   set_soul_supply_direction: mutation<{ direction: Direction | 'auto' }>(
     '设置每日神魂材料补给方向；auto 恢复服务端自动方向。仅设置方向，不代表已发放补给。',

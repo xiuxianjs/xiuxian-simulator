@@ -11,14 +11,14 @@ import { Format, onResponse, useMention, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, next] = useEvent();
   const [mention] = useMention();
   const parsed = parseFlyMailSendCommand(e.MessageText);
 
   if (!parsed) {
-    return;
+    return next();
   }
   const target = parsed.scope === 'friend' ? await resolveRobotTargetFromArg(parsed.targetArg, mention) : null;
-  const [, next] = useEvent();
   const view = flyMailViewCommand(parsed.scope);
   const draft =
     flyMailDraft(parsed.scope, target && 'uid' in target ? target.uid : undefined) +

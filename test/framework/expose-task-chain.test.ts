@@ -47,5 +47,17 @@ test('连锁任务回执区分运行状态、待执行指令和拒绝', async t 
     const again = await call(); assert.equal(again.value.ok, true);
     if (current.operation === 'tasks.overview') assert.notEqual(keys.at(-1), keys.at(-2));
     else assert.equal(keys.at(-1), keys.at(-2));
+    if (data.success && ['tasks.settings', 'tasks.alias', 'tasks.clear'].includes(current.operation)) {
+      const invokeIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', spec.action, { ...spec.input, intentId }), 'ai-plugin');
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      const first = keys.at(-1);
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      assert.equal(keys.at(-1), first);
+      assert.equal((await invokeIntent('second')).value.ok, true);
+      assert.notEqual(keys.at(-1), first);
+      const before = keys.length;
+      assert.equal((await invokeIntent('invalid intent')).value.ok, false);
+      assert.equal(keys.length, before);
+    }
   }
 });

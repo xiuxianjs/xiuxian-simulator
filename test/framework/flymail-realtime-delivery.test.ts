@@ -15,7 +15,7 @@ test('SSE 飞信按固定窗口推送，普通消息认领阻塞时也不等待�
     if (originalLogin === undefined) delete process.env.login;
     else process.env.login = originalLogin;
   });
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-token' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-token' } } } });
   t.after(() => app.dispose());
   let entered!: () => void, release!: () => void, delivered!: () => void, acknowledged!: () => void;
   const standardEntered = new Promise<void>(resolve => { entered = resolve; });

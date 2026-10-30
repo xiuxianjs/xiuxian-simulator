@@ -3,13 +3,15 @@ import { parseMasterAction, parseMasterClaimTitle, parseMasterTargetAction, pars
 import { parseMasterInfo } from '../api/bot/master-info-queries';
 import { parseMasterLineage, type MasterLineageDisplayNode } from '../api/bot/master-lineage-queries';
 import { parseMasterRanking } from '../api/bot/queries';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const targetId = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 
 type TargetInput = { targetUid: number };
 type GiftInput = TargetInput & { itemKey?: 'peiyuan' | 'zhuji' };
+type RepeatedTargetInput = TargetInput & { intentId?: string; taskInput?: string };
+type RepeatedGiftInput = GiftInput & { intentId?: string; taskInput?: string };
 type ProposalInput = { proposalId: number; discipleId: number; createdAt: string };
 const targetResult = object({ targetUid: integer, message: text });
 
@@ -263,10 +265,32 @@ export const masterActions = {
       return { allowed: info.access.allowed, hasMasterSide: info.masterSide !== null, discipleIds, infoJson: JSON.stringify(info) };
     }
   ),
-  teach_all_disciples: mutation(
-    '一键为徒弟传功；按服务端逐个结算，items 记录每位徒弟实际次数和失败原因，可能部分成功。',
+  execute_task_master_info: mutation<{ taskInput: string; intentId?: string }>(
+    '查询本人师承、徒弟、日常培养和出师进度；infoJson 包含服务端完整师门信息。查询可能触发服务端生命周期处理。',
+    'master.info',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object({ allowed: boolean, hasMasterSide: boolean, discipleIds: list(integer), infoJson: text }),
+    () => '/我的师门',
+    data => {
+      const info = parseMasterInfo(data);
+      const discipleIds = (info.masterSide?.disciples ?? []).map(row => {
+        if (!Number.isSafeInteger(row.discipleUserId) || row.discipleUserId <= 0) {
+          throw new Error('徒弟编号无效');
+        }
+
+        return row.discipleUserId;
+      });
+
+      return { allowed: info.access.allowed, hasMasterSide: info.masterSide !== null, discipleIds, infoJson: JSON.stringify(info) };
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  teach_all_disciples: mutation<{ intentId?: string; taskInput?: string }>(
+    '一键为徒弟传功；按服务端逐个结算，items 记录每位徒弟实际次数和失败原因，可能部分成功。部分成功或结果未知先核对再决定后续操作；同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'master.teach-all',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ message: text, count: integer, items: list(object({ discipleId: integer, count: integer, reason: text }, ['reason'])) }),
     () => '/一键传功',
     data => {
@@ -296,7 +320,10 @@ export const masterActions = {
       });
 
       return { message, count: row.count, items };
-    }
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_master_applications: observation(
     '查询本人收到的待处理拜师申请；申请编号和时间仅反映本次快照。',
@@ -316,32 +343,42 @@ export const masterActions = {
     data => proposalList(data),
     () => ({ discipleArg: '' })
   ),
-  teach_disciple: mutation<TargetInput>(
-    '向指定徒弟传功；目标关系、次数和奖励以服务端结算为准。',
+  teach_disciple: mutation<RepeatedTargetInput>(
+    '向指定徒弟传功；目标关系、次数和奖励以服务端结算为准。同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'master.teach',
-    object({ targetUid: targetId }),
+    object({ targetUid: targetId, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     targetResult,
     input => `/传功 ${input.targetUid}`,
     targetAction('传功'),
-    input => ({ targetArg: String(input.targetUid) })
+    input => ({ targetArg: String(input.targetUid) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  bless_disciple: mutation<TargetInput>(
-    '向指定徒弟赐福；服务端校验关系、次数和消耗。',
+  bless_disciple: mutation<RepeatedTargetInput>(
+    '向指定徒弟赐福；服务端校验关系、次数和消耗。同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'master.bless',
-    object({ targetUid: targetId }),
+    object({ targetUid: targetId, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     targetResult,
     input => `/赐福 ${input.targetUid}`,
     targetAction('赐福'),
-    input => ({ targetArg: String(input.targetUid) })
+    input => ({ targetArg: String(input.targetUid) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  gift_disciple_pill: mutation<GiftInput>(
-    '向指定徒弟赐丹；可指定培元丹或筑基丹，未指定时由服务端选择，服务端校验库存与资格。',
+  gift_disciple_pill: mutation<RepeatedGiftInput>(
+    '向指定徒弟赐丹；可指定培元丹或筑基丹，未指定时由服务端选择，服务端校验库存与资格。同消息中新操作使用新 intentId，同次重试沿用原编号。',
     'master.gift',
-    object({ targetUid: targetId, itemKey: { type: 'string', enum: ['peiyuan', 'zhuji'] } }, ['itemKey']),
+    object({ targetUid: targetId, itemKey: { type: 'string', enum: ['peiyuan', 'zhuji'] }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'itemKey',
+      'intentId',
+      'taskInput'
+    ]),
     targetResult,
     input => `/赐丹 ${input.targetUid}${input.itemKey ? ` ${input.itemKey === 'peiyuan' ? '培元丹' : '筑基丹'}` : ''}`,
     targetAction('赐丹'),
-    input => ({ targetArg: String(input.targetUid), ...(input.itemKey ? { itemKey: input.itemKey } : {}) })
+    input => ({ targetArg: String(input.targetUid), ...(input.itemKey ? { itemKey: input.itemKey } : {}) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   apply_for_master: mutation<TargetInput>(
     '向指定玩家申请拜师；成功仅代表申请已提交，不代表师徒关系已建立。',
@@ -360,12 +397,15 @@ export const masterActions = {
     () => '/申请出师',
     parseMasterAction
   ),
-  claim_master_title: mutation(
+  claim_master_title: mutation<{ intentId?: string; taskInput?: string }>(
     '领取符合服务端条件的师门称号；资格和重复领取由服务端校验。',
     'master.title-claim',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ title: text }),
     () => '/领取师门称号',
-    parseMasterClaimTitle
+    parseMasterClaimTitle,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

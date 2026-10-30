@@ -39,3 +39,19 @@ test('赠礼选项和结算保留目标、库存、奖励与重试', async t => 
     await call(); if (gift) assert.equal(keys.at(-1), keys.at(-2)); else assert.notEqual(keys.at(-1), keys.at(-2));
   }
 });
+
+test('赠礼任务入口保留服务端目标和结果', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = rows[0];
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(current.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  for (const mode of ['OPTIONS', 'GIFT']) {
+    current = rows.find(row => row.envelope.data.success && row.envelope.data.data?.mode === mode)!; assert.ok(current);
+    const gift = mode === 'GIFT'; const action = gift ? 'send_gift' : 'execute_task_gift_options';
+    const input = gift ? { targetUid: 2, giftName: '花', taskInput: '赠送 2 花' } : { targetUid: 2, taskInput: '赠送 2' };
+    const run = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+    if (run.value.ok) { const result = run.value.data as any; assert.equal(result.result.targetId, 2); assert.equal(result.taskContinuation.outcome, 'next'); if (gift) assert.equal(result.result.intimacyGained, current.envelope.data.data.mutation.intimacyGained); else assert.deepEqual(result.result.gifts, current.envelope.data.data.options.gifts); }
+  }
+});

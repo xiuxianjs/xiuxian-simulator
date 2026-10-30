@@ -28,5 +28,17 @@ test('本人和道侣打理保留实际数量、收获归属和幂等键', async
     const run = await call(); assert.deepEqual(run.errors, []); assert.equal(run.value.ok, true, JSON.stringify(run.value));
     if (run.value.ok) assert.deepEqual((run.value.data as any).result, current.envelope.data.data);
     await call(); assert.equal(keys.at(-1), keys.at(-2));
+    if (companion) {
+      const invokeIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'tend_companion_cave_plots', { harvest: current.harvest, intentId }), 'ai-plugin');
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      const first = keys.at(-1);
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      assert.equal(keys.at(-1), first);
+      assert.equal((await invokeIntent('second')).value.ok, true);
+      assert.notEqual(keys.at(-1), first);
+      const before = keys.length;
+      assert.equal((await invokeIntent('invalid intent')).value.ok, false);
+      assert.equal(keys.length, before);
+    }
   }
 });

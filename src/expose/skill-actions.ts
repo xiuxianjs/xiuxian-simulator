@@ -9,7 +9,7 @@ import {
   parseSkillBookRerollPreview,
   parseSkillBookRerollConfirm
 } from '../api/bot/skill-book-reset-reroll';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
@@ -172,7 +172,7 @@ export const skillActions = {
     },
     input => ({ mode: 'preview', bookId: String(input.bookId), attrLabel: null })
   ),
-  prepare_skill_reset: mutation<{ bookId: number }>(
+  prepare_skill_reset: observation<{ bookId: number }>(
     '预览指定已学功法的重制、受影响词条和返还，确认引用有效 60 秒。',
     'skill-books.reset-preview-reference',
     object({ bookId }),
@@ -208,10 +208,10 @@ export const skillActions = {
     input => ({ reference: input.reference }),
     input => validateConfirmationReference(input.reference, 'w')
   ),
-  learn_current_skill_batch: mutation(
+  learn_current_skill_batch: mutation<{ intentId?: string; taskInput?: string }>(
     '立即批量学习执行时当前符合条件的功法；服务端会重新筛选，候选可能与此前预览不同。跳过同技能冲突，逐项检查结果。此操作不确认或绑定先前预览。',
     'skill-books.batch-learn',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       mode: text,
       selection: object({
@@ -234,7 +234,9 @@ export const skillActions = {
 
       return result;
     },
-    () => ({ mode: 'execute' })
+    () => ({ mode: 'execute' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   preview_batch_skill_learning: observation(
     '查询当前可一键学习的功法实例及冲突跳过项，不学习；该预览不锁定候选清单。',
@@ -260,10 +262,10 @@ export const skillActions = {
     },
     () => ({ mode: 'preview' })
   ),
-  prepare_skill_learn: mutation<{ bookId: number }>(
+  prepare_skill_learn: mutation<{ bookId: number; intentId?: string; taskInput?: string }>(
     '学习本人背包功法；若需替换同技能功法，返回原比较、预计返还与 reference，尚未学习。不存在旧功法时会按服务端规则直接学习。',
     'skill-books.learn',
-    object({ bookId }),
+    object({ bookId, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object(
       {
         outcome: { type: 'string', enum: ['learned', 'confirmation_required'] },
@@ -297,12 +299,14 @@ export const skillActions = {
 
       return result;
     },
-    input => ({ bookId: String(input.bookId), confirm: null, exposePreview: true })
+    input => ({ bookId: String(input.bookId), confirm: null, exposePreview: true }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  confirm_skill_learn: mutation<{ bookId: number; reference: string }>(
-    '确认原功法学习替换；服务端核对原功法、熟练度及返还依据，并在同一事务中返还、替换与记录回执。引用跨消息重试返回原结果；状态变化时拒绝。',
+  confirm_skill_learn: mutation<{ bookId: number; reference: string; taskInput?: string }>(
+    '用户明确确认原预览后，确认功法学习替换；服务端核对原功法、熟练度及返还依据，并在同一事务中返还、替换与记录回执。引用跨消息重试返回原结果；状态变化时拒绝。',
     'skill-books.learn',
-    object({ bookId, reference: confirmationReferenceSchema }),
+    object({ bookId, reference: confirmationReferenceSchema, taskInput: taskInputSchema }, ['taskInput']),
     object({ outcome: { type: 'string', enum: ['learned'] }, skillBook: learned, oldSkillBook: learned, refundInfo: refund }),
     input => `/学习功法 ${input.bookId} 确认`,
     (data, input) => {
@@ -315,12 +319,13 @@ export const skillActions = {
       return result;
     },
     input => ({ bookId: String(input.bookId), confirm: '确认', reference: input.reference }),
-    input => validateConfirmationReference(input.reference, 'l')
+    input => validateConfirmationReference(input.reference, 'l'),
+    { taskInput: input => input.taskInput }
   ),
-  learn_skill_book: mutation<{ bookId: number }>(
+  learn_skill_book: mutation<{ bookId: number; intentId?: string; taskInput?: string }>(
     '学习背包中的功法实例，不强制替换已学同类功法。outcome=confirmation_required 表示仅返回替换比较，尚未完成学习；保留原功法与返还规则。',
     'skill-books.learn',
-    object({ bookId }),
+    object({ bookId, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object(
       {
         outcome: { type: 'string', enum: ['learned', 'confirmation_required'] },
@@ -345,7 +350,9 @@ export const skillActions = {
 
       return result;
     },
-    input => ({ bookId: String(input.bookId), confirm: null })
+    input => ({ bookId: String(input.bookId), confirm: null }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_skill_switch_options: observation<{ skillType: SkillType }>(
     '查询指定战技、被动技或神通可切换列表，不执行切换；保留实例编号、使用状态和服务端资格。',
@@ -356,19 +363,21 @@ export const skillActions = {
     (data, input) => switchData(data, input.skillType),
     input => ({ skillType: input.skillType, bookId: null, confirm: null })
   ),
-  switch_skill_book: mutation<{ skillType: SkillType; bookId: number }>(
-    '切换到本人已学功法，不强制确认替换。code=SHOW_LIST 是服务端返回的候选列表；result.outcome=confirmation_required 是待确认比较，均不代表切换成功。',
+  switch_skill_book: mutation<{ skillType: SkillType; bookId: number; intentId?: string; taskInput?: string }>(
+    '切换本人已学功法；SHOW_LIST 或 confirmation_required 不代表切换成功。同消息新切换使用新 intentId，同次重试沿用原编号。',
     'skill-books.switch',
-    object({ skillType, bookId }),
+    object({ skillType, bookId, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ code: { type: 'string', enum: ['SHOW_LIST', 'OK'] }, skillType, options, result: switchResult }, ['options', 'result']),
     input => `/切换${input.skillType} ${input.bookId}`,
     (data, input) => switchData(data, input.skillType, input.bookId),
-    input => ({ skillType: input.skillType, bookId: String(input.bookId), confirm: null })
+    input => ({ skillType: input.skillType, bookId: String(input.bookId), confirm: null }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  prepare_skill_switch: mutation<{ skillType: SkillType; bookId: number }>(
-    '切换已学功法；若已有同类型功法在使用，返回原比较及 reference，尚未切换，须使用该引用确认。若原槽位为空，服务端会直接切换并返回 switched。',
+  prepare_skill_switch: mutation<{ skillType: SkillType; bookId: number; intentId?: string }>(
+    '切换已学功法；已有同类型功法时返回原比较及 reference，须确认；空槽位可能直接切换。同消息新操作使用新 intentId，同次重试沿用原编号。',
     'skill-books.switch',
-    object({ skillType, bookId }),
+    object({ skillType, bookId, intentId: intentIdSchema }, ['intentId']),
     object({ code: { type: 'string', enum: ['SHOW_LIST', 'OK'] }, skillType, options, result: switchResult, reference: confirmationReferenceSchema }, [
       'options',
       'result',
@@ -391,7 +400,9 @@ export const skillActions = {
 
       return parsed;
     },
-    input => ({ skillType: input.skillType, bookId: String(input.bookId), confirm: null, exposePreview: true })
+    input => ({ skillType: input.skillType, bookId: String(input.bookId), confirm: null, exposePreview: true }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   confirm_skill_switch: mutation<{ skillType: SkillType; bookId: number; reference: string }>(
     '确认原功法切换预览；提交原类型、目标实例和 reference，服务端核对原使用中功法及比较属性后事务切换。原引用跨消息重试返回原结算，不自动替换已变化的功法。',

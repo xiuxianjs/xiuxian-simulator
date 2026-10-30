@@ -33,3 +33,17 @@ test('已学功法以真实服务端返回保留资格和上限', async t => {
     for (const [index, book] of actual.items.entries()) for (const key of ['id', 'canHide', 'canReset', 'physicalAttack', 'maxPhysicalAttack']) assert.equal(book[key], original.items[index][key]);
   }
 });
+
+test('功法任务查看解析 Go 功法列表并拒绝不匹配页码', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = rows[0]; let displayPage = 1;
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], taskContinuation: { outcome: 'next', command: '我的资料' }, entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } }, data: { displayPage, page: current.envelope.data } } }) }) }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_learned_books', { taskInput: '我的功法' }), 'ai-plugin');
+  for (current of rows) {
+    const run = await call(); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+    if (run.value.ok) { assert.equal((run.value.data as any).result.total, current.envelope.data.total); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  }
+  displayPage = 2; assert.equal((await call()).value.ok, false);
+});

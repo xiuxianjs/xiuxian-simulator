@@ -67,3 +67,34 @@ for (const spec of specs) test(`${spec.action}: 真实服务端结算及拒绝�
   }
   assert.ok(successes > 0, spec.action);
 });
+
+test('妖塔连锁任务读取 Go 服务端真实状态', async t => {
+  const row = fixtures.find(item => item.operation === 'demon-tower.info' && item.envelope.data.success && item.envelope.data.branch === 'business'); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async () => {
+    const envelope = structuredClone(row.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_demon_tower', { taskInput: '妖塔' }), 'ai-plugin');
+  assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) { assert.deepEqual((result.value.data as any).result.access, row.envelope.data.data.access); assert.equal((result.value.data as any).result.info?.currentLayer, row.envelope.data.data.info?.currentLayer); assert.equal((result.value.data as any).taskContinuation.outcome, 'next'); }
+});
+
+
+test('妖塔中文增益任务解析真实回执并拒绝次数不一致', async t => {
+  const row = fixtures.find(item => item.operation === 'demon-tower.buff' && item.envelope.data.success && item.envelope.data.data?.outcome === 'result' && item.envelope.data.data.data.count === 1); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let envelope = structuredClone(row.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/妖塔选buff 生命'); assert.equal(body.taskInput, '妖塔选buff 生命'); assert.deepEqual(body.arguments, { selection: { buffKey: 'hp', count: 1 } });
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'select_demon_tower_buff', { buffKey: 'hp', count: 1, taskInput: '妖塔选buff 生命' }), 'ai-plugin');
+  const run = await call(); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.equal((run.value.data as any).result.count, 1); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  envelope = structuredClone(envelope); envelope.data.data.data.count = 2; assert.equal((await call()).value.ok, false);
+});

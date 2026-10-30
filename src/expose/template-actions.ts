@@ -1,4 +1,4 @@
-import { mutation } from './mutation';
+import { intentIdSchema, mutation, validateIntentId } from './mutation';
 import { boolean, object } from './schema';
 import { projectTemplates, templateSchema } from './queries';
 import { parseBattleTemplateSave } from '../api/bot/battle-template-save';
@@ -25,10 +25,10 @@ export const templateActions = {
     },
     args
   ),
-  apply_battle_template: mutation<{ slot: number }>(
-    '应用已保存的战斗模板，改变当前装备和功法；服务端检查所有权、境界和物品状态。',
+  apply_battle_template: mutation<{ slot: number; intentId?: string }>(
+    '应用已保存的战斗模板，改变当前装备和功法。同消息重新应用使用新 intentId，同次重试沿用原编号。',
     'battle-templates.apply',
-    object({ slot }),
+    object({ slot, intentId: intentIdSchema }, ['intentId']),
     withFlag('cacheInvalidated'),
     input => `/应用战斗模板 ${input.slot}`,
     (data, input) => {
@@ -36,7 +36,9 @@ export const templateActions = {
 
       return { ...projectTemplates({ current: result, templates: [] }).current, cacheInvalidated: result.cacheInvalidated };
     },
-    args
+    args,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   delete_battle_template: mutation<{ slot: number }>(
     '删除指定槽位的战斗模板；不分解装备或功法，deleted=false 表示没有删除记录。',

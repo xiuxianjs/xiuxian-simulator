@@ -15,7 +15,9 @@ test('本命物替换绑定原预览并返回实际退款', async t => {
   t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   const preview = fixtures.find(row => row.key === 'preview'); const confirm = fixtures.find(row => row.key === 'confirm'); assert.ok(preview && confirm);
   let operation = 'soul-artifacts.replacement-preview'; let envelope = structuredClone(preview.envelope); let args: any = { instanceId: 10 };
+  const keys: string[] = [];
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    keys.push(request.headers['idempotency-key']);
     assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${operation}`);
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
     assert.deepEqual(body.arguments, args); return { status: 200, headers: {}, data: JSON.stringify(envelope) };
@@ -23,6 +25,9 @@ test('本命物替换绑定原预览并返回实际退款', async t => {
   const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
   const prepared = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'prepare_soul_artifact_replacement', args), 'ai-plugin');
   assert.equal(prepared.value.ok, true, JSON.stringify(prepared.value)); if (!prepared.value.ok) return;
+  const refreshed = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'prepare_soul_artifact_replacement', args), 'ai-plugin');
+  assert.equal(refreshed.value.ok, true, JSON.stringify(refreshed.value));
+  assert.notEqual(keys[0], keys[1]);
   const quote = (prepared.value.data as any).result; assert.equal(quote.preview.target.instanceId, 10); assert.equal(quote.preview.current.instanceId, 9); assert.equal(quote.preview.refundQuantity, 300);
   operation = 'soul-artifacts.replacement-confirm'; args = { reference: quote.reference }; envelope = structuredClone(confirm.envelope);
   const response = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'confirm_soul_artifact_replacement', args), 'ai-plugin');

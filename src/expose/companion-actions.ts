@@ -1,3 +1,5 @@
+import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
+import { parseBackendCompanionOathPreview } from '../api/bot/companion-oath-preview';
 import { parseCompanionGiftCommand } from '../api/bot/companion-gift-command';
 import { parseDailyCheckIn } from '../api/bot/daily-checkin';
 import { parseMonthCardClaimResult } from '../api/bot/month-card-daily-rewards';
@@ -8,7 +10,7 @@ import { parseBackendGiftRecords } from '../api/bot/queries';
 import { parseCompanionProposalInbox } from '../api/bot/companion-proposal-queries';
 import { parseRobotCompanionPropose } from '../api/bot/companion-propose-robot';
 import { parseRobotCompanionProposalAction, parseRobotCompanionRejection } from '../api/bot/companion-actions-robot';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -32,6 +34,60 @@ const companion = object(
 );
 
 export const companionActions = {
+  prepare_companion_oath_upgrade: observation(
+    '生成誓约升级预览和 60 秒确认引用；升级消耗一份三生同心笺，替换双方纪念物。须由玩家确认原预览。',
+    'companion.oath-prepare-reference',
+    empty,
+    object({
+      preview: object({ partnerId: integer, partnerName: text, currentBlessingPercent: integer, upgradedBlessingPercent: integer }),
+      oldOwnedByUser: boolean,
+      oldOwnedByPartner: boolean,
+      expiresAt: text,
+      reference: confirmationReferenceSchema
+    }),
+    () => '/升级誓约',
+    data => {
+      const row = data as { preview: unknown; oldOwnedByUser: unknown; oldOwnedByPartner: unknown; expiresAt: unknown; reference: unknown };
+      const preview = parseBackendCompanionOathPreview(row?.preview);
+
+      if (typeof row.oldOwnedByUser !== 'boolean' || typeof row.oldOwnedByPartner !== 'boolean') {
+        throw new Error('纪念物预览不完整');
+      }
+      if (typeof row.expiresAt !== 'string' || !Number.isFinite(Date.parse(row.expiresAt)) || typeof row.reference !== 'string') {
+        throw new Error('誓约升级预览不完整');
+      }
+      validateConfirmationReference(row.reference, 'o');
+
+      return { ...row, preview };
+    }
+  ),
+  confirm_companion_oath_upgrade: mutation<{ reference: string }>(
+    '确认玩家同意的原誓约升级预览；使用原引用重试，服务端返回结算回执。',
+    'companion.oath-confirm-reference',
+    object({ reference: confirmationReferenceSchema }),
+    object({ success: boolean, message: text }),
+    () => '/升级誓约 确认',
+    data => {
+      const row = data as { success?: unknown; message?: unknown };
+
+      if (row?.success !== true || typeof row.message !== 'string') {
+        throw new Error('誓约升级回执不完整');
+      }
+
+      return row;
+    },
+    input => ({ reference: input.reference }),
+    input => validateConfirmationReference(input.reference, 'o')
+  ),
+  get_companion_oath_upgrade_preview: observation(
+    '查询道侣誓约升级预览及双方关系。服务端升级会消耗一份三生同心笺，双方已有的同心玉佩会被移除并各获得一份仙途同心佩；此查询不提交升级，也不是升级确认凭据。',
+    'companion.upgrade-oath',
+    empty,
+    object({ partnerId: integer, partnerName: text, currentBlessingPercent: integer, upgradedBlessingPercent: integer }),
+    () => '/升级誓约',
+    parseBackendCompanionOathPreview,
+    () => ({ confirmed: false })
+  ),
   propose_companion: mutation<{ targetUid: number; oathItemId: number }>(
     '向指定好友发起道侣申请，使用候选列表中的原誓约道具 ID；服务端重新校验道具、库存及关系，不按变化后的序号替换道具。',
     'companion.propose',
@@ -159,10 +215,10 @@ export const companionActions = {
     },
     input => ({ mode: input.mode ?? 'all', page: String(input.page ?? 1) })
   ),
-  claim_companion_daily: mutation(
+  claim_companion_daily: mutation<{ intentId?: string; taskInput?: string }>(
     '代当前道侣签到；服务端确认关系和签到资格，实际奖励发放至道侣账户。',
     'companion.claim-daily',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       partnerId: integer,
       partnerName: text,
@@ -177,12 +233,15 @@ export const companionActions = {
       }
 
       return { partnerId: row.partnerId, partnerName: row.partnerName, dailyCheckIn: parseDailyCheckIn(row.dailyCheckIn) };
-    }
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_companion_month_card: mutation(
+  claim_companion_month_card: mutation<{ intentId?: string; taskInput?: string }>(
     '代当前道侣领取可领取月卡奖励；服务端确认关系与资格，奖励发放至道侣账户。',
     'companion.claim-month-card',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       partnerId: integer,
       partnerName: text,
@@ -197,7 +256,10 @@ export const companionActions = {
       }
 
       return { partnerId: row.partnerId, partnerName: row.partnerName, monthCard: parseMonthCardClaimResult(row.monthCard) };
-    }
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_gift_options: observation<{ targetUid: number }>(
     '查看可赠送给目标玩家的礼物库存和亲密度限制；targetUid 是目标玩家编号，不是调用者。',
@@ -224,10 +286,47 @@ export const companionActions = {
     },
     input => ({ firstParam: String(input.targetUid) })
   ),
-  send_gift: mutation<{ targetUid: number; giftName: string }>(
-    '向目标玩家赠送一件礼物；库存、关系、次数及实际亲密度和同心值由服务端校验和结算。',
+  execute_task_gift_options: mutation<{ targetUid: number; taskInput: string; intentId?: string }>(
+    '查看可赠送给目标玩家的礼物库存和亲密度限制；targetUid 是目标玩家编号，不是调用者。',
     'companion.gift',
-    object({ targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, giftName: { type: 'string', minLength: 1 } }),
+    object({ targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, taskInput: taskInputSchema, intentId: intentIdSchema }, [
+      'intentId'
+    ]),
+    object(
+      {
+        targetId: integer,
+        targetName: text,
+        gifts: list(object({ ...fields(integer, 'itemId quantity intimacy'), name: text, isPremium: boolean })),
+        ...fields(integer, 'dailyPremiumGiftUsed dailyPremiumGiftLimit weeklyIntimacyUsed weeklyIntimacyLimit')
+      },
+      ['targetName']
+    ),
+    input => `/赠送 ${input.targetUid}`,
+    (data, input) => {
+      const result = parseCompanionGiftCommand(data);
+
+      if (result.mode !== 'OPTIONS' || !result.options || result.targetId !== input.targetUid || result.options.targetId !== input.targetUid) {
+        throw new Error('赠礼选项与目标不匹配');
+      }
+
+      return result.options;
+    },
+    input => ({ firstParam: String(input.targetUid) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  send_gift: mutation<{ targetUid: number; giftName: string; intentId?: string; taskInput?: string }>(
+    '向目标玩家赠送一件礼物，库存、关系、次数和收益由服务端结算。同消息新赠礼使用新 intentId，同次重试沿用原编号。',
+    'companion.gift',
+    object(
+      {
+        targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        giftName: { type: 'string', minLength: 1 },
+        intentId: intentIdSchema,
+        taskInput: taskInputSchema
+      },
+      ['intentId', 'taskInput']
+    ),
     object({
       targetId: integer,
       success: boolean,
@@ -245,7 +344,9 @@ export const companionActions = {
 
       return { targetId: result.targetId, ...result.mutation };
     },
-    input => ({ firstParam: String(input.targetUid), secondParam: input.giftName })
+    input => ({ firstParam: String(input.targetUid), secondParam: input.giftName }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_companion: observation(
     '查询本人道侣、灵契、同心值及今日互动次数；无道侣或未解锁保留服务端反馈。',
@@ -262,6 +363,25 @@ export const companionActions = {
 
       return { companion: result.companion };
     }
+  ),
+  execute_task_companion: mutation<{ taskInput: string; intentId?: string }>(
+    '查询本人道侣、灵契、同心值及今日互动次数；无道侣或未解锁保留服务端反馈。',
+    'companion.info',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object({ companion }),
+    () => '/我的道侣',
+    data => {
+      const result = parseCompanionInfo(data);
+
+      if (!result.access.canUseFifthLayerFeature || !result.companion) {
+        throw new Error('道侣信息成功响应缺少道侣');
+      }
+
+      return { companion: result.companion };
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_companion_tasks: observation(
     '查询道侣任务次数与已获得同心值；任务奖励由服务端自动发放，不需要手动领取。',
@@ -280,15 +400,37 @@ export const companionActions = {
     },
     () => ({ args: '' })
   ),
-  dual_cultivate: mutation(
+  execute_task_companion_tasks: mutation<{ taskInput: string; intentId?: string }>(
+    '查询道侣任务次数与已获得同心值；任务奖励由服务端自动发放，不需要手动领取。',
+    'companion.tasks',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object({ tasks: list(object({ taskType: text, ...fields(integer, 'limit completedCount earnedTongxin'), rewardAmounts: list(integer) })) }),
+    () => '/道侣任务',
+    data => {
+      const result = parseCompanionTasks(data);
+
+      if (!result.access.canUseFifthLayerFeature || !result.hasCompanion) {
+        throw new Error('道侣任务成功响应缺少资格');
+      }
+
+      return result;
+    },
+    () => ({ args: '' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  dual_cultivate: mutation<{ intentId?: string; taskInput?: string }>(
     '与当前道侣双修；服务端校验灵契和每日次数，并返回双方实际入账修为及同心值。',
     'companion.dual-cultivation',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ success: boolean, ...fields(integer, 'experienceGained creditedExperience partnerCreditedExperience tongxinGained partnerId') }, [
       'creditedExperience',
       'partnerCreditedExperience'
     ]),
     () => '/双修',
-    parseBackendCompanionDualCultivation
+    parseBackendCompanionDualCultivation,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

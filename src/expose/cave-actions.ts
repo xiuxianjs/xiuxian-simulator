@@ -1,9 +1,10 @@
-import { mutation, observation } from './mutation';
+import { parseBackendCaveFormations } from '../api/bot/cave-formation-queries';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { query } from './query';
 import { boolean, integer, list, number, object, text } from './schema';
 import { caveSchema } from './common-queries';
 import { requestBackend } from '../api/bot/client';
-import { parseBackendCaveCommand, parseBackendCavePlantQuery } from '../api/bot/cave-command';
+import { parseBackendCaveCommand, parseBackendCavePlantQuery, parseBackendCaveView } from '../api/bot/cave-command';
 import { parseRobotCaveAction, parseRobotCavePlant } from '../api/bot/cave-robot-command';
 import { parseMasterAction } from '../api/bot/master-actions';
 import { parseBackendCaveFormationActivation, parseBackendCaveFormationRemoval } from '../api/bot/cave-formation-actions';
@@ -43,7 +44,7 @@ const accelerationPreview = object(
   )
 );
 
-type Plot = { plotIndex?: number };
+type Plot = { plotIndex?: number; intentId?: string; taskInput?: string };
 type Accelerator = 'lingfei' | 'greenBottle' | 'spiritStone' | 'ripen';
 const accelerator = { type: 'string' as const, enum: ['lingfei', 'greenBottle', 'spiritStone', 'ripen'] };
 const count = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -67,9 +68,9 @@ const formationExpectation = object(
 );
 const plotArgs = (input: Plot) => ({ plotIndex: input.plotIndex === undefined ? null : String(input.plotIndex) });
 const care = (operation: 'cave.water' | 'cave.worm' | 'cave.weed' | 'cave.harvest', word: string, description: string) => mutation<Plot>(
-    description,
+    `${description} 同消息中新操作使用新 intentId，同次重试沿用原编号。连锁任务可传入一致的 taskInput，检查 taskContinuation 和业务结果。`,
     operation,
-    object({ plotIndex }, ['plotIndex']),
+    object({ plotIndex, intentId: intentIdSchema, taskInput: taskInputSchema }, ['plotIndex', 'intentId', 'taskInput']),
     commandResult,
     input => `/${word}${input.plotIndex === undefined ? '' : ` ${input.plotIndex}`}`,
     data => {
@@ -81,10 +82,103 @@ const care = (operation: 'cave.water' | 'cave.worm' | 'cave.weed' | 'cave.harves
 
       return result.result;
     },
-    plotArgs
+    plotArgs,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   );
 
 export const caveActions = {
+  execute_task_cave_view: mutation<{ taskInput: string; intentId?: string }>(
+    '执行连锁任务中的“灵田”或“我的灵田”查看步骤，返回当前灵田数据及任务推进回执；服务端先推进任务，再查询灵田。新操作使用新 intentId，原请求重试沿用原编号。',
+    'cave.view',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    caveSchema,
+    input => `/${input.taskInput
+        .trim()
+        .replace(/^[!！/#＃]\s*/, '')
+        .trim()}`,
+    data => {
+      const result = parseBackendCaveView(data);
+
+      if (!result.access.canUseCave || !result.access.hasCavePlot || !result.overview) {
+        throw new Error('灵田查看回执缺少有效灵田');
+      }
+
+      return result.overview;
+    },
+    () => ({}),
+    input => {
+      validateIntentId(input.intentId);
+      if (
+        !['灵田', '我的灵田'].includes(
+          input.taskInput
+            .trim()
+            .replace(/^[!！/#＃]\s*/, '')
+            .trim()
+        )
+      ) {
+        throw new ExposeError('INVALID_INPUT', '任务步骤不是明确的灵田查看指令');
+      }
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  plant_for_alchemy_recipe: mutation<{ recipeName: string; count: number; intentId?: string; taskInput?: string }>(
+    '按准确丹药或丹方名称为 1 至 100 炉备料播种；服务端结合未锁定库存、田中作物和空闲地块，在一个事务中处理。检查回执中的实际播种与缺料，同消息新操作使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
+    'cave.plant',
+    object(
+      {
+        recipeName: { type: 'string', minLength: 1 },
+        count: { type: 'integer', minimum: 1, maximum: 100 },
+        intentId: intentIdSchema,
+        taskInput: taskInputSchema
+      },
+      ['intentId', 'taskInput']
+    ),
+    commandResult,
+    input => `/一键播种 ${input.recipeName} ${input.count}`,
+    data => {
+      const result = parseRobotCavePlant(data);
+
+      if (result.mode !== 'plant') {
+        throw new Error('按丹方播种未返回操作回执');
+      }
+
+      return result.result;
+    },
+    input => ({ recipeName: input.recipeName, count: String(input.count) }),
+    input => {
+      if (!/^\S+$/u.test(input.recipeName)) {
+        throw new ExposeError('INVALID_INPUT', '丹药或丹方须使用完整的单个名称');
+      }
+      validateIntentId(input.intentId);
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  get_active_cave_formations: observation(
+    '查询当前生效洞府阵法、效果与剩余时间；移除时使用 formationCategory 作为 keyword，并传入 formationKey 和 expiresAt 核对原状态。未知分类可能无法移除。',
+    'cave-formations.list',
+    object({}),
+    object({
+      formations: list(
+        object({
+          formationKey: text,
+          formationName: text,
+          formationCategory: text,
+          categoryLabel: text,
+          effectText: text,
+          remainingText: text,
+          expiresAt: text
+        })
+      )
+    }),
+    () => '/洞府阵法',
+    data => {
+      const rows = parseBackendCaveFormations(data);
+      const source = data as Array<{ expiresAt: string }>;
+
+      return { formations: rows.map((row, index) => ({ ...row, expiresAt: source[index].expiresAt })) };
+    }
+  ),
   preview_cave_formation_activation: observation<{ keyword: string }>(
     '预览指定阵盘的配置、库存和当前同类阵法，不消耗阵盘；激活时须原样携带 expected。',
     'cave-formations.activate',
@@ -132,7 +226,7 @@ export const caveActions = {
     input => validateConfirmationReference(input.reference, 'g')
   ),
   remove_cave_formation: mutation<{ keyword: string; key: string; expiresAt: string }>(
-    '移除本人看到的原阵法；keyword、key 和 expiresAt 必须来自洞府快照。阵法已更换或刷新时服务端拒绝，冻结阵法移除会按原规则结算。',
+    '移除本人看到的原阵法；keyword 使用 get_active_cave_formations 返回的 formationCategory，key 使用 formationKey。阵法已更换或刷新时服务端拒绝，冻结阵法移除按原规则结算。',
     'cave-formations.remove',
     object({ keyword: { type: 'string', minLength: 1 }, key: { type: 'string', minLength: 1 }, expiresAt: { type: 'string', minLength: 1 } }),
     object({
@@ -155,10 +249,10 @@ export const caveActions = {
     },
     input => ({ keyword: input.keyword, expected: { key: input.key, expiresAt: input.expiresAt } })
   ),
-  plant_all_cave_plots: mutation<{ seedName: string }>(
-    '使用指定灵种批量播种本人空闲灵田，种子名称取自播种选项；按服务端实际库存、地块和回执判断结果。',
+  plant_all_cave_plots: mutation<{ seedName: string; intentId?: string; taskInput?: string }>(
+    '使用指定灵种批量播种本人空闲灵田，按服务端实际库存和回执判断结果。同消息中新操作使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
     'cave.plant',
-    object({ seedName: { type: 'string', minLength: 1 } }),
+    object({ seedName: { type: 'string', minLength: 1 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
     input => `/播种 ${input.seedName}`,
     data => {
@@ -170,7 +264,9 @@ export const caveActions = {
 
       return result.result;
     },
-    input => ({ plotIndex: null, seedName: input.seedName })
+    input => ({ plotIndex: null, seedName: input.seedName }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   prepare_cave_acceleration: observation<{ plotIndex: number; accelerator: Accelerator; count: number }>(
     '准备指定灵田加速，返回绑定本人原作物的确认引用及服务端报价；支持灵肥、小绿瓶、灵石或催熟。ripen 的 count 必须为 1，准备不消耗资源。',
@@ -264,19 +360,21 @@ export const caveActions = {
     input => ({ mode: 'confirm-reference', reference: input.reference }),
     input => validateConfirmationReference(input.reference, 'c')
   ),
-  cultivate_all_cave_plots: mutation(
+  cultivate_all_cave_plots: mutation<{ intentId?: string; taskInput?: string }>(
     '一次开垦服务端允许的全部灵田地块，会消耗实际所需材料；按返回 message 和快照判断结果，快照失败不重做开垦。',
     'cave.cultivate',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
     () => '/开垦所有',
     parseBackendCaveCommand,
-    () => ({ plotIndex: null, all: true })
+    () => ({ plotIndex: null, all: true }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  upgrade_cave_plot: mutation<{ plotIndex: number }>(
-    '升级本人指定灵田地块，消耗和等级上限由服务端校验；返回实际操作说明和快照，不对其他地块批量升级。',
+  upgrade_cave_plot: mutation<{ plotIndex: number; intentId?: string; taskInput?: string }>(
+    '升级本人指定灵田地块，消耗和等级上限由服务端校验。同消息中新操作使用新 intentId，同次重试沿用原编号；快照失败时先核对结果。',
     'cave.upgrade',
-    object({ plotIndex }),
+    object({ plotIndex, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
     input => `/升级灵田 ${input.plotIndex}`,
     data => {
@@ -288,7 +386,9 @@ export const caveActions = {
 
       return result.result;
     },
-    plotArgs
+    plotArgs,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_cave_acceleration_options: observation<{ plotIndex: number }>(
     '查询本人指定灵田的加速可选项、库存及服务端报价，不消耗资源；found=false 表示没有有效加速预览。',
@@ -319,19 +419,21 @@ export const caveActions = {
       ),
     object({ plotIndex }, ['plotIndex'])
   ),
-  cultivate_cave_plot: mutation<{ plotIndex: number }>(
+  cultivate_cave_plot: mutation<{ plotIndex: number; intentId?: string; taskInput?: string }>(
     '开垦指定灵田地块，消耗材料、资格由服务端校验。返回实际操作说明与最新快照；snapshotError 表示操作后快照读取失败，不能自动重做。',
     'cave.cultivate',
-    object({ plotIndex }),
+    object({ plotIndex, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
     input => `/开垦 ${input.plotIndex}`,
     parseBackendCaveCommand,
-    plotArgs
+    plotArgs,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  plant_cave_seed: mutation<{ plotIndex: number; seedName: string }>(
-    '在指定地块播种所选灵种，消耗库存；灵种名称取 get_cave_plant_options。成熟周期、产出和状态由服务端决定。',
+  plant_cave_seed: mutation<{ plotIndex: number; seedName: string; intentId?: string; taskInput?: string }>(
+    '在指定地块播种所选灵种，消耗库存；灵种名称取 get_cave_plant_options。同消息中新操作使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
     'cave.plant',
-    object({ plotIndex, seedName: { type: 'string', minLength: 1 } }),
+    object({ plotIndex, seedName: { type: 'string', minLength: 1 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     commandResult,
     input => `/播种 ${input.plotIndex} ${input.seedName}`,
     data => {
@@ -343,28 +445,34 @@ export const caveActions = {
 
       return result.result;
     },
-    input => ({ ...plotArgs(input), seedName: input.seedName })
+    input => ({ ...plotArgs(input), seedName: input.seedName }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   water_cave_plots: care('cave.water', '浇灌', '浇灌本人灵田；指定 plotIndex 操作一块，省略时按服务端批量规则处理全部地块。'),
   remove_cave_worms: care('cave.worm', '除虫', '对本人灵田除虫；指定 plotIndex 操作一块，省略时批量处理。'),
   remove_cave_weeds: care('cave.weed', '除草', '对本人灵田除草；指定 plotIndex 操作一块，省略时批量处理。'),
   harvest_cave_plots: care('cave.harvest', '收割', '收割本人已成熟灵田；指定 plotIndex 操作一块，省略时批量处理。以服务端实际收获回执为准。'),
-  tend_companion_cave_plots: mutation<{ harvest?: boolean }>(
-    '一键照料道侣灵田；harvest=true 时代收成熟作物，收获归道侣所有。各步骤可能部分失败，应检查 message 和实际数量。',
+  tend_companion_cave_plots: mutation<{ harvest?: boolean; intentId?: string; taskInput?: string }>(
+    '一键照料道侣灵田；harvest=true 时代收成熟作物，收获归道侣所有。各步骤可能部分失败，应检查 message 和实际数量。同消息中新操作使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
     'cave.companion-tend-all',
-    object({ harvest: boolean }, ['harvest']),
+    object({ harvest: boolean, intentId: intentIdSchema, taskInput: taskInputSchema }, ['harvest', 'intentId', 'taskInput']),
     tendResult,
     input => `/一键照料道侣灵田${input.harvest ? ' 代收割' : ''}`,
     parseTendResult,
-    input => ({ harvest: input.harvest ?? false })
+    input => ({ harvest: input.harvest ?? false }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  tend_cave_plots: mutation(
-    '一键打理本人灵田，依次照料并收割；可能部分完成，必须检查 message 中各步骤结果，不能将整个调用成功视为每项成功。',
+  tend_cave_plots: mutation<{ intentId?: string; taskInput?: string }>(
+    '一键打理本人灵田，依次照料并收割；可能部分完成，必须检查各步骤结果。同消息中新操作使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
     'cave.tend-all',
-    object({}),
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     tendResult,
     () => '/一键打理灵田',
     parseTendResult,
-    () => ({ harvest: false })
+    () => ({ harvest: false }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

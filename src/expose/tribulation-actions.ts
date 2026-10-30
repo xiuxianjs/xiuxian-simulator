@@ -1,4 +1,4 @@
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { query } from './query';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 import { confirmationReferenceSchema as reference, validateConfirmationReference } from './confirmation';
@@ -189,7 +189,7 @@ export const tribulationActions = {
     (data, input) => prep(data, input.eventId),
     input => ({ kind: 'open', eventId: input.eventId })
   ),
-  preview_tribulation: mutation<{ eventId: number; grade: string }>(
+  preview_tribulation: observation<{ eventId: number; grade: string }>(
     '预览指定渡劫评级的材料、攻击倍率、修为代价和战斗条件，取得原 r1_t 引用；用户确认原预览后才能开劫。',
     'tribulation.command',
     object({ eventId: positive, grade }),
@@ -246,7 +246,7 @@ export const tribulationActions = {
       ),
     eventInput
   ),
-  preview_heart_demon: mutation<{ eventId: number; choice: string }>(
+  preview_heart_demon: observation<{ eventId: number; choice: string }>(
     '预览本人本场心魔回答，返回原规则下效果及 r1_h 引用；只允许 guard、slay、accept，确认后再提交原引用。',
     'tribulation.command',
     object({ eventId: positive, choice: heartChoice }),

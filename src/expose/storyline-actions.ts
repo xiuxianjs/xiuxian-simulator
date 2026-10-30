@@ -1,4 +1,4 @@
-import { mutation } from './mutation';
+import { intentIdSchema, mutation, taskInputSchema, validateIntentId } from './mutation';
 import { query } from './query';
 import { boolean, fields, integer, list, object, text } from './schema';
 import { requestBackend } from '../api/bot/client';
@@ -94,14 +94,19 @@ function decode(value: unknown, expectedSession?: string, requireAccepted = fals
   };
 }
 export const storylineActions = {
-  challenge_storyline: mutation<{ chapterNumber: number; stageNumber: number }>(
-    '挑战指定主线章节关卡；遵循玩家现有自动/手动战斗设置，可能立即结算或返回待选技能。检查 finished、choice 和 settlement；不自动重复挑战。',
+  challenge_storyline: mutation<{ chapterNumber: number; stageNumber: number; intentId?: string; taskInput?: string }>(
+    '挑战指定主线章节关卡；遵循玩家战斗设置，检查 finished、choice 和 settlement。同消息新挑战使用新 intentId，重试使用原编号；不要在战斗未结束时启动新挑战。 连锁任务可传入一致的 taskInput，检查任务推进与业务回执。',
     'storyline.challenge',
-    object({ chapterNumber: positive, stageNumber: { type: 'integer', minimum: 1, maximum: 4 } }),
+    object({ chapterNumber: positive, stageNumber: { type: 'integer', minimum: 1, maximum: 4 }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     stateSchema,
     input => `/主线挑战 ${input.chapterNumber}-${input.stageNumber}`,
     data => decode(data),
-    input => ({ input: `/主线挑战 ${input.chapterNumber}-${input.stageNumber}` })
+    input => ({ input: `/主线挑战 ${input.chapterNumber}-${input.stageNumber}` }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_storyline_battle: query(
     '重新读取当前玩家主线战斗的阵容、技能选项、revision 和结算；不推进回合。服务端 Worker 可能按原有超时规则自动推进。',

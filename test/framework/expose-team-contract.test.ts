@@ -144,3 +144,18 @@ for (const [label, action, input, data, ok] of [
     assert.equal(actual.result.access, undefined);
   }
 });
+
+test('我的队伍任务步骤保留真实组队状态和任务回执', async t => {
+  const rows = fixtures.filter(row => row.action === 'get_my_team' && row.bid === 'player' && row.envelope.data.success && row.envelope.data.branch === 'business');
+  assert.ok(rows.some(row => row.envelope.data.data.team?.exists));
+  assert.ok(rows.some(row => !row.envelope.data.data.team?.exists));
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = rows[0];
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(current.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  for (current of rows) {
+    const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_my_team', { taskInput: '我的队伍' }), 'ai-plugin');
+    assert.equal(run.value.ok, true, JSON.stringify(run.value));
+    if (run.value.ok) { const result = run.value.data as any; assert.equal(result.result.hasTeam, current.envelope.data.data.team?.exists ?? false); assert.equal(result.taskContinuation.outcome, 'next'); }
+  }
+});

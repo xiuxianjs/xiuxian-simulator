@@ -41,9 +41,32 @@ test('灵田访问与社交操作保留真实目标和回执', async t => {
       if (action === 'steal_cave_crop') assert.equal(data.result.ownerUid, 2);
     }
     await call(); if (read) assert.notEqual(keys.at(-1), keys.at(-2)); else assert.equal(keys.at(-1), keys.at(-2));
+    if (!read) {
+      const invokeIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...input, intentId }), 'ai-plugin');
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      const first = keys.at(-1);
+      assert.equal((await invokeIntent('first')).value.ok, true);
+      assert.equal(keys.at(-1), first);
+      assert.equal((await invokeIntent('second')).value.ok, true);
+      assert.notEqual(keys.at(-1), first);
+      const before = keys.length;
+      assert.equal((await invokeIntent('invalid intent')).value.ok, false);
+      assert.equal(keys.length, before);
+    }
     if (action === 'visit_cave') {
       envelope.data.data.ownerId = 99;
       const mismatch = await call(); assert.equal(mismatch.value.ok, false);
     }
   }
+});
+
+test('访问灵田任务保留服务端目标和可见结果', async t => {
+  const fixture = fixtures.find(row => row.op === 'cave.visit' && row.envelope.data.success && row.envelope.data.branch === 'business' && row.args.target?.uid === 2); assert.ok(fixture);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(fixture.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const normal = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'visit_cave', { ownerUid: 2 }), 'ai-plugin');
+  const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_visit_cave', { ownerUid: 2, taskInput: '查看灵田 2' }), 'ai-plugin');
+  assert.ok(normal.value.ok && task.value.ok); assert.deepEqual((task.value.data as any).result, (normal.value.data as any).result); assert.equal((task.value.data as any).taskContinuation.outcome, 'next');
 });

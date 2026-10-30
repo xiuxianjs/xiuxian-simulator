@@ -1,10 +1,15 @@
-import { Format, onResponse } from 'alemonjs';
+import { Format, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { useMessage } from '@src/utils/useMessage';
 import { FormatGui } from '@src/utils/messageHelper';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, next] = useEvent();
+
+  if (!/^[/#＃]?(?:宗门群订阅|取消宗门群订阅|师门群订阅|取消师门群订阅)$/.test((e.MessageText ?? '').trim())) {
+    return next();
+  }
 
   await message.send(
     FormatGui({

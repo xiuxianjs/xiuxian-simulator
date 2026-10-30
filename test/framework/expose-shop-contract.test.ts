@@ -64,3 +64,38 @@ for (const action of ['preview_shop_purchase', 'confirm_shop_purchase']) test(`$
   assert.ok(success > 0);
   if (action === 'confirm_shop_purchase') { assert.equal(refused, 3); assert.equal(replayed, 1); }
 });
+
+test('同一消息重复商店预览读取新报价，重复确认保留原请求键', async t => {
+  const preview = rows.find(row => row.action === 'preview_shop_purchase' && row.envelope.data.success);
+  const confirm = rows.find(row => row.action === 'confirm_shop_purchase' && row.envelope.data.success);
+  assert.ok(preview && confirm);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = preview;
+  let count = 0;
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    keys.push(request.headers['idempotency-key']);
+    const envelope = structuredClone(current.envelope);
+    if (current.action === 'preview_shop_purchase' && count++ === 1) envelope.data.data.preview.paid = '30 SPIRIT_CRYSTAL';
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (action: string, input: any) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+  const first = await call(preview.action, preview.input);
+  const second = await call(preview.action, preview.input);
+  assert.equal(first.value.ok, true, JSON.stringify(first.value));
+  assert.equal(second.value.ok, true, JSON.stringify(second.value));
+  if (first.value.ok && second.value.ok) {
+    assert.equal((first.value.data as any).result.preview.paid, '20 SPIRIT_CRYSTAL');
+    assert.equal((second.value.data as any).result.preview.paid, '30 SPIRIT_CRYSTAL');
+  }
+  assert.notEqual(keys[0], keys[1]);
+  current = confirm;
+  const a = await call(confirm.action, confirm.input);
+  const b = await call(confirm.action, confirm.input);
+  assert.equal(a.value.ok, true, JSON.stringify(a.value));
+  assert.equal(b.value.ok, true, JSON.stringify(b.value));
+  assert.equal(keys[2], keys[3]);
+});

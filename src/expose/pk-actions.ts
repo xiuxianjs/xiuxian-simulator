@@ -19,7 +19,7 @@ const entry = object(
 );
 
 function privateEvent(event: GameEvent) {
-  if (event.name !== 'private.message.create' || event.isPrivate === false) {
+  if (event.name !== 'private.message.create' || event.isPrivate === false || event.IsPrivate === false) {
     throw new ExposeError('FORBIDDEN', '隐藏物品管理仅限私聊');
   }
 

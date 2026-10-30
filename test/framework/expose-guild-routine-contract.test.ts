@@ -94,3 +94,57 @@ test('宗门兑换原商品字段顺序不改变当前消息重试键', async t 
   assert.equal(keys.length, 2);
   assert.equal(keys[0], keys[1]);
 });
+
+test('宗门日常与周常任务步骤保留实际面板及推进回执', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = fixtures.find(row => row.action === 'get_guild_daily' && row.envelope.data.success)!;
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, current.action === 'get_guild_daily' ? '宗门日常' : '宗门周常');
+    assert.deepEqual(body.arguments, {});
+    const envelope = structuredClone(current.envelope);
+    envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  for (const kind of ['daily', 'weekly']) {
+    current = fixtures.find(row => row.action === `get_guild_${kind}` && row.envelope.data.success)!;
+    assert.ok(current);
+    const taskInput = kind === 'daily' ? '宗门日常' : '宗门周常';
+    const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', `execute_task_guild_${kind}`, { taskInput, intentId: kind }), 'ai-plugin');
+    assert.equal(result.value.ok, true, JSON.stringify(result.value));
+    if (result.value.ok) {
+      assert.deepEqual((result.value.data as any).result, current.envelope.data.data);
+      assert.deepEqual((result.value.data as any).taskContinuation, { outcome: 'next', command: '我的资料' });
+    }
+  }
+});
+
+test('宗门商店任务步骤保留真实商品快照', async t => {
+  const row = fixtures.find(item => item.action === 'get_guild_shop' && item.envelope.data.success); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(row.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const ordinary = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_guild_shop', {}), 'ai-plugin');
+  const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_guild_shop', { taskInput: '宗门商店' }), 'ai-plugin');
+  assert.ok(ordinary.value.ok && task.value.ok);
+  assert.deepEqual((task.value.data as any).result, (ordinary.value.data as any).result);
+  assert.equal((task.value.data as any).taskContinuation.outcome, 'next');
+});
+
+test('祭祀任务步骤保留服务端供品选项且不执行祭祀', async t => {
+  const row = fixtures.find(item => item.action === 'get_guild_worship_options' && item.envelope.data.success); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.deepEqual(body.arguments, { offer: '' }); assert.equal(body.taskInput, '祭祀祖师');
+    const envelope = structuredClone(row.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_guild_worship_options', { taskInput: '祭祀祖师' }), 'ai-plugin');
+  assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.deepEqual((run.value.data as any).result, row.envelope.data.data.data); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+});

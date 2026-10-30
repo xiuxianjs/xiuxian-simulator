@@ -25,7 +25,7 @@ const preview = object({
 });
 
 export const forgeOrderActions = {
-  preview_forge_order: mutation<{ crafterId: number; recipeId: number; fee: number }>(
+  preview_forge_order: observation<{ crafterId: number; recipeId: number; fee: number }>(
     '预览委托给指定匠师的原图纸、材料和灵石托管金额；不创建委托，确认必须使用原 r1_f 引用。',
     'forge.order-preview',
     object({ crafterId: id, recipeId: id, fee: { type: 'integer', minimum: 0, maximum: Number.MAX_SAFE_INTEGER } }),

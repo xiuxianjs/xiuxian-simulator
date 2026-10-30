@@ -41,6 +41,15 @@ test('师门查询、批量传功和称号领取保留服务端回执与幂等�
     await call();
     if (current.op === 'master.info') assert.notEqual(keys.at(-1), keys.at(-2));
     else assert.equal(keys.at(-1), keys.at(-2));
+    if (current.op === 'master.teach-all') {
+      const callIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', current.action, { intentId }), 'ai-plugin');
+      assert.equal((await callIntent('first')).value.ok, true);
+      const first = keys.at(-1);
+      assert.equal((await callIntent('first')).value.ok, true);
+      assert.equal(keys.at(-1), first);
+      assert.equal((await callIntent('second')).value.ok, true);
+      assert.notEqual(keys.at(-1), first);
+    }
   }
 });
 
@@ -73,6 +82,18 @@ test('单个徒弟操作和拜师传递真实目标，拒绝错误回执并保�
     assert.deepEqual(run.errors, []); assert.equal(run.value.ok, true, JSON.stringify(run.value));
     if (run.value.ok) assert.equal((run.value.data as any).result.targetUid, 2);
     await call(); assert.equal(keys.at(-1), keys.at(-2));
+    if (operation !== 'master.apply') {
+      const callIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...input, intentId }), 'ai-plugin');
+      assert.equal((await callIntent('first')).value.ok, true);
+      const first = keys.at(-1);
+      assert.equal((await callIntent('first')).value.ok, true);
+      assert.equal(keys.at(-1), first);
+      assert.equal((await callIntent('second')).value.ok, true);
+      assert.notEqual(keys.at(-1), first);
+      const before = keys.length;
+      assert.equal((await callIntent('invalid intent')).value.ok, false);
+      assert.equal(keys.length, before);
+    }
     response = structuredClone(fixtures[op]); response.data.data.targetUid = 3;
     const mismatch = await call();
     assert.equal(mismatch.value.ok, false);
@@ -89,4 +110,23 @@ test('单个徒弟操作和拜师传递真实目标，拒绝错误回执并保�
   const run = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'apply_master_graduation', {}), 'ai-plugin');
   assert.equal(run.value.ok, true, JSON.stringify(run.value));
   if (run.value.ok) assert.equal((run.value.data as any).result.message, '申请已提交');
+});
+
+
+test('师门任务步骤保留原服务端查询数据', async t => {
+  const source = fixtures.info; assert.ok(source);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    const envelope = structuredClone(source);
+    if (body.taskInput) envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const ordinary = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_master_info', {}), 'ai-plugin');
+  const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_master_info', { taskInput: '我的师门' }), 'ai-plugin');
+  assert.ok(ordinary.value.ok && task.value.ok);
+  assert.deepEqual((task.value.data as any).result, (ordinary.value.data as any).result);
+  assert.deepEqual((task.value.data as any).taskContinuation, { outcome: 'next', command: '我的资料' });
 });

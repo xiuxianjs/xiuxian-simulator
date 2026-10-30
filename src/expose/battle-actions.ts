@@ -1,3 +1,4 @@
+import { ExposeError } from 'alemonjs';
 import { requestBackend } from '../api/bot/client';
 import { parseRobotRealmRanking, parseRobotRegionalRealmRanking } from '../api/bot/realm-ranking-queries';
 import { parseRobotPopularity } from '../api/bot/popularity-queries';
@@ -14,9 +15,27 @@ import { parseWorldBossRanking } from '../api/bot/world-boss-ranking-queries';
 import { parseWorldBossRewards } from '../api/bot/world-boss-rewards-queries';
 import { parseWorldBossChallenge } from '../api/bot/world-boss-challenge';
 import { parseWorldBossClaimAll } from '../api/bot/world-boss-claim';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { query } from './query';
 import { boolean, fields, integer, list, number, object, text } from './schema';
+
+function towerBuffCommand(input: { buffKey: string; count: number; taskInput?: string }) {
+  if (input.taskInput === undefined) {
+    return `/妖塔选buff ${input.buffKey} ${input.count}`;
+  }
+  const command = input.taskInput
+    .trim()
+    .replace(/^[!！/#＃]\s*/, '')
+    .trim();
+  const match = /^妖塔选buff\s+(hp|atk|critDmg|生命|攻击|暴伤)(?:\s+(\d+))?$/i.exec(command);
+  const keys: Record<string, string> = { hp: 'hp', atk: 'atk', critdmg: 'critDmg', 生命: 'hp', 攻击: 'atk', 暴伤: 'critDmg' };
+
+  if (!match || keys[match[1].toLowerCase()] !== input.buffKey || Number(match[2] ?? 1) !== input.count) {
+    throw new ExposeError('INVALID_INPUT', '妖塔加成任务指令与类型或次数不匹配');
+  }
+
+  return `/${command}`;
+}
 
 const empty = object({});
 const buff = object(fields(text, 'key label cnKey'));
@@ -329,45 +348,63 @@ export const battleActions = {
     () => '/凶兽奖励',
     parseWorldBossRewards
   ),
-  challenge_world_boss: mutation(
-    '挑战一次世界凶兽，消耗一次可用挑战次数并结算伤害。返回实际战斗结果、累计伤害、剩余次数和战斗记录编号。',
+  challenge_world_boss: mutation<{ intentId?: string; taskInput?: string }>(
+    '挑战一次世界凶兽并结算伤害。返回实际战斗、累计伤害和剩余次数；同消息中不同挑战使用不同 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，检查任务推进与业务回执。',
     'world-boss.challenge',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     round,
     () => '/挑战凶兽',
     data => bossResult(data, false),
-    () => ({ mode: 'single' })
+    () => ({ mode: 'single' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  challenge_world_boss_all: mutation(
+  challenge_world_boss_all: mutation<{ intentId?: string; taskInput?: string }>(
     '连续使用世界凶兽剩余挑战次数；可能部分完成后停止。检查 rounds、attemptsUsed、remainingAttempts 和 stopReason，不自动重新挑战。',
     'world-boss.challenge',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     batch,
     () => '/挑战凶兽 全部',
     data => bossResult(data, true),
-    () => ({ mode: 'all' })
+    () => ({ mode: 'all' }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_world_boss_rewards: mutation(
+  claim_world_boss_rewards: mutation<{ intentId?: string; taskInput?: string }>(
     '领取当前角色所有可领取的世界凶兽奖励，返回实际领取条目及灵石、灵晶合计。',
     'world-boss.reward-claim',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       items: list(object({ ...fields(text, 'bossDate stageName tierName'), ...fields(integer, 'stageLevel spiritStone spiritCrystal playerDamage') })),
       totalStone: integer,
       totalCrystal: integer
     }),
     () => '/领取凶兽奖励',
-    parseWorldBossClaimAll
+    parseWorldBossClaimAll,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_demon_tower: mutation<{ taskInput: string; intentId?: string }>(
+    '执行妖塔连锁任务查看步骤，返回当前进度和任务推进回执，不发起挑战。',
+    'demon-tower.info',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    towerInfo,
+    () => '/妖塔',
+    parseDemonTowerInfo,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_demon_tower: query(
     '查询镇妖塔当前进度、历史星数、战力、加成及挑战/扫荡/重置资格；服务端可能初始化状态。每次调用重新读取状态。',
     towerInfo,
     async ({ bid, uid, request }) => parseDemonTowerInfo(await requestBackend(bid, 'get_players_id_tower', { path: { id: uid }, ...request }))
   ),
-  challenge_demon_tower: mutation<{ stars: number }>(
-    '按指定 1..3 星难度挑战当前妖塔层；服务端结算胜负和奖励，检查 result.success、layerCleared、needSelectBuff，返回 logId 时可查战斗回忆。',
+  challenge_demon_tower: mutation<{ stars: number; intentId?: string; taskInput?: string }>(
+    '按指定 1..3 星难度挑战当前妖塔层；检查 result.success、layerCleared、needSelectBuff。同消息新挑战使用不同 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，检查任务推进与业务回执。',
     'demon-tower.challenge',
-    object({ stars: { type: 'integer', minimum: 1, maximum: 3 } }),
+    object({ stars: { type: 'integer', minimum: 1, maximum: 3 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object(
       {
         logId: text,
@@ -390,44 +427,63 @@ export const battleActions = {
       }
 
       return result.data;
-    }
+    },
+    input => ({ stars: input.stars }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  select_demon_tower_buff: mutation<{ buffKey: string; count: number }>(
-    '使用妖塔可选加成次数，buffKey 使用 hp、atk 或 critDmg，数量由服务端校验。返回实际加成和剩余可选次数。',
+  select_demon_tower_buff: mutation<{ buffKey: string; count: number; intentId?: string; taskInput?: string }>(
+    '使用妖塔可选加成次数，检查实际加成和剩余次数。同消息新选择使用新 intentId，同次重试沿用原编号。',
     'demon-tower.buff',
-    object({ buffKey: { type: 'string', enum: ['hp', 'atk', 'critDmg'] }, count: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object(
+      {
+        buffKey: { type: 'string', enum: ['hp', 'atk', 'critDmg'] },
+        count: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
+        intentId: intentIdSchema,
+        taskInput: taskInputSchema
+      },
+      ['intentId', 'taskInput']
+    ),
     object({ count: integer, buffApplied: text, newBuffs: buffs, remainingBuffSelections: integer, buffOptions: list(buff) }),
-    input => `/妖塔选buff ${input.buffKey} ${input.count}`,
-    data => {
+    towerBuffCommand,
+    (data, input) => {
       const result = parseRobotDemonTowerBuff(data);
 
-      if (result.outcome !== 'result') {
+      if (result.outcome !== 'result' || result.data.count !== input.count) {
         throw new Error('妖塔加成未返回结算回执');
       }
 
       return result.data;
     },
-    input => ({ selection: { buffKey: input.buffKey, count: input.count } })
+    input => ({ selection: { buffKey: input.buffKey, count: input.count } }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  sweep_demon_tower: mutation(
-    '扫荡服务端允许的妖塔层数并结算奖励，返回实际层数、积分、灵石和待选择加成。',
+  sweep_demon_tower: mutation<{ intentId?: string; taskInput?: string }>(
+    '扫荡服务端允许的妖塔层数并结算奖励。同消息新扫荡使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，检查任务推进与业务回执。',
     'demon-tower.sweep',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       ...fields(integer, 'layersSwept totalSpiritStone totalScore cumulativeStars nextLayer buffsToSelect'),
       milestonesTriggered: list(milestone),
       availableBuffs: list(buff)
     }),
     () => '/妖塔扫荡',
-    parseSweep
+    parseSweep,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  reset_demon_tower: mutation(
-    '重置当前妖塔进度，消耗重列旗及服务端规定的重置次数；操作前查询妖塔状态和资格。',
+  reset_demon_tower: mutation<{ intentId?: string; taskInput?: string }>(
+    '重置妖塔进度，消耗重列旗及重置次数；先查询状态和资格。同消息新重置使用新 intentId，同次重试沿用原编号。',
     'demon-tower.reset',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ success: boolean, message: text, resetsUsed: integer, maxResets: integer }),
     () => '/妖塔重置',
-    parseReset
+    parseReset,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };
 import { parseRobotBattleLeaderboard } from '../api/bot/battle-leaderboard-queries';

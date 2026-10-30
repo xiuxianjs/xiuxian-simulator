@@ -55,3 +55,36 @@ test('邮件详情和批量删除保留真实回执及重试', async t => {
     await call(); assert.equal(keys.at(-1), keys.at(-2));
   }
 });
+
+test('邮件任务步骤解析服务端列表并校验页码', async t => {
+  const rows = [...output.matchAll(/ROBOT_EMAIL_QUERY_RESPONSE=emails\.list\|player\|(.+)/g)].map(match => JSON.parse(match[1]));
+  const row = rows.find(item => item.data.success && item.data.branch === 'business' && item.data.data.pageText === '1'); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let envelope = structuredClone(row); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(envelope) }) }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_emails', { taskInput: '我的邮件' }), 'ai-plugin');
+  const run = await call(); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.equal((run.value.data as any).result.total, row.data.data.data.total); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  envelope = structuredClone(envelope); envelope.data.data.pageText = '2'; assert.equal((await call()).value.ok, false);
+});
+
+test('邮件任务指定页使用服务端原始列表', async t => {
+  const rows = [...output.matchAll(/ROBOT_EMAIL_QUERY_RESPONSE=emails\.list\|player\|(.+)/g)].map(match => JSON.parse(match[1]));
+  const row = rows.find(item => item.data.success && item.data.branch === 'business' && item.data.data.pageText === '2'); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let count = 0;
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    count++; const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/我的邮件 0002'); assert.deepEqual(body.arguments, { pageText: '2' });
+    const envelope = structuredClone(row); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (page: number) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_emails', { taskInput: '我的邮件 0002', page }), 'ai-plugin');
+  const run = await call(2); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.equal((run.value.data as any).result.total, row.data.data.data.total); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  assert.equal((await call(3)).value.ok, false); assert.equal(count, 1);
+});

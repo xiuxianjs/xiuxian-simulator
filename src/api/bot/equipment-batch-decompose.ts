@@ -45,7 +45,7 @@ function text(value: unknown, field: string): string {
   return value;
 }
 
-function preview(value: unknown): BackendEquipmentBatchPreview {
+export function preview(value: unknown): BackendEquipmentBatchPreview {
   const data = record(value, '一键分解装备预览接口响应不完整');
 
   if (typeof data.success !== 'boolean' || !Array.isArray(data.gradeBreakdown)) {

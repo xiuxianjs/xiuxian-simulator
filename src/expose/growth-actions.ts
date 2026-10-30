@@ -4,7 +4,7 @@ import { parseSkillBookBatchUpgrade } from '../api/bot/skill-book-batch-upgrade'
 import { parseProfessionDashboard } from '../api/bot/profession-dashboard-query';
 import { parseLingzhiGuideState } from '../api/bot/lingzhi-guide';
 import { requestBackend } from '../api/bot/client';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { query } from './query';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
@@ -205,10 +205,13 @@ export const growthActions = {
     },
     input => ({ bookId: String(input.bookId) })
   ),
-  comprehend_skill_book: mutation<{ bookId: number; points: number }>(
-    '对本人功法投入指定熟练点；实际成功、失败、保底及剩余点数以回执为准，不保证每点成功。同一原消息重试复用幂等键；新消息是新操作。',
+  comprehend_skill_book: mutation<{ bookId: number; points: number; intentId?: string; taskInput?: string }>(
+    '对本人功法投入指定熟练点；实际成功、失败、保底及剩余点数以回执为准，不保证每点成功。同消息中新参悟使用新 intentId，同次重试沿用原编号；结果未知先核对功法状态。',
     'skill-books.proficiency',
-    object({ bookId, points: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER } }),
+    object({ bookId, points: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, intentId: intentIdSchema, taskInput: taskInputSchema }, [
+      'intentId',
+      'taskInput'
+    ]),
     object({
       outcome: { type: 'string', enum: ['ok'] },
       skillBookName: text,
@@ -239,12 +242,14 @@ export const growthActions = {
 
       return result;
     },
-    input => ({ tokens: [String(input.bookId), String(input.points)] })
+    input => ({ tokens: [String(input.bookId), String(input.points)] }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  upgrade_skill_book: mutation<{ bookId: number; count: number }>(
-    '对本人已学功法连续升级，服务端最多处理36次，并可能因材料、灵石或属性上限提前停止。检查实际 successCount、消耗和 stopReason，不能把请求次数当作完成次数。同一原消息重试复用幂等键。',
+  upgrade_skill_book: mutation<{ bookId: number; count: number; intentId?: string; taskInput?: string }>(
+    '对本人已学功法连续升级，最多处理36次；检查实际 successCount、消耗和 stopReason。同消息新升级使用新 intentId，同次重试沿用原编号。',
     'skill-books.batch-upgrade',
-    object({ bookId, count: { type: 'integer', minimum: 1, maximum: 36 } }),
+    object({ bookId, count: { type: 'integer', minimum: 1, maximum: 36 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       outcome: { type: 'string', enum: ['ok'] },
       target: object({ id: integer, name: text }),
@@ -278,7 +283,9 @@ export const growthActions = {
 
       return result;
     },
-    input => ({ bookId: String(input.bookId), count: String(input.count) })
+    input => ({ bookId: String(input.bookId), count: String(input.count) }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_profession_dashboard: observation(
     '查询炼丹师与灵药师职业等级、经验、装备、入门引导状态和开放条件；不报名、不领取、不消耗资源。功能条件以 access 为准，缺失可选字段不等于零。',

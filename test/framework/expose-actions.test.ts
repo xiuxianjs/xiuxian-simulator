@@ -79,7 +79,7 @@ const cases = [
   { action: 'promote_spirit_root', operation: 'spirit-root.promote', command: '/灵根晋品 0 104', input: { expectedQuality: 0, expectedCultivation: 104 }, data: { view: spiritRootView, message: '已晋品' } },
   { action: 'preview_shop_purchase', operation: 'shops.purchase', command: '/购买 1 2', input: { productId: 1, count: 2 }, args: { mode: 'preview', productId: 1, count: 2 }, data: { preview: { productId: 1, shopCode: 'WANBAOLOU', name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2, needsConfirmation: false }, reference: shopReference, expiresAt: '2026-10-28T00:05:00Z' } },
   { action: 'confirm_shop_purchase', operation: 'shops.purchase', command: '/购买', input: { reference: shopReference }, args: { mode: 'reference', reference: shopReference }, data: { reference: shopReference, result: { name: '灵石', paid: '20 SPIRIT_CRYSTAL', granted: 4, buyCount: 2 } } },
-  { action: 'consume_item', operation: 'items.consume', command: '/消耗 精力丹 1', input: { itemName: '精力丹', quantity: 1 }, data: { outcome: 'consumed', message: '已服用', remainingQuantity: 0 } },
+  { action: 'consume_item', operation: 'items.consume', command: '/消耗 精力丹 1', input: { itemName: '精力丹', quantity: 1 }, args: { itemName: '精力丹', quantity: 1, mode: 'expose' }, data: { outcome: 'consumed', message: '已服用', remainingQuantity: 0 } },
   { action: 'get_green_bottle_capacity', operation: 'green-bottle.capacity', command: '/小绿瓶存储', input: {}, data: { experienceCost: 300, maxAvailable: 3, canStore: true } },
   { action: 'store_green_bottles', operation: 'green-bottle.store', command: '/小绿瓶存储 9', input: { count: 9 }, data: { success: true, message: '已存储', experienceCost: 300, converted: 3, remainingExp: 1001, totalBottles: 5 } },
   { action: 'learn_skill_book', operation: 'skill-books.learn', command: '/学习功法 2', input: { bookId: 2 }, args: { bookId: '2', confirm: null }, data: { outcome: 'learned', skillBook: { id: 2, name: '剑诀', skillType: '战技', grade: '下品', realm: '炼气', gradeLevel: 1, proficiency: 0 } } },
@@ -198,7 +198,7 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
       assert.deepEqual(again.value.ok && again.value.data, value);
       assert.equal(requests.length, 2);
       assert.ok(requests[0].headers['idempotency-key']);
-      if (['get_alchemy_recipes', 'get_onboarding', 'get_skill_switch_options', 'get_profession_dashboard', 'get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly', 'get_meditation_boost_options', 'get_guild_worship_options', 'get_guild_shop', 'get_green_bottle_capacity'].includes(entry.action)) {
+      if (['preview_tribulation', 'preview_heart_demon', 'preview_soul_path_choose', 'preview_soul_path_switch', 'preview_soul_path_advance', 'preview_soul_path_reroll', 'preview_spirit_root_feed', 'preview_shop_purchase', 'preview_alchemy', 'get_alchemy_recipes', 'get_onboarding', 'get_skill_switch_options', 'get_profession_dashboard', 'get_my_team', 'get_team_info', 'get_team_list', 'get_team_applications', 'get_team_match', 'get_daily_activity', 'get_weekly_activity', 'get_guild_daily', 'get_guild_weekly', 'get_meditation_boost_options', 'get_guild_worship_options', 'get_guild_shop', 'get_green_bottle_capacity'].includes(entry.action)) {
         assert.notEqual(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
       } else {
         assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
@@ -213,6 +213,72 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
     assert.equal(requests.length, ['disabled', 'spoof', 'missing-id'].includes(mode) ? 0 : 1);
     assert.equal(result.value.error.outcome, ['disabled', 'spoof', 'missing-id'].includes(mode) ? 'not_started' : 'unknown');
   }
+});
+
+test('连续玩法使用操作编号区分同一消息内的结算并保留重试键', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.arguments.intentId, undefined);
+    keys.push(request.headers['idempotency-key']);
+    const middleware = { outcome: 'reject', reason: 'MAINTENANCE', identity: { bid: 'owner', account: { status: 'registered', playerId: 7 } }, replies: [], contextWarnings: [] };
+    return { status: 200, headers: {}, data: JSON.stringify({ data: { success: false, branch: 'middleware', middleware } }) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' });
+  for (const [action, base] of [
+    ['pulse_meridian', {}], ['nurture_soul_path', { direction: 'wu_dao' }],
+    ['challenge_dungeon_by_id', { dungeonId: 1 }], ['sweep_dungeon_by_id', { dungeonId: 1, times: 1 }],
+    ['challenge_storyline', { chapterNumber: 1, stageNumber: 1 }], ['sweep_storyline', { chapterNumber: 1, stageNumber: 1, times: 1 }],
+    ['challenge_world_boss', {}], ['challenge_demon_tower', { stars: 1 }],
+    ['open_lootbox_by_id', { lootboxId: 1, openCount: 1 }], ['consume_inventory_item', { storageId: 1, quantity: 1 }],
+    ['plant_all_cave_plots', { seedName: '灵种' }], ['plant_cave_seed', { plotIndex: 1, seedName: '灵种' }],
+    ['upgrade_cave_plot', { plotIndex: 1 }], ['water_cave_plots', { plotIndex: 1 }],
+    ['remove_cave_worms', {}], ['remove_cave_weeds', {}], ['harvest_cave_plots', {}], ['tend_cave_plots', {}],
+    ['breakthrough_realm', {}], ['challenge_dungeon', { dungeonName: '试炼' }], ['sweep_dungeon', { dungeonName: '试炼', times: 1 }],
+    ['open_lootbox', { lootboxName: '礼盒', openCount: 1 }], ['consume_item', { itemName: '精力丹', quantity: 1 }],
+    ['equip_equipment_by_id', { instanceId: 1 }], ['unequip_equipment_by_id', { instanceId: 1 }],
+    ['unequip_skill_book', { skillType: '战技' }], ['switch_skill_book', { skillType: '战技', bookId: 1 }],
+    ['prepare_skill_switch', { skillType: '战技', bookId: 1 }], ['start_meditation', {}], ['end_meditation', {}],
+    ['start_task_chain', { slot: 1 }], ['skip_task_chain_step', {}], ['cancel_task_chain', {}],
+    ['upgrade_guild_battle_training', { branch: '个人', key: '攻' }], ['replace_profession_tool', { userToolId: 1 }],
+    ['send_gift', { targetUid: 2, giftName: '礼物' }], ['upgrade_guild_level', {}], ['upgrade_guild_vein', {}], ['upgrade_guild_shop', {}],
+    ['upgrade_skill_book', { bookId: 1, count: 1 }], ['upgrade_equipped_soul_artifact', { levels: 1 }], ['promote_soul_artifact', { instanceId: 1 }],
+    ['store_green_bottles', { count: 1 }], ['select_demon_tower_buff', { buffKey: 'hp', count: 1 }],
+    ['sweep_demon_tower', {}], ['reset_demon_tower', {}],
+    ['challenge_tongtian_rank', { targetRank: 1 }], ['batch_challenge_tongtian', {}],
+    ['sweep_tongtian_rank', { targetRank: 1, count: 1 }], ['challenge_tianjiao', { rank: 1 }],
+    ['lock_storage_instance', { category: '装备', instanceId: 1 }], ['unlock_storage_instance', { category: '装备', instanceId: 1 }],
+    ['lock_storage_category', { category: '材料' }], ['unlock_storage_category', { category: '材料' }],
+    ['lock_storage_type', { category: '装备', typeName: '武器' }], ['unlock_storage_type', { category: '装备', typeName: '武器' }],
+    ['apply_battle_template', { slot: 1 }], ['create_team', {}], ['apply_to_team', { teamId: 1 }], ['leave_team', {}], ['disband_team', {}],
+    ['start_mainline_match', { chapterNumber: 1, stageNumber: 1 }], ['start_dungeon_match', { dungeonId: 1 }], ['cancel_team_match', {}],
+    ['set_team_minimum_realm', { realmName: '炼气' }], ['invite_team_player', { targetUid: 2 }], ['kick_team_member', { targetUid: 2 }],
+    ['set_team_position', { targetUid: 2, position: 1 }], ['transfer_team_leadership', { targetUid: 2 }],
+    ['equip_equipment', { identifier: '1' }], ['auto_equip_equipment', {}], ['unequip_equipment', { equipmentTypeName: '武器' }],
+    ['refine_soul_artifact_empty_slot', { instanceId: 1 }], ['challenge_guild_storyline', {}],
+    ['challenge_spirit_vein_position', { realmNo: 1, positionNo: 1 }],
+    ['start_exploration', { dungeonName: '秘境', duration: 1 }], ['start_exploration_by_id', { dungeonId: 1, duration: 1 }], ['end_exploration', {}]
+  ] as const) {
+    const call = (intentId?: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...base, ...(intentId === undefined ? {} : { intentId }) }), 'ai-plugin');
+    const first = await call('step-1'); assert.equal(first.value.ok, true);
+    const retry = await call('step-1'); assert.equal(retry.value.ok, true);
+    assert.equal(keys.at(-1), keys.at(-2));
+    const next = await call('step-2'); assert.equal(next.value.ok, true);
+    assert.notEqual(keys.at(-1), keys.at(-2));
+    const count = keys.length;
+    const invalid = await call('bad id'); assert.equal(invalid.value.ok, false);
+    assert.equal(keys.length, count);
+    await call(); const originalKey = keys.at(-1);
+    await call(); assert.equal(keys.at(-1), originalKey);
+  }
+  const callPlant = (seedName: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'plant_cave_seed', { plotIndex: 1, seedName, intentId: 'same-intent' }), 'ai-plugin');
+  assert.equal((await callPlant('灵种')).value.ok, true);
+  const originalKey = keys.at(-1);
+  assert.equal((await callPlant('备用种子')).value.ok, true);
+  assert.equal(keys.at(-1), originalKey, '同一编号的不同参数必须由服务端检测冲突');
 });
 
 test('写操作幂等键区分原消息、玩家和参数，参数顺序不改变重试键', async t => {
@@ -325,6 +391,8 @@ for (const [action, input] of [
   ['open_lootbox', { lootboxName: '礼盒', openCount: 1.5 }],
   ['open_lootbox', { lootboxName: '', openCount: 1 }],
   ['equip_equipment', { identifier: '' }],
+  ['equip_equipment_by_id', { instanceId: 0 }],
+  ['equip_equipment_by_id', { instanceId: Number.MAX_SAFE_INTEGER + 1 }],
   ['unequip_equipment', { equipmentTypeName: '' }],
   ['unequip_skill_book', { skillType: '任意功法' }],
   ['hide_skill_book', { bookId: Number.MAX_SAFE_INTEGER + 1 }],

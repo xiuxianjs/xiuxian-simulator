@@ -6,7 +6,7 @@ import { validateBackendCombatPowerAchievements } from '../api/bot/combat-power-
 import { validateBackendAchievementClaim } from '../api/bot/achievement-claim';
 import { validateBackendTitleOverview } from '../api/bot/title-overview-query';
 import { validateBackendActivatedTitle, validateBackendDeactivatedTitle } from '../api/bot/title-actions';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, page, text } from './schema';
 import type { ExposeValueSchema } from 'alemonjs';
 
@@ -123,13 +123,16 @@ export const achievementActions = {
     () => '/成就 战力',
     data => validateGuardedAchievement(data, validateBackendCombatPowerAchievements)
   ),
-  claim_combat_power_achievements: mutation(
+  claim_combat_power_achievements: mutation<{ intentId?: string; taskInput?: string }>(
     '领取服务端判定可领取的战力成就奖励；locked=true 表示没有发奖，检查实际 claimedCount 和奖励回执。重复请求使用原消息幂等键。',
     'achievements.claim-combat-power',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     guarded(object({ claimedCount: integer, claimed: list(object(fields(text, 'category categoryLabel achievementName rewardText'))) })),
     () => '/成就 战力 领取',
-    data => validateGuardedAchievement(data, validateBackendAchievementClaim)
+    data => validateGuardedAchievement(data, validateBackendAchievementClaim),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_titles: observation(
     '查询本人当前有效称号、佩戴状态、效果说明与有效期；称号 id 是本人持有记录编号，用于 activate_title，不能传称号模板编号。',

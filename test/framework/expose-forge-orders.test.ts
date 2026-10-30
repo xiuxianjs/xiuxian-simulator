@@ -22,7 +22,7 @@ test('锻造委托绑定原预览、真实身份并返回交付和退款状态',
   } }));
   const token = fixtures.find(row => row.key === 'order-preview')!.envelope.data.data.token;
   for (const [operation, key, action, input, expected, read] of [
-    ['forge.order-preview', 'order-preview', 'preview_forge_order', { crafterId: 1, recipeId: 1, fee: 7 }, { crafterId: 1, recipeId: 1, fee: 7 }, false],
+    ['forge.order-preview', 'order-preview', 'preview_forge_order', { crafterId: 1, recipeId: 1, fee: 7 }, { crafterId: 1, recipeId: 1, fee: 7 }, true],
     ['forge.order-create', 'order-create', 'create_forge_order', { reference: token }, { token }, false],
     ['forge.orders', 'orders-crafter', 'get_forge_orders', {}, { page: 1 }, true],
     ['forge.order-accept', 'order-accept', 'accept_forge_order', { orderId: 1 }, { orderId: 1 }, false],

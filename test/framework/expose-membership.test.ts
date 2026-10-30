@@ -45,3 +45,22 @@ for (const [i, fixture] of fixtures.entries()) test(`权益回执 ${i + 1}: ${fi
   await call();
   assert.notEqual(keys[0], keys[1]);
 });
+
+
+test('权益任务步骤保留原服务端查询数据', async t => {
+  const source = fixtures.find(row => row.op === 'membership.rights' && row.envelope.data.success)!.envelope; assert.ok(source);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    const envelope = structuredClone(source);
+    if (body.taskInput) envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const ordinary = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_membership_rights', {}), 'ai-plugin');
+  const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_membership_rights', { taskInput: '我的权益' }), 'ai-plugin');
+  assert.ok(ordinary.value.ok && task.value.ok);
+  assert.deepEqual((task.value.data as any).result, (ordinary.value.data as any).result);
+  assert.deepEqual((task.value.data as any).taskContinuation, { outcome: 'next', command: '我的资料' });
+});

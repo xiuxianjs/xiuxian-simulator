@@ -14,7 +14,8 @@ const maxAttributes = {
   ...fields(integer, 'maxPhysicalAttack maxMagicAttack maxPhysicalDefense maxMagicDefense maxHp maxSpeed'),
   ...fields(number, 'maxPhysicalAttackPercent maxMagicAttackPercent maxPhysicalDefensePercent maxMagicDefensePercent maxHpPercent maxCritRate maxCritDamage')
 };
-const equipment = object(
+
+export const equipment = object(
   {
     ...pagination,
     types: list(text),
@@ -33,7 +34,7 @@ const equipment = object(
   },
   ['activeType']
 );
-const books = object({
+export const books = object({
   ...pagination,
   skillType: text,
   capabilities: list(kind),
@@ -54,7 +55,7 @@ const books = object({
     )
   )
 });
-const artifacts = object({
+export const artifacts = object({
   ...fields(integer, 'page total pageSize'),
   items: list(
     object({
@@ -64,7 +65,7 @@ const artifacts = object({
     })
   )
 });
-const tools = object(
+export const tools = object(
   {
     ...pagination,
     pageSize: integer,
@@ -82,7 +83,7 @@ const tools = object(
   },
   ['activeType']
 );
-const lootboxes = object({
+export const lootboxes = object({
   ...fields(integer, 'page total pageSize'),
   items: list(
     object({
@@ -137,7 +138,7 @@ export const bagQueryActions = {
     object({ page, typeName: filter }, ['page', 'typeName'])
   ),
   get_lootboxes: query(
-    '分页查询礼盒库存与服务端允许的开启数量，不开启礼盒。',
+    '分页查询礼盒库存与服务端允许的开启数量；lootboxId 可用于 open_lootbox_by_id，不开启礼盒。',
     lootboxes,
     async ({ bid, uid, request }, input) => parseBackendLootboxes(await requestBackend(bid, 'get_players_id_lootboxes', { path: { id: uid }, query: { page: input.page ?? 1 }, ...request })),
     object({ page }, ['page'])

@@ -40,3 +40,24 @@ test('道侣信息、任务和双修保留服务端实际状态', async t => {
     await call(); if (current.op === 'companion.dual-cultivation') assert.equal(keys.at(-1), keys.at(-2)); else assert.notEqual(keys.at(-1), keys.at(-2));
   }
 });
+
+test('道侣面板任务步骤保留服务端结果和推进回执', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let current = rows[0];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    const envelope = structuredClone(current.envelope);
+    if (body.taskInput) envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  for (const [op, ordinary, taskAction, taskInput] of [['companion.info', 'get_companion', 'execute_task_companion', '我的道侣'], ['companion.tasks', 'get_companion_tasks', 'execute_task_companion_tasks', '道侣任务']]) {
+    current = rows.find(row => row.op === op && row.envelope.data.success)!; assert.ok(current);
+    const normal = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', ordinary, {}), 'ai-plugin');
+    const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', taskAction, { taskInput }), 'ai-plugin');
+    assert.ok(normal.value.ok && task.value.ok);
+    assert.deepEqual((task.value.data as any).result, (normal.value.data as any).result);
+    assert.deepEqual((task.value.data as any).taskContinuation, { outcome: 'next', command: '我的资料' });
+  }
+});

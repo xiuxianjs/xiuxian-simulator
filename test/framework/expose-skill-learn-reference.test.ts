@@ -70,3 +70,24 @@ for (const [action, input] of [
   assert.deepEqual(run.errors, []);
   assert.equal(run.value.ok, false);
 });
+
+test('功法任务保留原替换预览和确认引用', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let confirming = false;
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, confirming ? '学习功法 2 确认' : '学习功法 2');
+    assert.deepEqual(body.arguments, confirming ? { bookId: '2', confirm: '确认', reference: confirmation.reference } : { bookId: '2', confirm: null, exposePreview: true });
+    const envelope = structuredClone(confirming ? confirmation.envelope : preview); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const pre = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'prepare_skill_learn', { bookId: 2, taskInput: '学习功法 2' }), 'ai-plugin');
+  assert.equal(pre.value.ok, true, JSON.stringify(pre.value));
+  if (pre.value.ok) { assert.equal((pre.value.data as any).result.outcome, 'confirmation_required'); assert.equal((pre.value.data as any).result.reference, confirmation.reference); }
+  confirming = true;
+  const result = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'confirm_skill_learn', { bookId: 2, reference: confirmation.reference, taskInput: '学习功法 2 确认' }), 'ai-plugin');
+  assert.equal(result.value.ok, true, JSON.stringify(result.value));
+  if (result.value.ok) { assert.equal((result.value.data as any).result.outcome, 'learned'); assert.equal((result.value.data as any).taskContinuation.outcome, 'next'); }
+});

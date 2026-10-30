@@ -68,7 +68,11 @@ for (const action of actions) test(`${action}: 实际灵根原预览到原材料
     assert.equal(retry.value.ok, true);
     if (retry.value.ok) assert.deepEqual(retry.value.data, run.value.data);
     assert.ok(requests.at(-1).headers['idempotency-key']);
-    assert.equal(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    if (action === 'preview_spirit_root_feed') {
+      assert.notEqual(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    } else {
+      assert.equal(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    }
   }
   assert.ok(success > 0);
   if (action === 'confirm_spirit_root_feed') assert.ok(refused > 0);

@@ -1,6 +1,6 @@
 import { decodeShopPreview } from '../api/bot/shop-purchase';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { boolean, fields, integer, object, text } from './schema';
 
 const previewSchema = object({
@@ -11,8 +11,8 @@ const previewSchema = object({
 const settlementSchema = object({ ...fields(text, 'name paid'), ...fields(integer, 'granted buyCount') });
 
 export const shopActions = {
-  preview_shop_purchase: mutation<{ productId: number; count: number }>(
-    '预览统一商店指定商品和份数，不扣款或发奖；返回原报价、服务端确认引用和有效期。商品编号来自 get_shop_products，即使 needsConfirmation=false 也须用返回引用确认本次 Expose 购买。',
+  preview_shop_purchase: observation<{ productId: number; count: number }>(
+    '预览统一商店指定商品和份数，不扣款或发奖；返回原报价、服务端确认引用和有效期。商品编号来自 get_shop_products，包含 DAOLV 道侣商店；即使 needsConfirmation=false 也须用返回引用确认本次 Expose 购买。',
     'shops.purchase',
     object({ productId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, count: { type: 'integer', minimum: 1, maximum: 2147483647 } }),
     object({ preview: previewSchema, reference: confirmationReferenceSchema, expiresAt: text }),

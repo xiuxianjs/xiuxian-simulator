@@ -13,17 +13,21 @@ import { Format, logger, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const md = Format.createMarkdown();
+  const [, parentNext] = useEvent();
   const match = (e.MessageText ?? '').trim().match(/^[!！/#＃]?(?:我的通知|通知记录)(?:\s+(\d+))?$/);
-  const page = Number(match?.[1] ?? 1);
+
+  if (!match) {
+    return parentNext();
+  }
+  const page = Number(match[1] ?? 1);
   const footer = [{ label: '返回主页', command: '/我' }];
   let hasNext = false;
 
   try {
-    const [, parentNext] = useEvent();
     const response = await runRobotBusiness(
       e,
       'notifications.history',
-      { pageText: match ? (match[1] ?? '') : null },
+      { pageText: match[1] ?? '' },
       data => parseNotificationHistory(data, page),
       parentNext,
       async reply => {

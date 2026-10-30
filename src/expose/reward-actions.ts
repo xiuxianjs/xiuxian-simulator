@@ -1,9 +1,10 @@
+import { ExposeError } from 'alemonjs';
 import { parseBackendActivityPoints } from '../api/bot/activity-points-queries';
 import { parseBackendActivityClaim, parseBackendActivityClaimAll } from '../api/bot/activity-points-claim';
 import { parseRobotMonthCardClaim } from '../api/bot/membership-claim';
 import { validateBackendAchievementClaim } from '../api/bot/achievement-claim';
 import { validateGuardedAchievement } from '../api/bot/achievement-robot-query';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, object, text } from './schema';
 
 const empty = object({});
@@ -61,47 +62,84 @@ const activityPanel = (type: 'daily' | 'weekly', label: string) => observation(
     () => `/${label}活跃`,
     data => parseBackendActivityPoints(data, type)
   );
-const claimActivity = (type: 'daily' | 'weekly', label: string) => mutation<{ requiredPoints: number }>(
+const taskActivityPanel = (type: 'daily' | 'weekly', label: string) => mutation<{ taskInput: string; intentId?: string }>(
+    `执行连锁任务中的“${label}活跃”步骤，返回活跃任务和任务推进回执；服务端先推进任务再查询，分别检查两者结果。新操作使用新 intentId，同次重试沿用原编号。`,
+    `activity-points.${type}`,
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    activity,
+    () => `/${label}活跃`,
+    data => parseBackendActivityPoints(data, type),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  );
+const claimActivity = (type: 'daily' | 'weekly', label: string) => mutation<{ requiredPoints: number; intentId?: string; taskInput?: string }>(
     `领取指定阈值的${label}活跃奖励；requiredPoints 取自活跃面板，服务端校验积分和重复领取。`,
     `activity-points.claim-${type}`,
-    object({ requiredPoints: points }),
+    object({ requiredPoints: points, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     claim,
     input => `/领取${label}活跃奖励 ${input.requiredPoints}`,
     parseBackendActivityClaim,
-    input => ({ mode: 'claim', requiredPoints: input.requiredPoints })
+    input => ({ mode: 'claim', requiredPoints: input.requiredPoints }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   );
-const claimAllActivity = (type: 'daily' | 'weekly', label: string) => mutation(
-    `领取全部可领${label}活跃奖励及任务奖励；必须检查 partial、claimed 和 error，部分成功不会自动重试。`,
+const claimAllActivity = (type: 'daily' | 'weekly', label: string) => mutation<{ intentId?: string; taskInput?: string }>(
+    `领取全部可领${label}活跃奖励及任务奖励；必须检查 partial、claimed 和 error，部分成功或结果未知先核对再决定后续操作。同消息中新的领取使用新 intentId，重试原请求沿用原编号。连锁任务可传入一致的 taskInput，分别检查任务和领取回执。`,
     `activity-points.claim-all-${type}`,
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     claimAll,
     () => `/一键领取${label}活跃奖励`,
-    parseBackendActivityClaimAll
+    parseBackendActivityClaimAll,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   );
+
+function monthCardCommand(input: { taskInput?: string }) {
+  if (input.taskInput === undefined) {
+    return '/一键领取月卡';
+  }
+  const command = input.taskInput
+    .trim()
+    .replace(/^[!！/#＃]\s*/, '')
+    .trim();
+
+  if (!['月卡领取', '月卡签到', '一键领取', '一键领取月卡'].includes(command)) {
+    throw new ExposeError('INVALID_INPUT', '月卡领取任务指令不匹配');
+  }
+
+  return `/${command}`;
+}
 
 export const rewardActions = {
   get_daily_activity: activityPanel('daily', '日常'),
   get_weekly_activity: activityPanel('weekly', '周常'),
+  execute_task_daily_activity: taskActivityPanel('daily', '日常'),
+  execute_task_weekly_activity: taskActivityPanel('weekly', '周常'),
   claim_daily_activity: claimActivity('daily', '日常'),
   claim_weekly_activity: claimActivity('weekly', '周常'),
   claim_all_daily_activity: claimAllActivity('daily', '日常'),
   claim_all_weekly_activity: claimAllActivity('weekly', '周常'),
-  claim_month_card_rewards: mutation(
+  claim_month_card_rewards: mutation<{ intentId?: string; taskInput?: string }>(
     '领取当前角色可领取的月卡每日奖励；不购买月卡。领取结果未知时先核对权益和奖励，不能认为取消请求会回滚发奖。',
     'membership.claim-month-card',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({
       days: integer,
       rewards: object(fields(integer, 'spiritCrystal huanHunDan yangShenDan')),
       status: object(fields(integer, 'prepaidCount claimedCount upcomingCount'))
     }),
-    () => '/一键领取月卡',
-    parseRobotMonthCardClaim
+    monthCardCommand,
+    parseRobotMonthCardClaim,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  claim_all_achievements: mutation(
-    '领取当前角色全部可领成就奖励，保留服务端境界门槛；locked=true 表示未解锁，即使整体 success=true 也没有发奖。',
+  claim_all_achievements: mutation<{ intentId?: string; taskInput?: string }>(
+    '领取当前角色全部可领成就奖励，保留服务端境界门槛；locked=true 表示未解锁，即使整体 success=true 也没有发奖。同消息中新的领取使用新 intentId，重试原请求沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和领取回执。',
     'achievements.claim-all',
-    empty,
+    object({ intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object(
       {
         locked: boolean,
@@ -114,6 +152,9 @@ export const rewardActions = {
       ['realmName', 'data']
     ),
     () => '/一键领取成就',
-    data => validateGuardedAchievement(data, validateBackendAchievementClaim)
+    data => validateGuardedAchievement(data, validateBackendAchievementClaim),
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

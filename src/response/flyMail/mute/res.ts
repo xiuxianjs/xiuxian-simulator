@@ -9,13 +9,14 @@ import { Format, onResponse, useMention, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, next] = useEvent();
   const [mention] = useMention();
   const bid = e?.UserId;
   const isPrivate = isPrivateEvent(e);
   const parsed = parseFlyMailMuteCommand(e.MessageText);
 
   if (!parsed) {
-    return;
+    return next();
   }
 
   if (!isPrivate) {
@@ -36,7 +37,6 @@ export default onResponse(selects, async e => {
       targetBid = target.data.UserId;
     }
   }
-  const [, next] = useEvent();
 
   try {
     const response = await runRobotBusiness(

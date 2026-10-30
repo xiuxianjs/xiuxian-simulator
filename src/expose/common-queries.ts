@@ -6,18 +6,21 @@ import { validatePlayerProfile } from '../api/bot/player-profile-query';
 import { parseTaskPanelView } from '../api/bot/task-panel-view';
 import { parseGuildHome } from '../api/bot/guild-home-query';
 import { parseWorldBossInfo } from '../api/bot/world-boss-info-queries';
+import { decodeShopData } from '../api/bot/companion-shop-queries';
 import { decodeStorylineCatalog } from '../api/bot/storyline-catalog-queries';
 import { parseBackendCaveOverview } from '../api/bot/cave-overview-queries';
 import { parseMeridianView } from '../api/bot/meridian';
 import { parseSoulPathState } from '../api/bot/soul-path';
 import { parseBackendEquipped } from '../api/bot/equipped-queries';
-import { parseBackendLearnedBooks } from '../api/bot/learned-books-queries';
+import { parseBackendLearnedBooks, parseRobotLearnedBooks } from '../api/bot/learned-books-queries';
 import { parseBackendDungeonCatalog, parseBackendEmails } from '../api/bot/queries';
 import { query } from './query';
+import { intentIdSchema, mutation, taskInputSchema, validateIntentId } from './mutation';
 import { text, number, integer, boolean, page, fields, list, object } from './schema';
 
 const resource = object({ current: number, cap: integer, regenIntervalMinutes: integer });
-const profile = object(
+
+export const profile = object(
   {
     found: boolean,
     user: object(
@@ -90,7 +93,8 @@ const boss = object(
   },
   ['playerRank']
 );
-const chapters = object({
+
+export const chapters = object({
   mentalValue: number,
   inTeam: boolean,
   canUseMeridian: boolean,
@@ -101,7 +105,7 @@ const chapters = object({
     chapters: list(object({ ...fields(text, 'name arc'), ...fields(number, 'chapterNumber totalStars maxStars clearedCount stageCount claimableChestCount') }))
   })
 });
-const chapter = object({
+export const chapter = object({
   mentalValue: number,
   inTeam: boolean,
   canUseMeridian: boolean,
@@ -260,7 +264,8 @@ const learned = object({
   ...fields(integer, 'total totalPages currentPage proficiencyPoints'),
   canUseFifthLayerFeature: boolean
 });
-const dungeons = object({
+
+export const dungeons = object({
   ...fields(integer, 'mentalValue realmLevel realmStageLevel'),
   ...fields(boolean, 'inTeam canUseMeridian canMatchDungeon'),
   pagination: object(fields(integer, 'currentPage totalPages total')),
@@ -382,7 +387,113 @@ const spiritRootMaterials = list(
   )
 );
 
+type TaskPagedInput = { taskInput: string; page?: number; intentId?: string };
+
+function taskPage(input: TaskPagedInput, label: '我的功法' | '我的邮件') {
+  const command = input.taskInput
+    .trim()
+    .replace(/^[!！/#＃]\s*/, '')
+    .trim();
+  const match = new RegExp(`^${label}(?:\\s+(\\d+))?$`).exec(command);
+  const rawPage = match?.[1] ?? null;
+  const number = rawPage === null ? 1 : Number(rawPage);
+
+  if (!match || !Number.isSafeInteger(number) || number < 1 || (input.page !== undefined && input.page !== number)) {
+    throw new ExposeError('INVALID_INPUT', `${label}任务指令与页码不匹配`);
+  }
+
+  return { command: `/${command}`, rawPage, number };
+}
+
 export const commonQueryActions = {
+  execute_task_learned_books: mutation<TaskPagedInput>(
+    '执行我的功法连锁任务查看步骤，页码从指令读取；显示页沿用服务端原有分页规则，不学习或升级。',
+    'skill-books.learned',
+    object({ taskInput: taskInputSchema, page, intentId: intentIdSchema }, ['page', 'intentId']),
+    learned,
+    input => taskPage(input, '我的功法').command,
+    (data, input) => {
+      const result = parseRobotLearnedBooks(data);
+
+      if (result.displayPage !== taskPage(input, '我的功法').number) {
+        throw new Error('功法列表回执页码不匹配');
+      }
+
+      return result.page;
+    },
+    input => ({ page: taskPage(input, '我的功法').rawPage }),
+    input => {
+      validateIntentId(input.intentId);
+      taskPage(input, '我的功法');
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_emails: mutation<TaskPagedInput>(
+    '执行我的邮件连锁任务查看步骤，页码从指令读取，返回邮件及领取、删除资格，不标记已读或领取。',
+    'emails.list',
+    object({ taskInput: taskInputSchema, page, intentId: intentIdSchema }, ['page', 'intentId']),
+    emails,
+    input => taskPage(input, '我的邮件').command,
+    (data, input) => {
+      if (
+        !data ||
+        typeof data !== 'object' ||
+        Array.isArray(data) ||
+        (data as Record<string, unknown>).pageText !== String(taskPage(input, '我的邮件').number)
+      ) {
+        throw new Error('邮件列表回执页码不匹配');
+      }
+
+      return parseBackendEmails((data as Record<string, unknown>).data);
+    },
+    input => ({ pageText: String(taskPage(input, '我的邮件').number) }),
+    input => {
+      validateIntentId(input.intentId);
+      taskPage(input, '我的邮件');
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_shop: mutation<{ taskInput: string; intentId?: string }>(
+    '执行商店连锁任务查看步骤，返回第一页商品、价格、限购和可用状态；不购买商品。',
+    'shops.list',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    shop,
+    () => '/商店',
+    data => {
+      decodeShopData(data as Record<string, unknown>);
+
+      return data;
+    },
+    () => ({ page: 1 }),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_meridians: mutation<{ taskInput: string; intentId?: string }>(
+    '执行经络连锁任务查看步骤，返回经络状态和任务推进回执。',
+    'meridians.view',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    meridians,
+    () => '/经络',
+    parseMeridianView,
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
+  execute_task_world_boss: mutation<{ taskInput: string; intentId?: string }>(
+    '执行凶兽连锁任务查看步骤，返回活动状态和任务推进回执，不发起挑战。',
+    'world-boss.info',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    boss,
+    () => '/凶兽',
+    data => {
+      const result = parseWorldBossInfo(data);
+
+      return { ...result, remainingAttempts: String(result.remainingAttempts) };
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   get_meditation_active: query(
     '查询当前玩家闭关的服务端 Redis 活跃标记；只读取标记，不开始或结束闭关，也不表示收益已结算。',
     object({ active: boolean }),
@@ -408,19 +519,23 @@ export const commonQueryActions = {
   ),
   get_soul_path: query('查询神魂道路、养成材料、节点条件和可用方向；不选择或培养神魂。服务端可能初始化状态。', soul, async ({ bid, uid, request }) => parseSoulPathState(await requestBackend(bid, 'get_players_id_soul_path', { path: { id: uid }, ...request }))
   ),
-  get_equipped: query('查询当前装备、空槽位与套装效果；缺省恢复效果表示服务端未提供，不穿戴或卸下装备。', equipped, async ({ bid, uid, request }) => {
-    const raw = await requestBackend(bid, 'get_players_id_equipment_equipped', { path: { id: uid }, ...request });
-    const parsed = parseBackendEquipped(raw);
-    const rawSets = (raw as { sets: Array<{ recoveryEffects?: unknown }> }).sets;
+  get_equipped: query(
+    '查询当前装备、空槽位与套装效果；slots[].item.id 是玩家实例编号，可用于 unequip_equipment_by_id；equipmentId 是模板编号。缺省恢复效果表示服务端未提供。',
+    equipped,
+    async ({ bid, uid, request }) => {
+      const raw = await requestBackend(bid, 'get_players_id_equipment_equipped', { path: { id: uid }, ...request });
+      const parsed = parseBackendEquipped(raw);
+      const rawSets = (raw as { sets: Array<{ recoveryEffects?: unknown }> }).sets;
 
-    return {
-      ...parsed,
-      sets: parsed.sets.map((set, index) => ({
-        ...set,
-        recoveryEffects: rawSets[index].recoveryEffects === null || rawSets[index].recoveryEffects === undefined ? undefined : set.recoveryEffects
-      }))
-    };
-  }),
+      return {
+        ...parsed,
+        sets: parsed.sets.map((set, index) => ({
+          ...set,
+          recoveryEffects: rawSets[index].recoveryEffects === null || rawSets[index].recoveryEffects === undefined ? undefined : set.recoveryEffects
+        }))
+      };
+    }
+  ),
   get_learned_books: query(
     '分页查询已学功法和使用中功法；visibility 默认 visible，可指定 hidden。',
     learned,
@@ -434,7 +549,7 @@ export const commonQueryActions = {
     object({ page, visibility: { type: 'string', enum: ['visible', 'hidden'] } }, ['page', 'visibility'])
   ),
   get_dungeons: query(
-    '分页查询副本目录、消耗、免费次数和匹配资格。',
+    '分页查询秘境目录、消耗、免费次数和匹配资格。items[].id 用于 get_dungeon_detail_by_id、challenge_dungeon_by_id、sweep_dungeon_by_id、start_dungeon_match。',
     dungeons,
     async ({ bid, uid, request }, input) => parseBackendDungeonCatalog(
         await requestBackend(bid, 'get_players_id_dungeons_catalog', { path: { id: uid }, query: { page: input.page ?? 1, pageSize: 5 }, ...request })
@@ -442,7 +557,7 @@ export const commonQueryActions = {
     object({ page }, ['page'])
   ),
   get_emails: query(
-    '分页查询邮件及领取/删除资格，不标记已读或领取附件。',
+    '分页查询邮件及领取/删除资格，不标记已读或领取附件。list[]."email.id" 可传给 get_email_detail、claim_email 和 delete_email。',
     emails,
     async ({ bid, uid, request }, input) => parseBackendEmails(await requestBackend(bid, 'get_players_id_emails', { path: { id: uid }, query: { page: input.page ?? 1, pageSize: 5 }, ...request })),
     object({ page }, ['page'])
@@ -480,7 +595,7 @@ export const commonQueryActions = {
   get_checkin_status: query('查询每日、新人、宗门和天时签到状态及可用时段，不代为签到。', checkin, ({ bid, uid, request }) => requestBackend(bid, 'get_players_id_check_ins_status', { path: { id: uid }, ...request })
   ),
   get_shop_products: query(
-    '分页查询商店商品、货币价格、限购及解锁状态；shopCode 可选，不创建购买。',
+    '分页查询商店商品、货币价格、限购及解锁状态；products[].productId 可用于 preview_shop_purchase，shopCode 可选，DAOLV 是道侣商店。',
     shop,
     ({ bid, uid, request }, input) => requestBackend(bid, 'get_players_id_shop_products', {
         path: { id: uid },
@@ -498,7 +613,10 @@ export const commonQueryActions = {
 
     return data;
   }),
-  get_tasks: query('查询任务面板各分类状态；仅返回提示入口，不代为执行任务。', tasks, async ({ bid, uid, request }) => parseTaskPanelView(await requestBackend(bid, 'get_players_id_task_panel_view', { path: { id: uid }, ...request }))
+  get_tasks: query(
+    '查询旧版任务面板七类状态；师门、道侣及条目选项请使用 get_task_panel。返回的命令仅供提示，不代为执行。',
+    tasks,
+    async ({ bid, uid, request }) => parseTaskPanelView(await requestBackend(bid, 'get_players_id_task_panel_view', { path: { id: uid }, ...request }))
   ),
   get_guild: query('查询当前宗门、职位、资源和宗门主线状态。未加入时不返回 membership/guild。', guild, async ({ bid, uid, request }) => parseGuildHome(await requestBackend(bid, 'get_players_id_guild_home', { path: { id: uid }, ...request }))
   ),
@@ -508,7 +626,7 @@ export const commonQueryActions = {
     return { ...data, remainingAttempts: String(data.remainingAttempts) };
   }),
   get_storyline_chapters: query(
-    '分页查询主线章节进度、星数和可领取宝箱。',
+    '分页查询主线章节进度、星数和可领取宝箱；章节 chapterNumber 可传给 get_storyline_chapter。',
     chapters,
     async ({ bid, uid, request }, input) => decodeStorylineCatalog(
         await requestBackend(bid, 'get_players_id_storyline_catalog', { path: { id: uid }, query: { page: input.page ?? 1 }, ...request }),
@@ -517,7 +635,7 @@ export const commonQueryActions = {
     object({ page }, ['page'])
   ),
   get_storyline_chapter: query(
-    '查询指定主线章节关卡、消耗、掉落和扫荡资格；保留 LOCKED/NOT_FOUND 等服务端状态。',
+    '查询指定主线章节关卡、消耗、掉落和扫荡资格；关卡 stageNumber 与 chapterNumber 用于 challenge_storyline 或 sweep_storyline，保留 LOCKED/NOT_FOUND 等服务端状态。',
     chapter,
     async ({ bid, uid, request }, input) => decodeStorylineCatalog(
         await requestBackend(bid, 'get_players_id_storyline_catalog', {

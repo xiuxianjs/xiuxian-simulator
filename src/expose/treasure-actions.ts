@@ -31,7 +31,7 @@ function preview<I extends Record<string, unknown>>(
   argumentsFor: (input: I) => Record<string, unknown>,
   validateInput?: (input: ExposeReadonly<I>) => void
 ) {
-  return mutation<I>(
+  return observation<I>(
     description,
     'treasures.preview',
     schema,
@@ -282,8 +282,8 @@ export const treasureActions = {
       return {};
     }
   ),
-  preview_treasure_free_daily_pack: mutation(
-    '私聊预览符合服务端资格的免费日礼包；返回原引用和有效期，不创建支付订单。',
+  preview_treasure_free_daily_pack: observation(
+    '私聊预览符合服务端资格的免费日礼包；返回原引用和有效期，不创建支付订单。服务端可能初始化宝物账户。',
     'treasures.daily-pack-free-preview',
     empty,
     object({ kind: text, confirmationRef: reference, summary: list(text), expiresAt: text, operationId: text }),

@@ -6,7 +6,7 @@ import { parseBackendWeeklyRebate } from '../api/bot/weekly-rebate-queries';
 import { parseRobotWeeklyRebateClaim } from '../api/bot/weekly-rebate-claim';
 import { parseBackendRechargeRights } from '../api/bot/recharge-rights-queries';
 import { parseBackendVipPrivileges } from '../api/bot/vip-privileges-queries';
-import { mutation, observation } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const reward = object({ id: number, name: text, quantity: number }, ['name']);
@@ -161,6 +161,53 @@ export const membershipActions = {
         }
       };
     }
+  ),
+  execute_task_membership_rights: mutation<{ taskInput: string; intentId?: string }>(
+    '查询本人权益、月卡到期与每日奖励状态、探索通行证和充值进度；金额单位为分。reviewRequired 表示奖励状态需要核对，不领取或购买。',
+    'membership.rights',
+    object({ taskInput: taskInputSchema, intentId: intentIdSchema }, ['intentId']),
+    object(
+      {
+        name: text,
+        ...fields(number, 'vipLevel totalRechargeAmount nextVipLevel nextVipThreshold'),
+        firstRechargeTime: text,
+        monthCard: card,
+        seclusionPass: pass,
+        ...fields(boolean, 'canUseMeridian canUseSoulPath'),
+        progressText: text,
+        monthCardInstantRewards: list(text),
+        seclusionPriceText: text,
+        seclusionRewards: list(text)
+      },
+      ['nextVipLevel', 'nextVipThreshold', 'firstRechargeTime']
+    ),
+    () => '/我的权益',
+    data => {
+      const result = parseBackendRechargeRights(data);
+      const source = data as { monthCard: { daily: { prepaidCount?: unknown; reviewRequired?: unknown; calendarState: Array<{ prepaid?: unknown }> } } };
+      const raw = source.monthCard.daily;
+      const { prepaidCount, reviewRequired, calendarState, ...rest } = result.monthCard.daily;
+
+      return {
+        ...result,
+        monthCard: {
+          ...result.monthCard,
+          daily: {
+            ...rest,
+            ...(typeof raw.prepaidCount === 'number' ? { prepaidCount } : {}),
+            ...(typeof raw.reviewRequired === 'boolean' ? { reviewRequired } : {}),
+            calendarState: calendarState.map((row, i) => {
+              const { prepaid, ...other } = row;
+
+              return { ...other, ...(typeof raw.calendarState[i]?.prepaid === 'boolean' ? { prepaid } : {}) };
+            })
+          }
+        }
+      };
+    },
+    () => ({}),
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_membership_privileges: observation(
     '查询本人 VIP 和月卡特权、等级资格、签到加倍日期及每日丹药限制；金额单位为分，特权开放状态以服务端为准。',

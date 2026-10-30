@@ -13,7 +13,7 @@ const content = [{ type: 'Text' as const, value: '【秘密发送人】秘密正
 function fixture(t: TestContext) {
  const old = process.env.login; process.env.login='qq-bot';
  t.after(() => { if(old===undefined) delete process.env.login; else process.env.login=old; });
- const app = createTestApp({config:{'xiuxian-game':{backend:{api_url:'http://offline.invalid',worker_token:'fixture'}}}});
+ const app = createTestApp({config:{'qq-bot':{app_id:'123'},'xiuxian-game':{backend:{api_url:'http://offline.invalid',worker_token:'fixture'}}}});
  t.after(()=>app.dispose());
  const privateTarget = {platform:'qq-bot',BotId:'bot',scope:'c2c',targetId:'private-recipient'};
  const group = {platform:'qq-bot',BotId:'bot',scope:'group',targetId:'active-group'};

@@ -84,6 +84,18 @@ for (const action of actions) test(`${action}: 真实服务端状态与结算回
     assert.ok(requests.at(-1).headers['idempotency-key']);
     if (action === 'get_profession_dashboard' || action === 'get_skill_book_detail') assert.notEqual(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
     else assert.equal(requests.at(-1).headers['idempotency-key'], requests.at(-2).headers['idempotency-key']);
+    if (action === 'comprehend_skill_book') {
+      const callIntent = (intentId: string) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, { ...current.input, intentId }), 'ai-plugin');
+      assert.equal((await callIntent('first')).value.ok, true);
+      const first = requests.at(-1).headers['idempotency-key'];
+      assert.equal((await callIntent('first')).value.ok, true);
+      assert.equal(requests.at(-1).headers['idempotency-key'], first);
+      assert.equal((await callIntent('second')).value.ok, true);
+      assert.notEqual(requests.at(-1).headers['idempotency-key'], first);
+      const before = requests.length;
+      assert.equal((await callIntent('invalid intent')).value.ok, false);
+      assert.equal(requests.length, before);
+    }
   }
   assert.ok(succeeded > 0);
   assert.ok(refused > 0);

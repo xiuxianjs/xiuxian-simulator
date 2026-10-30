@@ -38,10 +38,14 @@ import { marketActions } from './market-actions';
 import { masterActions } from './master-actions';
 import { companionActions } from './companion-actions';
 import { encyclopediaActions } from './encyclopedia-actions';
+import { glossaryActions } from './glossary-actions';
+import { feedbackActions } from './feedback-actions';
 import { guildStorylineActions } from './guild-storyline-actions';
 import { secretRealmActions } from './secret-realm-actions';
 import { settingsActions } from './settings-actions';
 import { taskActions } from './task-actions';
+import { taskHomeActions } from './task-home-actions';
+import { taskInventoryActions } from './task-inventory-actions';
 import { guildMembershipActions } from './guild-membership-actions';
 import { newcomerActions } from './newcomer-actions';
 import { peiyuanActions } from './peiyuan-actions';
@@ -117,7 +121,7 @@ type Attributes = {
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.178.0',
+  version: '1.290.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
     ...membershipActions,
@@ -160,6 +164,8 @@ export const gameExpose = Expose.create().provide({
     ...treasureActions,
     ...companionActions,
     ...encyclopediaActions,
+    ...glossaryActions,
+    ...feedbackActions,
     ...guildStorylineActions,
     ...secretRealmActions,
     ...newcomerActions,
@@ -171,6 +177,8 @@ export const gameExpose = Expose.create().provide({
     ...teamActions,
     ...settingsActions,
     ...taskActions,
+    ...taskHomeActions,
+    ...taskInventoryActions,
     ...guildRoutineActions,
     ...soulActions,
     ...spiritRootActions,
@@ -192,7 +200,8 @@ export const gameExpose = Expose.create().provide({
     ...tribulationActions,
     ...bagQueryActions,
     get_inventory: Expose.action<{ category: 'prop' | 'material'; page?: number; subtype?: string }, ReturnType<typeof projectInventory>>({
-      description: '分页查询当前玩家道具(prop)或材料(material)背包；page 默认 1，subtype 可选。数量为服务端库存事实，不代表可直接消耗。',
+      description:
+        '分页查询当前玩家道具(prop)或材料(material)背包；page 默认 1，subtype 可选。道具的 userItemId 可用于 consume_inventory_item 或背包实例锁定；库存数量不代表可直接消耗。',
       effect: 'read',
       inputSchema: {
         type: 'object',

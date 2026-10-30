@@ -1,7 +1,7 @@
 import { parseSpiritRootMutation, parseSpiritRootPreview } from '../api/bot/spirit-root';
 import { spiritRoot } from './common-queries';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
-import { mutation } from './mutation';
+import { mutation, observation } from './mutation';
 import { fields, integer, object, text } from './schema';
 
 const nonnegative = { type: 'integer' as const, minimum: 0, maximum: Number.MAX_SAFE_INTEGER };
@@ -27,7 +27,7 @@ function feedPreview(data: unknown) {
   return result;
 }
 export const spiritRootActions = {
-  preview_spirit_root_feed: mutation<{ itemId: number; quantity: number }>(
+  preview_spirit_root_feed: observation<{ itemId: number; quantity: number }>(
     '预览指定灵药的灵根培养，不消耗材料；返回原品质、培养值、请求及实际消耗数量和服务端引用。核对原预览后把 reference 原样交给 confirm_spirit_root_feed，预览5分钟有效，引用保留24小时供已结算重试。',
     'spirit-root.preview',
     object({ itemId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER }, quantity: { type: 'integer', minimum: 1, maximum: 1000000 } }),

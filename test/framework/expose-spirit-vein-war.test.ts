@@ -48,3 +48,13 @@ test('灵脉攻防战能力保留服务端状态、结算及重试', async t => 
     await call(); if (spec.read) assert.notEqual(keys.at(-1), keys.at(-2)); else assert.equal(keys.at(-1), keys.at(-2));
   }
 });
+
+test('无编号灵脉任务保留服务端用法反馈', async t => {
+  const row = rows.find(item => item.op === 'secret-realm.view' && item.args.realmNo === null && !item.envelope.data.success); assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async () => { const envelope = structuredClone(row.envelope); envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' }; return { status: 200, headers: {}, data: JSON.stringify(envelope) }; } }));
+  const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_spirit_vein_view_help', { taskInput: '灵脉攻防战查看' }), 'ai-plugin');
+  assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { const result = run.value.data as any; assert.equal(result.success, false); assert.equal(result.result, undefined); assert.deepEqual(result.replies, row.envelope.data.middleware.replies); assert.equal(result.taskContinuation.outcome, 'next'); }
+});

@@ -21,14 +21,18 @@ for (const action of ['preview_soul_path_choose', 'preview_soul_path_switch', 'p
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
   let current = rows[0];
+  const keys: string[] = [];
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${current.operation}`);
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
     assert.ok([...body.messageText].length <= 80);
+    keys.push(request.headers['idempotency-key']);
     return { status: 200, headers: {}, data: JSON.stringify(current.envelope) };
   } }));
   for (current of rows) {
-    const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, current.input), 'ai-plugin');
+    const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+    const invoke = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, current.input), 'ai-plugin');
+    const result = await invoke();
     assert.deepEqual(result.errors, []);
     assert.deepEqual(result.messages, []);
     assert.deepEqual(result.actions, []);
@@ -40,6 +44,9 @@ for (const action of ['preview_soul_path_choose', 'preview_soul_path_switch', 'p
     if (action.startsWith('preview_soul_')) {
       assert.deepEqual(actual.result, { token: data.token, message: data.message, confirmationToken: action === 'preview_soul_path_choose' ? `choose:${data.token}` : data.token });
       assert.ok(fixtures.some(row => row.action === 'confirm_soul_path' && row.input.token === actual.result.confirmationToken), '返回凭证必须可原样用于实际确认');
+      const refreshed = await invoke();
+      assert.equal(refreshed.value.ok, true);
+      assert.notEqual(keys.at(-1), keys.at(-2));
     } else if (action === 'confirm_soul_path') {
       const kind = data.mode === 'choose' ? 'choose' : data.result.action;
       assert.equal(actual.result.kind, kind);

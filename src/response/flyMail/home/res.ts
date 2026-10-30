@@ -42,12 +42,13 @@ const SCOPE_TABS = [
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, next] = useEvent();
   const bid = e?.UserId;
   const isPrivate = isPrivateEvent(e);
   const parsed = parseFlyMailHomeCommand(e.MessageText);
 
   if (!parsed) {
-    return;
+    return next();
   }
 
   if (!isPrivate) {
@@ -58,7 +59,6 @@ export default onResponse(selects, async e => {
 
   const label = SCOPE_LABEL[parsed.scope];
   const header = SCOPE_TABS.map(tab => ({ label: tab.label, selected: tab.scope === parsed.scope, command: tab.command }));
-  const [, next] = useEvent();
   let response;
 
   try {

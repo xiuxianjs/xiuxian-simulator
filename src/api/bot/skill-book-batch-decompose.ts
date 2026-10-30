@@ -57,7 +57,7 @@ function item(value: unknown): BackendSkillBookBatchItem {
   };
 }
 
-function preview(value: unknown): BackendSkillBookBatchPreview {
+export function preview(value: unknown): BackendSkillBookBatchPreview {
   const data = record(value, '一键分解功法预览接口响应不完整');
 
   if (typeof data.success !== 'boolean' || !Array.isArray(data.gradeBreakdown) || !Array.isArray(data.estimatedItems)) {

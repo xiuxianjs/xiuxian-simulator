@@ -125,3 +125,22 @@ for (const [action, mode, input] of [
   assert.deepEqual(run.errors, []);
   assert.equal(run.value.ok, false);
 });
+
+test('新人活动任务步骤保留服务端面板结果和推进回执', async t => {
+  const row = fixtures.find(item => item.action === 'get_newcomer_activity' && item.envelope.data.success);
+  assert.ok(row);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    const envelope = structuredClone(row.envelope);
+    if (body.taskInput) envelope.data.middleware.taskContinuation = { outcome: 'next', command: '我的资料' };
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const normal = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_newcomer_activity', {}), 'ai-plugin');
+  const task = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_newcomer_activity', { taskInput: '初入仙途' }), 'ai-plugin');
+  assert.ok(normal.value.ok && task.value.ok);
+  assert.deepEqual((task.value.data as any).result, (normal.value.data as any).result);
+  assert.deepEqual((task.value.data as any).taskContinuation, { outcome: 'next', command: '我的资料' });
+});

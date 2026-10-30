@@ -18,7 +18,7 @@ test('入群欢迎实际发送自我介绍、权限说明与夺宝修为引导�
       throw new Error(`Unexpected backend request: ${path}`);
     }
   }));
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-fixture-token' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-fixture-token' } } } });
   t.after(() => app.dispose());
   const event = app.events.event('guild.join', {
     Platform: 'qq-bot', BotId: 'welcome-bot', MessageId: 'welcome-event', UserId: 'group-owner',
@@ -42,7 +42,7 @@ test('入群欢迎实际发送自我介绍、权限说明与夺宝修为引导�
     '个人通知仍按各自订阅设置投递', '虾仁夺宝（打劫）是游戏主要的修为获取方式之一',
     '秘境与夺宝分别使用精力、元力'
   ]) assert.ok(view.text.includes(text), text);
-  assert.deepEqual(view.commands, ['/帮助', '/踏入仙途', '/我的设置', '/登录']);
+  assert.deepEqual(view.commands, ['/修仙帮助', '/踏入仙途', '/我的设置', '/登录']);
   assert.doesNotMatch(view.text, /固定翻倍|已开启|已允许/);
   assert.deepEqual(requests.map(request => request.path.split('/cache')[1]), [
     '/availability/event', '/availability/read', '/receipt/lease/acquire', '/receipt/store'
