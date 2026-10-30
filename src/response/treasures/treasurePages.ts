@@ -134,12 +134,17 @@ export function buildTreasureEffectsPage(data: TreasureOverview): FormatMarkDown
       stats.push(`${treasureAttributeNames[key]} +${number(percent)}%`);
     }
   }
-  content.addBlockquote(createQuoteMarkdown(['宝物战斗属性', ...(stats.length ? stats : ['暂无已激活宝物属性。'])]));
+  content.addBlockquote(
+    Format.createMarkdown()
+      .addBold('宝物战斗属性')
+      .addNewline()
+      .absorb(createQuoteMarkdown(stats.length ? stats : ['暂无已激活宝物属性。']))
+  );
   const effects = owned.filter(item => item.definition.effectDescription && item.currentEffect);
 
   if (effects.length) {
     for (const item of effects) {
-      content.addBlockquote(createQuoteMarkdown([item.definition.name, item.currentEffect]));
+      content.addBlockquote(Format.createMarkdown().addBold(item.definition.name).addNewline().addText(item.currentEffect));
     }
   } else {
     content.addBlockquote(createQuoteMarkdown(['暂无已激活宝物生活效果。']));
