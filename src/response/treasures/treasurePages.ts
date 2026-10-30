@@ -30,22 +30,18 @@ function addNavigation(content: FormatMarkDown, selected: 'owned' | 'effects') {
 }
 
 function addCultivation(content: FormatMarkDown) {
-  content.addBlockquote(
-    createQuoteMarkdown(
-      ['批量培养：预览本次可培养宝物与消耗'],
-      [
-        { label: '一键突破', command: '/宝物 一键突破', autoEnter: false },
-        { label: '一键升级', command: '/宝物 一键升级', autoEnter: false }
-      ]
-    )
-  );
+  content.addNewline();
+  addButtons(content, [
+    { label: '一键突破', command: '/宝物 一键突破' },
+    { label: '一键升级', command: '/宝物 一键升级' }
+  ]);
 }
 
 export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity?: number; page?: number } = {}): FormatMarkDown {
   const content = Format.createMarkdown();
 
   addNavigation(content, 'owned');
-  content.addBlockquote(createQuoteMarkdown([`宝物经验：${data.experience} · 仙蕴：${data.xianYun}`, `境界等级上限：${data.levelCap}`]));
+  content.addBlockquote(createQuoteMarkdown([`宝物经验 ${data.experience} · 仙蕴 ${data.xianYun} · 境界等级上限 ${data.levelCap}`]));
   const owned = data.items.filter(item => item.owned).sort((a, b) => a.definition.id - b.definition.id);
   const availableRarities = [...new Set(owned.map(item => item.definition.rarity))].sort((a, b) => a - b);
   const selectedRarity = options.rarity ?? availableRarities[0] ?? 1;
@@ -61,9 +57,7 @@ export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity
   const page = Math.min(pages, Math.max(1, Number.isSafeInteger(options.page) ? (options.page as number) : 1));
 
   if (!items.length) {
-    content.addBlockquote(
-      createQuoteMarkdown([owned.length ? `尚未拥有${rarityNames[selectedRarity - 1] ?? '该品质'}宝物。` : '尚未拥有宝物，前往上古遗珍探索后可在此培养。'])
-    );
+    content.addBlockquote(createQuoteMarkdown([owned.length ? `尚未拥有${rarityNames[selectedRarity - 1] ?? '该品质'}宝物。` : '尚未拥有宝物，前往上古遗珍探索后可在此培养。']));
     if (owned.length) {
       addCultivation(content);
     }
@@ -71,11 +65,11 @@ export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity
     return content;
   }
   for (const item of items.slice((page - 1) * pageSize, page * pageSize)) {
+    content.addText(item.definition.name).addNewline();
     content.addBlockquote(
-      createQuoteMarkdown(
-        [`【${item.definition.id}】${item.definition.name}`, `品阶：${gradeName(item.gradeName)} · 等级：${item.level}/${data.levelCap}`],
-        [{ label: '详情与培养', command: `/宝物 详情 ${item.definition.id}`, autoEnter: false }]
-      )
+      createQuoteMarkdown([`${gradeName(item.gradeName)} · Lv.${item.level}`], [
+        { label: '详情与培养', command: `/宝物 详情 ${item.definition.id}`, autoEnter: false }
+      ])
     );
   }
   if (pages > 1) {
@@ -103,17 +97,18 @@ export function buildTreasureFortunePage(data: TreasureOverview): FormatMarkDown
     { label: '鸿蒙气运', command: '/宝物 气运', selected: true }
   ]);
   content.addText('根据宝物培养程度，气运会逐渐累积').addNewline();
+  content.addNewline().addBold(`鸿蒙气运 · Lv.${f.level}`).addNewline();
   content.addBlockquote(
     createQuoteMarkdown([
-      `鸿蒙气运 ${f.level}/${f.maxLevel}级 · 积分 ${number(f.score)}`,
+      `当前进度 ${number(f.score)}`,
       f.nextThreshold === null
         ? '已达最高气运等级，积分继续保留'
-        : `下级累计 ${number(f.nextThreshold)} 分 · 还差 ${number(Math.max(0, f.nextThreshold - f.score))} 分`
+        : `下级累计 ${number(f.nextThreshold)} · 还差 ${number(Math.max(0, f.nextThreshold - f.score))}`
     ])
   );
+  content.addText('当前效果').addNewline();
   content.addBlockquote(
     createQuoteMarkdown([
-      '当前效果：',
       `命中率 +${number(f.bonus.hitRate)}% · 闪避率 +${number(f.bonus.dodgeRate)}%`,
       `暴击率 +${number(f.bonus.critRate)}% · 暴伤 +${number(f.bonus.critDamage)}%`
     ])
@@ -190,10 +185,9 @@ function specialAttribute(item: OwnedTreasure): string {
   if (!item.currentEffect) {
     return '暂无特殊属性。';
   }
-  const effect =
-    /^[^\p{Script=Han}]+$/u.test(item.currentEffect) && item.definition.effectDescription
-      ? `${item.definition.effectDescription}（${item.currentEffect}）`
-      : item.currentEffect;
+  const effect = /^[^\p{Script=Han}]+$/u.test(item.currentEffect) && item.definition.effectDescription
+    ? `${item.definition.effectDescription}（${item.currentEffect}）`
+    : item.currentEffect;
   const probability = /^(.*)（(\d+(?:\.\d+)?)%）$/.exec(effect);
 
   if (probability && probability[1].includes('命中') && !probability[1].includes('修为')) {
@@ -208,46 +202,50 @@ export function buildTreasureDetailPage(item: OwnedTreasure, data: TreasureOverv
   const d = item.definition;
 
   content.addBlockquote(createQuoteMarkdown([`当前拥有：经验 ${data.experience} · 仙蕴 ${data.xianYun}`]));
-  content.addBlockquote(
-    createQuoteMarkdown([
-      `【${d.id}】【${d.rarityName}】${d.name}`,
-      item.owned ? `${gradeName(item.gradeName)} · 等级 ${item.level}/${data.levelCap}` : '尚未拥有',
-      `碎片 ${item.fragments}/10 · 多余本体 ${item.duplicates}`
-    ])
-  );
+  content.addText(`【${d.rarityName}】${d.name}`).addNewline();
+  const status = Format.createMarkdown();
+
+  if (item.owned) {
+    status.addBold(`${gradeName(item.gradeName)} · 等级 ${item.level}/${data.levelCap}`);
+  } else {
+    status.addText('尚未拥有');
+  }
+  status.addNewline().addText(`碎片 ${item.fragments}/10 · 多余本体 ${item.duplicates}`);
+  content.addBlockquote(status);
   if (!item.owned) {
     return content;
   }
   const stats = battleAttributes(item);
 
-  content.addBlockquote(createQuoteMarkdown(['战斗属性', ...(stats.length ? stats : ['暂无战斗属性。'])]));
-  content.addBlockquote(createQuoteMarkdown(['特殊属性', specialAttribute(item)]));
+  content.addText('战斗属性').addNewline();
+  content.addBlockquote(createQuoteMarkdown(stats.length ? stats : ['暂无战斗属性。']));
+  content.addText('特殊属性').addNewline();
+  content.addBlockquote(createQuoteMarkdown([specialAttribute(item)]));
   if (item.promotionPreview && item.promotion) {
-    const block = Format.createMarkdown()
-      .addText(`升品至 ${gradeName(item.promotionPreview.gradeName)}`)
-      .addNewline();
+    content.addText(`升品至 ${gradeName(item.promotionPreview.gradeName)} `);
+    addButtons(content, [{ label: '升品', command: `/宝物 升品 ${d.id}` }]);
+    const block = Format.createMarkdown();
 
     for (const change of battleChanges(item, item.promotionPreview)) {
-      block.addText(change).addNewline();
+      block.addBold(change).addNewline();
     }
     block.addText(`需要本体 ${item.promotion.duplicates} · 仙蕴 ${item.promotion.xianYun}`);
     for (const requirement of item.promotion.requirements) {
       block.addNewline().addText(requirement);
     }
-    block.addText(' ');
-    addButtons(block, [{ label: '升品', command: `/宝物 升品 ${d.id}` }]);
     content.addBlockquote(block);
   } else {
     content.addBlockquote(createQuoteMarkdown([item.grade >= d.maxGrade ? '品级已达上限。' : '升品：刷新后查看下一阶属性。']));
   }
   if (item.upgradePreview) {
-    const block = Format.createMarkdown().addText(`升级至 Lv.${item.upgradePreview.level}`).addNewline();
+    content.addText(`升级至 Lv.${item.upgradePreview.level} `);
+    addButtons(content, [{ label: '升级', command: `/宝物 升级 ${d.id}` }]);
+    const block = Format.createMarkdown();
 
     for (const change of battleChanges(item, item.upgradePreview)) {
-      block.addText(change).addNewline();
+      block.addBold(change).addNewline();
     }
-    block.addText(`需要经验 ${item.nextLevelCost} `);
-    addButtons(block, [{ label: '升级', command: `/宝物 升级 ${d.id}` }]);
+    block.addText(`需要经验 ${item.nextLevelCost}`);
     content.addBlockquote(block);
   } else {
     content.addBlockquote(createQuoteMarkdown([item.level >= data.levelCap ? '等级已达当前境界上限。' : '升级：刷新后查看下一阶属性。']));

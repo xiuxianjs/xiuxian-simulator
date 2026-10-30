@@ -73,21 +73,20 @@ function view(result: TestRunResult) {
 
 async function run(t: TestContext, data: ReturnType<typeof overview>, command: string) {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
-  const result = view(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
+  const delivered = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+  const result = view(delivered);
 
   assert.equal(requests.length, 1);
   assert.ok(requests[0].path.endsWith('/treasures.overview'));
 
-  return result;
+  return { ...result, nodes: delivered.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []) };
 }
 
 test('宝物默认普通，仅显示当前档已激活主件，气运不混入总览', async t => {
   const result = await run(t, overview([item(101), item(401), item(601, 6, false)]), '/宝物');
 
   assert.match(result.text, /宝物101/);
-  assert.match(result.text, /【101】宝物101/);
-  assert.match(result.text, /品阶：星尘1 · 等级：1\/10/);
-  assert.match(result.text, /批量培养：预览本次可培养宝物与消耗/);
+  assert.match(result.text, /星尘1 · Lv\.1/);
   assert.doesNotMatch(result.text, /宝物401|宝物601|鸿蒙气运 1\/20级|碎片/);
   assert.ok(result.commands.includes('/宝物 品质 1'));
   assert.ok(result.commands.includes('/宝物 品质 4'));
@@ -95,6 +94,10 @@ test('宝物默认普通，仅显示当前档已激活主件，气运不混入�
   assert.ok(result.commands.includes('/宝物 详情 101'));
   assert.ok(result.commands.includes('/宝物 一键突破'));
   assert.ok(result.commands.includes('/宝物 一键升级'));
+  assert.ok(result.nodes.some(node => node.type === 'MD.text' && node.value === '宝物101'));
+  assert.ok(result.nodes.some(node => node.type === 'MD.button' && node.options?.data === '/宝物 一键突破'));
+  const itemQuote = result.nodes.find(node => node.type === 'MD.blockquote' && JSON.stringify(node.value).includes('/宝物 详情 101'));
+  assert.ok(itemQuote?.type === 'MD.blockquote' && !JSON.stringify(itemQuote.value).includes('宝物101'));
 });
 
 test('无普通时默认最低已有档，空账户和指定未拥有档有明确空态', async t => {
@@ -112,6 +115,15 @@ test('无普通时默认最低已有档，空账户和指定未拥有档有明�
   assert.match(empty.text, /尚未拥有宝物/);
   assert.doesNotMatch(empty.text, /宝物401|碎片/);
   assert.ok(!empty.commands.some(command => command.startsWith('/宝物 品质 ')));
+});
+
+test('旧图鉴指令只转到新的持有页，不再展示混合气运与未拥有图鉴', async t => {
+  const result = await run(t, overview([item(504), item(601, 6, false)]), '/宝物 图鉴');
+
+  assert.match(result.text, /宝物504/);
+  assert.doesNotMatch(result.text, /宝物601|全部图鉴|分解与仙蕴|鸿蒙气运 · Lv|鸿蒙气运 1\/20/);
+  assert.ok(result.commands.includes('/宝物 气运'));
+  assert.ok(!result.commands.some(command => command.startsWith('/宝物 图鉴')));
 });
 
 test('品质筛选只列对应档，6件分页保留所选品质', async t => {
@@ -139,9 +151,12 @@ test('鸿蒙气运独立展示两页导航，满级不计算虚构的下级差�
   const result = await run(t, data, '/宝物 气运');
 
   assert.match(result.text, /根据宝物培养程度，气运会逐渐累积/);
-  assert.match(result.text, /鸿蒙气运 1\/20级 · 积分 1/);
-  assert.match(result.text, /下级累计 3 分 · 还差 2 分/);
-  assert.match(result.text, /当前效果：\n> 命中率 \+1% · 闪避率 \+1%\n> 暴击率 \+1% · 暴伤 \+5%/);
+  assert.match(result.text, /鸿蒙气运 · Lv\.1/);
+  assert.match(result.text, /当前进度 1/);
+  assert.match(result.text, /下级累计 3 · 还差 2/);
+  assert.match(result.text, /当前效果\n\n> 命中率 \+1% · 闪避率 \+1%\n> 暴击率 \+1% · 暴伤 \+5%/);
+  assert.ok(result.nodes.some(node => node.type === 'MD.bold' && node.value === '鸿蒙气运 · Lv.1'));
+  assert.ok(result.nodes.some(node => node.type === 'MD.text' && node.value === '当前效果'));
   assert.doesNotMatch(result.text, /宝物101|宝物经验/);
   data.fortune = { ...data.fortune, level: 20, score: 350, nextThreshold: null };
   const max = await run(t, data, '/宝物 气运');
@@ -209,6 +224,16 @@ test('详情培养只展示当前特效，变化与消耗均使用服务端预�
   assert.doesNotMatch(result.text, /生命 \+2% →|生命 \+601|生命 \+620/);
   assert.ok(result.commands.includes('/宝物 升品 504'));
   assert.ok(result.commands.includes('/宝物 升级 504'));
+  for (const title of ['【史诗】神农鼎', '战斗属性', '特殊属性', '升品至 星尘2 ', '升级至 Lv.2 ']) {
+    assert.ok(result.nodes.some(node => node.type === 'MD.text' && node.value === title), title);
+  }
+  for (const command of ['/宝物 升品 504', '/宝物 升级 504']) {
+    assert.ok(result.nodes.some(node => node.type === 'MD.button' && node.options?.data === command));
+  }
+  const quoted = result.nodes.flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : []);
+  for (const bold of ['星尘1 · 等级 1/10', '生命 +600 → 生命 +780', '生命 +600 → 生命 +612']) {
+    assert.ok(quoted.some(node => node.type === 'MD.bold' && node.value === bold), bold);
+  }
 });
 
 test('详情采用服务器返回的下一状态，不用本地倍率或等级增量猜测', async t => {

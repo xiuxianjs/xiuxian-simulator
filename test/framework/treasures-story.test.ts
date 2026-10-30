@@ -112,6 +112,30 @@ test('直接本体保留星标，自动合成用➥且不重复奖励', async t 
   assert.equal(views[1].text.match(/自动合成1本体/g)?.length, 1);
 });
 
+test('探索结果仅操作与消耗引用，奖励和查看同行在框外，合成独立下一行', async t => {
+  const rewards = [body, { ...fragment(6), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned: true }, ...Array.from({ length: 8 }, () => fragment())];
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards)));
+  const { pending } = await start(app);
+  await app.clock.advance(3000);
+  const result = await pending;
+  delivered(result);
+  const nodes = result.messages[1].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+  const quotes = nodes.filter(node => node.type === 'MD.blockquote');
+  assert.equal(quotes.length, 2);
+  assert.ok(JSON.stringify(quotes[0]).includes(operationId));
+  assert.ok(JSON.stringify(quotes[1]).includes('宝物经验 +1000'));
+  assert.doesNotMatch(JSON.stringify(quotes), /乾坤鼎|九天息壤|自动合成|查看/);
+  const bodyIndex = nodes.findIndex(node => node.type === 'MD.text' && String(node.value).startsWith('⭐ 乾坤鼎'));
+  const viewButton = nodes[bodyIndex + 1];
+  assert.ok(bodyIndex > nodes.indexOf(quotes[1]));
+  assert.ok(viewButton.type === 'MD.button');
+  assert.equal(viewButton.options?.data, '/宝物 详情 603');
+  assert.equal(viewButton.options?.autoEnter, false);
+  const synthesisIndex = nodes.findIndex(node => node.type === 'MD.text' && node.value === '➥ 自动合成1本体，余片2');
+  assert.ok(synthesisIndex > bodyIndex);
+  assert.equal(nodes[synthesisIndex - 1].type, 'MD.newline');
+});
+
 for (const rarity of [4, 5, 6]) for (const newlyOwned of [false, true]) {
   test(`${['稀有', '史诗', '神话'][rarity - 4]}自动合成只用普通场景与➥ newlyOwned=${newlyOwned}`, async t => {
     const reward = { ...fragment(rarity), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned };

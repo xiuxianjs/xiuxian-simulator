@@ -14,7 +14,7 @@ import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures';
 import { createBackendRequestContext } from '@src/api/bot/context';
-import { createRechargeProductQuote as createQuoteMarkdown, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
+import { createRechargeProductQuote as createQuoteMarkdown, buildRechargeProductCard, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -54,19 +54,20 @@ export default onResponse(selects, async e => {
 
     const md = Format.createMarkdown();
 
-    // 商品名、价格、实际奖励和购买动作必须在同一引用块内。
+    // 商品标题与购买按钮在引用外，奖励和资格说明在引用内。
     const addPackage = (pkg: (typeof result.normalPackages)[number], rewards = pkg.rewardParts, benefits: string[] = []) => {
-      const quote = createQuoteMarkdown(
-        [
-          `${pkg.name} · ¥${pkg.yuan}${pkg.doubleText}${pkg.limitText}`,
+      const card = buildRechargeProductCard({
+        heading: `${pkg.name} · ¥${pkg.yuan.toFixed(2)}${pkg.limitText}`,
+        emphasis: pkg.doubleText.replace(/^\s*·\s*/u, '').trim() || undefined,
+        lines: [
           ...benefits,
           ...(pkg.description ? [pkg.description] : []),
-          ...(rewards.length ? [rewards.join(' + ')] : [])
+          ...rewards
         ],
-        [{ label: '购买', command: `/充值购买 ${pkg.id}` }]
-      );
+        buttons: [{ label: '购买', command: `/充值购买 ${pkg.id}` }]
+      });
 
-      md.addBlockquote(quote);
+      md.absorb(card);
     };
 
     const giftPage = category.match(/^首充礼包(?:\s+(\d+))?$/);
@@ -192,7 +193,7 @@ export default onResponse(selects, async e => {
         return;
       }
       if (selected === '灵脉租契') {
-        md.addBlockquote(buildSpiritVeinProductBlock(loaded.data as ReturnType<typeof parseSpiritVein>));
+        md.absorb(buildSpiritVeinProductBlock(loaded.data as ReturnType<typeof parseSpiritVein>));
       } else {
         const input = category.split(/\s+/).slice(1);
 

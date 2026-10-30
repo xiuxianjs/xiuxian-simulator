@@ -31,7 +31,7 @@ function quotes(nodes: NonNullable<Parameters<typeof inspectMessage>[0]>) {
   });
 }
 for (const privateChat of [false, true]) {
-  test(`充值套餐的价格、权益、奖励与购买按钮同块（${privateChat ? '私聊' : '群聊'}）`, async t => {
+  test(`充值套餐标题与购买在引用外，权益奖励在引用内（${privateChat ? '私聊' : '群聊'}）`, async t => {
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, catalogData));
     for (const [i, category] of ['道晶套餐', '月卡', '金手指', '优惠礼包'].entries()) {
       const event = privateChat ? app.events.privateMessage({ text: `/充值 ${category}`, platform: 'qq-bot' }) : app.events.groupMessage({ text: `/充值 ${category}`, platform: 'qq-bot' });
@@ -41,13 +41,15 @@ for (const privateChat of [false, true]) {
       assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
       const cards = quotes(message.nodes); assert.equal(cards.length, 1);
       const pkg = packages[i]; const card = cards[0];
-      assert.match(card.text, /¥6.5/); assert.ok(card.text.includes(pkg.name));
+      const view = inspectMessage(message.nodes);
+      assert.match(view.text, /¥6.50/); assert.ok(view.text.includes(pkg.name));
       assert.ok(card.text.includes(pkg.description)); assert.ok(card.text.includes('灵石 +10'));
-      assert.ok(card.text.includes('限购1次')); assert.deepEqual(card.commands, [`/充值购买 ${pkg.id}`]);
-      if (i === 0) assert.match(card.text, /首充双倍/);
+      assert.ok(view.text.includes('限购1次')); assert.deepEqual(card.commands, []);
+      assert.ok(view.commands.includes(`/充值购买 ${pkg.id}`));
+      if (i === 0) assert.match(view.text, /首充双倍/);
       if (i === 1) assert.match(card.text, /月卡实际权益/);
       if (i === 2) assert.match(card.text, /金手指实际权益/);
-      const view = inspectMessage(message.nodes); assert.ok(view.commands.includes('/新人返利')); assert.ok(!view.commands.includes('/周周返利'));
+      assert.ok(view.commands.includes('/新人返利')); assert.ok(!view.commands.includes('/周周返利'));
       assert.ok(view.commands.includes('/我的权益'));
     }
   });

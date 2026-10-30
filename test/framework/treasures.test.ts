@@ -206,13 +206,13 @@ for (const privateChat of [false, true]) {
         : app.events.groupMessage({ text: command, platform: 'qq-bot' });
       const view = facts(await app.runHandler(handler, event));
       if (privateChat) previews.set(command, view);
-      if (command === '/宝物') {
+      if (command === '/宝物' || command === '/宝物 图鉴') {
         assert.match(view.text, /我的宝物/);
         assert.match(view.text, /神农鼎/);
-        assert.match(view.text, /品阶：星尘1 · 等级：1\/10/);
+        assert.match(view.text, /星尘1 · Lv\.1/);
         assert.doesNotMatch(view.text, /鸿蒙气运 1\/20级|未拥有 · 碎片/);
       } else {
-        assert.match(view.text, command.includes('详情') ? /神农鼎/ : /鸿蒙气运 1\/20级/);
+        assert.match(view.text, command.includes('详情') ? /神农鼎/ : command.endsWith('气运') ? /鸿蒙气运 · Lv\.1/ : /鸿蒙气运 1\/20级/);
       }
       assert.ok(!view.text.includes('undefined'));
       if (command.includes('详情')) for (const button of ['/宝物 升级 504', '/宝物 升品 504']) assert.ok(view.commands.includes(button));
@@ -258,14 +258,16 @@ for (const used of [false, true]) {
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
     const top = nodes.filter(node => node.type === 'MD.button').slice(0, 4);
     assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/周常活跃', '/充值 日礼包'
+      '/上古遗珍 概率', '/上古遗珍 记录', '/充值 日礼包', '/日常活跃'
     ]);
     const positions = top.map(button => nodes.indexOf(button));
     assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
-    assert.ok(nodes.slice(positions[1] + 1, positions[2]).some(node => node.type === 'MD.newline'));
+    assert.ok(nodes.slice(positions[1] + 1, positions[2]).filter(node => node.type === 'MD.newline').length >= 2);
     assert.ok(!nodes.slice(positions[2] + 1, positions[3]).some(node => node.type === 'MD.newline'));
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
     assert.ok(nodes.indexOf(quotes[0]) > positions[3]);
+    assert.ok(!view.commands.includes('/周常活跃'));
+    assert.ok(nodes.some(node => node.type === 'MD.bold' && node.value === '单发整品概率12%，十连至少出一个整品'));
     assert.match(view.text, /累计探索 300次 · 本轮 0\/300/);
     assert.equal(view.text.match(/神话自选待领取/g)?.length ?? 0, used ? 0 : 1);
     assert.doesNotMatch(view.text, /可领取神话自选|来自邮件|每笔十连至少/);
@@ -274,20 +276,24 @@ for (const used of [false, true]) {
     assert.match(view.text, used ? /每日免费探索：已使用/ : /‹每日免费探索›/);
     assert.match(view.text, used ? /灵晶探索 · 今日首发9折已使用，十连原价/ : /灵晶探索 · 每日首发9折/);
     for (const [name, single, ten] of [['灵晶', 1200, used ? 12000 : 10800], ['道晶', 12, 108], ['藏宝图', 1, 10]] as const) {
-      const block = quotes.find(node => node.type === 'MD.blockquote' && JSON.stringify(node.value).includes(`${name}探索`));
+      assert.ok(nodes.some(node => node.type === 'MD.text' && String(node.value).startsWith(`${name}探索`)));
+      const block = quotes.find(node => node.type === 'MD.blockquote' && JSON.stringify(node.value).includes(`/上古遗珍 探索 ${name}`));
       assert.ok(block?.type === 'MD.blockquote' && Array.isArray(block.value));
+      assert.ok(!JSON.stringify(block.value).includes(`${name}探索`));
       for (const [command, label, cost] of [['探索', '单次探索', single], ['十连探索', '十连探索', ten]] as const) {
         const index = block.value.findIndex(node => node.type === 'MD.button' && node.options?.data === `/上古遗珍 ${command} ${name}`);
-        assert.ok(index > 0);
+        assert.ok(index >= 0);
         const button = block.value[index];
         assert.ok(button.type === 'MD.button');
         assert.equal(button.value, `‹${label}›`);
-        assert.equal(block.value[index - 1].type, 'MD.newline');
+        if (command === '探索') assert.equal(index, 0);
+        else assert.equal(block.value[index - 1].type, 'MD.newline');
         const costNode = block.value[index + 1];
         assert.ok(costNode.type === 'MD.text');
         assert.equal(costNode.value, ` 消耗${cost}${name}`);
       }
     }
+    assert.ok(nodes.some(node => node.type === 'MD.text' && node.value === '当前账户'));
     assert.ok(view.text.indexOf('当前账户') > view.text.indexOf('藏宝图探索'));
     assert.match(view.text, /灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
     assert.deepEqual(view.commands.slice(-2), ['/宝物', '/上古遗珍']);

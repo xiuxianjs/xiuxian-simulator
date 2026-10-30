@@ -54,7 +54,7 @@ function view(result: TestRunResult) {
   return inspectMessage(message.nodes);
 }
 
-test('充值首页有两商品独立入口，租契销售复用月卡式同一引用块', async t => {
+test('充值首页有两商品独立入口，租契标题与购买在引用外且权益在引用内', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('spirit-vein.overview') ? lease : catalog));
   const home = view(await app.runHandler(recharge, app.events.privateMessage({ text: '/充值', platform: 'qq-bot' })));
   assert.ok(home.commands.includes('/充值 日礼包'));
@@ -66,8 +66,13 @@ test('充值首页有两商品独立入口，租契销售复用月卡式同一�
   assert.match(product.text, /300道晶/);
   assert.match(product.text, /2000灵晶，共30收益日/);
   assert.ok(product.commands.includes('/充值购买 99'));
-  const blocks = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(item => item.type === 'MD.blockquote') : []);
-  assert.ok(blocks.some(block => JSON.stringify(block).includes('灵脉租契 · ¥30.00') && JSON.stringify(block).includes('/充值购买 99')));
+  const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+  const headingIndex = nodes.findIndex(node => node.type === 'MD.text' && node.value === '灵脉租契 · ¥30.00');
+  const quoteIndex = nodes.findIndex((node, index) => index > headingIndex && node.type === 'MD.blockquote');
+  const purchaseIndex = nodes.findIndex(node => node.type === 'MD.button' && node.options?.data === '/充值购买 99');
+  assert.ok(headingIndex >= 0 && quoteIndex > headingIndex && purchaseIndex > quoteIndex);
+  assert.ok(JSON.stringify(nodes[quoteIndex]).includes('购买即得 300道晶'));
+  assert.ok(!JSON.stringify(nodes[quoteIndex]).includes('/充值购买 99'));
   assert.ok(!requests.some(request => request.path.includes('payment-create')));
   previews.set('/充值 灵脉租契（商品详情）', product.text);
 });
