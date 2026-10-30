@@ -106,7 +106,7 @@ export interface PaymentsOperations {
     path: { id: number };
     query: never;
     headers: { 'Idempotency-Key'?: string; 'X-Request-ID'?: string };
-    body: { lootboxId: number; lootboxName?: never; openCount?: number } | { lootboxId?: never; lootboxName: string; openCount?: number };
+    body: ({ lootboxId: number; lootboxName?: never } | { lootboxId?: never; lootboxName: string }) & { openCount?: number; treasureId?: number };
     response: unknown;
   };
   get_gacha_pools_poolId_items: { path: { poolId: number }; query: never; headers: { 'X-Request-ID'?: string }; body: never; response: GachaGoodsTierData[] };

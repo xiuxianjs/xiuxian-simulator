@@ -1,3 +1,5 @@
+import type { LootboxTreasureSelection } from './lootbox-selection';
+
 /** Read contracts matched to current Go query services, without UI commands. */
 export interface SocialAccessData {
   canUseSecondLayerFeature: boolean;
@@ -287,6 +289,7 @@ export interface LootboxListItem {
   name: string | null;
   description: string | null;
   capabilities: LootboxCapability[];
+  selection?: LootboxTreasureSelection;
 }
 
 export interface LootboxListData {

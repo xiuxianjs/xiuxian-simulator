@@ -19,6 +19,8 @@ import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { createPrimaryTabsBar } from '../tabs';
 import { lootboxActions } from './capabilities';
 
+const manualTabs = () => createPrimaryTabsBar('礼盒').map(row => row.map(button => ({ ...button, autoEnter: false })));
+
 const response = onResponse(selects, async e => {
   const [message] = useMessage();
   const bid = e?.UserId;
@@ -47,9 +49,9 @@ const response = onResponse(selects, async e => {
           md,
           reply.blocks?.filter(block => block.text !== reply.text || block.inlineButtons?.length)
         );
-        appendMiddlewareAdvice(md, reply.advice);
+        appendMiddlewareAdvice(md, reply.advice, false);
         await message.send(
-          FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: [...createPrimaryTabsBar('礼盒'), ...(reply.buttons.length ? [reply.buttons] : [])] })
+          FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: [...manualTabs(), ...(reply.buttons.length ? [reply.buttons.map(button => ({ ...button, autoEnter: false }))] : [])] })
         );
       })
     );
@@ -64,16 +66,16 @@ const response = onResponse(selects, async e => {
 
     if (result.data.total === EMPTY_TOTAL) {
       md.addText('暂无礼盒');
-      appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '暂无礼盒'));
+      appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '暂无礼盒'), false);
 
-      void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: createPrimaryTabsBar('礼盒') }));
+      void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: manualTabs() }));
 
       return;
     }
 
     if (result.data.items.length === 0) {
       md.addText(`本页暂无礼盒，当前共 ${result.data.total} 条礼盒记录`);
-      appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '本页无记录'));
+      appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '本页无记录'), false);
     }
     result.data.items.forEach(item => {
       const lootboxMd = Format.createMarkdown().addText(` 🎁 ${item.name} x${item.quantity}`);
@@ -82,11 +84,11 @@ const response = onResponse(selects, async e => {
 
       actions.forEach(action => {
         lootboxMd.addText(' ');
-        lootboxMd.addButton(markdownButtonLabel(`${action.label}`), { data: action.command });
+        lootboxMd.addButton(markdownButtonLabel(`${action.label}`), { data: action.command, autoEnter: false });
       });
       if (actions.length === 0) {
         lootboxMd.addText(' · 当前没有可用开启入口');
-        appendMiddlewareAdvice(lootboxMd, lootboxRecoveryTips('storage.lootboxes', '暂无可用开启选项'));
+        appendMiddlewareAdvice(lootboxMd, lootboxRecoveryTips('storage.lootboxes', '暂无可用开启选项'), false);
       }
       md.addBlockquote(lootboxMd);
       md.addNewline();
@@ -104,9 +106,10 @@ const response = onResponse(selects, async e => {
         nav: {
           current: page,
           total: Math.ceil(result.data.total / result.data.pageSize),
-          command: '/储物袋 礼盒 {page}'
+          command: '/储物袋 礼盒 {page}',
+          autoEnter: false
         },
-        footer: createPrimaryTabsBar('礼盒')
+        footer: manualTabs()
       })
     );
   } catch (error) {
@@ -114,9 +117,9 @@ const response = onResponse(selects, async e => {
     const md = Format.createMarkdown();
 
     md.addText('查询礼盒失败，请稍后重试');
-    appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '查询失败'));
+    appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '查询失败'), false);
 
-    void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: createPrimaryTabsBar('礼盒') }));
+    void message.send(FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: manualTabs() }));
   }
 });
 

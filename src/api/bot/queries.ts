@@ -5,6 +5,7 @@ import { getEventAccessFacts } from './access-facts';
 import type { EncyclopediaDetailFacts } from '../schemas/encyclopedia';
 import { requestBackend } from './client';
 import { parseRobberyRecord } from './robbery-records';
+import { parseLootboxSelection } from '../schemas/lootbox-selection';
 
 function identity(bid?: string): string {
   if (!bid) {
@@ -769,7 +770,8 @@ export function parseBackendLootboxes(value: unknown) {
       quantity: integer(item.quantity),
       name: item.name === null ? '未知礼盒' : text(item.name),
       description: item.description === null ? '' : text(item.description),
-      capabilities: capabilities(item.capabilities)
+      capabilities: capabilities(item.capabilities),
+      ...(item.selection === undefined ? {} : { selection: parseLootboxSelection(item.selection) })
     }))
   };
 }

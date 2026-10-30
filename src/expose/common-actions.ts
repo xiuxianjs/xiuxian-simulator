@@ -14,6 +14,7 @@ import { parseEmailClaimAll } from '../api/bot/email-claim-all';
 import { parseCelestialCheckIn } from '../api/bot/celestial-checkin';
 import { parseCheckInView } from '../api/bot/checkin-view';
 import { ExposeError } from 'alemonjs';
+import { lootboxOpenResult } from './lootbox-schema';
 
 const reward = object({ name: text, amount: integer });
 const calendarScopes = {
@@ -29,6 +30,14 @@ const calendarScopes = {
 
 type CalendarScope = keyof typeof calendarScopes;
 const calendarButton = object({ label: text, command: text });
+const treasureSelectionId = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
+
+function validateLootboxSelection(input: { openCount: number; treasureId?: number; intentId?: string }) {
+  validateIntentId(input.intentId);
+  if (input.treasureId !== undefined && (!Number.isSafeInteger(input.treasureId) || input.treasureId < 1 || input.openCount !== 1)) {
+    throw new ExposeError('INVALID_INPUT', '自选宝盒每次只能开启1个，宝物ID必须为正整数');
+  }
+}
 
 export const commonActions = {
   get_checkin_calendar: observation<{ scope: CalendarScope; page?: number }>(
@@ -51,41 +60,43 @@ export const commonActions = {
     input => validateIntentId(input.intentId),
     { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  open_lootbox_by_id: mutation<{ lootboxId: number; openCount: number; intentId?: string }>(
-    '按礼盒配置 ID 开启库存并发放随机奖励；实际数量以回执为准。同消息新开启使用不同 intentId，同次重试沿用原编号。',
+  open_lootbox_by_id: mutation<{ lootboxId: number; openCount: number; treasureId?: number; intentId?: string }>(
+    '按礼盒配置ID开启。自选宝盒未传treasureId时仅返回候选、不消耗；传查询返回的treasureId时开启1盒，可选已拥有宝物，不计探索及保底。随机礼盒行为不变；同次重试沿用原intentId。',
     'lootboxes.open',
     object(
       {
         lootboxId: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
         openCount: { type: 'integer', minimum: 1, maximum: 10 },
+        treasureId: treasureSelectionId,
         intentId: intentIdSchema
       },
-      ['intentId']
+      ['intentId', 'treasureId']
     ),
-    object({ lootboxName: text, openCount: integer, rewards: list(object({ category: text, rewardId: integer, name: text, quantity: integer })) }),
-    input => `/开启礼盒 ${input.lootboxId} ${input.openCount}`,
+    lootboxOpenResult,
+    input => `/开启礼盒 ${input.lootboxId} ${input.openCount}${input.treasureId === undefined ? '' : ` ${input.treasureId}`}`,
     parseLootboxOpen,
-    input => ({ lootboxId: input.lootboxId, lootboxName: '', openCount: input.openCount }),
-    input => validateIntentId(input.intentId),
+    input => ({ lootboxId: input.lootboxId, lootboxName: '', openCount: input.openCount, ...(input.treasureId === undefined ? {} : { treasureId: input.treasureId }) }),
+    validateLootboxSelection,
     { intentId: input => input.intentId }
   ),
-  open_lootbox: mutation<{ lootboxName: string; openCount: number; intentId?: string; taskInput?: string }>(
-    '开启指定礼盒并发放随机奖励；实际数量以回执为准。同消息内新开启使用新 intentId，同次重试沿用原编号。 连锁任务可传入一致的 taskInput，分别检查任务和业务回执。',
+  open_lootbox: mutation<{ lootboxName: string; openCount: number; treasureId?: number; intentId?: string; taskInput?: string }>(
+    '开启指定礼盒。自选宝盒未传treasureId时只预览不消耗，传候选ID且openCount=1才发完整宝物，允许重复且不计探索保底。随机礼盒行为不变；同次重试沿用原intentId；连锁任务保留taskInput。',
     'lootboxes.open',
     object(
       {
         lootboxName: { type: 'string', minLength: 1 },
         openCount: { type: 'integer', minimum: 1, maximum: 10 },
+        treasureId: treasureSelectionId,
         intentId: intentIdSchema,
         taskInput: taskInputSchema
       },
-      ['intentId', 'taskInput']
+      ['intentId', 'taskInput', 'treasureId']
     ),
-    object({ lootboxName: text, openCount: integer, rewards: list(object({ category: text, rewardId: integer, name: text, quantity: integer })) }),
-    input => `/开启礼盒 ${input.lootboxName} ${input.openCount}`,
+    lootboxOpenResult,
+    input => `/开启礼盒 ${input.lootboxName} ${input.openCount}${input.treasureId === undefined ? '' : ` ${input.treasureId}`}`,
     parseLootboxOpen,
-    input => ({ lootboxName: input.lootboxName, openCount: input.openCount }),
-    input => validateIntentId(input.intentId),
+    input => ({ lootboxName: input.lootboxName, openCount: input.openCount, ...(input.treasureId === undefined ? {} : { treasureId: input.treasureId }) }),
+    validateLootboxSelection,
     { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   checkin_daily: mutation<{ taskInput?: string }>(

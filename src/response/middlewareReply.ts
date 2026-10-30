@@ -31,10 +31,10 @@ export function presentMiddlewareReply(reply: RobotMiddlewareReply): RobotMiddle
   };
 }
 
-export function appendMiddlewareAdvice(md: FormatMarkDown, advice: RobotMiddlewareReply['advice'] = []): void {
+export function appendMiddlewareAdvice(md: FormatMarkDown, advice: RobotMiddlewareReply['advice'] = [], autoEnter?: boolean): void {
   for (const tip of advice) {
     // 恢复建议可能包含费用、资格或结果未知的边界，保留原文，只收起重复的教程标题。
-    md.addNewline().addBlockquote(createQuoteMarkdown([tip.description], [{ label: tip.command.replace(/^\//, ''), command: tip.command }]));
+    md.addNewline().addBlockquote(createQuoteMarkdown([tip.description], [{ label: tip.command.replace(/^\//, ''), command: tip.command, autoEnter }]));
   }
 }
 

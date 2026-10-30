@@ -2,6 +2,7 @@ import { requestBackend } from '../api/bot/client';
 import { parseEquipmentBag, parseSkillBookBag, parseSoulArtifactBag, parseProfessionToolBag, parseBackendLootboxes } from '../api/bot/queries';
 import { query } from './query';
 import { text, number, integer, boolean, page, fields, list, object } from './schema';
+import { lootboxSelection } from './lootbox-schema';
 
 const kind = object({ kind: text, equipmentType: text, skillType: text }, ['equipmentType', 'skillType']);
 const filter = { type: 'string' as const, minLength: 1, maxLength: 100 };
@@ -89,8 +90,9 @@ export const lootboxes = object({
     object({
       ...fields(integer, 'id lootboxId quantity'),
       ...fields(text, 'name description'),
-      capabilities: list(object({ kind: text, valid: boolean, options: list(object(fields(integer, 'requestedCount effectiveCount'))) }))
-    })
+      capabilities: list(object({ kind: text, valid: boolean, options: list(object(fields(integer, 'requestedCount effectiveCount'))) })),
+      selection: lootboxSelection
+    }, ['selection'])
   )
 });
 

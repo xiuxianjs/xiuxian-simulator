@@ -12,9 +12,9 @@ export function lootboxActions(lootbox: LootboxListItem): GuiAction[] {
       return [];
     }
 
-    return capability.options.map(option => ({
+    return capability.options.filter(option => !lootbox.selection || (option.requestedCount === 1 && option.effectiveCount === 1)).map(option => ({
       label:
-        option.effectiveCount === option.requestedCount ? `开启 x${option.effectiveCount}` : `开启 x${option.requestedCount}（本次 x${option.effectiveCount}）`,
+        lootbox.selection ? '自选宝物' : option.effectiveCount === option.requestedCount ? `开启 x${option.effectiveCount}` : `开启 x${option.requestedCount}（本次 x${option.effectiveCount}）`,
       command: `/开启礼盒 ${lootbox.lootboxId} ${option.requestedCount}`
     }));
   });

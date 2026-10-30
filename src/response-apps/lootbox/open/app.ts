@@ -1,12 +1,14 @@
 import { displayCurrencyText } from '@src/constants/currency';
-import { openBackendLootbox, lootboxExpectedFailure } from '@src/api/bot/lootbox-open';
+import { openBackendLootbox, lootboxExpectedFailure, lootboxTreasureArgument } from '@src/api/bot/lootbox-open';
 import type { BackendRequestContext } from '@src/api/bot/context';
+import type { LootboxTreasureSelection } from '@src/api/schemas/lootbox-selection';
 
 type LootboxOpenResult =
   | { code: 'NO_INPUT'; data: { message: string } }
   | { code: 'NOT_FOUND'; data: { message: string; nameOrId: string } }
   | { code: 'NOT_OWNED'; data: { message: string; lootboxName: string } }
   | { code: 'OK'; data: { success: true; message: string } }
+  | { code: 'SELECT_TREASURE'; data: { lootboxId: number; lootboxName: string; selection: LootboxTreasureSelection } }
   | { code: 'LOAD_FAILED'; data: { message: string } };
 
 export default async function App(params: {
@@ -27,9 +29,14 @@ export default async function App(params: {
 
     const nameOrId = args[0];
     const parsedCount = args[1] === undefined ? undefined : Number(args[1]);
+    const treasureId = lootboxTreasureArgument(args);
     const result = params.load
       ? await params.load()
-      : await openBackendLootbox(params.bid, params.uid, nameOrId, Number.isFinite(parsedCount) ? parsedCount : undefined, params.request);
+      : await openBackendLootbox(params.bid, params.uid, nameOrId, Number.isFinite(parsedCount) ? parsedCount : undefined, params.request, treasureId);
+
+    if (result.selection && result.lootboxId) {
+      return { code: 'SELECT_TREASURE', data: { lootboxId: result.lootboxId, lootboxName: result.lootboxName, selection: result.selection } };
+    }
     const lines = [
       `🎁 开启【${result.lootboxName}】${result.openCount > 1 ? `×${result.openCount}` : ''}，获得：`,
       '',
