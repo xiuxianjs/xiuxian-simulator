@@ -53,7 +53,7 @@ const treasureID = (value: string | undefined) => {
   }
   const id = Number(value);
 
-  return id >= 101 && id <= 604 && id % 100 >= 1 && id % 100 <= 4 ? id : undefined;
+  return id >= 101 && id <= 606 && id % 100 >= 1 && id % 100 <= 6 ? id : undefined;
 };
 const navigation: Button[] = [
   { label: '宝物', command: '/宝物' },

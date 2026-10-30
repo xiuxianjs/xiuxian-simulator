@@ -10,8 +10,36 @@ import { businessEnvelope, gameFixture } from './fixture';
 
 after(async () => { await shutdownLogger(); });
 const version = 'treasure-v10-exploration-pity-20261029';
+const expandedPool = 'treasure-36-v2';
 const confirmationRef = 'r1_1_b_mh9of000_0123456789abcdef01234567';
-const envelope = (result: ReturnType<typeof priorityResult>) => ({ kind: 'explore', operationId: result.operationId, result });
+const envelope = (result: ReturnType<typeof priorityResult> & { poolVersion?: string }) => ({ kind: 'explore', operationId: result.operationId, result });
+
+for (const id of [105, 106, 205, 206, 305, 306, 405, 406, 505, 506, 605, 606]) test(`36件目录接受新编号${id}回执并保留pool`, () => {
+  const result = { ...priorityResult(), rulesVersion: version, poolVersion: expandedPool };
+  result.rewards[0] = { ...result.rewards[0], treasureId: id, rarity: Math.floor(id / 100), name: `宝物${id}` };
+  const decoded = parseTreasureReceipt(envelope(result));
+  assert.equal(decoded.result.rewards?.[0].treasureId, id);
+  assert.equal(decoded.result.poolVersion, expandedPool);
+  for (const poolVersion of [undefined, 'treasure-24-v1', 'treasure-future-unknown']) {
+    assert.throws(() => parseTreasureReceipt(envelope({ ...result, poolVersion })), { code: 'SDK_INVALID_RESPONSE' });
+  }
+});
+
+for (const id of [107, 607, 700]) test(`36件目录仍拒绝非法编号${id}`, () => {
+  const result = { ...priorityResult(), rulesVersion: version, poolVersion: expandedPool };
+  result.rewards[0] = { ...result.rewards[0], treasureId: id, rarity: Math.floor(id / 100) };
+  assert.throws(() => parseTreasureReceipt(envelope(result)), { code: 'SDK_INVALID_RESPONSE' });
+});
+
+for (const id of [105, 106, 205, 206, 305, 306, 405, 406, 505, 506, 605, 606]) test(`QQ培养命令接受新编号${id}且链接手动发送`, async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    kind: 'upgrade', summary: ['培养预览'], confirmationRef, operationId: 'expanded-preview', expiresAt: '2026-11-01T00:00:00+08:00'
+  }));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: `/宝物 升级 ${id}`, platform: 'qq-bot' }));
+  delivered(result);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body.arguments, { kind: 'upgrade', treasureId: id });
+});
 
 function overview(counters = [2, 3, 4]) {
   return {

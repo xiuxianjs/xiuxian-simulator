@@ -225,7 +225,7 @@ function reward(value: unknown) {
   };
 }
 
-function validateIndependentRewards(rewards: ReturnType<typeof reward>[], count: number, priority = false) {
+function validateIndependentRewards(rewards: ReturnType<typeof reward>[], count: number, priority = false, itemsPerRarity = 4) {
   if ((priority && rewards.length !== count) || rewards.length < count || rewards.length > count * 3) {
     return invalid();
   }
@@ -238,7 +238,7 @@ function validateIndependentRewards(rewards: ReturnType<typeof reward>[], count:
       item.pullIndex > count ||
       Math.floor(item.treasureId / 100) !== item.rarity ||
       item.treasureId % 100 < 1 ||
-      item.treasureId % 100 > 4 ||
+      item.treasureId % 100 > itemsPerRarity ||
       !item.name.trim()
     ) {
       return invalid();
@@ -288,6 +288,7 @@ export function parseRelicsOverview(value: unknown) {
 
   return {
     ...(item.rulesVersion === undefined ? {} : { rulesVersion: text(item.rulesVersion) }),
+    ...(item.poolVersion === undefined ? {} : { poolVersion: text(item.poolVersion) }),
     serverDate: date(item.serverDate),
     balances: { spiritCrystal: integer(balances.spiritCrystal), daoCrystal: integer(balances.daoCrystal), treasureMaps: integer(balances.treasureMaps) },
     freeAvailable: bool(item.freeAvailable),
@@ -404,15 +405,29 @@ export function parseTreasureReceipt(value: unknown) {
   }
   if (item.kind === 'explore') {
     const count = integer(result.count);
+    const expandedPool = result.poolVersion === 'treasure-36-v2' && result.rulesVersion === 'treasure-v10-exploration-pity-20261029';
+
+    if (result.poolVersion !== undefined && result.poolVersion !== 'treasure-24-v1' && !expandedPool) {
+      return invalid();
+    }
 
     if (![1, 10].includes(count)) {
       return invalid();
     }
-    if (['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029', 'treasure-v10-exploration-pity-20261029'].includes(String(result.rulesVersion))) {
+    if (
+      [
+        'treasure-v5-priority-20261029',
+        'treasure-v6-shape12-20261029',
+        'treasure-v7-v5-shape12-20261029',
+        'treasure-v8-first-guards-20261029',
+        'treasure-v9-first-guards-merge-20261029',
+        'treasure-v10-exploration-pity-20261029'
+      ].includes(String(result.rulesVersion))
+    ) {
       if (result.experienceGranted !== count * 100) {
         return invalid();
       }
-      validateIndependentRewards(array(result.rewards, reward), count, true);
+      validateIndependentRewards(array(result.rewards, reward), count, true, expandedPool ? 6 : 4);
     } else if (result.rulesVersion === 'treasure-v4-independent-20261029') {
       if (result.experienceGranted !== count * 100) {
         return invalid();
@@ -462,6 +477,7 @@ export function parseTreasureReceipt(value: unknown) {
         ? {
             rewards: array(result.rewards, reward),
             rulesVersion: text(result.rulesVersion),
+            ...(result.poolVersion === undefined ? {} : { poolVersion: text(result.poolVersion) }),
             source: source(result.source),
             count: integer(result.count),
             paidAmount: integer(result.paidAmount),
