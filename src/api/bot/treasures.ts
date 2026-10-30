@@ -293,6 +293,10 @@ export function parseRelicsOverview(value: unknown) {
     balances: { spiritCrystal: integer(balances.spiritCrystal), daoCrystal: integer(balances.daoCrystal), treasureMaps: integer(balances.treasureMaps) },
     freeAvailable: bool(item.freeAvailable),
     spiritTenDiscountAvailable: bool(item.spiritTenDiscountAvailable),
+    ...(item.daoTenDiscountAvailable === undefined ? {} : { daoTenDiscountAvailable: bool(item.daoTenDiscountAvailable) }),
+    ...(item.spiritTenCost === undefined ? {} : { spiritTenCost: integer(item.spiritTenCost) }),
+    ...(item.daoTenCost === undefined ? {} : { daoTenCost: integer(item.daoTenCost) }),
+    ...(item.daoTenUnavailableReason === undefined ? {} : { daoTenUnavailableReason: text(item.daoTenUnavailableReason) }),
     totalExplorations: integer(item.totalExplorations),
     milestoneProgress: integer(item.milestoneProgress),
     pendingSelections: integer(item.pendingSelections),
@@ -358,6 +362,7 @@ export function parseSpiritVein(value: unknown) {
     packageId: item.packageId === null ? null : integer(item.packageId),
     priceAmount: integer(item.priceAmount),
     dailyCrystal: integer(item.dailyCrystal),
+    rightsNote: item.rightsNote === undefined ? undefined : text(item.rightsNote),
     immediateDaoCrystal: integer(item.immediateDaoCrystal),
     canPurchase: bool(item.canPurchase),
     purchaseUnavailableReason: item.purchaseUnavailableReason === undefined ? undefined : text(item.purchaseUnavailableReason)

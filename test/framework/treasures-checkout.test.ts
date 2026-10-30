@@ -20,7 +20,7 @@ const rights = {
   seclusionPass: { active: false, expireTime: null, remainingDays: 0, totalDays: 0, maxDays: 90, package: null }
 };
 const frozen = ['不参加首充返利', '不参加新人返利', '不参加限时累计返利', '不参加周返利', '实付计充值及VIP'];
-const current = ['参加首充返利', '参加新人返利', '参加限时累计返利', '参加周返利', '实付计充值及VIP'];
+const current = ['不参加首充返利', '按活动原规则参加新人返利', '不参加限时累计返利', '按活动原规则参加周返利', '实付金额正常计入充值与VIP进度。'];
 const packs = {
   serverDate: '2026-10-28', unresolvedOrderNo: null,
   quotas: [{ sku: 'small', limit: 3, successful: 0, pending: 1, remaining: 2 }],
@@ -61,7 +61,9 @@ for (const mode of ['create', 'continue'] as const) {
       return checkout().order;
     });
     const offer = delivered(await app.runHandler(treasures, app.events.privateMessage({ text: '/上古遗珍 礼包', platform: 'qq-bot' })));
-    assert.ok(offer[0].text.includes('参加首充返利'));
+    assert.ok(offer[0].text.includes('按活动原规则参加周周返利'));
+    assert.ok(offer[0].text.includes('按活动原规则参加新人返利'));
+    assert.ok(offer[0].text.includes('不参加限时累计返利'));
     const result = await app.runHandler(mode === 'create' ? pay : orders, app.events.privateMessage({
       text: mode === 'create' ? '/充值购买 31' : `/继续支付 ${orderNo}`, platform: 'qq-bot'
     }));
@@ -69,6 +71,9 @@ for (const mode of ['create', 'continue'] as const) {
     const original = views.find(view => view.text.includes('本订单返利参与说明'));
     assert.ok(original);
     for (const line of frozen) assert.ok(original.text.includes(line));
+    assert.ok(!original.text.includes('按活动原规则参加周返利'));
+    assert.ok(!original.text.includes('按活动原规则参加新人返利'));
+    assert.ok(!original.text.includes('按活动原规则参加限时累计返利'));
     assert.ok(!original.text.split('\n').some(line => /^>?\s*参加首充返利/.test(line)));
     assert.ok(original.text.includes(orderNo));
     assert.equal(render.mock.callCount(), 1);
@@ -77,7 +82,7 @@ for (const mode of ['create', 'continue'] as const) {
     if (mode === 'continue') assert.ok(!requests.some(request => request.path.endsWith('normal.payment-create')));
     if (mode === 'create' && process.env.TREASURE_CHECKOUT_PREVIEW_OUTPUT) {
       appendFileSync(process.env.TREASURE_CHECKOUT_PREVIEW_OUTPUT,
-        `\n## 原订单返利资格（离线真实支付处理器）\n\n当前商品夹具为“参加首充返利”；原订单返回以下冻结说明，支付气泡采用原单说明。图片渲染由离线替身提供，平台未真实付款。\n\n${original.text}\n\n查询与恢复原单的蓝色链接均为手动发送（autoEnter:false）。\n`);
+        `\n## 原订单返利资格（离线真实支付处理器）\n\n当前商品夹具可按原规则参加新人及周返利，不参加首充和限时累计返利；原订单返回以下冻结排除说明，支付气泡采用原单说明。图片渲染由离线替身提供，平台未真实付款。\n\n${original.text}\n\n查询与恢复原单的蓝色链接均为手动发送（autoEnter:false）。\n`);
     }
   });
 }

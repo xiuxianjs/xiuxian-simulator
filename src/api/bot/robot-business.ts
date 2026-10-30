@@ -123,6 +123,7 @@ export type RobotBusinessOperation =
   | 'recharge.newcomer-info'
   | 'recharge.weekly-info'
   | 'recharge.catalog'
+  | 'recharge.periodic-packs'
   | 'tasks.settings'
   | 'tasks.alias'
   | 'tasks.clear'

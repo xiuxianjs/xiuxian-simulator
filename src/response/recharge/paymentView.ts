@@ -45,7 +45,8 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     payResult.monthCardExtended ||
     payResult.seclusionPassActivated ||
     Boolean(payResult.spiritVein) ||
-    Boolean(payResult.dailyTreasurePack);
+    Boolean(payResult.dailyTreasurePack) ||
+    Boolean(payResult.periodicPack);
 
   if (!hasDetail) {
     successMd.addText('订单已完成，可查看到账奖励。');
@@ -78,10 +79,11 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     successMd.addNewline();
   }
   if (payResult.spiritVein) {
-    successMd.addText(`灵脉租契已延长 ${payResult.spiritVein.days}收益日，每日 ${payResult.spiritVein.dailyCrystal}灵晶`);
+    successMd.addText(`本订单原始权益：延长 ${payResult.spiritVein.days}收益日，每日 ${payResult.spiritVein.dailyCrystal}灵晶`);
     successMd.addNewline();
     successMd.addText(`本订单权益期间：${payResult.spiritVein.startDate} 至 ${payResult.spiritVein.endDate}`);
     successMd.addNewline();
+    successMd.addText('当前新旧租契尚未领取的收益统一按每日3000灵晶结算；已领取历史保持原记录。').addNewline();
     successMd.addButton('领取灵脉租契', { data: '/我的权益 灵脉租契', autoEnter: false });
     successMd.addNewline();
   }
@@ -98,6 +100,15 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
       successMd.addText(`${fragment.name}碎片 ×${fragment.quantity}`).addNewline();
     }
     successMd.addButton('查看每日礼包', { data: '/充值 日礼包', autoEnter: false }).addNewline();
+  }
+  if (payResult.periodicPack) {
+    const pack = payResult.periodicPack;
+    const category = pack.period === 'weekly' ? '周礼包' : '月礼包';
+
+    successMd.addText(`${category} · ${pack.periodStart} 期`).addNewline();
+    if (pack.treasureMaps > 0) { successMd.addText(`藏宝图 +${pack.treasureMaps}`).addNewline(); }
+    for (const item of pack.items) { successMd.addText(`${item.name} ×${item.quantity}`).addNewline(); }
+    successMd.addButton(`查看${category}`, { data: `/充值 ${category}`, autoEnter: false }).addNewline();
   }
 
   if (payResult.seclusionPassActivated) {

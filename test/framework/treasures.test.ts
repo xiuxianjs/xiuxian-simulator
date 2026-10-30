@@ -80,6 +80,9 @@ const relics = {
   balances: { spiritCrystal: 30000, daoCrystal: 108, treasureMaps: 9 },
   freeAvailable: true,
   spiritTenDiscountAvailable: true,
+  daoTenDiscountAvailable: true,
+  spiritTenCost: 6000,
+  daoTenCost: 60,
   totalExplorations: 300,
   milestoneProgress: 0,
   pendingSelections: 1,
@@ -251,7 +254,7 @@ for (const privateChat of [false, true]) {
 
 for (const used of [false, true]) {
   test(`探索主面板按新版分组顺序展示，按钮在成本左侧，已使用=${used}`, async t => {
-    const data = { ...relics, freeAvailable: !used, spiritTenDiscountAvailable: !used, pendingSelections: used ? 0 : 1 };
+    const data = { ...relics, freeAvailable: !used, spiritTenDiscountAvailable: !used, daoTenDiscountAvailable: !used, spiritTenCost: used ? 12000 : 6000, daoTenCost: used ? 108 : 60, pendingSelections: used ? 0 : 1 };
     const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
     const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
     const view = facts(result);
@@ -274,8 +277,8 @@ for (const used of [false, true]) {
     assert.equal(view.commands.includes('/上古遗珍 自选'), !used);
     assert.equal(view.commands.includes('/上古遗珍 免费探索'), !used);
     assert.match(view.text, used ? /每日免费探索：已使用/ : /‹每日免费探索›/);
-    assert.match(view.text, used ? /灵晶探索 · 今日首发9折已使用，十连原价/ : /灵晶探索 · 每日首发9折/);
-    for (const [name, single, ten] of [['灵晶', 1200, used ? 12000 : 10800], ['道晶', 12, 108], ['藏宝图', 1, 10]] as const) {
+    assert.match(view.text, used ? /灵晶探索 · 今日首十连半价已使用/ : /灵晶探索 · 每日首次十连半价/);
+    for (const [name, single, ten] of [['灵晶', 1200, used ? 12000 : 6000], ['道晶', 12, used ? 108 : 60], ['藏宝图', 1, 10]] as const) {
       assert.ok(nodes.some(node => node.type === 'MD.text' && String(node.value).startsWith(`${name}探索`)));
       const block = quotes.find(node => node.type === 'MD.blockquote' && JSON.stringify(node.value).includes(`/上古遗珍 探索 ${name}`));
       assert.ok(block?.type === 'MD.blockquote' && Array.isArray(block.value));

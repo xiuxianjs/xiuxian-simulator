@@ -11,11 +11,26 @@ export function createRechargeProductQuote(lines: string[], buttons: GuiButton[]
   );
 }
 
+/** Current offers may group copy; original checkout/settlement snapshots stay verbatim. */
+export function offerPromotionLines(lines: string[]): string[] {
+  const copy = lines.map(line => line.replace(/^(不参加|按活动原规则参加)周返利$/u, '$1周周返利'));
+  const groups = [
+    copy.filter(line => line.startsWith('不参加')),
+    copy.filter(line => line.startsWith('按活动原规则参加')),
+    copy.filter(line => !line.startsWith('不参加') && !line.startsWith('按活动原规则参加') && !line.startsWith('实付')),
+    copy.filter(line => line.startsWith('实付'))
+  ].filter(group => group.length);
+
+  return groups.flatMap(group => ['', ...group]);
+}
+
 export function buildRechargeProductCard(options: {
   heading: string;
   emphasis?: string;
   metadata?: string[];
   lines: string[];
+  rewardLineCount?: number;
+  preserveEmptyLines?: boolean;
   buttons?: GuiButton[];
 }): FormatMarkDown {
   const content = Format.createMarkdown().addText(options.heading).addNewline();
@@ -26,10 +41,22 @@ export function buildRechargeProductCard(options: {
   for (const line of options.metadata?.filter(Boolean) ?? []) {
     content.addText(line).addNewline();
   }
-  const lines = options.lines.filter(Boolean);
+  const lines = options.preserveEmptyLines ? [...options.lines] : options.lines.filter(Boolean);
+
+  while (lines.at(-1) === '') { lines.pop(); }
 
   if (lines.length) {
-    content.addNewline().addBlockquote(createQuoteMarkdown(lines));
+    let quote = createQuoteMarkdown(lines);
+    const rewardLineCount = options.rewardLineCount ?? 0;
+
+    if (rewardLineCount > 0) {
+      quote = Format.createMarkdown();
+      lines.forEach((line, index) => {
+        if (index > 0) { quote.addNewline(); }
+        if (index < rewardLineCount) { quote.addBold(line); } else { quote.addText(line); }
+      });
+    }
+    content.addNewline().addBlockquote(quote);
   }
   if (options.buttons?.length) {
     if (!lines.length) {
@@ -52,7 +79,8 @@ export function buildSpiritVeinProductBlock(lease: ReturnType<typeof parseSpirit
     heading: `灵脉租契 · ¥${(lease.priceAmount / 100).toFixed(2)}`,
     lines: [
       `购买即得 ${lease.immediateDaoCrystal}道晶`,
-      `每日 ${lease.dailyCrystal}灵晶，共30收益日`,
+      `新购每日 ${lease.dailyCrystal}灵晶，共30收益日`,
+      ...(lease.rightsNote ? [lease.rightsNote] : []),
       `续订延长收益日，每日金额不叠加；最多预存 ${lease.maxDays}日。`,
       lease.purchaseUnavailableReason ?? ''
     ],
@@ -109,9 +137,10 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
         ...product.rewardParts.map(
           reward => `${reward.name} ×${reward.quantity}${reward.independentRolls ? `（独立${reward.independentRolls}次，每次${reward.perRoll}片）` : ''}`
         ),
-        ...product.promotionTexts,
+        ...offerPromotionLines(product.promotionTexts),
         product.unavailableReason
       ],
+      preserveEmptyLines: true,
       buttons
     })
   );

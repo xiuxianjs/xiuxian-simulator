@@ -14,6 +14,9 @@ import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures';
 import { createBackendRequestContext } from '@src/api/bot/context';
+import { parseRechargePeriodicPacks } from '@src/api/bot/recharge-periodic-packs';
+import { buildPeriodicPackFeedback, buildPeriodicPackProductPage } from '../periodicPackView';
+import type { BusinessFeedbackRenderer } from '@src/response/feedbackRenderer';
 import { createRechargeProductQuote as createQuoteMarkdown, buildRechargeProductCard, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
@@ -24,11 +27,12 @@ export default onResponse(selects, async e => {
   const [, parentNext] = useEvent();
   const category = e.MessageText.trim().replace(/^[/#＃!！]?(?:充值说明|充值信息|充值)\s*/, '');
   const dailyCategory = /^(?:日礼包|每日礼包)(?:\s|$)/.test(category);
-  const pageTitle = dailyCategory ? '每日礼包' : category === '灵脉租契' ? '灵脉租契' : '充值';
+  const periodicCategory = /^(周礼包|月礼包)(?:\s|$)/.exec(category)?.[1];
+  const pageTitle = dailyCategory ? '每日礼包' : periodicCategory ?? (category === '灵脉租契' ? '灵脉租契' : '充值');
 
-  if (dailyCategory && !isPrivate) {
+  if ((dailyCategory || periodicCategory) && !isPrivate) {
     await message.send(
-      FormatGui({ isPrivate, bid, title: '每日礼包', content: Format.createMarkdown().addText('日礼包仅支持私聊，请在私聊中发送 /充值 日礼包。'), bar: false })
+      FormatGui({ isPrivate, bid, title: pageTitle, content: Format.createMarkdown().addText(`${dailyCategory ? '日礼包' : periodicCategory}仅支持私聊，请在私聊中发送 /充值 ${dailyCategory ? '日礼包' : periodicCategory}。`), bar: false })
     );
 
     return;
@@ -71,13 +75,13 @@ export default onResponse(selects, async e => {
     };
 
     const giftPage = category.match(/^首充礼包(?:\s+(\d+))?$/);
-    const selected = dailyCategory
+    const selected = periodicCategory ?? (dailyCategory
       ? '日礼包'
       : giftPage
         ? '首充礼包'
         : ['道晶套餐', '月卡', '金手指', '优惠礼包', '灵脉租契'].includes(category)
           ? category
-          : '';
+          : '');
     let giftNav: { current: number; total: number; command: string } | undefined;
 
     // 首充赠礼属于充值入口，和付费优惠礼包分开展示；状态以服务端为准。
@@ -120,6 +124,8 @@ export default onResponse(selects, async e => {
       md.addBlockquote(createQuoteMarkdown([`道晶套餐 · ${result.normalPackages.length} 款`], [{ label: '查看', command: '/充值 道晶套餐' }]));
       md.addBlockquote(createQuoteMarkdown(['灵脉租契'], [{ label: '查看', command: '/充值 灵脉租契' }]));
       md.addBlockquote(createQuoteMarkdown(['每日礼包'], [{ label: '查看（私聊）', command: '/充值 日礼包' }]));
+      md.addBlockquote(createQuoteMarkdown(['周礼包'], [{ label: '查看（私聊）', command: '/充值 周礼包' }]));
+      md.addBlockquote(createQuoteMarkdown(['月礼包'], [{ label: '查看（私聊）', command: '/充值 月礼包' }]));
       md.addBlockquote(
         createQuoteMarkdown(
           [`月卡 · ${result.monthCard ? `¥${result.monthCard.package.yuan}` : '暂未开放'}`],
@@ -166,6 +172,23 @@ export default onResponse(selects, async e => {
     if (selected === '优惠礼包' && result.firstChargePackages.length) {
       md.addNewline().addText('优惠礼包').addNewline();
       result.firstChargePackages.forEach(pkg => addPackage(pkg));
+    }
+    if (periodicCategory) {
+      const period = periodicCategory === '周礼包' ? 'weekly' : 'monthly';
+      const renderFeedback: BusinessFeedbackRenderer = async reply => {
+        await message.send(FormatGui({
+          isPrivate, bid, title: pageTitle, content: buildPeriodicPackFeedback(reply),
+          ...(reply.nav ? { nav: { ...reply.nav, autoEnter: false } } : {}),
+          footer: reply.buttons.map(button => ({ ...button, autoEnter: false }))
+        }));
+      };
+
+      renderFeedback.preservesAdvice = true;
+      const loaded = await runRobotBusiness(e, 'recharge.periodic-packs', { period }, parseRechargePeriodicPacks, parentNext, renderFeedback, createBackendRequestContext(e, 'recharge.periodic-packs'));
+
+      if (loaded.handled) { return; }
+      if (loaded.data.period !== period) { throw new Error('礼包周期响应不一致'); }
+      md.absorb(buildPeriodicPackProductPage(loaded.data, category.split(/\s+/).slice(1)));
     }
     if (selected === '灵脉租契' || selected === '日礼包') {
       const loaded =

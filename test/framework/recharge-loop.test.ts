@@ -128,7 +128,7 @@ test('overview summaries use successful backend eligibility and counts', async t
     if (request.path.endsWith('/membership.rights')) return businessEnvelope(request.bid, rightsData(true, 0));
     if (request.path.endsWith('/spirit-vein.overview')) return businessEnvelope(request.bid, {
       active: false, startDate: null, endDate: null, remainingDays: 0, futureDays: 0, claimedDays: 0, totalDays: 0, claimableDays: 0, claimableCrystal: 0,
-      maxDays: 180, packageId: 27, priceAmount: 3000, dailyCrystal: 2000, immediateDaoCrystal: 300, canPurchase: true
+      maxDays: 180, packageId: 27, priceAmount: 3000, dailyCrystal: 3000, immediateDaoCrystal: 300, canPurchase: true
     });
     if (request.path.endsWith('/recharge/first')) return { names: { items: {}, equipments: {}, skills: {} }, tiers: [{ tierAmountYuan: 30, status: 'claimable', rewards: [], rewardText: '灵晶 ×1' }] };
     if (request.path.endsWith('/recharge/newcomer')) return { contentDays: 14, isInPeriod: true, daysSinceRegistration: 0, currentDay: 1, todayRechargedAmount: 3000, thresholdAmount: 3000, claimedDays: [], todayRewardClaimed: false, maxClaimableDay: 1, itemNames: {}, rewards: [{ ...reward, day: 1, claimed: false, statusTag: '可领取' }] };

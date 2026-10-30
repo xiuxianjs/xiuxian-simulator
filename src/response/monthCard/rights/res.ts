@@ -102,6 +102,7 @@ export default onResponse(selects, async e => {
         `累计已领 ${lease.claimedDays === undefined ? '待获取' : `${lease.claimedDays} 天`} · 可领 ${lease.claimableDays} 天 · 未来 ${lease.futureDays === undefined ? '待获取' : `${lease.futureDays} 天`}`,
         ...(lease.totalDays === undefined ? [] : [`已购权益共 ${lease.totalDays} 个收益日`]),
         leaseClaimable(lease) ? `可领取灵晶 ${lease.claimableCrystal}（到期后仍可补领）` : '暂无可领取收益',
+        ...(lease.rightsNote ? [lease.rightsNote] : []),
         '收益按北京时间逐日解锁，续订顺延收益日期，同日不叠发；未到日期不能提前领取。',
         ...(!lease.canPurchase && lease.purchaseUnavailableReason ? [`续订提示：${lease.purchaseUnavailableReason}`] : [])
       ]);

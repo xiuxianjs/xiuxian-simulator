@@ -108,12 +108,14 @@ export const treasureActions = {
     }
   ),
   get_ancient_relics: observation(
-    '查询探索余额、免费次数、保底、概率和历史；详情来自服务端，免费次数并非购买或奖励承诺。',
+    '查询探索余额、免费次数、保底、概率和历史；十连权威报价为0或缺失表示不可执行，不可当作免费。',
     'ancient-relics.overview',
     empty,
     object({
       ...fields(integer, 'totalExplorations milestoneProgress pendingSelections'),
-      ...fields(boolean, 'freeAvailable spiritTenDiscountAvailable'),
+      ...fields(boolean, 'freeAvailable spiritTenDiscountAvailable daoTenDiscountAvailable'),
+      ...fields(integer, 'spiritTenCost daoTenCost'),
+      daoTenUnavailableReason: text,
       balances: object(fields(integer, 'spiritCrystal daoCrystal treasureMaps')),
       shapeRates: object(fields(number, 'singleComplete tenExpectedComplete tenAverageComplete')),
       pity: list(
@@ -125,7 +127,7 @@ export const treasureActions = {
       wholeRates: list(object({ rarity: integer, name: text, probability: number, tenProbability: number, scope: text }, ['tenProbability', 'scope'])),
       rules: list(text),
       detailsJson: text
-    }),
+    }, ['daoTenDiscountAvailable', 'spiritTenCost', 'daoTenCost', 'daoTenUnavailableReason']),
     () => '/上古遗珍',
     data => {
       const result = parseRelicsOverview(data);

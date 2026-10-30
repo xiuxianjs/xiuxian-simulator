@@ -20,7 +20,7 @@ const catalog = {
     benefitView: { sponsorIntro: '赞助说明', monthCardPrivilegeLines: ['月卡说明'], seclusionPassPrivilegeLines: ['金手指说明'], seclusionPassFallbackLine: '暂未开放' }
   }
 };
-const lease = { active: false, canPurchase: true, startDate: null, endDate: null, remainingDays: 0, claimableDays: 0, claimableCrystal: 0, maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 2000, immediateDaoCrystal: 300 };
+const lease = { active: false, canPurchase: true, startDate: null, endDate: null, remainingDays: 0, claimableDays: 0, claimableCrystal: 0, maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 3000, immediateDaoCrystal: 300 };
 const packs = { serverDate: '2026-10-29', unresolvedOrderNo: null, quotas: [], products: [{
   sku: 'small', name: '1元礼包', packageId: 31, priceAmount: 100, basePriceAmount: 100, creditedAmount: 0, canClaimFree: false,
   limit: 3, remaining: 3, available: true, unavailableReason: '', label: '超值300%', promotionTexts: [],

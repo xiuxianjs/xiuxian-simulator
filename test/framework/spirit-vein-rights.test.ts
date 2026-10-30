@@ -5,6 +5,7 @@ import { dirname } from 'node:path';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import rightsHandler from '../../src/response/monthCard/rights/res';
+import ordersHandler from '../../src/response/recharge/orders/res';
 import { businessEnvelope, gameFixture } from './fixture';
 
 const previews = new Map<string, string>();
@@ -26,11 +27,11 @@ const lease = () => ({
   claimedDays: 3,
   totalDays: 30,
   claimableDays: 2,
-  claimableCrystal: 4000,
+  claimableCrystal: 6000,
   maxDays: 180,
   packageId: 27,
   priceAmount: 3000,
-  dailyCrystal: 2000,
+  dailyCrystal: 3000,
   immediateDaoCrystal: 300,
   canPurchase: true
 });
@@ -98,7 +99,7 @@ for (const privateChat of [true, false]) test(`我的权益总览保留月卡并
   assert.match(view.text, /金手指 · 未开通/);
   assert.match(view.text, /灵脉租契 · 生效中/);
   assert.match(view.text, /权益截止：2026-11-22/);
-  assert.match(view.text, /可领 2 天 · 灵晶 4000（可补领）/);
+  assert.match(view.text, /可领 2 天 · 灵晶 6000（可补领）/);
   for (const command of ['/一键领取月卡', '/我的权益 月卡', '/我的权益 灵脉租契', '/充值 灵脉租契', '/灵脉租契 领取']) {
     assert.ok(view.commands.includes(command), command);
   }
@@ -154,13 +155,42 @@ test('独立租契详情不依赖旧权益，已领与未来概况使用后端�
   }
 });
 
+test('旧合同两天未领取权益按当前每日3000展示，保留已领取历史说明', async t => {
+  const note = '新旧租契尚未领取的收益统一按每日3000灵晶结算；已领取历史保持原记录。';
+  const { view } = await selected(t, '/我的权益 灵脉租契', { ...lease(), dailyCrystal: 3000, rightsNote: note });
+
+  assert.match(view.text, /可领取灵晶 6000/);
+  assert.ok(view.text.includes(note));
+  assert.ok(!view.text.includes('可领取灵晶 4000'));
+  assert.ok(view.commands.includes('/灵脉租契 领取'));
+});
+
+test('旧租契原始回执保留每日2000并注明当前未领收益统一3000', async t => {
+  const orderNo = 'SV-frozen-v1';
+  const receipt = {
+    orderNo, packageRewards: { spiritMilk: 300, spiritStone: 0, spiritCrystal: 0, items: [], equipments: [], skills: [] },
+    bonusSpiritMilk: 0, vipUpgrade: null, newcomerDayGranted: null, monthCardExtended: false, seclusionPassActivated: false,
+    spiritVein: { days: 30, dailyCrystal: 2000, startDate: '2026-10-24', endDate: '2026-11-22' }
+  };
+  const { app, requests } = await gameFixture(t, request => request.path.endsWith('membership.rights') ? businessEnvelope(request.bid, membership())
+    : request.path.endsWith('/settlement') ? receipt : { orderNo, payAmount: 3000, status: 'SUCCESS' });
+  const view = facts(await app.runHandler(ordersHandler, app.events.privateMessage({ text: `/查询充值订单 ${orderNo}`, platform: 'qq-bot' })), '旧v1租契订单冻结回执');
+
+  assert.match(view.text, /延长 30收益日，每日 2000灵晶/);
+  assert.match(view.text, /本订单原始权益：延长 30收益日，每日 2000灵晶/);
+  assert.match(view.text, /新旧租契尚未领取的收益统一按每日3000灵晶结算/);
+  assert.match(view.text, /已领取历史保持原记录/);
+  assert.equal(requests.length, 3);
+  assert.ok(!requests.some(request => request.path.endsWith('spirit-vein.overview')));
+});
+
 test('租契到期仍显示可补领，不因active=false隐藏已到达收益', async t => {
   const { view } = await selected(t, '/我的权益 灵脉租契', {
-    ...lease(), active: false, endDate: '2026-10-22', remainingDays: 0, futureDays: 0, claimedDays: 27, claimableDays: 3, claimableCrystal: 6000
+    ...lease(), active: false, endDate: '2026-10-22', remainingDays: 0, futureDays: 0, claimedDays: 27, claimableDays: 3, claimableCrystal: 9000
   });
 
   assert.match(view.text, /灵脉租契 · 已到期 · 可补领/);
-  assert.match(view.text, /可领取灵晶 6000/);
+  assert.match(view.text, /可领取灵晶 9000/);
   assert.ok(view.commands.includes('/灵脉租契 领取'));
 });
 
@@ -180,8 +210,8 @@ test('收益日历按后端分页与日期状态显示，分页蓝链手动发�
     page: 2, totalPages: 5, totalDays: 30,
     items: [
       { day: 8, rewardDate: '2026-10-27', spiritCrystal: 2000, state: 'claimed' },
-      { day: 9, rewardDate: '2026-10-28', spiritCrystal: 2000, state: 'claimable' },
-      { day: 10, rewardDate: '2026-10-29', spiritCrystal: 2000, state: 'upcoming' }
+      { day: 9, rewardDate: '2026-10-28', spiritCrystal: 3000, state: 'claimable' },
+      { day: 10, rewardDate: '2026-10-29', spiritCrystal: 3000, state: 'upcoming' }
     ]
   }, 'spirit-vein.calendar');
 
@@ -190,6 +220,7 @@ test('收益日历按后端分页与日期状态显示，分页蓝链手动发�
   assert.match(view.text, /第 9 天 · 2026-10-28 · 可领取/);
   assert.match(view.text, /第 10 天 · 2026-10-29 · 未到领取日/);
   assert.match(view.text, /灵晶 ×2000/);
+  assert.equal(view.text.match(/灵晶 ×3000/g)?.length, 2);
   for (const command of ['/我的权益 灵脉租契日历 1', '/我的权益 灵脉租契日历 3', '/充值 灵脉租契', '/我的订单']) {
     assert.ok(view.commands.includes(command), command);
   }

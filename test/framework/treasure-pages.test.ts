@@ -212,7 +212,7 @@ test('详情培养只展示当前特效，变化与消耗均使用服务端预�
 
   assert.match(result.text, /当前拥有：经验 100 · 仙蕴 5/);
   assert.match(result.text, /【史诗】神农鼎/);
-  assert.doesNotMatch(result.text, /504 神农鼎|星尘1阶|晓月|真阳|仙藏/);
+  assert.doesNotMatch(result.text, /504 神农鼎|星尘1阶|晓月|纯阳|仙藏/);
   assert.match(result.text, /星尘1 · 等级 1\/10/);
   assert.match(result.text, /5%概率返还本炉整份实际消耗药材/);
   assert.match(result.text, /升品至 星尘2/);

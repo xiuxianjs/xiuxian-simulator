@@ -29,7 +29,7 @@ const catalog = {
   }
 };
 const lease = { active: false, canPurchase: true, startDate: null, endDate: null, remainingDays: 0, claimableDays: 0, claimableCrystal: 0,
-  maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 2000, immediateDaoCrystal: 300 };
+  maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 3000, immediateDaoCrystal: 300 };
 const packs = {
   serverDate: '2026-10-29', unresolvedOrderNo: null as string | null, quotas: [],
   products: ['small', 'medium', 'large', 'all'].map((sku, index) => ({
@@ -107,7 +107,7 @@ for (const [index, label] of ['1元', '6元', '18元', '30元全包'].entries())
     const heading = `${index === 3 ? '30元全包' : `${label}礼包`} · ¥${(product.priceAmount / 100).toFixed(2)} · 每日限购${product.remaining}/${product.limit}`;
     const quote = verifyCard(nodes, view.text, heading, `/充值购买 ${product.packageId}`, `${product.label}！！！`);
     const quoteText = JSON.stringify(quote);
-    for (const line of policy) assert.ok(quoteText.includes(line));
+    for (const line of policy) assert.ok(quoteText.includes(line.replace('周返利', '周周返利')));
     assert.ok(quoteText.includes(`道晶 ×${product.rewardParts[0].quantity}`));
     assert.match(view.text, /^每日礼包\n/);
     const headerPosition = view.text.indexOf('‹返回权益›‹商品分类›');
@@ -136,7 +136,7 @@ test('灵脉租契使用相同结构且权益不丢失', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('recharge.catalog') ? catalog : lease));
   const { nodes, view } = inspect(await app.runHandler(recharge, app.events.privateMessage({ text: '/充值 灵脉租契', platform: 'qq-bot' })));
   const quote = verifyCard(nodes, view.text, '灵脉租契 · ¥30.00', '/充值购买 99');
-  for (const line of ['购买即得 300道晶', '每日 2000灵晶，共30收益日', '最多预存 180日']) assert.ok(JSON.stringify(quote).includes(line));
+  for (const line of ['购买即得 300道晶', '新购每日 3000灵晶，共30收益日', '最多预存 180日']) assert.ok(JSON.stringify(quote).includes(line));
   assert.equal(requests.length, 2);
   previews.push(`## /充值 灵脉租契\n\n${previewText(nodes, view.text)}`);
 });

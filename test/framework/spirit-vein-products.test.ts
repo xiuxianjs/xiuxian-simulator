@@ -23,7 +23,8 @@ const catalog = { showNewcomerRebate: true, showWeeklyRebate: true, catalog: {
   sponsor: { totalYuan: 0, thresholdYuan: 100, remainingYuan: 100, hasThemePermission: false },
   benefitView: { sponsorIntro: '赞助说明', monthCardPrivilegeLines: ['月卡权益说明'], seclusionPassPrivilegeLines: ['金手指权益说明'], seclusionPassFallbackLine: '暂未开放' }
 } };
-const lease = { active: false, canPurchase: true, startDate: null, endDate: null, remainingDays: 0, claimableDays: 0, claimableCrystal: 0, maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 2000, immediateDaoCrystal: 300 };
+const lease = { active: false, canPurchase: true, startDate: null, endDate: null, remainingDays: 0, claimableDays: 0, claimableCrystal: 0, maxDays: 180, packageId: 99, priceAmount: 3000, dailyCrystal: 3000, immediateDaoCrystal: 300,
+  rightsNote: '新旧租契尚未领取的收益统一按每日3000灵晶结算；已领取历史保持原记录。' };
 function packs(free = false, unresolvedOrderNo: string | null = null) {
   return { serverDate: '2026-10-28', unresolvedOrderNo, quotas: [], products: [
     ...(['small', 'medium', 'large'] as const).map((sku, index) => ({ sku, name: `${[1, 6, 18][index]}元礼包`, packageId: 31 + index,
@@ -64,7 +65,8 @@ test('充值首页有两商品独立入口，租契标题与购买在引用外�
   const product = view(result);
   assert.match(product.text, /灵脉租契 · ¥30.00/);
   assert.match(product.text, /300道晶/);
-  assert.match(product.text, /2000灵晶，共30收益日/);
+  assert.match(product.text, /新购每日 3000灵晶，共30收益日/);
+  assert.match(product.text, /新旧租契尚未领取的收益统一按每日3000灵晶结算/);
   assert.ok(product.commands.includes('/充值购买 99'));
   const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   const headingIndex = nodes.findIndex(node => node.type === 'MD.text' && node.value === '灵脉租契 · ¥30.00');

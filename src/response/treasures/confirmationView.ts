@@ -5,7 +5,7 @@ import { addOptions, createQuoteMarkdown } from '@src/utils/messageHelper';
 type Confirmation = Pick<ReturnType<typeof parseTreasureConfirmation>, 'summary' | 'expiresAt' | 'confirmationRef'>;
 
 // Only grade labels change here; the frozen server summary remains untouched.
-const displayGrades = (line: string) => line.split(/(「[^」]*」)/u).map(part => part.startsWith('「') ? part : part.replace(/((?:星尘|晓月|真阳|仙藏)\d+)阶/gu, '$1')
+const displayGrades = (line: string) => line.split(/(「[^」]*」)/u).map(part => part.startsWith('「') ? part : part.replace(/((?:星尘|晓月|纯阳|仙藏)\d+)阶/gu, '$1')
 ).join('');
 
 export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily-pack-free', data: Confirmation) {

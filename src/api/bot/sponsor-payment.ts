@@ -1,5 +1,6 @@
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
+import { parsePeriodicPackReceipt } from './recharge-periodic-packs';
 
 type Row = Record<string, unknown>;
 const asRow = (value: unknown, message: string): Row => {
@@ -93,6 +94,7 @@ export type BackendNormalPaymentSettlement = {
   monthCardExtended: boolean;
   seclusionPassActivated: boolean;
   spiritVein?: { days: number; dailyCrystal: number; startDate: string; endDate: string };
+  periodicPack?: ReturnType<typeof parsePeriodicPackReceipt>;
   dailyTreasurePack?: {
     sku: string;
     businessDate: string;
@@ -193,6 +195,7 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
     newcomerDayGranted: Number.isInteger(data.newcomerDayGranted) ? (data.newcomerDayGranted as number) : null,
     monthCardExtended: data.monthCardExtended,
     seclusionPassActivated: data.seclusionPassActivated,
+    ...(data.periodicPack === undefined || data.periodicPack === null ? {} : { periodicPack: parsePeriodicPackReceipt(data.periodicPack) }),
     ...(daily
       ? { dailyTreasurePack: { sku: daily.sku as string, businessDate: daily.businessDate as string, treasureMaps: daily.treasureMaps as number, fragments } }
       : {}),
@@ -235,7 +238,7 @@ export function parseBackendNormalCheckout(value: unknown): BackendSponsorChecko
   const promotionTexts = data.promotionTexts;
 
   if (
-    (promotionTexts === undefined && paymentOrder.orderNo.startsWith('TD')) ||
+    (promotionTexts === undefined && /^T[DP]/.test(paymentOrder.orderNo)) ||
     (promotionTexts !== undefined &&
       (!Array.isArray(promotionTexts) || !promotionTexts.length || promotionTexts.some(line => typeof line !== 'string' || !line.trim())))
   ) {

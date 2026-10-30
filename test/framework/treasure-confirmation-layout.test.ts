@@ -87,9 +87,9 @@ for (const scenario of [
 }
 
 for (const [command, source, count, cost, unit] of [
-  ['/上古遗珍 十连探索 灵晶', 'spirit_crystal', 10, 10800, '灵晶'],
+  ['/上古遗珍 十连探索 灵晶', 'spirit_crystal', 10, 6000, '灵晶'],
   ['/上古遗珍 探索 道晶', 'dao_crystal', 1, 12, '道晶'],
-  ['/上古遗珍 十连探索 道晶', 'dao_crystal', 10, 108, '道晶'],
+  ['/上古遗珍 十连探索 道晶', 'dao_crystal', 10, 60, '道晶'],
   ['/上古遗珍 探索 藏宝图', 'treasure_map', 1, 1, '张藏宝图'],
   ['/上古遗珍 免费探索', 'free', 1, 0, '']
 ] as const) {
@@ -115,7 +115,7 @@ for (const [command, source, count, cost, unit] of [
 for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
   test(`${kind}逐项动作及合计在块外，不遗漏权威逐项消耗`, async t => {
     const action = kind === 'batch-promote'
-      ? ['「神农鼎」星尘1阶 → 星尘2阶；消耗该宝物重复本体1、仙蕴0。', '「乾坤鼎」真阳5阶 → 仙藏1阶；消耗该宝物重复本体3、仙蕴100。']
+      ? ['「神农鼎」星尘1阶 → 星尘2阶；消耗该宝物重复本体1、仙蕴0。', '「乾坤鼎」纯阳5阶 → 仙藏1阶；消耗该宝物重复本体3、仙蕴100。']
       : ['「神农鼎」Lv.1 → Lv.2；消耗宝物经验20。', '「乾坤鼎」Lv.1 → Lv.2；消耗宝物经验20。'];
     const total = kind === 'batch-promote' ? '合计提升2件；宝物经验0、重复本体4、仙蕴100。' : '合计提升2件；宝物经验40、重复本体0、仙蕴0。';
     const tip = '按全部已拥有宝物处理，高稀有度优先；仅确认本次清单，库存或条件变化须重新预览。';
@@ -125,7 +125,7 @@ for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
     const command = kind === 'batch-promote' ? '/宝物 一键突破' : '/宝物 一键升级';
     const result = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
     confirmOutsideQuote(result, `/确认宝物 ${confirmationRef}`, '/宝物');
-    for (const line of [...action.map(line => line.replace(/((?:星尘|真阳|仙藏)\d+)阶/gu, '$1')), total]) {
+    for (const line of [...action.map(line => line.replace(/((?:星尘|纯阳|仙藏)\d+)阶/gu, '$1')), total]) {
       const index = result.nodes.findIndex(node => node.type === 'MD.text' && node.value === line);
       assert.ok(index >= 0 && index < result.nodes.indexOf(result.quotes[0]));
     }

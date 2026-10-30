@@ -560,14 +560,27 @@ export default onResponse(selects, async event => {
           content.addText('每日免费探索：已使用');
         }
         content.addNewline().addNewline();
+        const spiritTenReady = data.spiritTenCost === (data.spiritTenDiscountAvailable ? 6000 : 12000);
+        const daoTenReady = typeof data.daoTenDiscountAvailable === 'boolean'
+          && data.daoTenCost === (data.daoTenDiscountAvailable ? 60 : 108);
+
         for (const group of [
           {
             name: '灵晶',
-            title: data.spiritTenDiscountAvailable ? '灵晶探索 · 每日首发9折' : '灵晶探索 · 今日首发9折已使用，十连原价',
+            title: !spiritTenReady ? '灵晶探索 · 十连报价暂未取得'
+              : data.spiritTenDiscountAvailable ? '灵晶探索 · 每日首次十连半价' : '灵晶探索 · 今日首十连半价已使用 · 后续原价',
             single: 1200,
-            ten: data.spiritTenDiscountAvailable ? 10800 : 12000
+            ten: spiritTenReady ? data.spiritTenCost : undefined,
+            unavailableReason: undefined
           },
-          { name: '道晶', title: '道晶探索 · 十连9折', single: 12, ten: 108 },
+          {
+            name: '道晶',
+            title: !daoTenReady ? '道晶探索 · 十连报价暂未取得'
+              : data.daoTenDiscountAvailable ? '道晶探索 · 每日首次十连半价' : '道晶探索 · 今日首十连半价已使用 · 后续9折',
+            single: 12,
+            ten: daoTenReady ? data.daoTenCost : undefined,
+            unavailableReason: data.daoTenUnavailableReason
+          },
           { name: '藏宝图', title: '藏宝图探索', single: 1, ten: 10 }
         ]) {
           content.addText(group.title).addNewline().addNewline();
@@ -578,6 +591,10 @@ export default onResponse(selects, async event => {
             { label: '十连探索', command: '十连探索', cost: group.ten }
           ].entries()) {
             if (index > 0) { block.addNewline(); }
+            if (option.cost === undefined || option.cost <= 0) {
+              block.addText(group.unavailableReason ?? '十连报价暂未取得，请刷新后再试。');
+              continue;
+            }
             block.addButton(markdownButtonLabel(option.label), { data: `/上古遗珍 ${option.command} ${group.name}`, autoEnter: false });
             block.addText(` 消耗${option.cost}${group.name}`);
           }
