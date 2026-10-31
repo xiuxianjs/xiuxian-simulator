@@ -51,7 +51,7 @@ const overview = {
       perLevelAttributes: stats,
       basePercentAttributes: stats,
       effectDescription: id === 504 ? '正常原炉成功失败均可，命中返还本炉整份实际消耗药材' : '测试图鉴条目',
-      stageValues: ['5%', '10%', '15%', '20%'],
+      stageValues: id === 504 ? ['3%', '6%', '10%', '15%'] : ['5%', '10%', '15%', '20%'],
       maxGrade: 24,
       weight: 1
     },
@@ -63,7 +63,7 @@ const overview = {
     duplicates: 1,
     attributes: { ...stats, hp: 600 },
     percentAttributes: { ...stats, hp: 2 },
-    currentEffect: id === 504 ? '炼丹时，5%概率返还本炉整份实际消耗药材。' : '5%',
+    currentEffect: id === 504 ? '炼丹时，3%概率返还本炉整份实际消耗药材。' : '5%',
     nextLevelCost: 20,
     promotion: { duplicates: 1, xianYun: 0, requirements: [] },
     canUpgrade: id === 504,
