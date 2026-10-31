@@ -68,16 +68,11 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
       .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
       .addButton(markdownButtonLabel('登录'), { data: '/登录' });
   } else if (joined) {
-    quote.addText('道友们好，我是修仙机器人，陪大家一起修行、闯秘境、争夺机缘！').addNewline().addNewline();
-    quote.addText('请群主或管理员在 QQ 的机器人设置中开启：').addNewline();
-    quote.addText('① 接收全部消息').addNewline();
-    quote.addText('让道友们发送指令时更方便，也让机器人及时记录大家在本群的活动，帮助游戏通知找到合适的投递群。').addNewline();
-    quote.addText('仅接收 @ 消息时，请先 @ 我再发送指令，普通聊天也无法用于更新活动位置。').addNewline().addNewline();
-    quote.addText('② 主动消息').addNewline();
-    quote.addText('用于及时发送游戏通知，包括虾仁夺宝受袭、反击机会和物品归属等提醒。').addNewline();
-    quote.addText('关闭后，这些提醒无法主动送达本群；个人通知仍按各自订阅设置投递。').addNewline().addNewline();
-    quote.addText('特别推荐：虾仁夺宝（打劫）是游戏主要的修为获取方式之一！').addNewline();
-    quote.addText('秘境与夺宝分别使用精力、元力，可以一起参与，增加修为来源。别只刷秘境，错过另一条重要的成长途径！').addNewline();
+    quote.addText('道友们好，接下来由我来陪大家一起修行、闯秘境、争夺机缘！').addNewline().addNewline();
+    quote.addText('请群主点击机器人头像，在设置中开启：').addNewline();
+    quote.addText('① 接收群内全部消息').addNewline();
+    quote.addText('② 允许群内主动发言').addNewline();
+    quote.addText('虾仁夺宝（打劫）是游戏主要的修为获取方式之一！推荐开启接收全部消息，获得完整体验。').addNewline();
     quote
       .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
       .addText(' ')
