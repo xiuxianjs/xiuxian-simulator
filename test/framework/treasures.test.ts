@@ -313,12 +313,33 @@ for (const used of [false, true]) {
 
 for (const poolVersion of [undefined, 'treasure-36-v2', 'treasure-36-maxed-v3']) {
   test(`仅新探索池简明提示满品宝物概率降低：${poolVersion ?? 'legacy'}`, async t => {
-    const data = { ...relics, poolVersion };
+    const data = {
+      ...relics,
+      poolVersion,
+      rulesVersion: 'treasure-v10-exploration-pity-20261029',
+      pity: [4, 5, 6].map((rarity, index) => ({ rarity, name: ['稀有', '史诗', '神话'][index], counter: 0, hardPity: [20, 50, 120][index], nextProbability: 0.1, scope: 'actual_exploration' })),
+      wholeRates: relics.wholeRates.map(rate => ({ ...rate, tenProbability: rate.probability, scope: 'all_explorations_by_mode' }))
+    };
     const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
-    const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' })));
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' }));
+    const view = facts(result);
     const supported = poolVersion === 'treasure-36-maxed-v3';
-    assert.equal(view.text.includes('已满品宝物的抽取概率大幅降低。'), supported);
+    assert.equal(view.text.includes('已满品宝物的抽取概率大幅降低'), supported);
+    assert.ok(!view.text.includes('已满品宝物的抽取概率大幅降低。'));
     assert.doesNotMatch(view.text, /随机权重降低90%|相对权重|未满品10、满品1|同档选名/);
+    if (supported) {
+      const intro = ['综合概率', '非保底基础整品概率12%', '十连至少一件整品', '已满品宝物的抽取概率大幅降低', '保底按实际探索累计'].join('\n');
+      assert.ok(view.text.includes(intro + '\n\n'), JSON.stringify(view.text));
+      const ordinaryText = (value: unknown): string => {
+        if (!value || typeof value !== 'object') return '';
+        const node = value as { type?: string; value?: unknown };
+        if (node.type === 'MD.blockquote') return '';
+        if (node.type === 'MD.newline') return '\n';
+        if (Array.isArray(node.value)) return node.value.map(ordinaryText).join('');
+        return typeof node.value === 'string' ? node.value : '';
+      };
+      assert.ok(result.messages[0].nodes.map(ordinaryText).join('').includes(intro + '\n\n'), '五行前言应为连续普通正文，其后空行再展示稀有度块');
+    }
     assert.equal(requests.length, 1);
     assert.ok(requests.every(request => request.path.endsWith('/ancient-relics.overview')));
   });

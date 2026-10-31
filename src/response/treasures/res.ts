@@ -538,9 +538,6 @@ export default onResponse(selects, async event => {
         ]);
       }
       if (args[0] === '概率') {
-        if (data.poolVersion === 'treasure-36-maxed-v3') {
-          quote(['已满品宝物的抽取概率大幅降低。']);
-        }
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
         const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(
           data.rulesVersion ?? ''
@@ -578,17 +575,20 @@ export default onResponse(selects, async event => {
           }
         } else {
           content.addNewline();
-          content.addText('综合概率').addNewline().addNewline();
+          content.addText('综合概率').addNewline();
           content
             .addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`)
-            .addNewline()
             .addNewline();
           content
             .addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品')
-            .addNewline()
             .addNewline();
+          if (data.poolVersion === 'treasure-36-maxed-v3') {
+            content.addText('已满品宝物的抽取概率大幅降低').addNewline();
+          }
           if (actualPity) {
             content.addText('保底按实际探索累计').addNewline().addNewline();
+          } else {
+            content.addNewline();
           }
           for (const rate of rates) {
             const counters = data.pity.filter(item => item.rarity === rate.rarity);
