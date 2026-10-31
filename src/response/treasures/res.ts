@@ -539,11 +539,7 @@ export default onResponse(selects, async event => {
       }
       if (args[0] === '概率') {
         if (data.poolVersion === 'treasure-36-maxed-v3') {
-          quote([
-            '命中稀有度后，同档满品宝物的随机权重降低90%；未满品（含未拥有）权重不变，碎片和整品均适用。',
-            '相对权重为未满品10、满品1；同档全部满品时仍均匀抽取。',
-            '只调整上古遗珍的同档选名，稀有度与整品概率沿用原规则，礼包、邮件和自选不受影响。'
-          ]);
+          quote(['已满品宝物的抽取概率大幅降低。']);
         }
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
         const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(

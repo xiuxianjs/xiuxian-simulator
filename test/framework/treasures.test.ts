@@ -312,18 +312,13 @@ for (const used of [false, true]) {
 }
 
 for (const poolVersion of [undefined, 'treasure-36-v2', 'treasure-36-maxed-v3']) {
-  test(`仅新探索池公示同档满品降权：${poolVersion ?? 'legacy'}`, async t => {
+  test(`仅新探索池简明提示满品宝物概率降低：${poolVersion ?? 'legacy'}`, async t => {
     const data = { ...relics, poolVersion };
     const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
     const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' })));
     const supported = poolVersion === 'treasure-36-maxed-v3';
-    assert.equal(view.text.includes('同档满品宝物的随机权重降低90%'), supported);
-    if (supported) {
-      assert.match(view.text, /未满品（含未拥有）权重不变，碎片和整品均适用/);
-      assert.match(view.text, /相对权重为未满品10、满品1/);
-      assert.match(view.text, /同档全部满品时仍均匀抽取/);
-      assert.match(view.text, /礼包、邮件和自选不受影响/);
-    }
+    assert.equal(view.text.includes('已满品宝物的抽取概率大幅降低。'), supported);
+    assert.doesNotMatch(view.text, /随机权重降低90%|相对权重|未满品10、满品1|同档选名/);
     assert.equal(requests.length, 1);
     assert.ok(requests.every(request => request.path.endsWith('/ancient-relics.overview')));
   });
