@@ -4,6 +4,7 @@ export type CaveAccelerationPreview = {
   spiritStoneEnabled?: boolean;
   spiritStone?: number;
   stoneCost?: number;
+  stoneSecondsPerUse?: number;
   maxSpiritStone?: number;
   ripenCost?: number;
   canRipen?: boolean;
@@ -84,6 +85,9 @@ export function parseBackendCaveAccelerationPreview(value: unknown): CaveAcceler
       throw new Error('灵石加速报价不完整');
     }
   }
+  if (value.stoneSecondsPerUse !== undefined && (!Number.isSafeInteger(value.stoneSecondsPerUse) || Number(value.stoneSecondsPerUse) <= 0)) {
+    throw new Error('灵石加速时长不完整');
+  }
 
   return {
     found: true,
@@ -101,6 +105,7 @@ export function parseBackendCaveAccelerationPreview(value: unknown): CaveAcceler
     spiritStoneEnabled: value.spiritStoneEnabled === true,
     spiritStone: typeof value.spiritStone === 'number' ? value.spiritStone : 0,
     stoneCost: typeof value.stoneCost === 'number' ? value.stoneCost : 0,
+    ...(value.stoneSecondsPerUse === undefined ? {} : { stoneSecondsPerUse: Number(value.stoneSecondsPerUse) }),
     maxSpiritStone: typeof value.maxSpiritStone === 'number' ? value.maxSpiritStone : 0,
     ripenCost: typeof value.ripenCost === 'number' ? value.ripenCost : 0,
     canRipen: value.canRipen === true,

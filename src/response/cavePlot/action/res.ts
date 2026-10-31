@@ -83,7 +83,9 @@ export default onResponse(selects, async e => {
             quote.addNewline().addText(preview.stoneReason);
           }
           if ((preview.maxSpiritStone ?? 0) > 0) {
-            quote.addNewline().addButton(markdownButtonLabel(`加速最多2小时 · ${preview.stoneCost}灵石`), { data: `/灵田加速 ${preview.plotIndex} 灵石 1` });
+            const hours = ((preview.stoneSecondsPerUse ?? 7200) / 3600).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+
+            quote.addNewline().addButton(markdownButtonLabel(`加速最多${hours}小时 · ${preview.stoneCost}灵石`), { data: `/灵田加速 ${preview.plotIndex} 灵石 1` });
           }
           if (preview.canRipen) {
             quote.addNewline().addButton(markdownButtonLabel(`立即催熟 · ${preview.ripenCost}灵石`), { data: `/灵田加速 ${preview.plotIndex} 催熟 1` });

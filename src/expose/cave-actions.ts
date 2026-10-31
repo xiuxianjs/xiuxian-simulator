@@ -29,7 +29,7 @@ const accelerationPreview = object(
     found: boolean,
     message: text,
     ...Object.fromEntries(
-      'plotIndex greenBottleUsedCount greenBottleLimit remainingSeconds lingfeiCount greenBottleCount remainingSlots maxLingfei maxGreenBottle spiritStone stoneCost maxSpiritStone ripenCost'
+      'plotIndex greenBottleUsedCount greenBottleLimit remainingSeconds lingfeiCount greenBottleCount remainingSlots maxLingfei maxGreenBottle spiritStone stoneCost stoneSecondsPerUse maxSpiritStone ripenCost'
         .split(' ')
         .map(key => [key, integer])
     ),
@@ -39,7 +39,7 @@ const accelerationPreview = object(
     ripenNextAt: text,
     stoneReason: text
   },
-  'plotIndex greenBottleUsedCount greenBottleLimit remainingSeconds lingfeiCount greenBottleCount remainingSlots maxLingfei maxGreenBottle spiritStone stoneCost maxSpiritStone ripenCost remainingHours spiritStoneEnabled canRipen ripenNextAt stoneReason'.split(
+  'plotIndex greenBottleUsedCount greenBottleLimit remainingSeconds lingfeiCount greenBottleCount remainingSlots maxLingfei maxGreenBottle spiritStone stoneCost stoneSecondsPerUse maxSpiritStone ripenCost remainingHours spiritStoneEnabled canRipen ripenNextAt stoneReason'.split(
     ' '
   )
 );
