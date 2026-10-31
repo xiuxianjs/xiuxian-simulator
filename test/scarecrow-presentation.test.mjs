@@ -30,7 +30,7 @@ const output=goTestFixture(['test','./internal/httpapi','-run','^TestRobotBusine
 const rows=[...output.matchAll(/ROBOT_SCARECROW_RESPONSE=([^|]+)\|([^|]+)\|(.+)/g)].map(m=>({args:JSON.parse(m[1]),text:m[2],result:JSON.parse(m[3]).data}));assert.ok(rows.length>=9);
 async function render(name,text,isPrivate){state.sent=[];state.calls=0;state.next=0;const e={name:'message.create',UserId:'player',uid:1,MessageText:text,isPrivate};await framework.run(h[name], e, ()=>{state.next++});return state.sent;}
 test('scarecrow actual Go battles preserve private/group summary, skill and crit sections and battle-memory links',async()=>{
- for(const row of rows.filter(r=>r.result.branch==='business'))for(const isPrivate of [true,false]){state.result=row.result;state.app=row.result.success?{code:'OK',data:h.parseBackendScarecrow(row.result.data)}:{code:'FAIL',data:{message:row.result.middleware.replies.at(-1).text}};const actual=await render('scarecrow',row.text,isPrivate);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(state.op,'scarecrow.challenge');assert.deepEqual(state.args,row.args);assert.equal(actual.length,1);assert.equal(JSON.stringify(actual),JSON.stringify(await render('old_scarecrow',row.text,isPrivate)).replace(/\d{1,3}(?:,\d{3})+/g,value=>h.formatDamage(BigInt(value.replaceAll(',','')))));}
+ for(const row of rows.filter(r=>r.result.branch==='business'))for(const isPrivate of [true,false]){state.result=row.result.success?{...row.result,data:{...row.result.data,target:undefined}}:row.result;state.app=row.result.success?{code:'OK',data:h.parseBackendScarecrow(row.result.data)}:{code:'FAIL',data:{message:row.result.middleware.replies.at(-1).text}};const actual=await render('scarecrow',row.text,isPrivate);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(state.op,'scarecrow.challenge');assert.deepEqual(state.args,row.args);assert.equal(actual.length,1);assert.equal(JSON.stringify(actual),JSON.stringify(await render('old_scarecrow',row.text,isPrivate)).replace(/\d{1,3}(?:,\d{3})+/g,value=>h.formatDamage(BigInt(value.replaceAll(',','')))));}
 });
 test('scarecrow admission delegates before battle; malformed responses and transport errors do not retry or next',async()=>{
  const muted=rows.find(r=>r.result.branch==='middleware').result;
@@ -74,5 +74,22 @@ test('scarecrow renders exact large DOT damage without rejecting the real handle
 test('damage units round across boundaries and keep exact bigint values',()=>{
  for(const [value,want] of [[0n,'0'],[9999n,'9999'],[10000n,'1万'],[406770n,'40.68万'],[148581n,'14.86万'],[99999999n,'1亿'],[1000000000000n,'1万亿'],[922337203686032983n,'92.23亿亿']]){
  assert.equal(h.formatDamage(value),want);
+ }
+});
+
+
+test('same-realm target reference is visible in group and private replies',async()=>{
+ const source=rows.find(r=>r.result.success&&r.result.data?.target);
+ assert.ok(source,'Go challenge must provide target reference');
+ for(const isPrivate of [false,true]){
+ state.result=source.result;
+ const messages=await render('scarecrow','/挑战稻草人',isPrivate);
+ const text=JSON.stringify(messages);
+ assert.ok(text.includes(`标准靶：${source.result.data.target.realmName}`));
+ assert.ok(text.includes('物防'));
+ assert.ok(text.includes('法防'));
+ assert.ok(text.includes('靶子不行动、不死亡；百分比伤害按上述生命基准计算。'));
+ assert.ok(text.includes('/查看战斗过程'));
+ assert.ok(text.includes('/挑战稻草人'));
  }
 });

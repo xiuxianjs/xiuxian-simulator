@@ -46,6 +46,18 @@ for (const privateChat of [false, true]) {
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttack', direction: 'desc', basis: 'max' } });
     const ascending = await render(button(maximum, '从低到高'));
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttack', direction: 'asc', basis: 'max' } });
+    const checkButtons = (nodes: unknown[]) => {
+      for (const raw of nodes) {
+        const node = raw as { type: string; value?: unknown; options?: { data?: string } };
+        if (node.type === 'MD.button') {
+          assert.equal(typeof node.options?.data, 'string');
+          assert.ok(node.options?.data?.trim());
+          assert.ok([...node.options!.data!].length <= 80);
+        }
+        if (Array.isArray(node.value)) checkButtons(node.value);
+      }
+    };
+    checkButtons(ascending.nodes);
     const next = inspectMessage(ascending.nodes).commands.find(c => c === '/我的功法 排序 物攻 升序 上限 3'); assert.ok(next);
     const last = await render(next);
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '3', sort: { attribute: 'physicalAttack', direction: 'asc', basis: 'max' } });
