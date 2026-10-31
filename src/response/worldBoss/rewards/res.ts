@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 凶兽奖励查看指令
@@ -49,11 +50,11 @@ export default onResponse(selects, async e => {
     const rewards: string[] = [];
 
     if (tier.spiritStone > 0) {
-      rewards.push(`灵石 ×${tier.spiritStone}`);
+      rewards.push(`灵石 ×${formatNumber(tier.spiritStone)}`);
     }
 
     if (tier.spiritCrystal > 0) {
-      rewards.push(`灵晶 ×${tier.spiritCrystal}`);
+      rewards.push(`灵晶 ×${formatNumber(tier.spiritCrystal)}`);
     }
 
     md.addText(`  → ${rewards.join('、')}`);

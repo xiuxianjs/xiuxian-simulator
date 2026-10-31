@@ -5,8 +5,8 @@ import { getBackendGuildShopPage } from '@src/api/bot/guild-shop-page';
 type ShopItem = {
   index: number;
   itemName: string;
-  price: number;
-  quantity: number;
+  price: number | bigint;
+  quantity: number | bigint;
   statusText: string;
   canExchange: boolean;
   categoryLabel: string;
@@ -17,7 +17,7 @@ type AppResult =
       code: 'OK';
       data: {
         shopItems: ShopItem[];
-        contributionPoints: number;
+        contributionPoints: number | bigint;
         autoRefreshEnabled: boolean;
         autoRefreshHours: number[];
         autoRefreshStatusText: string;

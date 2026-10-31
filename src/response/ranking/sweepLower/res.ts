@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 扫荡排名 — 选择比自己排名低的对手进行扫荡
@@ -54,7 +55,7 @@ export default onResponse(selects, async e => {
     md.addBlockquote(Format.createMarkdown().addText(`当前排名：第${result.data.myRank}名`));
 
     for (const entry of result.data.entries) {
-      md.addText(`【${entry.rank}】${entry.name} ✊${entry.power} `);
+      md.addText(`【${entry.rank}】${entry.name} ✊${formatNumber(entry.power)} `);
       const btns: { label: string; command: string }[] = [];
 
       if (!entry.isFake) {

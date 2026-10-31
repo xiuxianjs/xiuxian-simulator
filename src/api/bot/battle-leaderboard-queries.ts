@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import type { BattleLeaderboardEntry, BattleLeaderboardQueryData } from '../schemas/battle-leaderboard-query';
 import { requestBackend } from './client';
 
@@ -40,7 +41,7 @@ function entry(value: unknown): BattleLeaderboardEntry {
     rank: finite(row.rank),
     uid: finite(row.uid),
     ...(name === undefined ? {} : { name }),
-    power: finite(row.power)
+    power: exactInteger(row.power)
   };
 }
 

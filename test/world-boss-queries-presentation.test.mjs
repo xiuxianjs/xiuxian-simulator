@@ -90,3 +90,17 @@ test('network failures preserve each query original fallback and stop after one 
     }
   }finally{state.transportError=false;}
 });
+
+test('unsafe integer HP and damage render with Chinese units without altering commands',async()=>{
+ state.transportError=false;
+ const info=structuredClone(receipts.find(r=>r.op==='world-boss.info'&&r.result.success&&r.result.data.hasInstance).result.data);
+ info.config.baseHp=9223372036854775807n;info.totalDamage=9223372036854775807n;info.playerDamage=9007199254740993n;
+ const infoNodes=await render('info','/凶兽',info);
+ assert.ok(textOf(infoNodes).includes('922.34亿亿'));
+ assert.ok(textOf(infoNodes).includes('9007.2万亿'));
+ const rank=structuredClone(receipts.find(r=>r.op==='world-boss.ranking'&&r.result.success&&r.result.data.ranking.length).result.data);
+ rank.myDamage=9223372036854775807n;rank.ranking[0].damage=9223372036854775807n;
+ const rankNodes=await render('ranking','/凶兽排行',rank);
+ assert.ok(textOf(rankNodes).includes('922.34亿亿'));
+ assert.ok(commands(rankNodes).includes('/凶兽'));
+});

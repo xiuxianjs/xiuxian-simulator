@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import type { AlchemyRankingQueryData } from '../schemas/alchemy-ranking-query';
 import { requestBackend } from './client';
 
@@ -44,8 +45,12 @@ export function parseAlchemyRanking(data: unknown): AlchemyRankingQueryData {
   for (const value of [...result.items, ...(result.nearby as unknown[]), ...(result.self === null ? [] : [result.self])]) {
     const row = record(value);
 
+    for (const key of ['exp', 'totalCrafts', 'successCount']) {
+      exactInteger(row[key]);
+    }
+
     if (
-      !['rank', 'playerId', 'level', 'exp', 'totalCrafts', 'successCount'].every(key => integer(row[key])) ||
+      !['rank', 'playerId', 'level'].every(key => integer(row[key])) ||
       !['name', 'title', 'successRate'].every(key => typeof row[key] === 'string') ||
       typeof row.canLike !== 'boolean'
     ) {

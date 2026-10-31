@@ -17,9 +17,11 @@ test('actual v1 shop SDK/App keeps preview, settlement, raw errors and repeat in
  t.mock.method(axios,'create',()=>({request:async(call:typeof calls[number])=>{calls.push(call);return{status,headers:{},data:JSON.stringify(payload)}}}));
  const request={requestId:'companion-shop-id',idempotencyKey:'companion-shop-key'};
  for(const row of rows){payload=row.body;status=row.status;calls.length=0;
+  const unsafe=[row.product,row.count].some(value=>typeof value==='number' && Number.isInteger(value) && !Number.isSafeInteger(value));
   const event={name:'message.create',UserId:'player',uid:1,MessageText:row.text} as unknown as Parameters<typeof withEventContext>[0];
   await withEventContext(event,()=>{},async()=>{
    const out=await checkShopBuy({bid:'player',uid:1,productId:row.product,count:row.count,confirmed:row.confirmed,messageText:row.text,request});
+   if(unsafe){assert.equal(out.code,'FAIL');assert.match((out.data as {message:string}).message,/Body is not JSON serializable/);return;}
    if(row.status!==200){assert.equal(out.code,'FAIL');assert.equal((out.data as {message:string}).message,row.body.error.message);return;}
    assert.equal(out.code,'CONFIRM_NEEDED');if(out.code!=='CONFIRM_NEEDED')throw new Error('shop refused');
    if(!row.confirmed){assert.deepEqual(out.data,row.body.data);return;}
@@ -28,6 +30,7 @@ test('actual v1 shop SDK/App keeps preview, settlement, raw errors and repeat in
    if(result.code==='FAIL'){const message=row.body.data.purchaseError;assert.equal(result.data.message,message);const p=row.body.presentation.repeat;assert.equal(await withBackendRepeatDetection('player',1,row.text,message,request),message+(p.suffix?'\n\n'+p.suffix:''));}
    else{const d=row.body.data.result;assert.deepEqual(result.data,{name:d.name,paid:d.paid,granted:d.granted});}
   });
+  if(unsafe){assert.equal(calls.length,0);continue;}
   assert.equal(calls.length,1);assert.equal(new URL(calls[0].url).pathname,'/api/v1/players/1/companion/shop/purchases/'+(row.confirmed?'overview':'preview'));
   assert.deepEqual(JSON.parse(calls[0].data!),{productId:row.product,count:row.count});
   if(row.confirmed)assert.equal(new Headers(calls[0].headers).get('Idempotency-Key'),'companion-shop-key');

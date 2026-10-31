@@ -229,14 +229,14 @@ export interface GachaGoodsTierData {
 }
 
 export interface CurrencyCardData {
-  spiritStone: number;
-  spiritsCrystal: number;
-  spiritsMilk: number;
-  signInCoin: number;
-  towerScore: number;
-  reputation: number;
-  tongxin: number;
-  greenBottle: number;
+  spiritStone: number | bigint;
+  spiritsCrystal: number | bigint;
+  spiritsMilk: number | bigint;
+  signInCoin: number | bigint;
+  towerScore: number | bigint;
+  reputation: number | bigint;
+  tongxin: number | bigint;
+  greenBottle: number | bigint;
 }
 export interface GachaOverviewData {
   banner: null | {

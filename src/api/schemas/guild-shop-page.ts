@@ -4,8 +4,8 @@ export interface GuildShopPageItem {
   itemId: number;
   name: string;
   category: string;
-  quantity: number;
-  priceContribution: number;
+  quantity: number | bigint;
+  priceContribution: number | bigint;
   purchased: boolean;
   statusText: string;
   canExchange: boolean;
@@ -15,7 +15,7 @@ export interface GuildShopPageItem {
   itemSubtype: string | null;
 }
 export interface GuildShopPageData {
-  contributionPoints: number;
+  contributionPoints: number | bigint;
   items: GuildShopPageItem[];
   autoRefreshEnabled: boolean;
   autoRefreshHours: number[];

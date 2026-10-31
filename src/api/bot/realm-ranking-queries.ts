@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { record, number, text } from '../schemas/ranking-values';
 import type { RealmRankingQueryData } from '../schemas/realm-ranking-query';
 import { requestBackend } from './client';
@@ -31,7 +32,7 @@ export function parseBackendRealmRanking(data: unknown): RealmRankingQueryData {
       name: text(row.name),
       realmName: text(row.realmName),
       realmLevel: number(row.realmLevel),
-      experience: number(row.experience)
+      experience: exactInteger(row.experience)
     };
   };
 

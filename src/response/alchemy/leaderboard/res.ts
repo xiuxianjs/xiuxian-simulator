@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { leaderboardRecoveryTips } from '@src/response/leaderboardRecovery';
@@ -61,7 +62,7 @@ export default onResponse(selects, async e => {
           btns.push({ label: '点赞', command: `/点赞人气 ${item.uid} alchemy` });
         }
 
-        const detail = `ID:${item.uid} Lv.${item.level} 经验:${item.exp.toLocaleString()} 炼制:${item.totalCrafts} 成功率:${item.successRate}%`;
+        const detail = `ID:${item.uid} Lv.${item.level} 经验:${formatNumber(item.exp)} 炼制:${formatNumber(item.totalCrafts)} 成功率:${item.successRate}%`;
 
         md.addBlockquote(createQuoteMarkdown([`${icon} ${item.name}  ${item.title}`, detail], btns));
       }

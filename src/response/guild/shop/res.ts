@@ -1,3 +1,5 @@
+import { exactInteger } from '@src/api/core/exact-json';
+import { formatNumber } from '@src/utils/formatHelper';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 宗门商店
@@ -59,7 +61,7 @@ export default onResponse(selects, async e => {
     contentMd.addNewline();
   }
 
-  contentMd.addBlockquote(Format.createMarkdown().addText(`贡献点：${contributionPoints}`));
+  contentMd.addBlockquote(Format.createMarkdown().addText(`贡献点：${formatNumber(contributionPoints)}`));
 
   const autoRefreshButtons: { label: string; command: string }[] = [];
 
@@ -93,12 +95,15 @@ export default onResponse(selects, async e => {
     const slotTitle = item.slotName ? `【${item.index}·${item.slotName}】` : `【${item.index}】`;
     const typeTag = item.categoryLabel ? `【${item.categoryLabel}】` : '';
     const itemName = typeof item?.itemName === 'string' && item.itemName.trim() ? item.itemName : '未知商品';
-    const quantity = Number.isFinite(Number(item?.quantity)) ? Number(item.quantity) : 0;
-    const price = Number.isFinite(Number(item?.price)) ? Number(item.price) : 0;
+    const quantity = exactInteger(item.quantity ?? 0);
+    const price = exactInteger(item.price ?? 0);
 
     contentMd.addBlockquote(
       createQuoteMarkdown(
-        [`${slotTitle}${typeTag} ${itemName} ×${quantity}${item.canExchange ? '' : `（${item.statusText}）`}`, `价格：${price} 贡献点`],
+        [
+          `${slotTitle}${typeTag} ${itemName} ×${formatNumber(quantity)}${item.canExchange ? '' : `（${item.statusText}）`}`,
+          `价格：${formatNumber(price)} 贡献点`
+        ],
         item.canExchange ? [{ label: '兑换', command: `/宗门商店兑换 ${item.index}` }] : []
       )
     );

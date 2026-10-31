@@ -1,13 +1,7 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend } from './client';
 import type { WorldBossRankingQuery } from '../schemas/world-boss-ranking-query';
 
-function number(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error('凶兽排行缺少数值字段');
-  }
-
-  return value;
-}
 function integer(value: unknown): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value)) {
     throw new Error('凶兽排行缺少数值字段');
@@ -57,7 +51,7 @@ export function parseWorldBossRanking(value: unknown): WorldBossRankingQuery {
             throw new Error('凶兽排行资格提示字段不完整');
           })(),
     myRank: data.myRank === null ? null : integer(data.myRank),
-    myDamage: number(data.myDamage),
+    myDamage: exactInteger(data.myDamage),
     ranking: data.ranking.map(value => {
       const row = record(value);
 
@@ -65,7 +59,7 @@ export function parseWorldBossRanking(value: unknown): WorldBossRankingQuery {
         throw new Error('凶兽排行昵称字段不完整');
       }
 
-      return { rank: integer(row.rank), damage: number(row.damage), name: row.name };
+      return { rank: integer(row.rank), damage: exactInteger(row.damage), name: row.name };
     })
   };
 }

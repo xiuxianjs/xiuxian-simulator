@@ -5,8 +5,8 @@ import { logger } from 'alemonjs';
 export type RewardTierItem = {
   tierName: string;
   condText: string;
-  spiritStone: number;
-  spiritCrystal: number;
+  spiritStone: number | bigint;
+  spiritCrystal: number | bigint;
 };
 
 export type WorldBossRewardsData = {

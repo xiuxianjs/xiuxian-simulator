@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend } from './client';
 import type { WorldBossRewardsPreviewData } from '../schemas/world-boss-rewards-query';
 
@@ -14,13 +15,6 @@ function record(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
-}
-function number(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new Error('凶兽奖励接口缺少数值字段');
-  }
-
-  return value;
 }
 function text(value: unknown): string {
   if (typeof value !== 'string') {
@@ -61,7 +55,7 @@ export function parseWorldBossRewards(value: unknown): WorldBossRewardsPreviewDa
         : {
             bossName: text(config.bossName),
             bossTitle: text(config.bossTitle),
-            baseDamage: number(config.baseDamage)
+            baseDamage: exactInteger(config.baseDamage)
           },
     tiers: data.tiers.map((value: unknown) => {
       const row = record(value);
@@ -70,8 +64,8 @@ export function parseWorldBossRewards(value: unknown): WorldBossRewardsPreviewDa
         tierName: text(row.tierName),
         damagePercent: integer(row.damagePercent),
         conditionText: text(row.conditionText),
-        spiritStone: integer(row.spiritStone),
-        spiritCrystal: integer(row.spiritCrystal)
+        spiritStone: exactInteger(row.spiritStone),
+        spiritCrystal: exactInteger(row.spiritCrystal)
       };
     })
   };

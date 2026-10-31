@@ -3,7 +3,7 @@ export interface WorldBossRankingQuery {
   stageName: string;
   available: boolean;
   unavailableMessage: string;
-  ranking: { rank: number; name: string; damage: number }[];
+  ranking: { rank: number; name: string; damage: number | bigint }[];
   myRank: number | null;
-  myDamage: number;
+  myDamage: number | bigint;
 }

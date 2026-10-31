@@ -9,12 +9,12 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 export type CombatPowerMilestoneCard = {
   name: string;
   description: string;
-  threshold: number;
+  threshold: number | bigint;
   rewardText: string;
 };
 
 export type CombatPowerData = {
-  currentPower: number;
+  currentPower: number | bigint;
   totalCount: number;
   completedCount: number;
   claimableCount: number;
@@ -25,7 +25,7 @@ export type CombatPowerData = {
     | null;
   nextTarget:
     | (CombatPowerMilestoneCard & {
-        remainingPower: number;
+        remainingPower: number | bigint;
       })
     | null;
   allCompleted: boolean;

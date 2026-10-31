@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { leaderboardRecoveryTips } from '@src/response/leaderboardRecovery';
@@ -83,7 +84,7 @@ export default onResponse(selects, async e => {
     if (currentUid && currentUid !== item.uid) {
       buttons.push({ label: '点赞', command: `/点赞人气 ${item.uid} battle` });
     }
-    md.addBlockquote(createQuoteMarkdown([`【${item.rank}】${item.name ?? '未知玩家'}`, `ID:${item.uid} 战力✊${item.power}`], buttons));
+    md.addBlockquote(createQuoteMarkdown([`【${item.rank}】${item.name ?? '未知玩家'}`, `ID:${item.uid} 战力✊${formatNumber(item.power)}`], buttons));
   }
   void message.send(
     FormatGui({

@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { getCurrentEvent } from 'alemonjs';
 import { getEventCatalog, reportCatalogReuse } from './catalog-query-reuse';
 import type { CurrencyCode } from '@src/constants';
@@ -54,7 +55,7 @@ export function decodeShopData(data: Record<string, unknown>) {
     !Array.isArray(access.visibleShopCodes) ||
     !access.visibleShopCodes.every((code: unknown) => typeof code === 'string') ||
     !nullableText(access.deniedReason) ||
-    !['spiritStone', 'spiritsCrystal', 'spiritsMilk', 'signInCoin', 'towerScore', 'reputation', 'tongxin', 'greenBottle'].every(key => integer(currencies[key])
+    !['spiritStone', 'spiritsCrystal', 'spiritsMilk', 'signInCoin', 'towerScore', 'reputation', 'tongxin', 'greenBottle'].every(key => isExactBalance(currencies[key])
     ) ||
     !Array.isArray(data.products) ||
     !integer(data.page) ||
@@ -123,4 +124,14 @@ export function decodeShopData(data: Record<string, unknown>) {
   };
 
   return { access: facts.access, currencies: facts.currencies, result };
+}
+
+function isExactBalance(value: unknown): boolean {
+  try {
+    exactInteger(value);
+
+    return true;
+  } catch {
+    return false;
+  }
 }

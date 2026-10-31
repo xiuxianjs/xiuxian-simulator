@@ -51,9 +51,10 @@ export async function deliverPlayerNotification(
   const platform = subscription?.platform ?? process.env.login ?? '';
   const botId = subscription?.botId ?? undefined;
   const isGroup = (target: NotificationTarget) => target.scope === 'group' || target.scope === 'channel';
+  // 群回退同样需要玩家开启订阅；无订阅记录不代表同意群投递。
   // Fetch lazily: a successful explicitly selected group needs no fallback read.
   const fallbackGroups =
-    enabled && !options?.privateOnly && (!subscription || subscription.isEnabled)
+    enabled && !options?.privateOnly && subscription?.isEnabled === true
       ? async () => (await readPlatformGroupCandidates(platform, bid, botId)).map(activity => activity.target)
       : undefined;
   const candidate = enabled ? ((await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId)) : null;

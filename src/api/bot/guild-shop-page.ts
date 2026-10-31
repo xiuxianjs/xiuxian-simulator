@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend } from './client';
 import type { GuildShopPageData } from '../schemas/guild-shop-page';
 
@@ -11,7 +12,15 @@ export async function getBackendGuildShopPage(bid: string | undefined, uid: numb
 
 export function parseGuildShopPage(value: unknown): GuildShopPageData {
   const data = value as GuildShopPageData | null;
-  const integer = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value);
+  const integer = (value: unknown) => {
+    try {
+      exactInteger(value);
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
   const numeric = (value: unknown) => typeof value === 'number' && Number.isFinite(value);
 
   if (

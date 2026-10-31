@@ -1,4 +1,4 @@
-export type BattleLeaderboardEntry = { rank: number; uid: number; name?: string; power: number };
+export type BattleLeaderboardEntry = { rank: number; uid: number; name?: string; power: number | bigint };
 export type BattleLeaderboardPage = {
   list: BattleLeaderboardEntry[];
   time: number | null;

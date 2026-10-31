@@ -1,3 +1,4 @@
+import { parseExactJSON } from './exact-json';
 import axios, { type AxiosInstance } from 'axios';
 import { operationDefinitions, type OperationId, type Operations } from '../registry';
 import type { ClientOptions, Identity, RequestArguments } from './types';
@@ -228,8 +229,8 @@ export class APIClient {
         } else if (contentType.includes('json')) {
           try {
             body = JSON.stringify(options.body, (_key, value: unknown) => {
-              if (typeof value === 'number' && !Number.isFinite(value)) {
-                fail('JSON body must not contain non-finite numbers', requestId);
+              if (typeof value === 'number' && (!Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)))) {
+                fail('JSON body must not contain non-finite or imprecise integers', requestId);
               }
 
               return value;
@@ -293,7 +294,7 @@ export class APIClient {
         nextStage('api.json.parse');
         if (text && (definition.responseKind === 'json' || !ok)) {
           try {
-            payload = JSON.parse(text);
+            payload = parseExactJSON(text);
           } catch {
             if (ok) {
               throw new SDKError('Invalid JSON response', { code: 'SDK_INVALID_RESPONSE', status: response.status, requestId: responseRequestId });

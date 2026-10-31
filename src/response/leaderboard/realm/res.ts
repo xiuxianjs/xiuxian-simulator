@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { leaderboardRecoveryTips } from '@src/response/leaderboardRecovery';
@@ -100,7 +101,7 @@ export default onResponse(selects, async e => {
 
       md.addBlockquote(
         createQuoteMarkdown(
-          [`${icon} ${item.name}${item.uid === currentUid ? ' 👈我' : ''}  ${item.realmName}`, `ID:${item.uid} 修为:${item.experience.toLocaleString()}`],
+          [`${icon} ${item.name}${item.uid === currentUid ? ' 👈我' : ''}  ${item.realmName}`, `ID:${item.uid} 修为:${formatNumber(item.experience)}`],
           btns
         )
       );

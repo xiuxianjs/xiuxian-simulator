@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { assertPlayerShopInfo } from '../schemas/player-shop-visit-query';
 import { assertMarketBrowseItem } from '../schemas/market-browse-item';
 import { requestBackend } from './client';
@@ -25,7 +26,7 @@ function assertVisitShop(data: unknown): asserts data is PlayerShopVisitData {
   const currencies = value.currencies;
 
   if (
-    !['spiritStone', 'spiritsCrystal', 'spiritsMilk', 'signInCoin', 'towerScore', 'reputation', 'tongxin', 'greenBottle'].every(key => integer(currencies[key])
+    !['spiritStone', 'spiritsCrystal', 'spiritsMilk', 'signInCoin', 'towerScore', 'reputation', 'tongxin', 'greenBottle'].every(key => isExactBalance(currencies[key])
     ) ||
     ![value.pagination.currentPage, value.pagination.totalPages, value.pagination.total].every(integer)
   ) {
@@ -65,4 +66,14 @@ export function parseBackendPlayerShopVisit(data: unknown): PlayerShopVisitData 
   assertVisitShop(data);
 
   return data;
+}
+
+function isExactBalance(value: unknown): boolean {
+  try {
+    exactInteger(value);
+
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -6,8 +6,8 @@ export type WorldBossChallengeData = {
   stageName: string;
   bossTitle: string;
   bossName: string;
-  damageDealt: number;
-  totalPlayerDamage: number;
+  damageDealt: number | bigint;
+  totalPlayerDamage: number | bigint;
   attackCount: number;
   remainingAttempts: number;
   rank: number | null;
@@ -17,7 +17,7 @@ export type WorldBossChallengeData = {
   batchMode: boolean;
   stopReason?: string;
   rounds?: WorldBossRound[];
-  totalDamageDealt?: number;
+  totalDamageDealt?: number | bigint;
   attemptsUsed?: number;
 };
 

@@ -4,8 +4,8 @@ import type { GuildShopPageData } from '@src/api/schemas/guild-shop-page';
 type ShopItem = {
   index: number;
   itemName: string;
-  price: number;
-  quantity: number;
+  price: number | bigint;
+  quantity: number | bigint;
   statusText: string;
   canExchange: boolean;
   categoryLabel: string;

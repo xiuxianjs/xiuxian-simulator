@@ -1,3 +1,5 @@
+import { exactInteger } from '@src/api/core/exact-json';
+import { formatNumber } from '@src/utils/formatHelper';
 import { formatGameTime } from '@src/utils/gameTime';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
@@ -77,8 +79,12 @@ export default onResponse(selects, async e => {
     for (const member of d.members) {
       const reward = member.rewardSnapshot;
       const rewardText =
-        reward && (Number(reward.expGained ?? 0) > 0 || Number(reward.spiritStoneGained ?? 0) > 0 || Number(reward.spiritCostPaid ?? 0) > 0)
-          ? ` · 修为+${Number(reward.expGained ?? 0)} · 灵石+${Number(reward.spiritStoneGained ?? 0)} · 精力${Number(reward.spiritCostPaid ?? 0)}`
+        reward && (exactInteger(reward.expGained ?? 0) > 0 || exactInteger(reward.spiritStoneGained ?? 0) > 0 || exactInteger(reward.spiritCostPaid ?? 0) > 0)
+          ? [
+              ` · 修为+${formatNumber(exactInteger(reward.expGained ?? 0))}`,
+              ` · 灵石+${formatNumber(exactInteger(reward.spiritStoneGained ?? 0))}`,
+              ` · 精力${formatNumber(exactInteger(reward.spiritCostPaid ?? 0))}`
+            ].join('')
           : '';
 
       md.addNewline();

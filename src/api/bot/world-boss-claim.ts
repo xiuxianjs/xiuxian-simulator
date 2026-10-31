@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
@@ -6,15 +7,15 @@ export type WorldBossClaimAllItem = {
   stageLevel: number;
   stageName: string;
   tierName: string;
-  spiritStone: number;
-  spiritCrystal: number;
-  playerDamage: number;
+  spiritStone: number | bigint;
+  spiritCrystal: number | bigint;
+  playerDamage: number | bigint;
 };
 
 export type WorldBossClaimAllData = {
   items: WorldBossClaimAllItem[];
-  totalStone: number;
-  totalCrystal: number;
+  totalStone: number | bigint;
+  totalCrystal: number | bigint;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -23,14 +24,6 @@ function record(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
-}
-
-function integer(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new Error('凶兽奖励数值不完整');
-  }
-
-  return value;
 }
 
 function item(value: unknown): WorldBossClaimAllItem {
@@ -52,9 +45,9 @@ function item(value: unknown): WorldBossClaimAllItem {
     stageLevel: row.stageLevel,
     stageName: row.stageName,
     tierName: row.tierName,
-    spiritStone: integer(row.spiritStone),
-    spiritCrystal: integer(row.spiritCrystal),
-    playerDamage: integer(row.playerDamage)
+    spiritStone: exactInteger(row.spiritStone),
+    spiritCrystal: exactInteger(row.spiritCrystal),
+    playerDamage: exactInteger(row.playerDamage)
   };
 }
 
@@ -80,15 +73,18 @@ export function parseWorldBossClaimAll(value: unknown): WorldBossClaimAllData {
 
   const result = {
     items: data.items.map(item),
-    totalStone: integer(data.totalStone),
-    totalCrystal: integer(data.totalCrystal)
+    totalStone: exactInteger(data.totalStone),
+    totalCrystal: exactInteger(data.totalCrystal)
   };
-  const totals = result.items.reduce((sum, current) => ({ stone: sum.stone + current.spiritStone, crystal: sum.crystal + current.spiritCrystal }), {
-    stone: 0,
-    crystal: 0
-  });
+  const totals = result.items.reduce(
+    (sum, current) => ({
+      stone: sum.stone + BigInt(current.spiritStone),
+      crystal: sum.crystal + BigInt(current.spiritCrystal)
+    }),
+    { stone: 0n, crystal: 0n }
+  );
 
-  if (totals.stone !== result.totalStone || totals.crystal !== result.totalCrystal) {
+  if (totals.stone !== BigInt(result.totalStone) || totals.crystal !== BigInt(result.totalCrystal)) {
     throw new Error('凶兽奖励合计不一致');
   }
 

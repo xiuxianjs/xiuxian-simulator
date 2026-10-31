@@ -113,3 +113,16 @@ test('fixed six slots show purpose and a locked mineral position without fake pr
   assert.ok(textOf(nodes).includes('已解锁，请刷新商店上架'));
   assert.ok(!commands(nodes).includes('/宗门商店兑换 5'));
 });
+
+test('guild shop keeps huge quantities and prices exact until display, never in exchange commands',async()=>{
+ state.transportError=false;
+ const page=structuredClone(receipts.find(r=>r.op==='guild.shop'&&r.result.success).result.data);
+ page.contributionPoints=9223372036854775807n;
+ const index=page.items.findIndex(item=>!item.locked);
+ page.items[index]={...page.items[index],quantity:9007199254740993n,priceContribution:9223372036854775807n};
+ const nodes=await render('shop','/宗门商店',page);
+ assert.ok(textOf(nodes).includes('贡献点：922.34亿亿'));
+ assert.ok(textOf(nodes).includes('9007.2万亿'));
+ assert.ok(textOf(nodes).includes('价格：922.34亿亿'));
+ assert.ok(commands(nodes).every(cmd=>!cmd.includes('亿')&&!cmd.includes('万')));
+});

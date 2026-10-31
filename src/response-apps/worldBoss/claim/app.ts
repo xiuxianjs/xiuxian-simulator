@@ -6,14 +6,14 @@ export type ClaimRewardItem = {
   bossDate: string;
   stageName: string;
   tierName: string;
-  spiritStone: number;
-  spiritCrystal: number;
+  spiritStone: number | bigint;
+  spiritCrystal: number | bigint;
 };
 
 export type WorldBossClaimData = {
   items: ClaimRewardItem[];
-  totalStone: number;
-  totalCrystal: number;
+  totalStone: number | bigint;
+  totalCrystal: number | bigint;
 };
 
 export type WorldBossClaimResult = { code: 'OK'; data: WorldBossClaimData } | { code: 'LOAD_FAILED'; data: { message: string } };

@@ -1,3 +1,4 @@
+import { formatDamage } from '@src/utils/formatHelper';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -49,7 +50,7 @@ export default onResponse(selects, async e => {
 
   md.addBold('稻草人伤害测试');
   md.addNewline();
-  md.addText(`测试回合：${rounds} | 总伤害：${summary.totalDamage.toLocaleString()}`);
+  md.addText(`测试回合：${rounds} | 总伤害：${formatDamage(summary.totalDamage)}`);
   md.addNewline();
   md.addNewline();
 
@@ -58,16 +59,16 @@ export default onResponse(selects, async e => {
   md.addNewline();
 
   for (const skill of summary.skills) {
-    md.addText(`${skill.skillName}：${skill.count}次 / ${skill.totalDamage.toLocaleString()}伤害 (${skill.damageShareText}%)`);
+    md.addText(`${skill.skillName}：${skill.count}次 / ${formatDamage(skill.totalDamage)}伤害 (${skill.damageShareText}%)`);
     md.addNewline();
   }
 
   // Buff 伤害（仅当存在时显示）
   if (summary.buffDamage > 0) {
     md.addNewline();
-    md.addBold(`Buff伤害：${summary.buffDamage.toLocaleString()}`);
+    md.addBold(`Buff伤害：${formatDamage(summary.buffDamage)}`);
     md.addNewline();
-    md.addText(`持续伤害(DOT)：${summary.buffDamage.toLocaleString()}伤害 (${summary.buffDamageShareText}%)`);
+    md.addText(`持续伤害(DOT)：${formatDamage(summary.buffDamage)}伤害 (${summary.buffDamageShareText}%)`);
     md.addNewline();
   }
 
@@ -80,7 +81,7 @@ export default onResponse(selects, async e => {
   md.addNewline();
 
   if (summary.maxSingleDamage > 0) {
-    md.addText(`最大单次伤害：${summary.maxSingleDamage.toLocaleString()}（回合${summary.maxSingleDamageRound} ${summary.maxSingleDamageSkill}）`);
+    md.addText(`最大单次伤害：${formatDamage(summary.maxSingleDamage)}（回合${summary.maxSingleDamageRound} ${summary.maxSingleDamageSkill}）`);
   }
 
   // 双平台发送

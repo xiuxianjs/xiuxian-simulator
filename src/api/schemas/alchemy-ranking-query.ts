@@ -9,9 +9,9 @@ export interface AlchemyRankingQueryData {
     name: string;
     level: number;
     title: string;
-    exp: number;
-    totalCrafts: number;
-    successCount: number;
+    exp: number | bigint;
+    totalCrafts: number | bigint;
+    successCount: number | bigint;
     successRate: string;
     canLike: boolean;
   }>;

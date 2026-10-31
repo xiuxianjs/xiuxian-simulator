@@ -18,8 +18,8 @@ export type AlchemyLeaderboardData = {
     name: string;
     level: number;
     title: string;
-    exp: number;
-    totalCrafts: number;
+    exp: number | bigint;
+    totalCrafts: number | bigint;
     successRate: string;
     canLike: boolean;
   }>;

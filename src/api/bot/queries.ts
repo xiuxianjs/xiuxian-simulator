@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { parseGameTime, formatGameTime } from '@src/utils/gameTime';
 import { number as integer } from '../schemas/ranking-values';
 import { getCurrentEvent } from 'alemonjs';
@@ -678,14 +679,14 @@ export function parseGachaOverview(value: unknown) {
   const banner = record(data.banner);
   const assets = record(data.currencies);
   const currencies = {
-    spiritStone: integer(assets.spiritStone),
-    spiritsCrystal: integer(assets.spiritsCrystal),
-    spiritsMilk: integer(assets.spiritsMilk),
-    signInCoin: integer(assets.signInCoin),
-    towerScore: integer(assets.towerScore),
-    reputation: integer(assets.reputation),
-    tongxin: integer(assets.tongxin),
-    greenBottle: integer(assets.greenBottle)
+    spiritStone: exactInteger(assets.spiritStone),
+    spiritsCrystal: exactInteger(assets.spiritsCrystal),
+    spiritsMilk: exactInteger(assets.spiritsMilk),
+    signInCoin: exactInteger(assets.signInCoin),
+    towerScore: exactInteger(assets.towerScore),
+    reputation: exactInteger(assets.reputation),
+    tongxin: exactInteger(assets.tongxin),
+    greenBottle: exactInteger(assets.greenBottle)
   };
 
   return {

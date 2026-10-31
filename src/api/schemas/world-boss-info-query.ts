@@ -8,7 +8,7 @@ export interface WorldBossInfoQueryData {
   config: {
     bossName: string;
     bossTitle: string;
-    baseHp: number;
+    baseHp: number | bigint;
     dailyAttempts: number;
     maxRounds: number;
     activeStartHour: number;
@@ -16,9 +16,9 @@ export interface WorldBossInfoQueryData {
   };
   isActive: boolean;
   hasInstance: boolean;
-  totalDamage: number;
+  totalDamage: number | bigint;
   totalAttacks: number;
-  playerDamage: number;
+  playerDamage: number | bigint;
   playerAttacks: number;
   remainingAttempts: number | 'NaN' | 'Infinity' | '-Infinity';
   playerRank: number | null;

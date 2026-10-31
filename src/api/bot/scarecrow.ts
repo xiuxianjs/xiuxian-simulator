@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
@@ -43,7 +44,7 @@ function damageField(value: unknown, exact: unknown): number | bigint {
     return parsed <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(parsed) : parsed;
   }
 
-  return integerField(value);
+  return exactInteger(value);
 }
 function numberField(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) {

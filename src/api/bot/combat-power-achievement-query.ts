@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend } from './client';
 import type { CombatPowerAchievementCard, CombatPowerAchievementQueryData } from '../schemas/combat-power-achievement-query';
 
@@ -48,7 +49,7 @@ function card(value: unknown): CombatPowerAchievementCard {
     throw new Error(message);
   }
 
-  return { id, name: text(row.name), description: text(row.description), threshold: number(row.threshold), rewardText: text(row.rewardText) };
+  return { id, name: text(row.name), description: text(row.description), threshold: exactInteger(row.threshold), rewardText: text(row.rewardText) };
 }
 
 export async function getBackendCombatPowerAchievements(bid: string, uid: number): Promise<CombatPowerAchievementQueryData> {
@@ -65,13 +66,13 @@ export function validateBackendCombatPowerAchievements(data: unknown): CombatPow
   const next = row.nextTarget === null ? null : record(row.nextTarget);
 
   return {
-    currentPower: integer(row.currentPower),
+    currentPower: exactInteger(row.currentPower),
     totalCount: integer(row.totalCount),
     completedCount: integer(row.completedCount),
     claimableCount: integer(row.claimableCount),
     allCompleted: boolean(row.allCompleted),
     currentClaimable: current === null ? null : { ...card(current), remainingClaimableCount: integer(current.remainingClaimableCount) },
-    nextTarget: next === null ? null : { ...card(next), remainingPower: number(next.remainingPower) },
+    nextTarget: next === null ? null : { ...card(next), remainingPower: exactInteger(next.remainingPower) },
     items: row.items.map(value => {
       const item = record(value);
 

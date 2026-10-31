@@ -1,3 +1,4 @@
+import { formatNumber } from '@src/utils/formatHelper';
 import { formatGameDate } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -48,11 +49,11 @@ export default onResponse(selects, async e => {
     const rewards: string[] = [];
 
     if (r.spiritStone > 0) {
-      rewards.push(`灵石 ×${r.spiritStone}`);
+      rewards.push(`灵石 ×${formatNumber(r.spiritStone)}`);
     }
 
     if (r.spiritCrystal > 0) {
-      rewards.push(`灵晶 ×${r.spiritCrystal}`);
+      rewards.push(`灵晶 ×${formatNumber(r.spiritCrystal)}`);
     }
 
     md.addText(`  → ${rewards.join('、')}`);
@@ -67,11 +68,11 @@ export default onResponse(selects, async e => {
     const totals: string[] = [];
 
     if (totalStone > 0) {
-      totals.push(`灵石 ×${totalStone}`);
+      totals.push(`灵石 ×${formatNumber(totalStone)}`);
     }
 
     if (totalCrystal > 0) {
-      totals.push(`灵晶 ×${totalCrystal}`);
+      totals.push(`灵晶 ×${formatNumber(totalCrystal)}`);
     }
 
     md.addBlockquote(Format.createMarkdown().addText(`${totals.join('、')}`));

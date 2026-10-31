@@ -1,3 +1,4 @@
+import { exactInteger } from '../core/exact-json';
 import { requestBackend } from './client';
 import type { WorldBossInfoQueryData } from '../schemas/world-boss-info-query';
 
@@ -80,7 +81,7 @@ export function parseWorldBossInfo(value: unknown): WorldBossInfoQueryData {
     config: {
       bossName: config.bossName,
       bossTitle: config.bossTitle,
-      baseHp: integer(config.baseHp),
+      baseHp: exactInteger(config.baseHp),
       dailyAttempts: integer(config.dailyAttempts),
       maxRounds: integer(config.maxRounds),
       activeStartHour: integer(config.activeStartHour),
@@ -88,9 +89,9 @@ export function parseWorldBossInfo(value: unknown): WorldBossInfoQueryData {
     },
     isActive: data.isActive,
     hasInstance: data.hasInstance,
-    totalDamage: integer(data.totalDamage),
+    totalDamage: exactInteger(data.totalDamage),
     totalAttacks: integer(data.totalAttacks),
-    playerDamage: integer(data.playerDamage),
+    playerDamage: exactInteger(data.playerDamage),
     playerAttacks: integer(data.playerAttacks),
     remainingAttempts: remainingAttempts(data.remainingAttempts),
     playerRank: data.playerRank === null ? null : integer(data.playerRank),

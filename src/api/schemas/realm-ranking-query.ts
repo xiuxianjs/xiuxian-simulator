@@ -4,7 +4,7 @@ export interface RealmRankingItem {
   name: string;
   realmName: string;
   realmLevel: number;
-  experience: number;
+  experience: number | bigint;
 }
 export interface RealmRankingQueryData {
   canUseFifthLayerFeature: boolean;

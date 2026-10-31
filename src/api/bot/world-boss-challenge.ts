@@ -1,9 +1,10 @@
+import { exactInteger } from '../core/exact-json';
 import { repeatPresentationHeaders } from './repeat-presentation';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 type Row = Record<string, unknown>;
-export type WorldBossUnit = { id: string; name: string; hp: number; maxHp: number; isDead: boolean; position: number };
+export type WorldBossUnit = { id: string; name: string; hp: number | bigint; maxHp: number | bigint; isDead: boolean; position: number };
 export type WorldBossBattle = {
   winner: 'A' | 'B' | 'draw';
   totalRounds: number;
@@ -12,14 +13,14 @@ export type WorldBossBattle = {
 export type WorldBossBattleSummary = {
   sideACount: number;
   sideBCount: number;
-  totalDamageA: number;
-  totalDamageB: number;
-  totalHealsA: number;
-  totalHealsB: number;
+  totalDamageA: number | bigint;
+  totalDamageB: number | bigint;
+  totalHealsA: number | bigint;
+  totalHealsB: number | bigint;
 };
 export type WorldBossRound = {
-  damageDealt: number;
-  totalPlayerDamage: number;
+  damageDealt: number | bigint;
+  totalPlayerDamage: number | bigint;
   attackCount: number;
   remainingAttempts: number;
   rank: number | null;
@@ -34,7 +35,7 @@ export type WorldBossBatch = {
   stopReason?: string;
   rounds: WorldBossRound[];
   attemptsUsed: number;
-  totalDamageDealt: number;
+  totalDamageDealt: number | bigint;
   lastRound: WorldBossRound;
   stageName: string;
   bossTitle: string;
@@ -65,8 +66,8 @@ function text(value: unknown, field: string): string {
 }
 function unit(value: unknown): WorldBossUnit {
   const data = row(value, '凶兽战斗单位不完整');
-  const hp = integer(data.HP ?? data.hp, 'battle.hp');
-  const maxHp = integer(data.MaxHP ?? data.maxHp, 'battle.maxHp');
+  const hp = exactInteger(data.HP ?? data.hp);
+  const maxHp = exactInteger(data.MaxHP ?? data.maxHp);
   const position = integer(data.Position ?? data.position, 'battle.position');
   const isDead = data.Dead ?? data.IsDead ?? data.isDead;
 
@@ -94,10 +95,10 @@ function battleSummary(value: unknown): WorldBossBattleSummary {
   return {
     sideACount: integer(data.sideACount, 'battleSummary.sideACount'),
     sideBCount: integer(data.sideBCount, 'battleSummary.sideBCount'),
-    totalDamageA: integer(data.totalDamageA, 'battleSummary.totalDamageA'),
-    totalDamageB: integer(data.totalDamageB, 'battleSummary.totalDamageB'),
-    totalHealsA: integer(data.totalHealsA, 'battleSummary.totalHealsA'),
-    totalHealsB: integer(data.totalHealsB, 'battleSummary.totalHealsB')
+    totalDamageA: exactInteger(data.totalDamageA),
+    totalDamageB: exactInteger(data.totalDamageB),
+    totalHealsA: exactInteger(data.totalHealsA),
+    totalHealsB: exactInteger(data.totalHealsB)
   };
 }
 function round(value: unknown): WorldBossRound {
@@ -109,8 +110,8 @@ function round(value: unknown): WorldBossRound {
   }
 
   return {
-    damageDealt: integer(data.damageDealt, 'damageDealt'),
-    totalPlayerDamage: integer(data.totalPlayerDamage, 'totalPlayerDamage'),
+    damageDealt: exactInteger(data.damageDealt),
+    totalPlayerDamage: exactInteger(data.totalPlayerDamage),
     attackCount: integer(data.attackCount, 'attackCount'),
     remainingAttempts: integer(data.remainingAttempts, 'remainingAttempts'),
     rank: rank ?? null,
@@ -161,7 +162,7 @@ export function parseWorldBossChallenge(value: unknown, useAllAttempts: boolean)
     ...(typeof data.stopReason === 'string' && data.stopReason ? { stopReason: data.stopReason } : {}),
     rounds: data.rounds.map(round),
     attemptsUsed: integer(data.attemptsUsed, 'attemptsUsed'),
-    totalDamageDealt: integer(data.totalDamageDealt, 'totalDamageDealt'),
+    totalDamageDealt: exactInteger(data.totalDamageDealt),
     lastRound: round(data.lastRound),
     stageName: text(data.stageName, 'stageName'),
     bossTitle: text(data.bossTitle, 'bossTitle'),
