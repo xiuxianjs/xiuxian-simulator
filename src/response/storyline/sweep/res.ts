@@ -12,6 +12,7 @@ import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import type { RobotBusinessFollowup } from '@src/api/bot/robot-business';
 import { sendOnboardingFollowup } from '@src/response/onboarding/followup';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -72,7 +73,10 @@ export default onResponse(selects, async e => {
   contentMd.addText(`消耗精力：${result.data.totalSpiritCost}`);
   contentMd.addNewline();
 
-  contentMd.addText(`获得修为：+${result.data.totalExp}${result.data.expBonusText}`);
+  const experienceText = result.data.normalExperienceGained === undefined
+    ? `${result.data.totalExp}${result.data.expBonusText}` : String(result.data.normalExperienceGained);
+
+  contentMd.addText(`获得修为：+${experienceText}`);
   contentMd.addNewline();
   contentMd.addText(`获得灵石：+${result.data.totalSpiritStone}`);
   contentMd.addNewline();
@@ -89,6 +93,7 @@ export default onResponse(selects, async e => {
     }
   }
 
+  appendTreasureEffects(contentMd, result.data.treasureEffects);
   if (await sendOnboardingFollowup(e, followup, '主线扫荡', contentMd)) {
     return;
   }

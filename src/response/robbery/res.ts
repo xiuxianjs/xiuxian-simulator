@@ -1,4 +1,5 @@
 import { isPrivateEvent } from '@src/utils/privateEvent';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { parsePKReceipt } from '@src/api/bot/pk-receipt';
 import { formatGameTime } from '@src/utils/gameTime';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
@@ -95,8 +96,10 @@ export default onResponse(selects, async e => {
         );
       }
     }
-    if (result.experience && result.experience > 0) {
-      rewards.push(`修为 +${result.experience}`);
+    const experience = result.normalExperienceGained ?? result.experience;
+
+    if (result.normalExperienceGained !== undefined || experience > 0) {
+      rewards.push(`修为 +${experience}`);
     }
     if (rewards.length) {
       md.addNewline().addBlockquote(createQuoteMarkdown(rewards));
@@ -111,6 +114,7 @@ export default onResponse(selects, async e => {
       md.addNewline().addText(result.losingStreakText);
     }
 
+    appendTreasureEffects(md, result.treasureEffects);
     // 底部按钮
     md.addNewline();
 

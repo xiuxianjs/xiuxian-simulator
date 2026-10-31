@@ -1,10 +1,13 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 export type CompanionRelationshipMutation = { success: boolean; message: string };
 export type CompanionBreakupMutation = CompanionRelationshipMutation & { narrativeText: string };
 export type CompanionDualCultivation = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   success: boolean;
   experienceGained: number;
   creditedExperience?: number;
@@ -50,6 +53,8 @@ export function parseBackendCompanionDualCultivation(value: unknown): CompanionD
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     success: data.success,
     experienceGained: data.experienceGained,
     ...(data.creditedExperience === undefined ? {} : { creditedExperience: data.creditedExperience as number }),

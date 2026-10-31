@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { consumeInputProblem } from '@src/response/consumeArguments';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { parseConsumeResult } from '@src/api/bot/consume';
@@ -338,6 +339,7 @@ const response = onResponse(selects, async e => {
       if (result.data.remainingQuantity !== undefined) {
         md.addText(`\n\n剩余数量: ${result.data.remainingQuantity}`);
       }
+      appendTreasureEffects(md, result.data.treasureEffects);
 
       md.addNewline();
       if (await sendOnboardingFollowup(e, loaded, '消耗道具', md)) {

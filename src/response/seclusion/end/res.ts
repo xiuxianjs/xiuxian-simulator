@@ -5,6 +5,7 @@ import { useEvent } from 'alemonjs';
 import { useMessage } from '@src/utils/useMessage';
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parseSeclusionEnd } from '@src/api/bot/seclusion-end';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 /**
  * 返程指令处理器
  * 指令：/返程
@@ -70,6 +71,7 @@ export default onResponse(selects, async e => {
       md.addNewline();
       md.addText('此次探索秘境无任何收获。');
 
+      appendTreasureEffects(md, result.treasureEffects);
       if (result.presenceText) {
         md.addNewline();
         md.addBlockquote(Format.createMarkdown().addText(result.presenceText));
@@ -101,7 +103,9 @@ export default onResponse(selects, async e => {
     md.addNewline();
     md.addNewline();
     md.addText('📦 此行收获：').addNewline();
-    md.addText(result.creditedExperience === undefined ? '修为已结算' : `修为入账：${result.creditedExperience}`).addNewline();
+    md.addText(result.normalExperienceGained !== undefined
+      ? `获得修为：${result.normalExperienceGained}`
+      : result.creditedExperience === undefined ? '修为已结算' : `修为入账：${result.creditedExperience}`).addNewline();
     md.addText(`  灵石 +${rewards.spiritStone}`);
     if (result.refundedSpirit) {
       md.addNewline().addText(`精力退回 ${result.refundedSpirit}`);
@@ -128,6 +132,7 @@ export default onResponse(selects, async e => {
       }
     }
 
+    appendTreasureEffects(md, result.treasureEffects);
     if (result.materialProgressPercent !== undefined) {
       md.addNewline().addText(`🌿 采集积累 ${result.materialProgressPercent.toFixed(1)}%`);
     }

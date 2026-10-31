@@ -1,4 +1,5 @@
 import { BackendAPIError } from './client';
+import { parseTreasureEffects } from './treasure-effects';
 import { validMiddlewareNav, type RobotMiddlewareReply } from './middleware-entry';
 
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -24,6 +25,8 @@ export function parseAlchemyV2Reply(value: unknown): RobotMiddlewareReply {
   ) {
     throw new BackendAPIError('炼丹响应不完整，请稍后重试', 'SDK_INVALID_RESPONSE');
   }
+
+  parseTreasureEffects(value.treasureEffects);
 
   return value as RobotMiddlewareReply;
 }

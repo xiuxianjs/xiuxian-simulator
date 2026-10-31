@@ -1,9 +1,13 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 import { requestBackend, writeContext } from './client';
 import type { Operations } from '../registry';
 
 export type BackendConsumeResult = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
+  normalMessage?: string;
   outcome: 'consumed' | 'rejected' | 'formation_activated' | 'tower_reset' | 'peiyuan_pending' | 'mingwu_select';
   message: string;
   remainingQuantity?: number;
@@ -129,6 +133,12 @@ export function parseConsumeResult(input: unknown): BackendConsumeResult {
   if (value.remainingQuantity !== undefined && !nonNegativeInteger(value.remainingQuantity)) {
     throw new Error('消耗道具响应不完整');
   }
+  if (value.normalMessage !== undefined && (typeof value.normalMessage !== 'string' || !value.normalMessage.trim())) {
+    throw new Error('普通道具收益回执无效');
+  }
+
+  parseTreasureEffects(value.treasureEffects);
+  parseNormalExperienceGained(value.normalExperienceGained);
 
   return value as BackendConsumeResult;
 }

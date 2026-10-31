@@ -1,4 +1,5 @@
 import { useMessage } from '@src/utils/useMessage';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 /**
  * 双修指令
  */
@@ -32,7 +33,8 @@ export default onResponse(selects, async e => {
 
   const lines = [
     '灵息交融，双修已毕。',
-    result.creditedExperience === undefined ? '你的修为已结算' : `你的修为 ${result.creditedExperience}`,
+    result.normalExperienceGained !== undefined ? `你的修为 ${result.normalExperienceGained}`
+      : result.creditedExperience === undefined ? '你的修为已结算' : `你的修为 ${result.creditedExperience}`,
     result.partnerCreditedExperience === undefined ? '道侣修为已结算' : `道侣修为 ${result.partnerCreditedExperience}`,
     `同心值 +${result.tongxinGained}`
   ];
@@ -40,6 +42,7 @@ export default onResponse(selects, async e => {
   const md = Format.createMarkdown();
 
   md.addText(lines.join('\n'));
+  appendTreasureEffects(md, result.treasureEffects);
 
   void message.send(
     FormatGui({

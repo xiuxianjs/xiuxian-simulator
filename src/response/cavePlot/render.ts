@@ -2,6 +2,8 @@ import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveRecoveryTips } from '@src/response/caveRecovery';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
+import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import type { CavePlantSeedOption, CavePlotOverviewItem, CavePlotVisitOverview } from '@src/types/cavePlot';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format } from 'alemonjs';
@@ -21,6 +23,7 @@ type ActionButton = {
 };
 
 type SendSelfCavePlotPageOptions = {
+  treasureEffects?: TreasureEffectNotice[];
   title: string;
   bid: string | number | undefined;
   isPrivate: boolean;
@@ -39,6 +42,7 @@ type SendSelfCavePlotPageOptions = {
 };
 
 type SendVisitedCavePlotPageOptions = {
+  treasureEffects?: TreasureEffectNotice[];
   title: string;
   bid: string | number | undefined;
   isPrivate: boolean;
@@ -121,7 +125,8 @@ function buildSelfCavePlotContent(
   stasisFormation?: { name: string; remainingText: string },
   page?: number,
   advice: RobotMiddlewareReply['advice'] = [],
-  cultivationCostText?: string
+  cultivationCostText?: string,
+  treasureEffects?: TreasureEffectNotice[]
 ) {
   const md = Format.createMarkdown();
   const allPlots = plots ?? [];
@@ -139,9 +144,10 @@ function buildSelfCavePlotContent(
 
   if (leadText) {
     md.addText(leadText);
+    appendTreasureEffects(md, treasureEffects);
     appendMiddlewareAdvice(md, advice);
 
-    if (items.length > 0) {
+    if (items.length > 0 || treasureEffects?.length) {
       md.addNewline();
       md.addNewline();
     }
@@ -209,7 +215,8 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
     stasisFormation,
     options.page,
     options.advice,
-    options.cultivationCostText
+    options.cultivationCostText,
+    options.treasureEffects
   );
   const targetBid = typeof bid === 'string' ? bid : bid === undefined ? undefined : String(bid);
 
@@ -466,6 +473,7 @@ export function sendVisitedCavePlotPage(options: SendVisitedCavePlotPageOptions)
 
   if (leadText) {
     md.addText(leadText);
+    appendTreasureEffects(md, options.treasureEffects);
     md.addNewline();
     md.addNewline();
   }

@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
 import { bountyRecoveryTips } from '@src/response/bountyRecovery';
@@ -84,6 +85,7 @@ export default onResponse(selects, async e => {
   }
 
   const d = result.data;
+  const experience = d.normalExperienceGained ?? d.expReward;
   const md = Format.createMarkdown();
 
   if (d.battleWon && d.completionId) {
@@ -124,8 +126,8 @@ export default onResponse(selects, async e => {
       md.addNewline();
     }
 
-    if ((d.expReward ?? 0) > 0) {
-      md.addText(`📖 获得修为：+${d.expReward}`);
+    if (d.normalExperienceGained !== undefined || experience > 0) {
+      md.addText(`📖 获得修为：+${experience}`);
       md.addNewline();
     }
 
@@ -157,8 +159,8 @@ export default onResponse(selects, async e => {
         .addText(`消耗元力：${d.qiCost}，今日剩余：${d.remainingCount}/${d.dailyAcceptLimit}`)
     );
 
-    if ((d.expReward ?? 0) > 0) {
-      md.addText(`📖 获得修为：+${d.expReward}`);
+    if (d.normalExperienceGained !== undefined || experience > 0) {
+      md.addText(`📖 获得修为：+${experience}`);
       md.addNewline();
     }
 
@@ -168,6 +170,7 @@ export default onResponse(selects, async e => {
     }
   }
 
+  appendTreasureEffects(md, d.treasureEffects);
   if (!d.battleWon) {
     appendMiddlewareAdvice(md, bountyRecoveryTips('bounty.accept', '接赏战败'));
   }

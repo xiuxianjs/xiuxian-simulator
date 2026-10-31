@@ -12,6 +12,8 @@ import { addOptions, FormatGui, type GuiButton } from '@src/utils/messageHelper'
 import { Format, onResponse, useSubscribe, useEvent } from 'alemonjs';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice, sendMiddlewareReply } from '@src/response/middlewareReply';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
+import { parseTreasureEffects } from '@src/api/bot/treasure-effects';
 
 const routeChoice = (text: string): string | null => {
   const command = text.trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
@@ -58,7 +60,9 @@ export default onResponse(selects, async e => {
       const won = state.winner === 'A';
       const stageLabel = typeof settlement.stageLabel === 'string' ? settlement.stageLabel : '';
       const stars = typeof settlement.stars === 'number' ? settlement.stars : 0;
-      const exp = typeof settlement.experienceGained === 'number' ? settlement.experienceGained : 0;
+      const exp = typeof settlement.normalExperienceGained === 'number'
+        ? settlement.normalExperienceGained : typeof settlement.experienceGained === 'number' ? settlement.experienceGained : 0;
+      const expBonusText = settlement.normalExperienceGained === undefined && typeof settlement.expBonusText === 'string' ? settlement.expBonusText : '';
       const stones = typeof settlement.spiritStoneGained === 'number' ? settlement.spiritStoneGained : 0;
       const spiritCost = typeof settlement.spiritCostPaid === 'number' ? settlement.spiritCostPaid : 0;
       const monsterName = typeof settlement.monsterName === 'string' ? settlement.monsterName : '';
@@ -88,7 +92,7 @@ export default onResponse(selects, async e => {
           Format.createMarkdown()
             .addText(`星级评价：${'⭐'.repeat(stars)}${'☆'.repeat(Math.max(0, 3 - stars))}`)
             .addNewline()
-            .addText(`修为获得：+${exp}${typeof settlement.expBonusText === 'string' ? settlement.expBonusText : ''}`)
+            .addText(`修为获得：+${exp}${expBonusText}`)
         );
         if (stones > 0) {
           md.addBlockquote(Format.createMarkdown().addText(`灵石获得：+${stones}`));
@@ -108,6 +112,7 @@ export default onResponse(selects, async e => {
           }
         }
       }
+      appendTreasureEffects(md, parseTreasureEffects(settlement.treasureEffects));
       if (state.logId) {
         topRowButtons.push({ label: '文字记录', command: `/查看战斗过程 ${state.logId}` });
       }

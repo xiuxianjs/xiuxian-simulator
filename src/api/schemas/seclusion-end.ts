@@ -1,4 +1,8 @@
+import type { TreasureEffectNotice } from '../bot/treasure-effects';
+
 export type SeclusionEndData = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   interrupted: boolean;
   spiritRefunded: boolean;
   penaltyApplied: boolean;

@@ -1,5 +1,6 @@
 import { parseNamedBattleUnit, type NamedBattleUnit } from '../schemas/named-battle-unit';
 import { parsePKReceipt, type PKReceipt } from './pk-receipt';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
@@ -41,6 +42,8 @@ function battleUnit(value: unknown): BackendCounterAttackUnit {
 
 export type BackendCounterAttackUnit = NamedBattleUnit;
 export type BackendCounterAttack = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   pk?: PKReceipt;
   targetName: string;
   isWin: boolean;
@@ -116,6 +119,8 @@ export function parseBackendCounterAttack(result: unknown): BackendCounterAttack
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     targetName: data.targetName,
     isWin: pk?.won ?? winner === 'A',
     ...(pk ? { pk } : {}),

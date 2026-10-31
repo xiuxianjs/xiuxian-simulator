@@ -1,4 +1,5 @@
 import { getCommandErrorMessage } from '@src/utils/commandError';
+import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import { logger } from 'alemonjs';
 import { settleBackendMeditation, type BackendRequestContext } from '@src/api';
 
@@ -6,6 +7,8 @@ type MeditationEndResult =
   | {
       code: 'OK';
       data: {
+        treasureEffects?: TreasureEffectNotice[];
+        normalExperienceGained?: number;
         bonusLines?: string[];
         boost?: import('@src/api/bot/meditation').BackendMeditationBoost;
         success: boolean;

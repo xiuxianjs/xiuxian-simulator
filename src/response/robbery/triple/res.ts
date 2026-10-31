@@ -10,6 +10,7 @@ import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messa
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { resolveRobotTarget } from '@src/utils/targetUid';
 import { useMessage } from '@src/utils/useMessage';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -98,8 +99,10 @@ export default onResponse(selects, async e => {
         lines.push(`${pk ? '暂存' : '掉落'}：${result.droppedItem.name}×${result.droppedItem.quantity}${pk ? '（尚未到手）' : ''}`);
       }
     }
-    if (result.experience > 0) {
-      lines.push(`修为 +${result.experience}`);
+    const experience = result.normalExperienceGained ?? result.experience;
+
+    if (result.normalExperienceGained !== undefined || experience > 0) {
+      lines.push(`修为 +${experience}`);
     }
     if (pk) {
       lines.push(`对方反击截止：${formatGameTime(pk.counterDeadline)}`);
@@ -116,6 +119,7 @@ export default onResponse(selects, async e => {
         : [{ label: '文字记录', command: `/查看战斗过程 ${result.battleLogId}` }];
 
     md.addNewline().addBlockquote(createQuoteMarkdown(lines, buttons));
+    appendTreasureEffects(md, result.treasureEffects);
   }
   if (receipts.length) {
     const last = receipts[receipts.length - 1];

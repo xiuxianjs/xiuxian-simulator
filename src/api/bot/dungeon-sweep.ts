@@ -1,9 +1,13 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 export type DungeonSweepReward = { category: string; name: string; amount: number };
 export type DungeonSweep = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
+  normalItems?: DungeonSweepReward[];
   dungeonName: string;
   times: number;
   totalSpiritCost: number;
@@ -13,6 +17,8 @@ export type DungeonSweep = {
 };
 export type DungeonSweepSkipped = { dungeonName: string; message: string };
 export type DungeonFreeSweep = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   skippedDungeons: DungeonSweepSkipped[];
   sweptDungeons: DungeonSweep[];
   totalTimes: number;
@@ -42,8 +48,14 @@ export function parseDungeonSweep(value: unknown): DungeonSweep {
   ) {
     throw new Error('秘境扫荡响应不完整');
   }
+  if (value.normalItems !== undefined && !Array.isArray(value.normalItems)) {
+    throw new Error('普通秘境掉落响应无效');
+  }
 
   return {
+    treasureEffects: parseTreasureEffects(value.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(value.normalExperienceGained),
+    normalItems: value.normalItems?.map(reward),
     dungeonName: value.dungeonName,
     times: value.times,
     totalSpiritCost: value.totalSpiritCost,
@@ -111,6 +123,8 @@ export function parseDungeonFreeSweep(value: unknown): DungeonFreeSweep {
   });
 
   return {
+    treasureEffects: parseTreasureEffects(value.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(value.normalExperienceGained),
     skippedDungeons,
     sweptDungeons: value.sweptDungeons.map(parseDungeonSweep),
     totalTimes: value.totalTimes,

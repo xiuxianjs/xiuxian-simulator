@@ -1,5 +1,6 @@
 import { Format, getCurrentEvent, useMessage as useFrameworkMessage, type DataEnums } from 'alemonjs';
 import { compactButtonSpacing } from './compactButtonSpacing';
+import { manualCommandLinks } from './manualCommandLinks';
 import { filterFeatureFormat, filterOutgoingFeatures, presentationCommandFilter } from './featureVisibility';
 import { isLearnedBooksTimingEvent, measureTransportStage } from './transportTiming';
 
@@ -15,13 +16,13 @@ export function timedMessageClient(message: MessageClient, traceEvent: Parameter
         : await presentationCommandFilter(traceEvent);
       const filter = (value: Format | DataEnums[]) => {
         if (value instanceof Format) {
-          return compactButtonSpacing(filterFeatureFormat(value, allowed));
+          return manualCommandLinks(compactButtonSpacing(filterFeatureFormat(value, allowed)));
         }
         const format = Format.create();
 
         format.value.push(...value);
 
-        return compactButtonSpacing(filterFeatureFormat(format, allowed)).value;
+        return manualCommandLinks(compactButtonSpacing(filterFeatureFormat(format, allowed))).value;
       };
       const filtered = Array.isArray(params)
         ? (filter(params) as DataEnums[])

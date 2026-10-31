@@ -1,4 +1,5 @@
 import type { SeclusionEndData } from '../schemas/seclusion-end';
+import { parseNormalExperienceGained, parseTreasureEffects } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
@@ -93,6 +94,9 @@ export function parseSeclusionEnd(data: any): SeclusionEndData {
       throw new Error('返程结算响应的奖励信息无效');
     }
   }
+
+  parseTreasureEffects(data.treasureEffects);
+  parseNormalExperienceGained(data.normalExperienceGained);
 
   return data;
 }

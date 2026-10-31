@@ -49,6 +49,7 @@ test('真实机器人路由到Go事务：炼丹、重放、天工领取兑换升
     try { t.mock.timers.reset(); await app?.dispose(); } finally {
       writeFileSync(addressFile + '.stop', 'stop');
       const [code] = await exited;
+      if (process.env.ALCHEMY_WORKFLOW_BACKEND_LOG) writeFileSync(process.env.ALCHEMY_WORKFLOW_BACKEND_LOG, logs);
       rmSync(scratch, { recursive: true, force: true });
       await shutdownLogger();
       assert.equal(code, 0, logs);
@@ -59,7 +60,7 @@ test('真实机器人路由到Go事务：炼丹、重放、天工领取兑换升
   assert.ok(existsSync(addressFile), logs || 'Go fixture did not start');
   const url = readFileSync(addressFile, 'utf8');
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  app = createTestApp({ config: { processor: { repeated_user_time: 0 }, 'xiuxian-game': { backend: { api_url: url, robot_auth_token: 'local-fixture-token' } } } });
+  app = createTestApp({ config: { processor: { repeated_user_time: 0 }, 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { backend: { api_url: url, robot_auth_token: 'local-fixture-token' } } } });
   await app.mount({ responseRouter: router });
   await app.invoke(app.events.privateMessage({ userId: 'v2-one', platform: 'qq-bot' }), startFeatureVisibility);
   const audit = async () => (await (await fetch(url + '/__alchemy_audit')).json()) as { material: number; pills: number; spiritStone: number; crafts: number; level: number; exp: number };
@@ -120,7 +121,8 @@ test('真实机器人路由到Go事务：炼丹、重放、天工领取兑换升
   assert.match(replay.text, /未再次扣料/);
   assert.deepEqual(await audit(), { material: 198, pills: 1, spiritStone: 2000, crafts: 1, level: 2, exp: 0 });
   const foreign = await run(confirm, true, 'v2-two');
-  assert.match(foreign.text, /确认内容无效/);
+  assert.match(foreign.text, /确认编号不属于当前用户或操作/);
+  assert.deepEqual(await audit(), { material: 198, pills: 1, spiritStone: 2000, crafts: 1, level: 2, exp: 0 }, 'foreign confirmation changed assets');
   const missing = await run('/炼丹 预览 1 0');
   assert.match(missing.text, /参数无效/);
   const owned = await run('/炼丹 天工');

@@ -1,4 +1,5 @@
 import type { DungeonSweep } from '@src/api/bot/dungeon-sweep';
+import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import { displayCurrencyText } from '@src/constants/currency';
 
 type ParsedCommand = { ok: true; dungeonName: string; times: number } | { ok: false; isCommand: boolean; message: string };
@@ -26,6 +27,7 @@ export function parseSweepCommand(text: string): ParsedCommand {
   return { ok: true, dungeonName, times };
 }
 export interface SweepData {
+  treasureEffects?: TreasureEffectNotice[];
   dungeonName: string;
   times: number;
   totalSpiritCost: number;
@@ -36,11 +38,12 @@ export interface SweepData {
 
 export function dungeonSweepView(value: DungeonSweep): SweepData {
   return {
+    treasureEffects: value.treasureEffects,
     dungeonName: value.dungeonName,
     times: value.times,
     totalSpiritCost: value.totalSpiritCost,
-    totalExp: value.totalExp,
+    totalExp: value.normalExperienceGained ?? value.totalExp,
     totalCurrencyText: value.currency.map(r => `${displayCurrencyText(r.name)} +${r.amount}`).join(' | '),
-    totalItemsText: value.items.map(r => `${r.name}×${r.amount}`).join('、')
+    totalItemsText: (value.normalItems ?? value.items).map(r => `${r.name}×${r.amount}`).join('、')
   };
 }

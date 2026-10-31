@@ -1,4 +1,5 @@
 import { parseNamedBattleUnit, type NamedBattleUnit } from '../schemas/named-battle-unit';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
@@ -154,6 +155,8 @@ export function parseBackendPendingBountyRewards(data: unknown): BackendPendingB
 
 export type BackendBountyBattleUnit = NamedBattleUnit;
 export type BackendBountyAccept = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   battleWon: boolean;
   completionId?: number;
   logId?: string;
@@ -228,6 +231,8 @@ export function parseBackendBountyAccept(value: unknown): BackendBountyAccept {
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     battleWon: data.battleWon,
     completionId,
     logId,
@@ -299,6 +304,8 @@ export function parseRobotBountyChallenge(value: unknown) {
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     won: data.won,
     experienceGained: data.experienceGained,
     rewardAmount: data.rewardAmount,

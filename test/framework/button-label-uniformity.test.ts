@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { resolve, sep } from 'node:path';
 import ts from 'typescript';
-import { Format, onResponse, ResultCode, shutdownLogger, useMessage } from 'alemonjs';
+import { Format, onResponse, ResultCode, shutdownLogger } from 'alemonjs';
+import { useMessage } from '../../src/utils/useMessage';
 import { createTestApp } from 'alemonjs/testing';
 import { createMarkdownText } from '../../node_modules/@alemonjs/qq-bot/lib/format.js';
 import { markdownButtonLabel } from '../../src/utils/buttonLabel';
@@ -66,7 +67,8 @@ test('服务端旧标题、无装饰标题和已转换标题在真实发送中�
     for (const command of ['/宗门审核', '/宗门审核同意 1001829', '/我的灵田']) assert.ok(message.commands.includes(command));
     const rendered = message.nodes.flatMap(node => node.type === 'Markdown' ? [createMarkdownText(node.value)] : []).join('\n');
     assert.equal((rendered.match(/show="‹同意›"/g) ?? []).length, 3);
-    assert.ok(rendered.includes('<qqbot-cmd-enter text="/宗门审核同意 1001829" show="‹同意›" />'));
+    assert.ok(rendered.includes('<qqbot-cmd-input text="/宗门审核同意 1001829" show="‹同意›" />'));
+    assert.doesNotMatch(rendered, /<qqbot-cmd-enter\b/);
     assert.doesNotMatch(rendered, /show="[^\"]*[\[\]]/);
   }
   assert.equal(markdownButtonLabel('材料[稀有]'), '‹材料‹稀有››');

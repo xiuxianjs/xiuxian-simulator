@@ -1,8 +1,11 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 import { requestBackend } from './client';
 
 export type SparBackendResult = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   settledCount?: number;
   battleView: {
     totalRounds: number;
@@ -72,6 +75,8 @@ function parseSparResult(value: unknown): SparBackendResult {
   }
 
   return {
+    treasureEffects: parseTreasureEffects(result.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(result.normalExperienceGained),
     ...(result.settledCount === undefined ? {} : { settledCount: integer(result.settledCount) }),
     battleView: { totalRounds: integer(battleView.totalRounds), finalState: { sideA: finalState.sideA.map(unit), sideB: finalState.sideB.map(unit) } },
     battleLogId: result.battleLogId,
@@ -126,6 +131,8 @@ export function parseRobotSpar(value: unknown) {
   const result = command.battle;
 
   return {
+    treasureEffects: result.treasureEffects,
+    normalExperienceGained: result.normalExperienceGained,
     settledCount: result.settledCount ?? 1,
     experience: result.experience,
     battleResult: { ...result.battleView, totalWaves: 1, winner: result.winner },

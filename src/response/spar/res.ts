@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -111,10 +112,12 @@ export default onResponse(selects, async e => {
     Format.createMarkdown().addText(`消耗元力：${result.data.hpCost}`).addNewline().addText(`今日次数：${result.data.newCount}/${result.data.dailyMax}`)
   );
 
-  md.addBlockquote(
-    Format.createMarkdown().addText(batch ? `修为获得：+${result.data.experience}` : `修为获得：+${result.data.expGain}${result.data.expBonusText}`)
-  );
+  const experienceText = result.data.normalExperienceGained !== undefined
+    ? String(result.data.normalExperienceGained) : batch ? String(result.data.experience) : `${result.data.expGain}${result.data.expBonusText}`;
 
+  md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${experienceText}`));
+
+  appendTreasureEffects(md, result.data.treasureEffects);
   // 添加查看战斗过程按钮
   md.addNewline();
   // 比试后获取熟练点

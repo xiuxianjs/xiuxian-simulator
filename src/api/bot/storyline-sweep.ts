@@ -1,9 +1,12 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 export type BackendStorylineSweepItem = { itemId: number; amount: number; name: string };
 export type BackendStorylineSweep = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   stageLabel: string;
   times: number;
   totalSpiritCost: number;
@@ -51,6 +54,8 @@ export function parseStorylineSweep(value: unknown): BackendStorylineSweep {
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     stageLabel: data.stageLabel,
     times: data.times,
     totalSpiritCost: data.totalSpiritCost,

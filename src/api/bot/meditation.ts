@@ -1,4 +1,5 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 import { requestBackend, writeContext } from './client';
 
@@ -59,6 +60,8 @@ export type BackendMeditationStart = BackendMeditationBenefits & {
 };
 
 export type BackendMeditationEnd = BackendMeditationBenefits & {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   bonusLines?: string[];
   boost?: BackendMeditationBoost;
   success: boolean;
@@ -242,6 +245,8 @@ export function parseMeditationEnd(value: unknown): BackendMeditationEnd {
   const row = record(value);
 
   return {
+    treasureEffects: parseTreasureEffects(row.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(row.normalExperienceGained),
     ...benefits(row),
     ...(row.bonusLines === undefined ? {} : { bonusLines: parseBonusLines(row.bonusLines) }),
     ...(row.boost === null || row.boost === undefined ? {} : { boost: parseBoost(row.boost) }),

@@ -1,4 +1,5 @@
 import { takeRobotTaskInput } from './task-business-context';
+import { parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import type { GameEvent } from '../../types/event';
 import type { CaptchaMuteReplyClaimResult } from '../schemas/captcha-state';
 import type { NewcomerGuideActionResult } from '../schemas/newcomer-guide';
@@ -18,6 +19,7 @@ export type RobotMiddlewareInput = {
 };
 export type RobotMiddlewareNav = { current: number; total: number; count: number; command: string };
 export type RobotMiddlewareReply = {
+  treasureEffects?: TreasureEffectNotice[];
   nav?: RobotMiddlewareNav;
   rawLines?: string[];
   quote?: string;
@@ -202,6 +204,9 @@ export function parseRobotMiddlewareResult(value: unknown, bid: string, requireR
     !value.contextWarnings.every(warning => ['RECIPIENT_NOT_SAVED', 'PRIVATE_TARGET_NOT_SAVED'].includes(warning))
   ) {
     return invalid();
+  }
+  for (const reply of value.replies) {
+    parseTreasureEffects(reply.treasureEffects);
   }
   if (value.outcome === 'allow' && registered && !publicRead) {
     const entry = value.entry;

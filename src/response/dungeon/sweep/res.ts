@@ -12,6 +12,7 @@ import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -47,7 +48,9 @@ export default onResponse(selects, async e => {
 
     const md = Format.createMarkdown();
 
-    md.addText(`共结算 ${result.data.sweptDungeons.length} 个秘境 | 免费扫荡 ${result.data.totalTimes} 次 | 修为 +${result.data.totalExp}`);
+    const experience = result.data.normalExperienceGained ?? result.data.totalExp;
+
+    md.addText(`共结算 ${result.data.sweptDungeons.length} 个秘境 | 免费扫荡 ${result.data.totalTimes} 次 | 修为 +${experience}`);
     md.addNewline();
     md.addNewline();
 
@@ -81,6 +84,7 @@ export default onResponse(selects, async e => {
       }
     }
 
+    appendTreasureEffects(md, result.data.treasureEffects);
     const footer = [
       { label: '查看秘境', command: '/查看秘境' },
       ...(result.data.skippedDungeons.length ? [] : [{ label: '再次结算', command: '/扫荡免费秘境' }])
@@ -121,6 +125,7 @@ export default onResponse(selects, async e => {
     contentMd.addNewline();
   }
 
+  appendTreasureEffects(contentMd, d.treasureEffects);
   contentMd.addNewline();
   contentMd.addNewline();
   if (partial) {

@@ -1,4 +1,5 @@
 import { sendBattleResult } from '@src/utils/battleMemoryMessage';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 一键挑战 — 通天塔自动挑战5次
@@ -41,6 +42,8 @@ export default onResponse(selects, async e => {
   }
   const md = Format.createMarkdown();
   const data = result.data;
+  const experienceText = data.normalExperienceGained === undefined
+    ? `${data.experienceGained}${data.experienceBonusText}` : String(data.normalExperienceGained);
 
   md.addBold('通天塔 · 连续爬塔');
   md.addNewline();
@@ -71,7 +74,8 @@ export default onResponse(selects, async e => {
   }
 
   md.addNewline();
-  md.addBlockquote(Format.createMarkdown().addText(`获得修为：+${data.experienceGained}${data.experienceBonusText}  声望：+${data.reputationGained}`));
+  md.addBlockquote(Format.createMarkdown().addText(`获得修为：+${experienceText}  声望：+${data.reputationGained}`));
+  appendTreasureEffects(md, data.treasureEffects);
   await sendBattleResult(
     message,
     {

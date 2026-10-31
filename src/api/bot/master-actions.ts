@@ -1,8 +1,9 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
-type ActionResult = { message: string };
+type ActionResult = { message: string; treasureEffects?: TreasureEffectNotice[] };
 type Proposal = { id: number; fromUserId: number; fromName: string; fromRealm: string; createdAt: string | Date };
 
 function record(value: unknown): Record<string, unknown> {
@@ -19,7 +20,7 @@ export function parseMasterAction(value: unknown): ActionResult {
     throw new Error('师徒服务响应不完整');
   }
 
-  return { message: result.message };
+  return { message: result.message, treasureEffects: parseTreasureEffects(result.treasureEffects) };
 }
 function proposal(value: unknown): Proposal {
   const row = record(value);

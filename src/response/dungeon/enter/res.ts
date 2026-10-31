@@ -12,6 +12,7 @@ import { Format, onResponse, useEvent } from 'alemonjs';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { dungeonNoRewardText } from '@src/response/adventureRecovery';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -64,8 +65,8 @@ export default onResponse(selects, async e => {
       md.addText(`本次参战无收益（${dungeonNoRewardText(ownReward?.noRewardReason)}）`);
     } else {
       md.addNewline();
-      md.addText(`修为 +${ownReward.experienceGained}`);
-      const rewards = [...ownReward.currency, ...ownReward.items];
+      md.addText(`修为 +${ownReward.normalExperienceGained ?? ownReward.experienceGained}`);
+      const rewards = [...ownReward.currency, ...(ownReward.normalItems ?? ownReward.items)];
 
       if (rewards.length) {
         md.addNewline();
@@ -77,6 +78,7 @@ export default onResponse(selects, async e => {
       }
     }
   }
+  appendTreasureEffects(md, ownReward?.treasureEffects);
   if (!data.won || !ownReward?.eligible) {
     const reason = data.won ? (ownReward?.noRewardReason ?? '') : '战斗结果：未获胜';
 

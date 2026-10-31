@@ -6,6 +6,8 @@ import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { caveRecoveryTips } from '@src/response/caveRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
+import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -14,6 +16,7 @@ export default onResponse(selects, async e => {
   const companion = text.startsWith('一键照料道侣灵田');
   const title = companion ? '一键照料道侣灵田' : '一键打理灵田';
   const quote = Format.createMarkdown();
+  let treasureEffects: TreasureEffectNotice[] | undefined;
 
   try {
     if (!(companion ? /^一键照料道侣灵田(?:\s+代收割)?$/ : /^一键打理灵田$/).test(text)) {
@@ -30,6 +33,7 @@ export default onResponse(selects, async e => {
     if (loaded.handled) {
       return;
     }
+    treasureEffects = loaded.data.treasureEffects;
     loaded.data.message
       .split('\n')
       .filter(Boolean)
@@ -54,5 +58,6 @@ export default onResponse(selects, async e => {
   addOptions(quote, [{ label: companion ? '我的道侣' : '我的灵田', command: companion ? '/我的道侣' : '/我的灵田' }]);
   const md = Format.createMarkdown().addBlockquote(quote);
 
+  appendTreasureEffects(md, treasureEffects);
   void message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: `【${title}】`, content: md }));
 });

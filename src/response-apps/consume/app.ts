@@ -1,4 +1,5 @@
 import { consumeInputProblem } from '@src/response/consumeArguments';
+import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import { CONFIRM_KEYWORD, EMPTY_STRING, FIRST_ARG_INDEX, SECOND_ARG_INDEX } from '@src/constants';
 import { refineBackendSoulArtifact } from '@src/api/bot/soul-artifact-commands';
 import type { BackendRequestContext } from '@src/api/bot/context';
@@ -47,7 +48,7 @@ type Result =
     }
   | {
       code: 'OK';
-      data: { message: string; remainingQuantity?: number };
+      data: { message: string; remainingQuantity?: number; treasureEffects?: TreasureEffectNotice[] };
     }
   | {
       code: 'ERROR';
@@ -139,7 +140,10 @@ export default async function App(params: {
         return { code: 'FAIL', data: { message: generic.message } };
       }
 
-      return { code: 'OK', data: { message: generic.message, remainingQuantity: generic.remainingQuantity } };
+      return {
+        code: 'OK',
+        data: { message: generic.normalMessage ?? generic.message, remainingQuantity: generic.remainingQuantity, treasureEffects: generic.treasureEffects }
+      };
     }
 
     if (!itemIdOrName || itemIdOrName === EMPTY_STRING) {
@@ -182,7 +186,10 @@ export default async function App(params: {
       return { code: 'FAIL', data: { message: result.message } };
     }
 
-    return { code: 'OK', data: { message: result.message, remainingQuantity: result.remainingQuantity } };
+    return {
+      code: 'OK',
+      data: { message: result.normalMessage ?? result.message, remainingQuantity: result.remainingQuantity, treasureEffects: result.treasureEffects }
+    };
   } catch (error: any) {
     return {
       code: 'ERROR',

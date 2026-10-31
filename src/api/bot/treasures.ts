@@ -410,7 +410,9 @@ export function parseTreasureReceipt(value: unknown) {
   }
   if (item.kind === 'explore') {
     const count = integer(result.count);
-    const expandedPool = result.poolVersion === 'treasure-36-v2' && result.rulesVersion === 'treasure-v10-exploration-pity-20261029';
+    const expandedPool =
+      (result.poolVersion === 'treasure-36-v2' || result.poolVersion === 'treasure-36-maxed-v3') &&
+      result.rulesVersion === 'treasure-v10-exploration-pity-20261029';
 
     if (result.poolVersion !== undefined && result.poolVersion !== 'treasure-24-v1' && !expandedPool) {
       return invalid();

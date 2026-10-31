@@ -4,6 +4,7 @@ import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHe
 import { useMessage } from '@src/utils/useMessage';
 import { Format, type FormatMarkDown } from 'alemonjs';
 import { activeFeatureText, mentionsRetiredFeature } from './retiredFeatures';
+import { appendTreasureEffects } from './treasureEffects';
 
 export function presentMiddlewareReply(reply: RobotMiddlewareReply): RobotMiddlewareReply {
   return {
@@ -66,6 +67,7 @@ export async function sendMiddlewareReply(event: GameEvent, reply: RobotMiddlewa
       }
       md.addText(line);
     });
+    appendTreasureEffects(md, reply.treasureEffects);
     await message.send({ format: Format.create().addMarkdown(md) });
 
     return;
@@ -90,6 +92,7 @@ export async function sendMiddlewareReply(event: GameEvent, reply: RobotMiddlewa
     md.addNewline().addBlockquote(Format.createMarkdown().addText(reply.quote));
   }
   appendMiddlewareBlocks(md, reply.blocks);
+  appendTreasureEffects(md, reply.treasureEffects);
   appendMiddlewareAdvice(md, reply.advice);
   // Legacy servers also send page actions as buttons. Standard nav renders
   // those actions itself; retain only the module actions in the footer.

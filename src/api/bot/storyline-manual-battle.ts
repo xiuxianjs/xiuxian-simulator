@@ -1,4 +1,5 @@
 import { requestBackend, writeContext } from './client';
+import { parseNormalExperienceGained, parseTreasureEffects } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 
 export type ManualSkillOption = { type: 'normal' | 'battle' | 'divine'; name: string; available: boolean; reason?: string };
@@ -68,6 +69,12 @@ export function parseStorylineManualBattleState(value: unknown): StorylineManual
       })
     };
   }
+  const settlement = data.settlement === undefined || data.settlement === null ? data.settlement : record(data.settlement);
+
+  if (settlement) {
+    parseTreasureEffects(settlement.treasureEffects);
+    parseNormalExperienceGained(settlement.normalExperienceGained);
+  }
 
   return {
     sessionId: data.sessionId,
@@ -76,7 +83,7 @@ export function parseStorylineManualBattleState(value: unknown): StorylineManual
     ...(typeof data.winner === 'string' ? { winner: data.winner } : {}),
     events,
     ...(typeof data.logId === 'string' ? { logId: data.logId } : {}),
-    ...(data.settlement !== undefined ? { settlement: data.settlement } : {})
+    ...(settlement !== undefined ? { settlement } : {})
   };
 }
 export async function submitBackendStorylineManualChoice(

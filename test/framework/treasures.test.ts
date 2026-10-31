@@ -117,7 +117,9 @@ const preview = (kind = 'explore', input: Record<string, unknown> = {}) => {
   const unit = input.source === 'treasure_map' ? '张藏宝图' : input.source === 'spirit_crystal' ? '灵晶' : '道晶';
   const summaries: Record<string, string[]> = {
     explore: [input.source === 'free' ? '上古遗珍：使用每日免费探索次数1次，获得100点宝物经验；免费探索1次。' : `上古遗珍：消耗${amount}${unit}，获得${count * 100}点宝物经验；附赠${count}次探索。`, '每笔十连至少1次直接完整；完整结果按20／50／120保底，高档满足低档。每300次探索另获神话自选。'],
-    decompose: ['消耗「神农鼎」重复本体1件；获得220仙蕴。', '分解不能撤销，主件与气运不降低。'],
+    decompose: input.allMaxed
+      ? ['「神农鼎」12份（每份1碎片）× 22仙蕴＝264仙蕴', '1重复本体折合10份；按份数分解，拆开本体后的剩余碎片保留。', '共获得264仙蕴；主宝物不消耗，分解后不能撤销。']
+      : ['消耗「神农鼎」重复本体1件；获得220仙蕴。', '分解不能撤销，主件与气运不降低。'],
     synthesize: ['消耗「掌天瓶」碎片10片，合成1本体；已拥有时计为重复本体。'],
     upgrade: ['「神农鼎」等级1 → 2；消耗宝物经验20。', '升级提升战斗数值，生活特效保持当前品级。'],
     promote: ['「神农鼎」星尘1 → 星尘2；消耗重复本体1、仙蕴0。'],
@@ -145,7 +147,8 @@ const receipt = (kind = 'explore', input:Record<string,unknown> = {}) => ({
     experienceGranted: Number(input.count ?? 10)*100,
     rewards: Array.from({length:Number(input.count ?? 10)},(_,index)=>index===0 ? { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true, pullIndex: index + 1 } : { treasureId:101,name:'锈剑残片',rarity:1,kind:'fragment',quantity:1,newlyOwned:false,pullIndex:index+1 }),
     days: 2,
-    spiritCrystal: 4000
+    spiritCrystal: 4000,
+    ...(kind === 'decompose' && input.allMaxed ? { items: [{ treasureId: 504, kind: 'portion', quantity: 12, unitXianYun: 22, xianYun: 264 }], xianYun: 264 } : {})
   }
 });
 function facts(result: TestRunResult, expectedMessages = 1) {
@@ -259,16 +262,17 @@ for (const used of [false, true]) {
     const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
     const view = facts(result);
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
-    const top = nodes.filter(node => node.type === 'MD.button').slice(0, 4);
+    const top = nodes.filter(node => node.type === 'MD.button').slice(0, 5);
     assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/充值 日礼包', '/日常活跃'
+      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴', '/充值 日礼包', '/日常活跃'
     ]);
     const positions = top.map(button => nodes.indexOf(button));
     assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
-    assert.ok(nodes.slice(positions[1] + 1, positions[2]).filter(node => node.type === 'MD.newline').length >= 2);
-    assert.ok(!nodes.slice(positions[2] + 1, positions[3]).some(node => node.type === 'MD.newline'));
+    assert.ok(!nodes.slice(positions[1] + 1, positions[2]).some(node => node.type === 'MD.newline'));
+    assert.ok(nodes.slice(positions[2] + 1, positions[3]).filter(node => node.type === 'MD.newline').length >= 2);
+    assert.ok(!nodes.slice(positions[3] + 1, positions[4]).some(node => node.type === 'MD.newline'));
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
-    assert.ok(nodes.indexOf(quotes[0]) > positions[3]);
+    assert.ok(nodes.indexOf(quotes[0]) > positions[4]);
     assert.ok(!view.commands.includes('/周常活跃'));
     assert.ok(nodes.some(node => node.type === 'MD.bold' && node.value === '单发整品概率12%，十连至少出一个整品'));
     assert.match(view.text, /累计探索 300次 · 本轮 0\/300/);
@@ -306,10 +310,40 @@ for (const used of [false, true]) {
   });
 }
 
+for (const poolVersion of [undefined, 'treasure-36-v2', 'treasure-36-maxed-v3']) {
+  test(`仅新探索池公示同档满品降权：${poolVersion ?? 'legacy'}`, async t => {
+    const data = { ...relics, poolVersion };
+    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
+    const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' })));
+    const supported = poolVersion === 'treasure-36-maxed-v3';
+    assert.equal(view.text.includes('同档满品宝物的随机权重降低90%'), supported);
+    if (supported) {
+      assert.match(view.text, /未满品（含未拥有）权重不变，碎片和整品均适用/);
+      assert.match(view.text, /相对权重为未满品10、满品1/);
+      assert.match(view.text, /同档全部满品时仍均匀抽取/);
+      assert.match(view.text, /礼包、邮件和自选不受影响/);
+    }
+    assert.equal(requests.length, 1);
+    assert.ok(requests.every(request => request.path.endsWith('/ancient-relics.overview')));
+  });
+}
+
 test('探索空确认正文不生成可执行确认按钮', async t => {
   const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { ...preview('explore', { source: 'dao_crystal', count: 1 }), summary: [] }));
   const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 探索 道晶', platform: 'qq-bot' })));
   assert.ok(!view.commands.some(command => command.startsWith('/确认宝物 ')));
+  assert.equal(requests.length, 1);
+});
+
+test('分解说明准确告知满品一键包含重复本体与碎片', async t => {
+  const data = structuredClone(overview);
+  const maxed = data.items.find(item => item.definition.id === 504)!;
+  maxed.grade = maxed.definition.maxGrade;
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
+  const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解', platform: 'qq-bot' })));
+  assert.match(view.text, /一键只处理满品宝物的全部重复本体与碎片；未满品材料须手动指定/);
+  assert.doesNotMatch(view.text, /不处理碎片/);
+  assert.ok(view.commands.includes('/宝物 一键分解'));
   assert.equal(requests.length, 1);
 });
 
@@ -323,6 +357,7 @@ for (const [command, kind, input] of [
   ['/宝物 升品 504', 'promote', { treasureId: 504 }],
   ['/宝物 分解 本体 504 1', 'decompose', { items: [{treasureId:504,kind:'body',quantity:1}] }],
   ['/宝物 分解 碎片 604 2', 'decompose', { items: [{treasureId:604,kind:'fragment',quantity:2}] }],
+  ['/宝物 分解 份数 401 7', 'decompose', { items: [{treasureId:401,kind:'portion',quantity:7}] }],
   ['/宝物 一键分解', 'decompose', { allMaxed:true }],
   ['/上古遗珍 自选 604', 'select-mythic', { treasureId: 604 }],
   ['/灵脉租契 领取', 'claimLease', {}]
@@ -334,6 +369,7 @@ for (const [command, kind, input] of [
     const confirm = initial.commands.find(c => c.startsWith('/确认宝物 '));
     assert.equal(confirm, `/确认宝物 ${confirmationRef}`);
     previews.set(`${command}（确认预览）`, initial);
+    if (command === '/宝物 一键分解') assert.match(initial.text, /12份（每份1碎片）× 22仙蕴＝264仙蕴/);
     if (kind === 'explore') {
       assert.match(initial.text, /^操作确认\n/);
       assert.ok(initial.text.includes(preview(kind, input).summary[0]));

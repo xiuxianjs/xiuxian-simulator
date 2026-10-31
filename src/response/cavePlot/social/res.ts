@@ -69,6 +69,7 @@ export default onResponse(selects, async e => {
           Number(args.plotIndex)
         ),
         leadText: result.message,
+        treasureEffects: result.treasureEffects,
         footer: [
           { label: '查看信息', command: `/查看信息 ${result.ownerUid ?? targetUid}` },
           { label: '我的灵田', command: '/灵田' }

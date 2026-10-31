@@ -1,4 +1,5 @@
 import { repeatPresentationHeaders } from './repeat-presentation';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 import { logger } from 'alemonjs';
@@ -12,6 +13,9 @@ export type BackendDungeonChallenge = {
   battle: { winner: 'A' | 'B' | 'draw'; rounds: number };
   drops: Array<{ category: string; amount: number; currencyCode?: string; itemId?: number }>;
   rewardsByUser: Array<{
+    treasureEffects?: TreasureEffectNotice[];
+    normalExperienceGained?: number;
+    normalItems?: Array<{ category: string; name: string; amount: number }>;
     userId: number;
     eligible: boolean;
     noRewardReason?: string;
@@ -56,6 +60,9 @@ const rewards = (value: unknown): BackendDungeonChallenge['rewardsByUser'] => {
     };
 
     return {
+      treasureEffects: parseTreasureEffects(row.treasureEffects),
+      normalExperienceGained: parseNormalExperienceGained(row.normalExperienceGained),
+      normalItems: row.normalItems === undefined ? undefined : rewardList(row.normalItems),
       userId: row.userId,
       eligible: row.eligible,
       ...(typeof row.noRewardReason === 'string' ? { noRewardReason: row.noRewardReason } : {}),

@@ -1,5 +1,7 @@
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import type { RobotMiddlewareReply } from './middleware-entry';
+import { parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 import { parseBackendCaveOverview } from './cave-overview-queries';
@@ -96,6 +98,7 @@ export function parseBackendCaveCommand(value: unknown) {
   }
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
     message: data.message,
     ownerUid: typeof data.ownerUid === 'number' ? data.ownerUid : null,
     snapshotError: typeof data.snapshotError === 'string' ? data.snapshotError : null,
@@ -107,7 +110,7 @@ export function parseBackendCaveCommand(value: unknown) {
 }
 
 export function sendCaveCommandFallback(
-  result: { message: string; snapshotError: string | null },
+  result: { message: string; snapshotError: string | null; treasureEffects?: TreasureEffectNotice[] },
   bid: string | undefined,
   isPrivate: boolean,
   message: { send: (value: ReturnType<typeof FormatGui>) => unknown },
@@ -116,6 +119,7 @@ export function sendCaveCommandFallback(
 ) {
   const md = Format.createMarkdown().addText(result.message);
 
+  appendTreasureEffects(md, result.treasureEffects);
   if (result.snapshotError) {
     md.addNewline().addText(result.snapshotError);
   }

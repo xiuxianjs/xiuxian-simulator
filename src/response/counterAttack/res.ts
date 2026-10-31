@@ -1,4 +1,5 @@
 import { isPrivateEvent } from '@src/utils/privateEvent';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { pkOwnershipText } from '@src/api/bot/pk-receipt';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
@@ -111,13 +112,16 @@ export default onResponse(selects, async e => {
       rewards.push(`掉落：${d.droppedItem.name}×${d.droppedItem.quantity}（${d.droppedItem.category}）`);
     }
   }
-  if (d.expReward && d.expReward > 0) {
-    rewards.push(`修为 +${d.expReward}`);
+  const experience = d.normalExperienceGained ?? d.expReward;
+
+  if (d.normalExperienceGained !== undefined || experience > 0) {
+    rewards.push(`修为 +${experience}`);
   }
   if (rewards.length) {
     md.addNewline().addBlockquote(createQuoteMarkdown(rewards));
   }
 
+  appendTreasureEffects(md, d.treasureEffects);
   // 底部按钮
   md.addNewline();
 

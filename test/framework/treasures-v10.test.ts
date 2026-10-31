@@ -14,6 +14,24 @@ const expandedPool = 'treasure-36-v2';
 const confirmationRef = 'r1_1_b_mh9of000_0123456789abcdef01234567';
 const envelope = (result: ReturnType<typeof priorityResult> & { poolVersion?: string }) => ({ kind: 'explore', operationId: result.operationId, result });
 
+test('满品降权探索池接受36件新编号，拒绝错误概率规则与越界编号', () => {
+  for (const id of [105, 106, 205, 206, 305, 306, 405, 406, 505, 506, 605, 606]) {
+    const result = { ...priorityResult(), rulesVersion: version, poolVersion: 'treasure-36-maxed-v3' };
+    result.rewards[0] = { ...result.rewards[0], treasureId: id, rarity: Math.floor(id / 100), name: `宝物${id}` };
+    const decoded = parseTreasureReceipt(envelope(result));
+    assert.equal(decoded.result.poolVersion, 'treasure-36-maxed-v3');
+    assert.equal(decoded.result.rewards?.[0].treasureId, id);
+    for (const rulesVersion of ['treasure-v9-first-guards-merge-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-future-unknown']) {
+      assert.throws(() => parseTreasureReceipt(envelope({ ...result, rulesVersion })), { code: 'SDK_INVALID_RESPONSE' });
+    }
+  }
+  for (const id of [107, 607, 700]) {
+    const result = { ...priorityResult(), rulesVersion: version, poolVersion: 'treasure-36-maxed-v3' };
+    result.rewards[0] = { ...result.rewards[0], treasureId: id, rarity: Math.floor(id / 100) };
+    assert.throws(() => parseTreasureReceipt(envelope(result)), { code: 'SDK_INVALID_RESPONSE' });
+  }
+});
+
 for (const id of [105, 106, 205, 206, 305, 306, 405, 406, 505, 506, 605, 606]) test(`36件目录接受新编号${id}回执并保留pool`, () => {
   const result = { ...priorityResult(), rulesVersion: version, poolVersion: expandedPool };
   result.rewards[0] = { ...result.rewards[0], treasureId: id, rarity: Math.floor(id / 100), name: `宝物${id}` };

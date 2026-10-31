@@ -1,4 +1,5 @@
 import { requestBackend, writeContext } from './client';
+import { parseNormalExperienceGained, parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 
 type Row = Record<string, unknown>;
@@ -10,6 +11,8 @@ export type BackendTongtianBattle = {
   sideB: Array<{ name: string; hp: number; maxHp: number; isDead: boolean }>;
 };
 export type BackendTongtianChallenge = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   logId?: string;
   success: boolean;
   message: string;
@@ -34,6 +37,8 @@ export type BackendTongtianView = {
   sweepTargets: BackendTongtianEntry[];
 };
 export type BackendTongtianSweep = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   targetRank: number;
   sweepCount: number;
   qiSpent: number;
@@ -53,6 +58,8 @@ export type BackendTongtianBatchEvent = {
   challenge?: BackendTongtianChallenge;
 };
 export type BackendTongtianBatch = {
+  treasureEffects?: TreasureEffectNotice[];
+  normalExperienceGained?: number;
   startRank: number;
   finalRank: number;
   rounds: BackendTongtianChallenge[];
@@ -141,6 +148,8 @@ export function parseTongtianChallenge(value: unknown): BackendTongtianChallenge
   const data = row(value, '通天塔挑战响应不完整');
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     ...(typeof data.logId === 'string' ? { logId: data.logId } : {}),
     success: bool(data.success, 'success'),
     message: string(data.message, 'message'),
@@ -222,9 +231,11 @@ export function parseTongtianSweep(value: unknown): BackendTongtianSweep {
   const data = row(value, '通天塔扫荡响应不完整');
 
   return {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     targetRank: integer(data.targetRank, 'targetRank', 1),
     sweepCount: integer(data.sweepCount, 'sweepCount', 1),
-    qiSpent: integer(data.qiSpent, 'qiSpent', 1),
+    qiSpent: integer(data.qiSpent, 'qiSpent'),
     experienceGained: integer(data.experienceGained, 'experienceGained'),
     baseExperience: integer(data.baseExperience, 'baseExperience'),
     experienceBonusText: string(data.experienceBonusText, 'experienceBonusText'),
@@ -264,6 +275,8 @@ export function parseTongtianBatch(value: unknown): BackendTongtianBatch {
     return parsed;
   });
   const output: BackendTongtianBatch = {
+    treasureEffects: parseTreasureEffects(data.treasureEffects),
+    normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
     startRank: integer(data.startRank, 'startRank', 1),
     finalRank: integer(data.finalRank, 'finalRank', 1),
     rounds: array(data.rounds, 'rounds').map(parseTongtianChallenge),

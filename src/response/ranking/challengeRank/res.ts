@@ -1,4 +1,5 @@
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotTowerChallenge, rankingChallengeArgument } from '@src/api/bot/ranking-robot-query';
@@ -53,11 +54,14 @@ export default onResponse(selects, async e => {
     return;
   }
   const data = result.data;
+  const experienceText = data.normalExperienceGained === undefined
+    ? `${data.experienceGained}${data.experienceBonusText}` : String(data.normalExperienceGained);
 
   md.addBold(data.battle.winner === 'A' ? '挑战成功！' : '挑战失败').addNewline();
   md.addText(data.message).addNewline();
-  md.addText(`修为 +${data.experienceGained}${data.experienceBonusText}  声望 +${data.reputationGained}`).addNewline();
+  md.addText(`修为 +${experienceText}  声望 +${data.reputationGained}`).addNewline();
   md.addText(`总回合数：${data.battle.rounds}；胜利方：${data.battle.winner === 'A' ? '你方' : '对方'}`);
+  appendTreasureEffects(md, data.treasureEffects);
   void message.send(
     await BattleFormatGui(
       {

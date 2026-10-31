@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
 import { useEvent } from 'alemonjs';
 import { parseMeditationEnd } from '@src/api/bot/meditation';
@@ -58,7 +59,7 @@ export default onResponse(selects, async e => {
   const quote = Format.createMarkdown();
 
   quote.addText(`已修炼 ${data.elapsedText}`).addNewline();
-  quote.addText(`本次获得修为：${data.creditedExperience ?? data.expGained ?? 0}`).addNewline();
+  quote.addText(`本次获得修为：${data.normalExperienceGained ?? data.creditedExperience ?? data.expGained ?? 0}`).addNewline();
   quote.addText(`本次获得真气：${data.qiGained ?? 0}`);
   if (data.boost) {
     quote.addNewline().addText(`本次加速费用：${data.boost.consumedStone}灵石`);
@@ -75,10 +76,13 @@ export default onResponse(selects, async e => {
   if (data.rewardNotice) {
     quote.addNewline().addText(data.rewardNotice);
   }
-  if (await sendOnboardingFollowup(e, business, '闭关结束', quote)) {
+  const md = Format.createMarkdown().addBlockquote(quote);
+
+  appendTreasureEffects(md, data.treasureEffects);
+  if (await sendOnboardingFollowup(e, business, '闭关结束', md)) {
     return;
   }
-  quote.addNewline().addButton(markdownButtonLabel('继续闭关'), { data: '/闭关' });
+  md.addNewline().addButton(markdownButtonLabel('继续闭关'), { data: '/闭关' });
 
-  await message.send(FormatGui({ isPrivate, bid, title: '闭关结束', content: Format.createMarkdown().addBlockquote(quote) }));
+  await message.send(FormatGui({ isPrivate, bid, title: '闭关结束', content: md }));
 });

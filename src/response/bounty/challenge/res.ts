@@ -1,4 +1,5 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { useMessage } from '@src/utils/useMessage';
 import { selects } from '@src/response/config';
@@ -61,8 +62,10 @@ export default onResponse(selects, async e => {
       .addNewline()
       .addText(`消耗元力：${data.qiCost}，今日剩余：${data.remainingCount}/${data.dailyAcceptLimit}`)
   );
-  if (data.experienceGained > 0) {
-    md.addNewline().addText(`📖 获得修为：+${data.experienceGained}`);
+  const experience = data.normalExperienceGained ?? data.experienceGained;
+
+  if (data.normalExperienceGained !== undefined || experience > 0) {
+    md.addNewline().addText(`📖 获得修为：+${experience}`);
   }
   if (data.won && data.rewardAmount > 0) {
     md.addNewline().addBlockquote(
@@ -76,6 +79,7 @@ export default onResponse(selects, async e => {
   } else {
     appendMiddlewareAdvice(md, bountyRecoveryTips('bounty.accept', '接赏战败'));
   }
+  appendTreasureEffects(md, data.treasureEffects);
   await message.send(
     await BattleFormatGui(
       {

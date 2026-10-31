@@ -1,4 +1,5 @@
 import { parsePKReceipt } from './pk-receipt';
+import { parseNormalExperienceGained, parseTreasureEffects } from './treasure-effects';
 import type { BackendRequestContext } from './context';
 import { requestBackend, writeContext } from './client';
 
@@ -39,6 +40,8 @@ export function parseBackendRobbery(result: unknown): any {
   }
 
   parsePKReceipt(receipt);
+  parseTreasureEffects(receipt.treasureEffects);
+  parseNormalExperienceGained(receipt.normalExperienceGained);
 
   return result;
 }

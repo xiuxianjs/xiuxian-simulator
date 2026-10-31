@@ -3,6 +3,7 @@ import {
   parseSpiritVein,
   parseTreasureConfirmation,
   parseTreasureOverview,
+  parseTreasureCatalog,
   parseTreasureReceipt,
   parseTreasureDailyPacks,
   parseDailyPackFreePreview,
@@ -20,7 +21,14 @@ import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { buildDailyPackProductPage, buildSpiritVeinProductBlock, dailyPackSku } from '../recharge/productView';
-import { buildOwnedTreasurePage, buildTreasureFortunePage, buildTreasureEffectsPage, buildTreasureDetailPage } from './treasurePages';
+import {
+  buildOwnedTreasurePage,
+  buildTreasureCatalogPage,
+  buildTreasureDecompositionPage,
+  buildTreasureFortunePage,
+  buildTreasureEffectsPage,
+  buildTreasureDetailPage
+} from './treasurePages';
 import { buildTreasureConfirmationView } from './confirmationView';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
@@ -260,68 +268,58 @@ export default onResponse(selects, async event => {
 
         return;
       }
+      if (action === '分解' && (args.length === 1 || args[1] === '品质')) {
+        if (
+          args.length !== 1 &&
+          (args.length < 3 || args.length > 4 || !/^[1-6]$/.test(args[2]) || (args[3] !== undefined && !/^p[1-9]\d{0,8}$/.test(args[3])))
+        ) {
+          quote(['参数错误：/宝物 分解，或 /宝物 分解 品质 <1-6> [pN]。']);
+          await send();
+
+          return;
+        }
+        const data = await call('treasures.overview', {}, parseTreasureOverview);
+
+        if (data) {
+          title = '宝物分解';
+          content = buildTreasureDecompositionPage(data, { rarity: args[1] === '品质' ? Number(args[2]) : undefined, page: Number(args[3]?.slice(1) ?? 1) });
+          await send();
+        }
+
+        return;
+      }
       if (action === '分解' && args.length > 1) {
         const id = treasureID(args[2]);
         const quantity = Number(args[3]);
 
         if (
           args.length !== 4 ||
-          !['本体', '碎片'].includes(args[1]) ||
+          !['本体', '碎片', '份数'].includes(args[1]) ||
           id === undefined ||
           !/^\d+$/.test(args[3]) ||
           !Number.isSafeInteger(quantity) ||
           quantity < 1
         ) {
-          quote(['参数错误：/宝物 分解 本体|碎片 <编号> <数量>。']);
+          quote(['参数错误：/宝物 分解 份数 <编号> <份数>；旧本体|碎片单位仍可使用。']);
           await send();
 
           return;
         }
-        await preview('decompose', { items: [{ treasureId: id, kind: args[1] === '本体' ? 'body' : 'fragment', quantity }] });
+        await preview('decompose', { items: [{ treasureId: id, kind: args[1] === '本体' ? 'body' : args[1] === '份数' ? 'portion' : 'fragment', quantity }] });
 
         return;
       }
-      if ((action === '分解' || action === '记录') && args.length === 1) {
+      if (action === '记录' && args.length === 1) {
         const data = await call('treasures.overview', {}, parseTreasureOverview);
 
         if (!data) {
           return;
         }
-        if (action === '记录') {
-          for (const record of data.records) {
-            quote([record.createdAt, record.message, `操作编号 ${record.operationId}`]);
-          }
-          if (!data.records.length) {
-            quote(['暂无宝物操作记录。']);
-          }
-        } else {
-          quote(
-            [
-              '主宝物不可分解；只消耗重复本体或余片。仙蕴分解无每日或每周获取上限，确认后不能撤销。',
-              '一键只处理满阶主宝物的重复本体，不处理碎片；未满阶材料须手动指定。'
-            ],
-            [{ label: '一键清单预览', command: '/宝物 一键分解' }]
-          );
-          for (const item of data.items) {
-            const rate = data.decompositionValues.find(v => v.rarity === item.definition.rarity);
-
-            if (!rate) {
-              continue;
-            }
-            for (const kind of ['本体', '碎片'] as const) {
-              const available = kind === '本体' ? item.duplicates : item.fragments;
-
-              if (!available) {
-                continue;
-              }
-              quote(
-                [
-                  `${item.definition.id} ${item.definition.name} ${kind} · 库存${available} · 每份${kind === '本体' ? rate.bodyXianYun : rate.fragmentXianYun}仙蕴`
-                ],
-                [{ label: '输入数量预览', command: `/宝物 分解 ${kind} ${item.definition.id} 1` }]
-              );
-            }
-          }
+        for (const record of data.records) {
+          quote([record.createdAt, record.message, `操作编号 ${record.operationId}`]);
+        }
+        if (!data.records.length) {
+          quote(['暂无宝物操作记录。']);
         }
         await send();
 
@@ -388,6 +386,32 @@ export default onResponse(selects, async event => {
       return;
     }
     if (command === '上古遗珍') {
+      if (args[0] === '图鉴') {
+        const filtered = args[1] === '品质';
+        const pageArgument = filtered ? args[3] : args[1];
+        const validPage = pageArgument === undefined || /^p[1-9]\d{0,8}$/.test(pageArgument);
+
+        if (
+          !validPage ||
+          (filtered ? args.length < 3 || args.length > 4 || !/^[1-6]$/.test(args[2]) : args.length > 2)
+        ) {
+          quote(['参数错误：/上古遗珍 图鉴，或 /上古遗珍 图鉴 品质 <1-6> [pN]。']);
+          await send();
+
+          return;
+        }
+        const data = await call('treasures.catalog', {}, parseTreasureCatalog);
+
+        if (data) {
+          title = '宝物图鉴';
+          content = buildTreasureCatalogPage(data, filtered
+            ? { rarity: Number(args[2]), page: Number(pageArgument?.slice(1) ?? 1) }
+            : pageArgument === undefined ? {} : Number(pageArgument.slice(1)));
+          await send(navigation.slice(0, 2));
+        }
+
+        return;
+      }
       if (args[0] === '领取全包' && args.length === 1) {
         const data = await call('treasures.daily-pack-free-preview', {}, parseDailyPackFreePreview);
 
@@ -437,7 +461,7 @@ export default onResponse(selects, async event => {
         return;
       }
       if (args.length > 1 || (args.length && !['概率', '记录', '自选'].includes(args[0]))) {
-        quote(['参数错误：/上古遗珍 [概率|记录|自选]，探索请选灵晶、道晶或藏宝图。']);
+        quote(['参数错误：/上古遗珍 [图鉴|概率|记录|自选]，探索请选灵晶、道晶或藏宝图。']);
         await send();
 
         return;
@@ -454,17 +478,35 @@ export default onResponse(selects, async event => {
         ]);
       }
       if (args[0] === '概率') {
+        if (data.poolVersion === 'treasure-36-maxed-v3') {
+          quote([
+            '命中稀有度后，同档满品宝物的随机权重降低90%；未满品（含未拥有）权重不变，碎片和整品均适用。',
+            '相对权重为未满品10、满品1；同档全部满品时仍均匀抽取。',
+            '只调整上古遗珍的同档选名，稀有度与整品概率沿用原规则，礼包、邮件和自选不受影响。'
+          ]);
+        }
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
-        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(data.rulesVersion ?? '');
+        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(
+          data.rulesVersion ?? ''
+        );
         const actualPity = data.rulesVersion === 'treasure-v10-exploration-pity-20261029';
         const highPity = data.pity.filter(item => item.rarity >= 4);
 
         if (
-          !['treasure-v5-priority-20261029', 'treasure-v6-shape12-20261029', 'treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v9-first-guards-merge-20261029', 'treasure-v10-exploration-pity-20261029'].includes(data.rulesVersion ?? '') ||
+          ![
+            'treasure-v5-priority-20261029',
+            'treasure-v6-shape12-20261029',
+            'treasure-v7-v5-shape12-20261029',
+            'treasure-v8-first-guards-20261029',
+            'treasure-v9-first-guards-merge-20261029',
+            'treasure-v10-exploration-pity-20261029'
+          ].includes(data.rulesVersion ?? '') ||
           rates.length !== 3 ||
           new Set(rates.map(rate => rate.rarity)).size !== 3 ||
-          (actualPity && (highPity.length !== 3 || new Set(highPity.map(pity => pity.rarity)).size !== 3 ||
-            highPity.some(pity => pity.scope !== 'actual_exploration' || pity.hardPity < 1 || pity.counter > pity.hardPity + 3))) ||
+          (actualPity &&
+            (highPity.length !== 3 ||
+              new Set(highPity.map(pity => pity.rarity)).size !== 3 ||
+              highPity.some(pity => pity.scope !== 'actual_exploration' || pity.hardPity < 1 || pity.counter > pity.hardPity + 3))) ||
           rates.some(
             rate => rate.probability > 1 ||
               (byMode
@@ -485,14 +527,20 @@ export default onResponse(selects, async event => {
             .addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`)
             .addNewline()
             .addNewline();
-          content.addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品').addNewline().addNewline();
-          if (actualPity) { content.addText('保底按实际探索累计').addNewline().addNewline(); }
+          content
+            .addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品')
+            .addNewline()
+            .addNewline();
+          if (actualPity) {
+            content.addText('保底按实际探索累计').addNewline().addNewline();
+          }
           for (const rate of rates) {
             const counters = data.pity.filter(item => item.rarity === rate.rarity);
             const pity = counters.length === 1 ? counters[0] : undefined;
-            const progress = pity && pity.hardPity > 0 && (actualPity ? pity.counter <= pity.hardPity + 3 : pity.counter < pity.hardPity)
-              ? `保底(${pity.counter}/${pity.hardPity})${actualPity && pity.counter >= pity.hardPity ? ' · 已到保底／高档优先待发' : ''}`
-              : '保底信息暂未同步';
+            const progress =
+              pity && pity.hardPity > 0 && (actualPity ? pity.counter <= pity.hardPity + 3 : pity.counter < pity.hardPity)
+                ? `保底(${pity.counter}/${pity.hardPity})${actualPity && pity.counter >= pity.hardPity ? ' · 已到保底／高档优先待发' : ''}`
+                : '保底信息暂未同步';
 
             const tenProbability = rate.tenProbability === undefined ? '暂未同步' : probability(rate.tenProbability);
             const block = Format.createMarkdown()
@@ -538,7 +586,8 @@ export default onResponse(selects, async event => {
         for (const row of [
           [
             { label: '概率公示', command: '/上古遗珍 概率' },
-            { label: '探索记录', command: '/上古遗珍 记录' }
+            { label: '探索记录', command: '/上古遗珍 记录' },
+            { label: '宝物图鉴', command: '/上古遗珍 图鉴' }
           ],
           [
             { label: '每日礼包', command: '/充值 日礼包' },
@@ -561,22 +610,27 @@ export default onResponse(selects, async event => {
         }
         content.addNewline().addNewline();
         const spiritTenReady = data.spiritTenCost === (data.spiritTenDiscountAvailable ? 6000 : 12000);
-        const daoTenReady = typeof data.daoTenDiscountAvailable === 'boolean'
-          && data.daoTenCost === (data.daoTenDiscountAvailable ? 60 : 108);
+        const daoTenReady = typeof data.daoTenDiscountAvailable === 'boolean' && data.daoTenCost === (data.daoTenDiscountAvailable ? 60 : 108);
 
         for (const group of [
           {
             name: '灵晶',
-            title: !spiritTenReady ? '灵晶探索 · 十连报价暂未取得'
-              : data.spiritTenDiscountAvailable ? '灵晶探索 · 每日首次十连半价' : '灵晶探索 · 今日首十连半价已使用 · 后续原价',
+            title: !spiritTenReady
+              ? '灵晶探索 · 十连报价暂未取得'
+              : data.spiritTenDiscountAvailable
+                ? '灵晶探索 · 每日首次十连半价'
+                : '灵晶探索 · 今日首十连半价已使用 · 后续原价',
             single: 1200,
             ten: spiritTenReady ? data.spiritTenCost : undefined,
             unavailableReason: undefined
           },
           {
             name: '道晶',
-            title: !daoTenReady ? '道晶探索 · 十连报价暂未取得'
-              : data.daoTenDiscountAvailable ? '道晶探索 · 每日首次十连半价' : '道晶探索 · 今日首十连半价已使用 · 后续9折',
+            title: !daoTenReady
+              ? '道晶探索 · 十连报价暂未取得'
+              : data.daoTenDiscountAvailable
+                ? '道晶探索 · 每日首次十连半价'
+                : '道晶探索 · 今日首十连半价已使用 · 后续9折',
             single: 12,
             ten: daoTenReady ? data.daoTenCost : undefined,
             unavailableReason: data.daoTenUnavailableReason
@@ -590,7 +644,9 @@ export default onResponse(selects, async event => {
             { label: '单次探索', command: '探索', cost: group.single },
             { label: '十连探索', command: '十连探索', cost: group.ten }
           ].entries()) {
-            if (index > 0) { block.addNewline(); }
+            if (index > 0) {
+              block.addNewline();
+            }
             if (option.cost === undefined || option.cost <= 0) {
               block.addText(group.unavailableReason ?? '十连报价暂未取得，请刷新后再试。');
               continue;
@@ -600,7 +656,12 @@ export default onResponse(selects, async event => {
           }
           content.addBlockquote(block).addNewline();
         }
-        content.addBold(`${data.rulesVersion === 'treasure-v10-exploration-pity-20261029' ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`).addNewline().addNewline();
+        content
+          .addBold(
+            `${data.rulesVersion === 'treasure-v10-exploration-pity-20261029' ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
+          )
+          .addNewline()
+          .addNewline();
         content.addText('当前账户').addNewline().addNewline();
         quote([`灵晶 ${number(data.balances.spiritCrystal)} · 道晶 ${number(data.balances.daoCrystal)} · 藏宝图 ${data.balances.treasureMaps}张`]);
         await send(navigation.slice(0, 2));

@@ -152,6 +152,7 @@ export default onResponse(selects, async e => {
       plots: presentBackendCavePlots(overview.plots),
       cultivationCostText: overview.cultivationCostText,
       leadText: result.message,
+      treasureEffects: result.treasureEffects,
       advice: receiptAdvice(result.message),
       page: cavePageForPlot(
         overview.plots.filter(plot => plot.plotState !== 'locked'),

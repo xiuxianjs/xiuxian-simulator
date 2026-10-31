@@ -1,4 +1,5 @@
 import { formatNumber } from '@src/utils/formatHelper';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 扫荡排名 — 选择比自己排名低的对手进行扫荡
@@ -94,14 +95,17 @@ export default onResponse(selects, async e => {
 
   {
     const md = Format.createMarkdown();
+    const experienceText = result.data.normalExperienceGained === undefined
+      ? `${result.data.experienceGained}${result.data.experienceBonusText}` : String(result.data.normalExperienceGained);
 
     md.addBold('通天塔 · 扫荡').addNewline().addNewline();
     md.addBlockquote(
       Format.createMarkdown()
         .addText(`扫荡次数：${result.data.sweepCount}次`)
         .addNewline()
-        .addText(`获得修为：+${result.data.experienceGained}${result.data.experienceBonusText}  声望：+${result.data.reputationGained}`)
+        .addText(`获得修为：+${experienceText}  声望：+${result.data.reputationGained}`)
     );
+    appendTreasureEffects(md, result.data.treasureEffects);
     void message.send(
       FormatGui({
         isPrivate,
