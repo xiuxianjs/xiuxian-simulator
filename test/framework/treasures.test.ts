@@ -276,9 +276,9 @@ for (const used of [false, true]) {
     assert.ok(nodes.indexOf(quotes[0]) > positions[5]);
     assert.ok(!view.commands.includes('/周常活跃'));
     assert.ok(nodes.some(node => node.type === 'MD.bold' && node.value === '单发整品概率12%，十连至少出一个整品'));
-    assert.match(view.text, /累计探索 300次 · 本轮 0\/300/);
+    assert.match(view.text, /本轮 0\/300/);
     assert.equal(view.text.match(/神话自选待领取/g)?.length ?? 0, used ? 0 : 1);
-    assert.doesNotMatch(view.text, /可领取神话自选|来自邮件|每笔十连至少/);
+    assert.doesNotMatch(view.text, /累计探索|可领取神话自选|来自邮件|每笔十连至少/);
     assert.equal(view.commands.includes('/上古遗珍 自选'), !used);
     assert.equal(view.commands.includes('/上古遗珍 免费探索'), !used);
     assert.match(view.text, used ? /每日免费探索：已使用/ : /‹每日免费探索›/);

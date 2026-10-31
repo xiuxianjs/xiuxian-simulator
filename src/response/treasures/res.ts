@@ -538,7 +538,7 @@ export default onResponse(selects, async event => {
       }
       if (args.length && args[0] !== '概率') {
         quote([
-          `累计探索 ${data.totalExplorations}次 · 本轮 ${data.milestoneProgress}/300`,
+          `本轮 ${data.milestoneProgress}/300`,
           `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`
         ]);
       }
@@ -661,7 +661,7 @@ export default onResponse(selects, async event => {
           }
           content.addNewline().addNewline();
         }
-        quote([`累计探索 ${data.totalExplorations}次 · 本轮 ${data.milestoneProgress}/300`]);
+        quote([`本轮 ${data.milestoneProgress}/300`]);
         if (data.pendingSelections) {
           quote([`神话自选待领取 ${data.pendingSelections}份`], [{ label: '选择神话', command: '/上古遗珍 自选' }]);
         }
