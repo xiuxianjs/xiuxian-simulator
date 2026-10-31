@@ -123,7 +123,12 @@ export default onResponse(selects, async event => {
     return response.handled ? undefined : response.data;
   };
   const preview = async (kind: TreasurePreviewKind, input: Record<string, unknown> = {}) => {
-    const data = await call('treasures.preview', { kind, ...input }, parseTreasureConfirmation);
+    const data = await call(
+      'treasures.preview',
+      { kind, ...input },
+      parseTreasureConfirmation,
+      kind === 'merchant-exchange' ? createBackendRequestContext(event, 'treasures.preview') : undefined
+    );
 
     if (!data) {
       return;

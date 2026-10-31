@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { once } from 'node:events';
+import { createServer } from 'node:http';
+import type { TestContext } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
-import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
+import { createTestApp, inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import { parseTreasureMerchant } from '../../src/api/bot/treasures';
 import handler from '../../src/response/treasures/res';
 import { matchesGameCommand } from '../../src/router';
-import { businessEnvelope, gameFixture } from './fixture';
+import { businessEnvelope, gameFixture, type BusinessRequest } from './fixture';
+import { createBackendRequestContext } from '../../src/api/bot/context';
+import { businessInputFromEvent } from '../../src/api/bot/middleware-entry';
 
 const confirmationRef = 'r1_1_b_mh9of000_0123456789abcdef01234567';
 const operationId = 'merchant-frozen-original';
@@ -208,3 +213,160 @@ test('商店解析拒绝重复藏宝图和不安全价格，支持最终不限�
   assert.equal(result.products[0].remaining, null);
   assert.equal(result.products[0].maxQuantity, 1000);
 });
+
+// Match the shared HTTP scope: the key includes the actor, while the request
+// fingerprint includes both the operation path and the original body.
+async function merchantReplayFixture(t: TestContext) {
+  const requests: BusinessRequest[] = [];
+  const ledger = new Map<string, { fingerprint: string; payload: string }>();
+  const settled = new Set<string>();
+  let xianYun = 5000;
+  let treasureMaps = 0;
+  let conflicts = 0;
+  const server = createServer(async (req, res) => {
+    try {
+      req.setEncoding('utf8');
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const request = { path: req.url ?? '', bid: String(req.headers['x-bid'] ?? ''), idempotencyKey: String(req.headers['idempotency-key'] ?? ''), body: JSON.parse(raw || '{}') };
+      requests.push(request);
+      assert.ok(request.idempotencyKey, '实际请求必须携带幂等键');
+      res.setHeader('Content-Type', 'application/json');
+      const key = JSON.stringify([request.bid, request.idempotencyKey]);
+      const fingerprint = JSON.stringify([req.method, request.path, raw]);
+      const saved = ledger.get(key);
+      if (saved) {
+        if (saved.fingerprint !== fingerprint) {
+          conflicts++;
+          res.statusCode = 409;
+          res.end(JSON.stringify({ error: { code: 'IDEMPOTENCY_KEY_REUSED', message: 'Idempotency-Key 已用于其他请求' } }));
+        } else res.end(saved.payload);
+        return;
+      }
+      let data: unknown;
+      if (request.path.endsWith('/treasures.merchant')) data = { ...merchant(), xianYun };
+      else if (request.path.endsWith('/treasures.preview')) {
+        assert.equal((request.body.arguments as Record<string, unknown>).kind, 'merchant-exchange');
+        data = preview;
+      } else if (request.path.endsWith('/treasures.confirm')) {
+        assert.equal((request.body.arguments as Record<string, unknown>).confirmationRef, confirmationRef);
+        if (!settled.has(operationId)) {
+          xianYun -= 30;
+          treasureMaps += 3;
+          settled.add(operationId);
+        }
+        data = { kind: 'merchant-exchange', operationId, result: { operationId, message: '兑换藏宝图3张，消耗30仙蕴。' } };
+      } else throw new Error(`Unexpected merchant request ${request.path}`);
+      const payload = JSON.stringify({ data: businessEnvelope(request.bid, data) });
+      ledger.set(key, { fingerprint, payload });
+      res.end(payload);
+    } catch {
+      res.statusCode = 500;
+      res.end(JSON.stringify({ error: { code: 'FIXTURE_FAILED', message: '模拟请求处理失败' } }));
+    }
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const address = server.address();
+  assert.ok(address && typeof address !== 'string');
+  const url = `http://127.0.0.1:${address.port}`;
+  const app = createTestApp({ config: {
+    processor: { repeated_user_time: 0 }, 'qq-bot': { app_id: '100017' },
+    'xiuxian-game': { backend: { api_url: url, robot_auth_token: 'offline-fixture-token' } }
+  } });
+  t.after(async () => {
+    try { await app.dispose(); } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    }
+  });
+  return { app, requests, url, state: () => ({ xianYun, treasureMaps, settled: settled.size, conflicts, ledger: ledger.size }) };
+}
+
+for (const isPrivate of [true, false]) {
+  test(`商人查询与兑换预览独立幂等，整条消息重投稳定 private=${isPrivate}`, async t => {
+    const { app, requests, state } = await merchantReplayFixture(t);
+    const command = '/上古遗珍 兑换 treasure_map 3';
+    const options = { text: command, platform: 'qq-bot', messageId: 'merchant-exchange-original' };
+    const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage(options);
+    for (let i = 0; i < 2; i++) {
+      const view = delivered(await app.runHandler(handler, event), command);
+      assert.match(view.text, /消耗30仙蕴/);
+      assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
+      assert.doesNotMatch(view.text, /Idempotency-Key/);
+    }
+    assert.deepEqual(requests.map(request => request.path.split('/').at(-1)), ['treasures.merchant', 'treasures.preview', 'treasures.merchant', 'treasures.preview']);
+    assert.notEqual(requests[0].idempotencyKey, requests[1].idempotencyKey);
+    assert.equal(requests[0].idempotencyKey, createBackendRequestContext(event).idempotencyKey, '商店读取保留旧事件键');
+    assert.equal(requests[1].idempotencyKey, createBackendRequestContext(event, 'treasures.preview').idempotencyKey);
+    assert.deepEqual(requests.slice(2).map(request => request.idempotencyKey), requests.slice(0, 2).map(request => request.idempotencyKey));
+    assert.deepEqual(state(), { xianYun: 5000, treasureMaps: 0, settled: 0, conflicts: 0, ledger: 2 });
+  });
+
+  test(`确认与商店刷新独立幂等，原引用换消息确认只到账一次 private=${isPrivate}`, async t => {
+    const { app, requests, state } = await merchantReplayFixture(t);
+    const command = `/确认宝物 ${confirmationRef}`;
+    const options = { text: command, platform: 'qq-bot', messageId: 'merchant-confirm-original' };
+    const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage(options);
+    const nextOptions = { ...options, messageId: 'merchant-confirm-retry-new-message' };
+    const retry = isPrivate ? app.events.privateMessage(nextOptions) : app.events.groupMessage(nextOptions);
+    for (const input of [event, event, retry]) {
+      const result = await app.runHandler(handler, input);
+      const view = delivered(result, command, 2);
+      assert.match(inspectMessage(result.messages[0].nodes).text, /兑换藏宝图3张/);
+      assert.match(view.text, /仙蕴：4970/);
+      assert.doesNotMatch(view.text, /Idempotency-Key/);
+    }
+    assert.notEqual(requests[0].idempotencyKey, requests[1].idempotencyKey);
+    assert.equal(requests[0].idempotencyKey, createBackendRequestContext(event).idempotencyKey, '确认写操作仍保留原事件键');
+    assert.deepEqual(requests.slice(2, 4).map(request => request.idempotencyKey), requests.slice(0, 2).map(request => request.idempotencyKey));
+    assert.notEqual(requests[4].idempotencyKey, requests[0].idempotencyKey);
+    assert.ok(requests.filter(request => request.path.endsWith('/treasures.confirm')).every(request => (request.body.arguments as Record<string, unknown>).confirmationRef === confirmationRef));
+    assert.deepEqual(state(), { xianYun: 4970, treasureMaps: 3, settled: 1, conflicts: 0, ledger: 4 });
+  });
+}
+
+test('已缓存商店读取的旧失败消息可用原MessageId重新进入兑换预览', async t => {
+  const { app, requests, url, state } = await merchantReplayFixture(t);
+  const command = '/上古遗珍 兑换 treasure_map 3';
+  const event = app.events.privateMessage({ text: command, platform: 'qq-bot', messageId: 'merchant-before-upgrade-failed' });
+  const context = createBackendRequestContext(event);
+  const response = await fetch(url + '/api/v2/robot/business/treasures.merchant', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bid': event.UserId, 'Idempotency-Key': context.idempotencyKey! },
+    body: JSON.stringify({ ...businessInputFromEvent(event), arguments: {} })
+  });
+  assert.equal(response.status, 200);
+  await response.json();
+  const view = delivered(await app.runHandler(handler, event), command);
+  assert.match(view.text, /消耗30仙蕴/);
+  assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
+  assert.equal(requests[1].idempotencyKey, requests[0].idempotencyKey, '复用已缓存的原读取回执');
+  assert.notEqual(requests[2].idempotencyKey, requests[0].idempotencyKey);
+  assert.deepEqual(state(), { xianYun: 5000, treasureMaps: 0, settled: 0, conflicts: 0, ledger: 2 });
+});
+
+test('同一幂等键更换同业务参数仍返回409，不放宽重复请求保护', async t => {
+  const { app, requests, url, state } = await merchantReplayFixture(t);
+  await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍 秘宝商人', platform: 'qq-bot' }));
+  const original = requests[0];
+  const response = await fetch(url + original.path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Bid': original.bid, 'Idempotency-Key': original.idempotencyKey },
+    body: JSON.stringify({ ...original.body, arguments: { quantity: 2 } })
+  });
+  assert.equal(response.status, 409);
+  const body = await response.json() as { error: { code: string } };
+  assert.equal(body.error.code, 'IDEMPOTENCY_KEY_REUSED');
+  assert.equal(state().conflicts, 1);
+  assert.equal(state().settled, 0);
+});
+
+for (const [command, kind] of [['/宝物 升级 401', 'upgrade'], ['/上古遗珍 免费探索', 'explore']] as const) {
+  test(`其他宝物预览保留原事件幂等键：${kind}`, async t => {
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { ...preview, kind, summary: ['按本次预览确认操作。'] }));
+    const event = app.events.privateMessage({ text: command, platform: 'qq-bot' });
+    delivered(await app.runHandler(handler, event), command);
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].idempotencyKey, createBackendRequestContext(event).idempotencyKey);
+    assert.equal((requests[0].body.arguments as Record<string, unknown>).kind, kind);
+  });
+}
