@@ -150,3 +150,27 @@ test('未决订单保留原单入口，不生成额外购买按钮', async t => 
   assert.ok(view.commands.includes('/我的订单'));
   assert.ok(view.text.includes('TD-original'));
 });
+
+for (const free of [false, true]) {
+  test(`周期旧单在每日商品页展示原单，并保留服务端允许的免费权益 free=${free}`, async t => {
+    const blocked = structuredClone(packs);
+    blocked.unresolvedOrderNo = `TP${'a'.repeat(32)}`;
+    for (const product of blocked.products) {
+      product.available = false;
+      product.unavailableReason = '存在未核清的周期礼包订单，请先核对原单；本地超时不释放额度';
+      if (free && product.sku === 'all') {
+        product.priceAmount = 0;
+        product.canClaimFree = true;
+        product.unavailableReason = '本次无需付款，请领取剩余礼包';
+      }
+    }
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('recharge.catalog') ? catalog : blocked));
+    const { view } = inspect(await app.runHandler(recharge, app.events.privateMessage({ text: free ? '/充值 日礼包 30元全包' : '/充值 日礼包 6元', platform: 'qq-bot' })));
+    assert.ok(view.text.includes(blocked.unresolvedOrderNo));
+    assert.ok(view.commands.includes(`/查询充值订单 ${blocked.unresolvedOrderNo}`));
+    assert.ok(!view.commands.some(command => command.startsWith('/充值购买')));
+    assert.equal(view.commands.includes('/上古遗珍 领取全包'), free);
+    assert.ok(!requests.some(request => request.path.endsWith('normal.payment-create')));
+    previews.push(`## 周期旧单占用 free=${free}\n\n${view.text}`);
+  });
+}

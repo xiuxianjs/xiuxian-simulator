@@ -43,7 +43,9 @@ export function buildRechargeProductCard(options: {
   }
   const lines = options.preserveEmptyLines ? [...options.lines] : options.lines.filter(Boolean);
 
-  while (lines.at(-1) === '') { lines.pop(); }
+  while (lines.at(-1) === '') {
+    lines.pop();
+  }
 
   if (lines.length) {
     let quote = createQuoteMarkdown(lines);
@@ -52,8 +54,14 @@ export function buildRechargeProductCard(options: {
     if (rewardLineCount > 0) {
       quote = Format.createMarkdown();
       lines.forEach((line, index) => {
-        if (index > 0) { quote.addNewline(); }
-        if (index < rewardLineCount) { quote.addBold(line); } else { quote.addText(line); }
+        if (index > 0) {
+          quote.addNewline();
+        }
+        if (index < rewardLineCount) {
+          quote.addBold(line);
+        } else {
+          quote.addText(line);
+        }
       });
     }
     content.addNewline().addBlockquote(quote);
@@ -121,18 +129,17 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
   const name = selected === 'all' ? skuLabels.all : `${skuLabels[selected]}礼包`;
   const buttons: GuiButton[] = [];
 
-  if (!data.unresolvedOrderNo) {
-    if (selected === 'all' && product.priceAmount === 0 && product.canClaimFree) {
-      buttons.push({ label: '领取剩余权益', command: '/上古遗珍 领取全包' });
-    } else if (product.available && product.priceAmount > 0 && product.packageId !== null) {
-      buttons.push({ label: '购买', command: `/充值购买 ${product.packageId}` });
-    }
+  if (selected === 'all' && product.priceAmount === 0 && product.canClaimFree) {
+    buttons.push({ label: '领取剩余权益', command: '/上古遗珍 领取全包' });
+  } else if (!data.unresolvedOrderNo && product.available && product.priceAmount > 0 && product.packageId !== null) {
+    buttons.push({ label: '购买', command: `/充值购买 ${product.packageId}` });
   }
   content.absorb(
     buildRechargeProductCard({
       heading: `${name} · ¥${(product.priceAmount / 100).toFixed(2)} · 每日限购${product.remaining}/${product.limit}`,
       emphasis: product.label ? `${product.label.replace(/！+$/u, '')}！！！` : undefined,
-      metadata: selected === 'all' ? [`原价 ¥${(product.basePriceAmount / 100).toFixed(2)} · 已计入单购金额 ¥${(product.creditedAmount / 100).toFixed(2)}`] : [],
+      metadata:
+        selected === 'all' ? [`原价 ¥${(product.basePriceAmount / 100).toFixed(2)} · 已计入单购金额 ¥${(product.creditedAmount / 100).toFixed(2)}`] : [],
       lines: [
         ...product.rewardParts.map(
           reward => `${reward.name} ×${reward.quantity}${reward.independentRolls ? `（独立${reward.independentRolls}次，每次${reward.perRoll}片）` : ''}`
@@ -146,7 +153,13 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
   );
   if (data.unresolvedOrderNo) {
     content.addBlockquote(
-      createRechargeProductQuote([`待核对订单 ${data.unresolvedOrderNo}，请继续核对原订单。`], [{ label: '我的订单', command: '/我的订单' }])
+      createRechargeProductQuote(
+        [`待核对订单 ${data.unresolvedOrderNo}，请继续核对原订单。`],
+        [
+          { label: '查询原订单', command: `/查询充值订单 ${data.unresolvedOrderNo}`, autoEnter: false },
+          { label: '我的订单', command: '/我的订单' }
+        ]
+      )
     );
   }
 
