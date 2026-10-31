@@ -59,26 +59,26 @@ test('two delivery failures are bounded and private results contain no mention',
  assert.ok(!JSON.stringify(state.sent[0].format.value).includes('MD.mention'));
 });
 
-test('bound return choices use versioned callbacks while normal navigation stays a command',async()=>{
+test('return choices and normal navigation fill in commands',async()=>{
  const bound={...view,choiceBound:true,version:2**48+123};
  await send({onboarding:bound});
  const rows=state.sent[0].format.value.find(v=>v.type==='BT.group').value;
  const first=rows[0].value[0],second=rows[1].value[0];
- assert.equal(first.options.type,'call');
- assert.equal(first.options.rawData.id,`ob${bound.version.toString(36)}.0`);
+ assert.equal(first.options.type,'command');
+ assert.equal(first.options.rawData?.id,undefined);
  assert.deepEqual(first.options.permission,{type:0,userIds:['new']});
  assert.equal(first.options.data,'/主线扫荡 1-1 7');
  assert.equal(second.options.type,'command');assert.equal(second.options.data,'/任务面板');
- assert.equal(second.options.rawData.id,undefined);
+ assert.equal(second.options.rawData?.id,undefined);
  let next=0;assert.equal((await app.invoke(event,()=>expendContext(event,event.name,()=>next++,'response'))).value,false);assert.equal(next,1);
 });
 
-test('restoring mental with owned pills also carries the bound screen version',async()=>{
+test('restoring mental with owned pills fills in the original command',async()=>{
  const bound={...view,choiceBound:true,version:2**48+321,actions:[{label:'按缺口补充精力 · /服用 精力丹 2',command:'/服用 精力丹 2'},view.actions[1]]};
  await send({onboarding:bound});
  const button=state.sent[0].format.value.find(v=>v.type==='BT.group').value[0].value[0];
- assert.equal(button.options.type,'call');assert.equal(button.options.data,'/服用 精力丹 2');
- assert.equal(button.options.rawData.id,`ob${bound.version.toString(36)}.0`);
+ assert.equal(button.options.type,'command');assert.equal(button.options.data,'/服用 精力丹 2');
+ assert.equal(button.options.rawData?.id,undefined);
 });
 
 test('return guidance preserves explicit lines alongside the committed receipt',async()=>{
@@ -97,7 +97,7 @@ test('return guidance preserves explicit lines alongside the committed receipt',
 });
 
 
-test('new realm lesson attaches its real Context and versioned choices to the breakthrough receipt',async()=>{
+test('new realm lesson attaches its real Context and command choices to the breakthrough receipt',async()=>{
  const lesson={...view,status:'active',phase:'milestone.friends',version:21,lines:['本节点开放的功能：','成就','好友'],actions:[{label:'查看开放说明 · /天书',command:'/天书'}]};
  const result=await app.invoke(event,()=>sendOnboardingFollowup(event,{onboarding:lesson},'突破成功',receipt()));
  assert.equal(result.messages.length,1);
@@ -107,8 +107,8 @@ test('new realm lesson attaches its real Context and versioned choices to the br
  assert.ok(message.text.includes('本节点开放的功能：'));
  const rows=message.nodes.find(node=>node.type==='BT.group').value;
  assert.deepEqual(rows.map(row=>row.value[0].options.data),['/天书','/退出引导']);
- assert.equal(rows[0].value[0].options.type,'call');
- assert.equal(rows[0].value[0].options.rawData.id,'obl.0');
+ assert.equal(rows[0].value[0].options.type,'command');
+ assert.equal(rows[0].value[0].options.rawData?.id,undefined);
  let next=0;
  const help={...event,MessageText:'/帮助'};
  assert.equal((await app.invoke(help,()=>expendContext(help,help.name,()=>next++,'response'))).value,true);

@@ -49,3 +49,23 @@ test('invalid precise-route arguments now request backend refusal with the origi
   assert.deepEqual(actual,await render('old_scarecrow','/挑战稻草人',isPrivate));
  }
 });
+
+test('scarecrow renders exact large DOT damage without rejecting the real handler response', async()=>{
+ const source=rows.find(r=>r.result.success && r.result.data?.summary);
+ assert.ok(source);
+ state.result=structuredClone(source.result);
+ const summary=state.result.data.summary;
+ Object.assign(summary,{totalDamage:2767011611058678850,totalDamageText:'2767011611058678850',skillDamage:2245954,skillDamageText:'2245954',buffDamage:2767011611056432896,buffDamageText:'2767011611056432896',maxSingleDamage:461168601842738816,maxSingleDamageText:'461168601842738816'});
+ const parsed=h.parseBackendScarecrow(state.result.data);
+ assert.equal(parsed.summary.totalDamage,2767011611058678850n);
+ assert.equal(parsed.summary.buffDamage,2767011611056432896n);
+ for(const isPrivate of [false,true]){
+ const messages=await render('scarecrow','/挑战稻草人',isPrivate);
+ const text=JSON.stringify(messages).replaceAll(',','');
+ assert.ok(text.includes('2767011611058678850'));
+ assert.ok(text.includes('2767011611056432896'));
+ assert.ok(!text.includes('响应不完整'));
+ }
+ summary.totalDamageText='invalid';
+ assert.throws(()=>h.parseBackendScarecrow(state.result.data),/响应不完整/);
+});

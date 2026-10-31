@@ -37,7 +37,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   const bubble = FormatGui({ isPrivate: isPrivateEvent(event), bid: event.UserId, title, content: md, footer: native ? undefined : buttons, bar: false });
 
   if (native) {
-    bubble.format.addButtonGroup(onboardingKeyboard(event.UserId, view, buttons));
+    bubble.format.addButtonGroup(onboardingKeyboard(event.UserId, isPrivateEvent(event), buttons));
   }
   await sendTeachingMessage(event, bubble, [
     title,

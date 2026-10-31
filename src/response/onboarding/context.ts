@@ -158,7 +158,7 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
   });
 
   if (native) {
-    bubble.format.addButtonGroup(onboardingKeyboard(event.UserId, view, buttons));
+    bubble.format.addButtonGroup(onboardingKeyboard(event.UserId, isPrivateEvent(event), buttons));
   }
 
   await sendTeachingMessage(event, bubble, [

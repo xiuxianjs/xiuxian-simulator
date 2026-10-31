@@ -366,15 +366,15 @@ test('an older same-command button keeps its own screen version across successiv
 });
 
 
-test('new QQ teaching keyboards carry a version in ID and keep the actual command in data',async()=>{
+test('new QQ teaching keyboards fill in the actual command without callbacks',async()=>{
   await open(event('/继续引导',{Platform:'qq-bot'}),view('panel',36));
   const keyboard=state.sent[0].value.format.value.find(item=>item.type==='BT.group');
   assert.ok(keyboard,'native keyboard missing');
   assert.deepEqual(keyboard.value.map(row=>row.value.length),[1,1]);
   const button=keyboard.value[0].value[0];
-  assert.equal(button.options.rawData.id,'ob10.0');
+  assert.equal(button.options.rawData?.id,undefined);
   assert.equal(button.options.data,'/任务面板');
-  assert.equal(button.options.type,'call');
+  assert.equal(button.options.type,'command');
   assert.deepEqual(button.options.permission,{type:0,userIds:['newcomer']});
 });
 
@@ -385,7 +385,7 @@ test('expired Context callbacks use the original button version and unrelated ca
   await scoped(e,()=>handleOnboardingResponse(e,async()=>{passed++}));
   assert.deepEqual(state.calls.map(call=>call.args),[{version:1,command:'/普攻'}]);
   assert.equal(passed,0);
-  assert.ok(JSON.stringify(state.sent[0].value.format.value).includes('ob7.0'));
+  assert.ok(!JSON.stringify(state.sent[0].value.format.value).includes('ob7.0'));
   const unrelated=event('/普攻',{name:'interaction.create',InteractionData:'{"button_id":"ordinary","button_data":"/普攻"}'});
   await handleOnboardingResponse(unrelated,async()=>{passed++});
   assert.equal(passed,1);
@@ -407,7 +407,7 @@ test('invalid owned callback metadata refreshes without an action, and legacy pr
 });
 
 
-test('the installed QQ adapter preserves version IDs, commands and owner permissions in both wire payloads',async()=>{
+test('the installed QQ adapter sends input commands and owner permissions in both wire payloads',async()=>{
   await open(event('/继续引导',{Platform:'qq-bot'}),view('panel',36));
   const format=state.sent[0].value.format.value;
   for(const [send,tag] of [[GROUP_AT_MESSAGE_CREATE,'GROUP_AT_MESSAGE_CREATE'],[C2C_MESSAGE_CREATE,'C2C_MESSAGE_CREATE']]){
@@ -417,8 +417,9 @@ test('the installed QQ adapter preserves version IDs, commands and owner permiss
     const receipts=await app.run(()=>send(client,{UserId:'newcomer',ChannelId:'group',MessageId:'trigger',_tag:tag},format));
     assert.equal(receipts[0].code,2000);
     const button=payload.keyboard.content.rows[0].buttons[0];
-    assert.equal(button.id,'ob10.0');
-    assert.equal(button.action.type,1,'callback type must preserve InteractionData');
+    assert.ok(button.id);
+    assert.equal(button.action.type,2);
+    assert.equal(button.action.enter,false);
     assert.equal(button.action.data,'/任务面板');
     assert.ok(button.action.unsupport_tips.includes('手动发送'));
     assert.deepEqual(button.action.permission.specify_user_ids,['newcomer']);

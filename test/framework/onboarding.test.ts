@@ -38,15 +38,15 @@ test('真实教学 Context 隔离其他用户，并携带当前版本提交一�
   assert.equal(requests.length, 1);
   assert.equal(requests[0].path, '/api/v2/robot/business/onboarding.action');
   assert.deepEqual(requests[0].body.arguments, { version: 1, command: '/我' });
-  // Callback buttons are intentionally absent from .commands. Inspect their
-  // original nodes to verify version binding and recipient permissions.
+  // Inspect the actual sent keyboard and its recipient permissions.
   const buttons = continued.messages[0].nodes.flatMap(node =>
     node.type === 'ButtonGroup' || node.type === 'BT.group' ? node.value.flatMap(row => row.value) : []
   );
   const choice = buttons.find(button => button.options?.data === '/任务面板');
   assert.ok(choice);
-  assert.equal(choice.options?.type, 'call');
-  assert.equal(choice.options?.rawData.id, 'ob2.0');
+  assert.equal(choice.options?.type, 'command');
+  assert.equal(choice.options?.autoEnter, false);
+  assert.equal(choice.options?.rawData?.id, undefined);
   assert.deepEqual(choice.options?.permission?.userIds, ['newcomer']);
 });
 
@@ -82,4 +82,26 @@ test('教学按钮发送失败时降级为文字，不重放业务且保留上�
   const continued = await app.dispatch(app.events.groupMessage({ text: '/我', platform: 'qq-bot' }));
   assert.equal(continued.context.claimed, true);
   assert.equal(requests.length, 1);
+});
+
+ test('私聊教学按钮填入指令且不限制 QQ 客户端用户白名单，发送后沿用真实 Context', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, nextView));
+  await app.mount({ responseContent: onboardingContent });
+  const event = app.events.privateMessage({ userId: 'private-openid', text: '/继续引导', platform: 'qq-bot' });
+  const opened = await app.invoke(event, () => showOnboarding(event as GameEvent, initial));
+  assert.equal(opened.actions[opened.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  const buttons = opened.messages[0].nodes.flatMap(node =>
+    node.type === 'ButtonGroup' || node.type === 'BT.group' ? node.value.flatMap(row => row.value) : []
+  );
+  assert.equal(buttons.length, 2);
+  for (const button of buttons) {
+    assert.equal(button.options?.type, 'command');
+    assert.equal(button.options?.autoEnter, false);
+    assert.deepEqual(button.options?.permission, { type: 2 });
+    assert.equal(button.options?.rawData?.id, undefined);
+  }
+  assert.equal(requests.length, 0);
+  const continued = await app.dispatch(app.events.privateMessage({ userId: 'private-openid', text: '/我', platform: 'qq-bot' }));
+  assert.equal(continued.context.claimed, true);
+  assert.deepEqual(requests[0].body.arguments, { version: 1, command: '/我' });
 });
