@@ -244,7 +244,14 @@ export const FormatGui = (params: {
         if (index > 0) {
           md.addText(' ');
         }
-        md.addButton(markdownButtonLabel(btn.label, btn.selected), { data: btn.command, ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
+        if (!btn.command?.trim()) {
+          md.addText(btn.selected ? markdownButtonLabel(btn.label, true) : btn.label);
+        } else {
+          md.addButton(markdownButtonLabel(btn.label, btn.selected), {
+            data: btn.command,
+            ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter })
+          });
+        }
       });
     });
     md.addNewline();

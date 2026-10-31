@@ -17,7 +17,8 @@ export type BackendScarecrowSummary = {
   maxSingleDamageSkill: string;
   maxSingleDamageRound: number;
 };
-export type BackendScarecrowResult = { summary: BackendScarecrowSummary; logId: string; rounds: number };
+export type BackendScarecrowTarget = { realmName: string; hp: number | bigint; physicalDefense: number | bigint; magicDefense: number | bigint };
+export type BackendScarecrowResult = { target?: BackendScarecrowTarget; summary: BackendScarecrowSummary; logId: string; rounds: number };
 
 function row(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -101,7 +102,24 @@ export function parseBackendScarecrow(value: unknown): BackendScarecrowResult {
     };
   });
 
+  let target: BackendScarecrowTarget | undefined;
+
+  if (data.target !== undefined) {
+    const value = row(data.target);
+
+    if (typeof value.realmName !== 'string') {
+      throw new Error('稻草人测试响应不完整');
+    }
+    target = {
+      realmName: value.realmName,
+      hp: exactInteger(value.hp),
+      physicalDefense: exactInteger(value.physicalDefense),
+      magicDefense: exactInteger(value.magicDefense)
+    };
+  }
+
   return {
+    ...(target ? { target } : {}),
     logId: data.logId,
     rounds: integerField(data.rounds),
     summary: {

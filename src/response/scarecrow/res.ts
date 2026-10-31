@@ -45,7 +45,7 @@ export default onResponse(selects, async e => {
   }
 
   // 格式化伤害统计摘要
-  const { summary, logId, rounds } = result.data;
+  const { summary, logId, rounds, target } = result.data;
   const md = Format.createMarkdown();
 
   md.addBold('稻草人伤害测试');
@@ -53,6 +53,16 @@ export default onResponse(selects, async e => {
   md.addText(`测试回合：${rounds} | 总伤害：${formatDamage(summary.totalDamage)}`);
   md.addNewline();
   md.addNewline();
+
+  if (target) {
+    md.addText(`标准靶：${target.realmName}｜生命 ${formatDamage(target.hp)}`);
+    md.addNewline();
+    md.addText(`物防 ${formatDamage(target.physicalDefense)}｜法防 ${formatDamage(target.magicDefense)}`);
+    md.addNewline();
+    md.addText('靶子不行动、不死亡；百分比伤害按上述生命基准计算。');
+    md.addNewline();
+    md.addNewline();
+  }
 
   // 技能统计
   md.addBold('技能统计');

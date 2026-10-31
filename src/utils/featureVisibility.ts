@@ -150,7 +150,7 @@ export function filterFeatureFormat(format: Format, allowed: CommandFilter): For
         if (node.options?.type === 'link') {
           return [raw];
         }
-        if (!node.options?.data || !allowed(node.options.data)) {
+        if (typeof node.options?.data !== 'string' || !node.options.data.trim() || !allowed(node.options.data)) {
           return [];
         }
       }
