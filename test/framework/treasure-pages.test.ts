@@ -167,20 +167,20 @@ test('鸿蒙气运独立展示两页导航，满级不计算虚构的下级差�
 
 test('效果总览只汇总已拥有宝物的战斗属性与当前生活效果', async t => {
   const data = overview([item(101), item(504), item(604, 6, false)]);
-  data.items[1].currentEffect = '炼丹时，5%概率返还本炉整份实际消耗药材。';
+  data.items[1].currentEffect = '炼丹时，3%概率返还本炉整份实际消耗药材。';
   const result = await run(t, data, '/宝物 效果');
 
   assert.match(result.text, /生命 \+605/);
   assert.match(result.text, /生命 \+1%/);
-  assert.match(result.text, /宝物504\n> 炼丹时，5%概率返还本炉整份实际消耗药材。/);
-  assert.doesNotMatch(result.text, /生活效果504|当前：5%/);
+  assert.match(result.text, /宝物504\n> 炼丹时，3%概率返还本炉整份实际消耗药材。/);
+  assert.doesNotMatch(result.text, /生活效果504|当前：3%/);
   assert.doesNotMatch(result.text, /宝物604|生活效果604|生命 \+1,209/);
   assert.ok(result.commands.includes('/宝物 气运'));
 });
 
 function shennong() {
   const base = item(504);
-  const effect = '正常原炉成功失败均可，命中返还本炉整份实际消耗药材';
+  const effect = '炼丹成功、失败时，均有概率返还本炉整份实际消耗药材';
 
   return {
     ...base,
@@ -190,12 +190,12 @@ function shennong() {
       baseAttributes: { ...zero, hp: 600 },
       perLevelAttributes: { ...zero, hp: 12 },
       effectDescription: effect,
-      stageValues: ['5%', '10%', '15%', '20%']
+      stageValues: ['3%', '6%', '10%', '15%']
     },
     gradeName: '星尘1阶',
     attributes: { ...zero, hp: 600 },
     percentAttributes: { ...zero, hp: 2 },
-    currentEffect: '炼丹时，5%概率返还本炉整份实际消耗药材。',
+    currentEffect: '炼丹时，3%概率返还本炉整份实际消耗药材。',
     fragments: 2,
     duplicates: 1,
     nextLevelCost: 20,
@@ -214,7 +214,7 @@ test('详情培养只展示当前特效，变化与消耗均使用服务端预�
   assert.match(result.text, /【史诗】神农鼎/);
   assert.doesNotMatch(result.text, /504 神农鼎|星尘1阶|晓月|纯阳|仙藏/);
   assert.match(result.text, /星尘1 · 等级 1\/10/);
-  assert.match(result.text, /5%概率返还本炉整份实际消耗药材/);
+  assert.match(result.text, /3%概率返还本炉整份实际消耗药材/);
   assert.match(result.text, /升品至 星尘2/);
   assert.match(result.text, /生命 \+600 → 生命 \+780/);
   assert.match(result.text, /需要本体 1 · 仙蕴 0/);
