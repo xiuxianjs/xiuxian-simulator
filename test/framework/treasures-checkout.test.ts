@@ -150,3 +150,40 @@ test('continue checkout rejects a different order receipt before showing its pol
   assert.equal(render.mock.callCount(), 0);
   assert.ok(!requests.some(request => request.path.endsWith('normal.payment-create')));
 });
+
+test('monthly bundle resumes the original checkout without creating another order', async t => {
+  t.mock.method(ImageCache.prototype, 'getOrCreate', async () => 'https://offline.example.test/pay.png');
+  const number = 'TP-original-monthly';
+  const value = { ...checkout(frozen, number), packageName: '宝物每月全包', order: { orderNo: number, payAmount: 19000, status: 'PENDING', createdAt: '2026-10-01T00:00:00+08:00' } };
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+    if (request.path.endsWith('/checkout')) return value;
+    return value.order;
+  });
+  const result = await app.runHandler(orders, app.events.privateMessage({ text: `/继续支付 ${number}`, platform: 'qq-bot' }));
+  const views = delivered(result);
+  assert.ok(views.some(view => view.text.includes('190.00')));
+  assert.ok(views.some(view => view.text.includes(number) && view.text.includes('宝物每月全包')));
+  assert.ok(JSON.stringify(result.messages).includes(value.payUrl));
+  assert.ok(!views.some(view => view.text.includes('订单信息暂未获取')));
+  assert.ok(requests.some(request => request.path.endsWith(`/${number}/checkout`)));
+  assert.equal(requests.length, 3);
+  assert.ok(!requests.some(request => request.path.endsWith('normal.payment-create')));
+  assert.ok(requests.filter(request => !request.path.endsWith('membership.rights')).every(request => Object.keys(request.body).length === 0));
+});
+
+for (const status of [409, 500]) {
+  test(`resume checkout reports business rejection but hides internal errors (${status})`, async t => {
+    const reason = status === 409 ? '订单已超过支付有效期' : 'private database diagnostic';
+    const { app } = await gameFixture(t, request => {
+      if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+      if (request.path.endsWith('/checkout')) return { code: status === 409 ? 'CONFLICT' : 'INTERNAL', message: reason };
+      return checkout().order;
+    }, request => request.path.endsWith('/checkout') ? status : 200);
+    const result = await app.runHandler(orders, app.events.privateMessage({ text: `/继续支付 ${orderNo}`, platform: 'qq-bot' }));
+    const views = delivered(result);
+    assert.ok(views.some(view => view.text.includes(status === 409 ? reason : '订单信息暂未获取')));
+    assert.ok(!JSON.stringify(result.messages).includes('private database diagnostic'));
+    assert.ok(!JSON.stringify(result.messages).includes(checkout().payUrl));
+  });
+}

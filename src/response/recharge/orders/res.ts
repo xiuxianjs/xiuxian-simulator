@@ -1,3 +1,4 @@
+import { getCommandBusinessErrorMessage } from '@src/utils/commandError';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import QRCode from 'qrcode';
@@ -163,6 +164,10 @@ export default onResponse(selects, async e => {
     );
   } catch (error) {
     logger.error('订单查询失败:', error);
-    await send(error instanceof CheckoutPromotionDecodeError ? error.message : '订单信息暂未获取。请从我的订单查询原订单；本次操作不会重新创建订单。');
+    await send(
+      error instanceof CheckoutPromotionDecodeError
+        ? error.message
+        : (getCommandBusinessErrorMessage(error) ?? '订单信息暂未获取。请从我的订单查询原订单；本次操作不会重新创建订单。')
+    );
   }
 });

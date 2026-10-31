@@ -6,7 +6,7 @@ import { createTestApp } from 'alemonjs/testing';
 export type BusinessRequest = { path: string; bid: string; body: Record<string, unknown>; idempotencyKey: string };
 
 /** Real project HTTP/parsers/hooks; only the backend response and platform are simulated. */
-export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode = 200) {
+export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode: number | ((request: BusinessRequest) => number) = 200) {
   const requests: BusinessRequest[] = [];
   const server = createServer(async (req, res) => {
     try {
@@ -21,8 +21,9 @@ export async function gameFixture(t: TestContext, respond: (request: BusinessReq
       };
       requests.push(request);
       res.setHeader('Content-Type', 'application/json');
-      res.statusCode = statusCode;
-      res.end(JSON.stringify(statusCode >= 400 ? { error: respond(request) } : { data: respond(request) }));
+      const responseStatus = typeof statusCode === 'function' ? statusCode(request) : statusCode;
+      res.statusCode = responseStatus;
+      res.end(JSON.stringify(responseStatus >= 400 ? { error: respond(request) } : { data: respond(request) }));
     } catch {
       res.statusCode = 500;
       res.end(JSON.stringify({ error: { code: 'TEST_FIXTURE_ERROR', message: 'Test fixture rejected request' } }));
