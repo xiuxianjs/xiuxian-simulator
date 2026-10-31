@@ -368,9 +368,73 @@ export function parseSpiritVein(value: unknown) {
     purchaseUnavailableReason: item.purchaseUnavailableReason === undefined ? undefined : text(item.purchaseUnavailableReason)
   };
 }
-const kinds = ['explore', 'synthesize', 'upgrade', 'promote', 'select-mythic', 'claimLease', 'decompose', 'batch-promote', 'batch-upgrade'] as const;
+const kinds = [
+  'explore',
+  'synthesize',
+  'upgrade',
+  'promote',
+  'select-mythic',
+  'claimLease',
+  'decompose',
+  'batch-promote',
+  'batch-upgrade',
+  'merchant-exchange'
+] as const;
 
 export type TreasurePreviewKind = (typeof kinds)[number];
+export const treasureMerchantSkus = ['treasure_map', 'rare_fragment', 'epic_fragment', 'mythic_fragment', 'rare_box', 'epic_box', 'mythic_box'] as const;
+export type TreasureMerchantSku = (typeof treasureMerchantSkus)[number];
+export function parseTreasureMerchant(value: unknown) {
+  const data = row(value);
+
+  if (!['treasure-merchant-v1-20261031', 'treasure-merchant-v2-box-prices-20261031'].includes(String(data.rulesVersion))) { return invalid(); }
+  const products = array(data.products, value => {
+    const product = row(value);
+
+    if (
+      !treasureMerchantSkus.includes(product.sku as TreasureMerchantSku) ||
+      !['map', 'fragment', 'lootbox'].includes(String(product.kind)) ||
+      !['weekly', 'monthly'].includes(String(product.period))
+    ) { return invalid(); }
+    const limit = product.limit === null ? null : integer(product.limit);
+    const remaining = product.remaining === null ? null : integer(product.remaining);
+    const unitPrice = integer(product.unitPrice);
+
+    if (unitPrice < 1 || (limit === null) !== (remaining === null)) { return invalid(); }
+
+    return {
+      sku: product.sku as TreasureMerchantSku,
+      name: text(product.name),
+      kind: product.kind as 'map' | 'fragment' | 'lootbox',
+      rarity: integer(product.rarity),
+      unitPrice,
+      period: product.period as 'weekly' | 'monthly',
+      periodKey: date(product.periodKey),
+      limit,
+      purchased: integer(product.purchased),
+      remaining,
+      maxQuantity: integer(product.maxQuantity),
+      available: bool(product.available),
+      unavailableReason: text(product.unavailableReason),
+      ...(product.tier === undefined ? {} : { tier: integer(product.tier) }),
+      ...(product.nextUnitPrice === undefined ? {} : { nextUnitPrice: integer(product.nextUnitPrice) })
+    };
+  });
+
+  if (new Set(products.map(product => product.sku)).size !== products.length) { return invalid(); }
+
+  return {
+    rulesVersion: text(data.rulesVersion),
+    poolVersion: text(data.poolVersion),
+    xianYun: integer(data.xianYun),
+    weekStart: date(data.weekStart),
+    weekEnd: date(data.weekEnd),
+    monthStart: date(data.monthStart),
+    monthEnd: date(data.monthEnd),
+    products
+  };
+}
+export type TreasureMerchantOverview = ReturnType<typeof parseTreasureMerchant>;
 export function validTreasureConfirmationRef(value: string): boolean {
   return /^r1_[0-9a-z]{1,13}_b_[0-9a-z]{1,13}_[0-9a-f]{24}$/.test(value) && [...`/确认宝物 ${value}`].length <= 80;
 }

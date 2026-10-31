@@ -19,6 +19,7 @@ export type RobotBusinessResult<T = unknown> =
 export type RobotBusinessOperation =
   | 'treasures.overview'
   | 'treasures.catalog'
+  | 'treasures.merchant'
   | 'treasures.operation-status'
   | 'treasures.preview'
   | 'treasures.confirm'

@@ -154,7 +154,7 @@ for (const command of ['/宝物', '/宝物 效果']) {
   });
 }
 
-test('上古遗珍首排图鉴与概率、记录同列，第二排保留礼包与日常', async t => {
+test('上古遗珍首排图鉴与概率、记录同列，秘宝商人在第二排日常活跃右侧', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, relics));
   const command = '/上古遗珍';
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
@@ -163,7 +163,7 @@ test('上古遗珍首排图鉴与概率、记录同列，第二排保留礼包�
   assert.equal(rows.length, 2);
   assert.deepEqual(rows[0].map(node => node.options?.data), ['/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴']);
   assert.deepEqual(rows[0].map(plainText), ['‹概率公示›', '‹探索记录›', '‹宝物图鉴›']);
-  assert.deepEqual(rows[1].map(node => node.options?.data), ['/充值 日礼包', '/日常活跃']);
+  assert.deepEqual(rows[1].map(node => node.options?.data), ['/充值 日礼包', '/日常活跃', '/上古遗珍 秘宝商人']);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].path, '/api/v2/robot/business/ancient-relics.overview');
 });

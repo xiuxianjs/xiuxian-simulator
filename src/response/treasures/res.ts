@@ -4,6 +4,8 @@ import {
   parseTreasureConfirmation,
   parseTreasureOverview,
   parseTreasureCatalog,
+  parseTreasureMerchant,
+  treasureMerchantSkus,
   parseTreasureReceipt,
   parseTreasureDailyPacks,
   parseDailyPackFreePreview,
@@ -30,6 +32,7 @@ import {
   buildTreasureDetailPage
 } from './treasurePages';
 import { buildTreasureConfirmationView } from './confirmationView';
+import { buildTreasureMerchantPage, treasureMerchantNavigation } from './treasureMerchantPage';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
 import { SDKError } from '@src/api/core/error';
@@ -129,7 +132,7 @@ export default onResponse(selects, async event => {
       throw new Error('确认说明暂未取得，请重新预览。');
     }
     originalRef = data.confirmationRef;
-    title = kind === 'explore' ? '操作确认' : '宝物操作确认';
+    title = kind === 'merchant-exchange' ? '秘宝商人兑换确认' : kind === 'explore' ? '操作确认' : '宝物操作确认';
     content = buildTreasureConfirmationView(kind, data);
     await send();
   };
@@ -192,6 +195,20 @@ export default onResponse(selects, async event => {
         return;
       }
       mutationConfirmed = true;
+      if (data.kind === 'merchant-exchange') {
+        title = '秘宝商人兑换完成';
+        quote([data.result.message, `操作编号 ${data.operationId}`]);
+        requireSent(await send(treasureMerchantNavigation));
+        const merchant = await call('treasures.merchant', {}, parseTreasureMerchant, createBackendRequestContext(event, 'treasures.merchant'));
+
+        if (merchant) {
+          title = '秘宝商人';
+          content = buildTreasureMerchantPage(merchant);
+          await send([]);
+        }
+
+        return;
+      }
       if (data.kind === 'explore' && data.result.rewards) {
         explorationSettled = true;
         const highestRarity = Math.max(1, ...data.result.rewards.filter(reward => reward.kind === 'body').map(reward => reward.rarity));
@@ -386,6 +403,49 @@ export default onResponse(selects, async event => {
       return;
     }
     if (command === '上古遗珍') {
+      if (args[0] === '秘宝商人' && args.length === 1) {
+        const data = await call('treasures.merchant', {}, parseTreasureMerchant);
+
+        if (!data) {
+          return;
+        }
+        title = '秘宝商人';
+        content = buildTreasureMerchantPage(data);
+        await send([]);
+
+        return;
+      }
+      if (args[0] === '兑换') {
+        const sku = treasureMerchantSkus.find(sku => sku === args[1]);
+        const quantity = Number(args[2]);
+
+        if (args.length !== 3 || !sku || !/^\d+$/.test(args[2] ?? '') || !Number.isSafeInteger(quantity) || quantity < 1) {
+          quote(['参数错误，请从秘宝商人的兑换按钮选择商品，并填写正整数数量。'], [{ label: '秘宝商人', command: '/上古遗珍 秘宝商人' }]);
+          await send();
+
+          return;
+        }
+        const merchant = await call('treasures.merchant', {}, parseTreasureMerchant);
+
+        if (!merchant) {
+          return;
+        }
+        const product = merchant.products.find(product => product.sku === sku);
+
+        if (!product || !product.available || quantity > product.maxQuantity) {
+          title = '秘宝商人';
+          const reason = product?.unavailableReason;
+
+          quote([reason === undefined || reason.length === 0 ? '本次数量超过当前商品可兑换份数，请核对剩余限购。' : reason]);
+          content.absorb(buildTreasureMerchantPage(merchant));
+          await send([]);
+
+          return;
+        }
+        await preview('merchant-exchange', { sku, quantity, expectedUnitPrice: product.unitPrice, expectedPeriodKey: product.periodKey });
+
+        return;
+      }
       if (args[0] === '图鉴') {
         const filtered = args[1] === '品质';
         const pageArgument = filtered ? args[3] : args[1];
@@ -461,7 +521,7 @@ export default onResponse(selects, async event => {
         return;
       }
       if (args.length > 1 || (args.length && !['概率', '记录', '自选'].includes(args[0]))) {
-        quote(['参数错误：/上古遗珍 [图鉴|概率|记录|自选]，探索请选灵晶、道晶或藏宝图。']);
+        quote(['参数错误：/上古遗珍 [秘宝商人|图鉴|概率|记录|自选]，探索请选灵晶、道晶或藏宝图。']);
         await send();
 
         return;
@@ -591,7 +651,8 @@ export default onResponse(selects, async event => {
           ],
           [
             { label: '每日礼包', command: '/充值 日礼包' },
-            { label: '日常活跃', command: '/日常活跃' }
+            { label: '日常活跃', command: '/日常活跃' },
+            { label: '秘宝商人', command: '/上古遗珍 秘宝商人' }
           ]
         ]) {
           for (const button of row) {

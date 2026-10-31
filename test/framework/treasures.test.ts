@@ -262,17 +262,18 @@ for (const used of [false, true]) {
     const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
     const view = facts(result);
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
-    const top = nodes.filter(node => node.type === 'MD.button').slice(0, 5);
+    const top = nodes.filter(node => node.type === 'MD.button').slice(0, 6);
     assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴', '/充值 日礼包', '/日常活跃'
+      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴', '/充值 日礼包', '/日常活跃', '/上古遗珍 秘宝商人'
     ]);
     const positions = top.map(button => nodes.indexOf(button));
     assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
     assert.ok(!nodes.slice(positions[1] + 1, positions[2]).some(node => node.type === 'MD.newline'));
     assert.ok(nodes.slice(positions[2] + 1, positions[3]).filter(node => node.type === 'MD.newline').length >= 2);
     assert.ok(!nodes.slice(positions[3] + 1, positions[4]).some(node => node.type === 'MD.newline'));
+    assert.ok(!nodes.slice(positions[4] + 1, positions[5]).some(node => node.type === 'MD.newline'));
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
-    assert.ok(nodes.indexOf(quotes[0]) > positions[4]);
+    assert.ok(nodes.indexOf(quotes[0]) > positions[5]);
     assert.ok(!view.commands.includes('/周常活跃'));
     assert.ok(nodes.some(node => node.type === 'MD.bold' && node.value === '单发整品概率12%，十连至少出一个整品'));
     assert.match(view.text, /累计探索 300次 · 本轮 0\/300/);
