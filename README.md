@@ -29,7 +29,7 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.319.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.320.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
 
 常用玩法的查询与操作入口：
 
@@ -684,3 +684,5 @@ async function readGameTasks() {
 版本 `1.308.0` 为榜单点赞增加连锁任务及操作重试编号；实际资格、奖励和每日限制仍由服务端决定。
 
 版本 `1.309.0` 修正好友申请的路由指令，并为好友申请、同意及拒绝增加连锁任务和操作重试编号。
+
+版本 `1.320.0` 增加 `get_public_tribulations`（分页与 UID/道号搜索）、`get_public_tribulation`（事件详情）和私聊 `get_recharge_periodic_packs`（周/月礼包目录）。这些入口仅查询，不创建订单或执行渡劫互动。

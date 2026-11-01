@@ -1,4 +1,6 @@
 import { Expose } from 'alemonjs';
+import { rechargeCatalogActions } from './recharge-catalog-actions';
+import { publicTribulationActions } from './public-tribulation-actions';
 import { membershipActions } from './membership-actions';
 import { tianshuActions } from './tianshu-actions';
 import { battleMemoryActions } from './battle-memory-actions';
@@ -121,7 +123,7 @@ type Attributes = {
 
 export const gameExpose = Expose.create().provide({
   name: GAME_EXPOSE_PROTOCOL,
-  version: '1.319.0',
+  version: '1.320.0',
   description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
   actions: {
     ...membershipActions,
@@ -198,6 +200,8 @@ export const gameExpose = Expose.create().provide({
     ...guildActions,
     ...craftingActions,
     ...tribulationActions,
+    ...rechargeCatalogActions,
+    ...publicTribulationActions,
     ...bagQueryActions,
     get_inventory: Expose.action<{ category: 'prop' | 'material'; page?: number; subtype?: string }, ReturnType<typeof projectInventory>>({
       description:
