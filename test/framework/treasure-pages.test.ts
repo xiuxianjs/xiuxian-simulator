@@ -207,6 +207,36 @@ function shennong() {
   };
 }
 
+for (const [grade, immortalRank, rate] of [[17, 2, '15.3%'], [24, 9, '18%']] as const) {
+  test(`仙藏${immortalRank}当前特效保留服务端精确比例，图鉴隐藏效果数值`, async t => {
+    const effect = `炼丹时，${rate}概率返还本炉消耗的全部药材。`;
+    const entry = {
+      ...shennong(), grade, gradeName: `仙藏${immortalRank}阶`, currentEffect: effect,
+      promotion: null, promotionPreview: undefined, upgradePreview: undefined
+    };
+    const data = overview([entry]);
+
+    for (const command of ['/宝物 详情 504', '/宝物 效果']) {
+      const result = await run(t, data, command);
+
+      assert.ok(result.text.includes(effect));
+      assert.doesNotMatch(result.text, /炼丹时，15%概率/);
+    }
+    const definition = { ...entry.definition, effectDescription: effect };
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, [definition]));
+    const catalog = view(await app.runHandler(handler, app.events.privateMessage({
+      text: '/上古遗珍 图鉴 品质 5', platform: 'qq-bot'
+    })));
+
+    assert.match(catalog.text, /神农鼎/);
+    assert.match(catalog.text, /炼丹时，一定概率返还本炉消耗的全部药材/);
+    assert.ok(!catalog.text.includes(rate));
+    assert.doesNotMatch(catalog.text, /星尘|晓月|纯阳|仙藏|3%|6%|10%|15%/);
+    assert.equal(requests.length, 1);
+    assert.ok(requests[0].path.endsWith('/treasures.catalog'));
+  });
+}
+
 test('详情培养只展示当前特效，变化与消耗均使用服务端预览，资源不足仍可打开确认', async t => {
   const result = await run(t, overview([shennong()]), '/宝物 详情 504');
 
