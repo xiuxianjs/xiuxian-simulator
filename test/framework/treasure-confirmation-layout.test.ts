@@ -115,9 +115,9 @@ for (const [command, source, count, cost, unit] of [
 for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
   test(`${kind}逐项动作及合计在块外，不遗漏权威逐项消耗`, async t => {
     const action = kind === 'batch-promote'
-      ? ['「神农鼎」星尘1阶 → 星尘2阶；消耗该宝物重复本体1、仙蕴0。', '「乾坤鼎」纯阳5阶 → 仙藏1阶；消耗该宝物重复本体3、仙蕴100。']
+      ? ['「神农鼎」星尘1阶 → 星尘2阶；消耗该宝物重复本体1、仙蕴0。', '「乾坤鼎」纯阳5阶 → 仙藏1阶；消耗该宝物重复本体3、仙蕴500。']
       : ['「神农鼎」Lv.1 → Lv.2；消耗宝物经验20。', '「乾坤鼎」Lv.1 → Lv.2；消耗宝物经验20。'];
-    const total = kind === 'batch-promote' ? '合计提升2件；宝物经验0、重复本体4、仙蕴100。' : '合计提升2件；宝物经验40、重复本体0、仙蕴0。';
+    const total = kind === 'batch-promote' ? '合计提升2件；宝物经验0、重复本体4、仙蕴500。' : '合计提升2件；宝物经验40、重复本体0、仙蕴0。';
     const tip = '按全部已拥有宝物处理，高稀有度优先；仅确认本次清单，库存或条件变化须重新预览。';
     const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
       kind, operationId: 'layout-batch-original', confirmationRef, expiresAt, summary: [...action, total, tip, validity]
