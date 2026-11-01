@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@alemonjs/qq-bot@^2.1.42":
-  version "2.1.42"
-  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.42.tgz#5ef7208f4a844361cf247b6e0bc56e46e7e90e28"
-  integrity sha512-mEBhAWNVMhcXDshU/5MIbmSDz4nGTROPnrWEUbAglSjE583rDSPnyR/Iw+daJ10OA1R9R586Z2Fdocuy2V9pvg==
+"@alemonjs/qq-bot@^2.1.44":
+  version "2.1.44"
+  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.44.tgz#e9f9c7b1faea5ae31a665e145ac5da83b8a1e7b1"
+  integrity sha512-aOoqhLWDdG2e44zwQfTupLHzDn1rXRrZoHYzTmyrvUkmD4E/DueYcZlNtrdWMVzcD4MUfn3uCPn+meEZkfR7/Q==
   dependencies:
     "@noble/curves" "^1.7.0"
     axios "^1.4.0"
@@ -1596,10 +1596,10 @@ ajv@^6.14.0:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-alemonjs@^2.1.118:
-  version "2.1.118"
-  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.118.tgz#52b67bf2385c89c1928dd2a820ae5dadf9bab222"
-  integrity sha512-73oKyXWiV5YRnAELU0LOGhB3q6Sns7TA7AQ5Ios/tPVyIHv//LUvRO9MXIvBxMh8u7TT8uKgsj7sME5VVOpyKg==
+alemonjs@^2.1.119:
+  version "2.1.119"
+  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.119.tgz#9e54c160d47b854a4fc0dea4b54229c50a900b8e"
+  integrity sha512-+QfW4VDxrTsAycYJoHfy6YixPWCfPXrndGCcLXHZbhUibUl26tmNLONaoa+ncDtZc37ORvsq1D9sstkEj22usg==
   dependencies:
     "@koa/cors" "^5.0.0"
     axios "^1.14.0"
