@@ -456,7 +456,7 @@ export function sendProfessionAndCaveLockedPage(options: SendLingzhiGuidePromptP
   const md = Format.createMarkdown();
   const targetBid = typeof bid === 'string' ? bid : bid === undefined ? undefined : String(bid);
 
-  md.addText(leadText ?? '炼气九层及以上方可使用洞府与职业系统。');
+  md.addText(leadText ?? '当前入口暂不可用，请核对境界或刷新后重试。');
 
   const footer = [{ label: '我的境界', command: '/我的境界' }];
 
