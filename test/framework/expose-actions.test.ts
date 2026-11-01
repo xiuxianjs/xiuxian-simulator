@@ -254,6 +254,7 @@ test('连续玩法使用操作编号区分同一消息内的结算并保留重�
     ['lock_storage_category', { category: '材料' }], ['unlock_storage_category', { category: '材料' }],
     ['lock_storage_type', { category: '装备', typeName: '武器' }], ['unlock_storage_type', { category: '装备', typeName: '武器' }],
     ['apply_battle_template', { slot: 1 }], ['create_team', {}], ['apply_to_team', { teamId: 1 }], ['leave_team', {}], ['disband_team', {}],
+    ['save_battle_template', { slot: 1, name: '配装' }], ['delete_battle_template', { slot: 1 }],
     ['start_mainline_match', { chapterNumber: 1, stageNumber: 1 }], ['start_dungeon_match', { dungeonId: 1 }], ['cancel_team_match', {}],
     ['set_team_minimum_realm', { realmName: '炼气' }], ['invite_team_player', { targetUid: 2 }], ['kick_team_member', { targetUid: 2 }],
     ['set_team_position', { targetUid: 2, position: 1 }], ['transfer_team_leadership', { targetUid: 2 }],

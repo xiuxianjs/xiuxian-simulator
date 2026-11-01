@@ -147,12 +147,16 @@ export const battleActions = {
     object({
       logId: text,
       rounds: integer,
-      summary: object({
-        ...fields(integer, 'totalDamage skillDamage buffDamage totalSkillAttacks critCount maxSingleDamage maxSingleDamageRound'),
-        critRate: number,
-        ...fields(text, 'critRateText buffDamageShareText maxSingleDamageSkill'),
-        skills: list(object({ ...fields(text, 'skillName damageShareText'), ...fields(integer, 'count totalDamage') }))
-      })
+      summary: object(
+        {
+          ...fields(integer, 'totalDamage skillDamage buffDamage totalSkillAttacks critCount maxSingleDamage maxSingleDamageRound'),
+          critRate: number,
+          ...fields(text, 'critRateText buffDamageShareText maxSingleDamageSkill'),
+          ...fields(text, 'totalDamageText skillDamageText buffDamageText maxSingleDamageText'),
+          skills: list(object({ ...fields(text, 'skillName damageShareText totalDamageText'), ...fields(integer, 'count totalDamage') }, ['totalDamageText']))
+        },
+        ['totalDamageText', 'skillDamageText', 'buffDamageText', 'maxSingleDamageText']
+      )
     }),
     input => `/挑战稻草人${input.rounds === undefined ? '' : ` ${input.rounds}`}`,
     parseBackendScarecrow,

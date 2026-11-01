@@ -8,14 +8,14 @@ import { parseBattleTemplateDelete } from '../api/bot/battle-template-delete';
 const slot = { type: 'integer' as const, minimum: 1, maximum: 5 };
 const withFlag = (flag: string) => object({ ...(templateSchema.type === 'object' ? templateSchema.properties : {}), [flag]: boolean });
 
-type Input = { slot: number; name?: string };
+type Input = { slot: number; name?: string; intentId?: string };
 const args = (input: Input) => ({ slotText: String(input.slot), name: input.name ?? null });
 
 export const templateActions = {
   save_battle_template: mutation<Input>(
-    '将当前装备和功法保存到 1..5 槽位；已有模板会覆盖。名称由服务端规范化，返回实际保存名称。',
+    '将当前装备和功法保存到 1..5 槽位；已有模板会覆盖。名称由服务端规范化，返回实际保存名称。同消息重新保存使用新 intentId，同次重试沿用原编号。',
     'battle-templates.save',
-    object({ slot, name: { type: 'string' } }, ['name']),
+    object({ slot, name: { type: 'string' }, intentId: intentIdSchema }, ['name', 'intentId']),
     withFlag('created'),
     input => `/保存战斗模板 ${input.slot}${input.name === undefined ? '' : ` ${input.name}`}`,
     (data, input) => {
@@ -23,7 +23,9 @@ export const templateActions = {
 
       return { ...projectTemplates({ current: result, templates: [] }).current, created: result.created };
     },
-    args
+    args,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   ),
   apply_battle_template: mutation<{ slot: number; intentId?: string }>(
     '应用已保存的战斗模板，改变当前装备和功法。同消息重新应用使用新 intentId，同次重试沿用原编号。',
@@ -40,13 +42,15 @@ export const templateActions = {
     input => validateIntentId(input.intentId),
     { intentId: input => input.intentId }
   ),
-  delete_battle_template: mutation<{ slot: number }>(
-    '删除指定槽位的战斗模板；不分解装备或功法，deleted=false 表示没有删除记录。',
+  delete_battle_template: mutation<{ slot: number; intentId?: string }>(
+    '删除指定槽位的战斗模板；deleted=false 表示没有删除记录。同消息新删除使用新 intentId，同次重试沿用原编号。',
     'battle-templates.delete',
-    object({ slot }),
+    object({ slot, intentId: intentIdSchema }, ['intentId']),
     object({ deleted: boolean }),
     input => `/删除战斗模板 ${input.slot}`,
     parseBattleTemplateDelete,
-    args
+    args,
+    input => validateIntentId(input.intentId),
+    { intentId: input => input.intentId }
   )
 };

@@ -29,7 +29,7 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.316.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.319.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
 
 常用玩法的查询与操作入口：
 

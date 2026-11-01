@@ -2,8 +2,12 @@ import { exactInteger } from '../core/exact-json';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
-export type BackendScarecrowSkillStat = { skillName: string; count: number; totalDamage: number | bigint; damageShareText: string };
+export type BackendScarecrowSkillStat = { skillName: string; count: number; totalDamage: number | bigint; damageShareText: string; totalDamageText?: string };
 export type BackendScarecrowSummary = {
+  totalDamageText?: string;
+  skillDamageText?: string;
+  buffDamageText?: string;
+  maxSingleDamageText?: string;
   totalDamage: number | bigint;
   skillDamage: number | bigint;
   buffDamage: number | bigint;
@@ -98,6 +102,7 @@ export function parseBackendScarecrow(value: unknown): BackendScarecrowResult {
       skillName: skill.skillName,
       count: integerField(skill.count),
       totalDamage: damageField(skill.totalDamage, skill.totalDamageText),
+      ...(typeof skill.totalDamageText === 'string' ? { totalDamageText: skill.totalDamageText } : {}),
       damageShareText: skill.damageShareText
     };
   });
@@ -124,8 +129,11 @@ export function parseBackendScarecrow(value: unknown): BackendScarecrowResult {
     rounds: integerField(data.rounds),
     summary: {
       totalDamage: damageField(summary.totalDamage, summary.totalDamageText),
+      ...(typeof summary.totalDamageText === 'string' ? { totalDamageText: summary.totalDamageText } : {}),
       skillDamage: damageField(summary.skillDamage, summary.skillDamageText),
+      ...(typeof summary.skillDamageText === 'string' ? { skillDamageText: summary.skillDamageText } : {}),
       buffDamage: damageField(summary.buffDamage, summary.buffDamageText),
+      ...(typeof summary.buffDamageText === 'string' ? { buffDamageText: summary.buffDamageText } : {}),
       skills,
       totalSkillAttacks: integerField(summary.totalSkillAttacks),
       critCount: integerField(summary.critCount),
@@ -133,6 +141,7 @@ export function parseBackendScarecrow(value: unknown): BackendScarecrowResult {
       critRateText: summary.critRateText,
       buffDamageShareText: summary.buffDamageShareText,
       maxSingleDamage: damageField(summary.maxSingleDamage, summary.maxSingleDamageText),
+      ...(typeof summary.maxSingleDamageText === 'string' ? { maxSingleDamageText: summary.maxSingleDamageText } : {}),
       maxSingleDamageSkill: summary.maxSingleDamageSkill,
       maxSingleDamageRound: integerField(summary.maxSingleDamageRound)
     }

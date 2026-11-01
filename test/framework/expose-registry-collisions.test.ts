@@ -54,3 +54,20 @@ test('所有 Expose 模块动作不发生同名覆盖，注册目录与源码一
   assert.deepEqual(Object.keys(configs[0].actions).sort(), [...seen.keys()].sort());
   t.diagnostic(`审计 ${seen.size} 个动作`);
 });
+
+test('常用玩法文档的每个动作都能从实际能力目录发现', t => {
+  const readme = readFileSync(fileURLToPath(new URL('../../README.md', import.meta.url)), 'utf8');
+  const table = readme.split('常用玩法的查询与操作入口：')[1]?.split('每次写操作后')[0];
+  assert.ok(table, '缺少常用玩法查询与操作表');
+  const actions = gameExpose.getConfigs()[0].actions;
+  const names = [...new Set([...table.matchAll(/`([a-z]+_[a-z_]+)`/g)].map(match => match[1]))];
+  assert.ok(names.length > 0, '常用玩法表没有可审计的动作');
+  for (const name of names) {
+    const action = actions[name];
+    assert.ok(action, `常用玩法文档引用未注册动作 ${name}`);
+    assert.ok(action.description, `${name} 缺少调用说明`);
+    assert.ok(action.inputSchema, `${name} 缺少输入契约`);
+    assert.ok(action.outputSchema, `${name} 缺少输出契约`);
+  }
+  t.diagnostic(`核对常用玩法表的 ${names.length} 个动作`);
+});

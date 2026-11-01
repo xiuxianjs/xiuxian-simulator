@@ -8,7 +8,7 @@ import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
-const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotTask(LearnedBooksCombinedAndReplay|UnexpectedBusinessErrorHTTPReplay|ShopCombinedAndReplay|GuildCheckinCombinedAndReplay|CheckinCombinedAndReplay|CheckinUnavailableReplay|DungeonSweepCombinedAndReplay|HomeCombinedAndReplay|HomeFailurePreservesContinuationAndReplay|CaveViewCombinedAndReplay|RealmViewCombinedAndReplay|ActivityViewCombinedAndReplay|PanelCombinedAndReplay|DungeonCatalogCombinedAndReplay|StorylineCatalogCombinedAndReplay|InventoryCombinedAndReplay|EquipmentInventoryCombinedAndReplay|OtherInventoryCombinedAndReplay|InventoryMenuCombinedAndReplay|CheckinHomeFullChainAndReplay)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotTask(HiddenBooksCombinedAndReplay|LearnedBooksCombinedAndReplay|UnexpectedBusinessErrorHTTPReplay|ShopCombinedAndReplay|GuildCheckinCombinedAndReplay|CheckinCombinedAndReplay|CheckinUnavailableReplay|DungeonSweepCombinedAndReplay|HomeCombinedAndReplay|HomeFailurePreservesContinuationAndReplay|CaveViewCombinedAndReplay|RealmViewCombinedAndReplay|ActivityViewCombinedAndReplay|PanelCombinedAndReplay|DungeonCatalogCombinedAndReplay|StorylineCatalogCombinedAndReplay|InventoryCombinedAndReplay|EquipmentInventoryCombinedAndReplay|OtherInventoryCombinedAndReplay|InventoryMenuCombinedAndReplay|CheckinHomeFullChainAndReplay)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
 const guildCheckinMatch = output.match(/EXPOSE_TASK_GUILD_CHECKIN=(.+)/);
 assert.ok(guildCheckinMatch);
 const guildCheckinFixture = JSON.parse(guildCheckinMatch[1]);
@@ -18,6 +18,8 @@ const shopFixture = JSON.parse(shopMatch[1]);
 const unexpectedMatch = output.match(/EXPOSE_TASK_UNEXPECTED=(.+)/);
 assert.ok(unexpectedMatch);
 const unexpectedFixture = JSON.parse(unexpectedMatch[1]);
+const hiddenTaskFixture = JSON.parse(output.match(/EXPOSE_TASK_HIDDEN=(.+)/)![1]);
+const hiddenPageFixture = JSON.parse(output.match(/EXPOSE_TASK_HIDDEN_PAGE_TWO=(.+)/)![1]);
 const learnedTaskMatch = output.match(/EXPOSE_TASK_LEARNED=(.+)/);
 assert.ok(learnedTaskMatch);
 const learnedTaskFixture = JSON.parse(learnedTaskMatch[1]);
@@ -243,6 +245,8 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     { action: 'execute_task_shop', op: 'shops.list', command: '商店', args: { page: 1 }, input: {} },
     { action: 'execute_task_emails', op: 'emails.list', command: '我的邮件', args: { pageText: '1' }, input: {} },
     { action: 'execute_task_learned_books', op: 'skill-books.learned', command: '我的功法', args: { page: null }, input: {} },
+    { action: 'execute_task_hidden_books', op: 'skill-books.hidden', command: '我的隐藏功法', args: { page: null }, input: {} },
+    { action: 'execute_task_hidden_books', op: 'skill-books.hidden', command: '我的隐藏功法 2', args: { page: '2' }, input: { page: 2 } },
     { action: 'execute_task_alchemy_recipes', op: 'alchemy.v2', command: '丹方', args: {}, input: {} },
     { action: 'execute_task_master_info', op: 'master.info', command: '我的师门', args: {}, input: {} },
     { action: 'execute_task_membership_rights', op: 'membership.rights', command: '我的权益', args: {}, input: {} },
@@ -277,6 +281,7 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     { action: 'end_meditation', op: 'meditation.end', command: '打坐结束', args: {}, input: {} },
     { action: 'end_meditation', op: 'meditation.end', command: '结束打坐', args: {}, input: {} },
     { action: 'pulse_meridian', op: 'meridians.pulse', command: '冲脉', args: {}, input: {} },
+    { action: 'perform_skill_wudao', op: 'skill-books.wudao', command: '悟道 2 物理攻击', args: { bookId: '2', label: '物理攻击' }, input: { bookId: 2, label: '物理攻击' } },
     { action: 'breakthrough_realm', op: 'realm.breakthrough', command: '突破', args: {}, input: {} },
     { action: 'water_cave_plots', op: 'cave.water', command: '浇灌 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
     { action: 'water_cave_plots', op: 'cave.water', command: '一键浇灌 1', args: { plotIndex: '1' }, input: { plotIndex: 1 } },
@@ -337,6 +342,11 @@ test('修炼和灵田步骤只接受与所选操作一致的任务指令', async
     if (current.action === 'water_cave_plots' && current.command === '一键浇灌 1') assert.equal((await call('一键浇灌 2')).value.ok, false);
     if (current.action === 'consume_item') assert.equal((await call('服用 培元丹 3')).value.ok, false);
     if (current.action === 'spar_with_player') assert.equal((await call('比试 3')).value.ok, false);
+    if (current.action === 'perform_skill_wudao') {
+      assert.equal((await call('悟道 3 物理攻击')).value.ok, false);
+      assert.equal((await call('悟道 2 暴击率')).value.ok, false);
+    }
+    if (current.action === 'execute_task_hidden_books') assert.equal((await call('我的功法')).value.ok, false);
     if (current.action === 'claim_all_weekly_activity') assert.equal((await call('领取全部日常活跃奖励')).value.ok, false);
     if (current.action === 'claim_all_guild_milestones') assert.equal((await call(current.input && 'type' in current.input && current.input.type === 'daily_activity' ? '领取全部宗门周活奖励' : '领取全部宗门日活奖励')).value.ok, false);
     assert.equal((await call('其他指令')).value.ok, false);
@@ -1022,4 +1032,34 @@ test('丹方任务别名和页码规范化保持原始任务步骤', async t => 
     expected = entry.original; command = entry.normalized; assert.equal((await call(expected, entry.page)).value.ok, true);
   }
   assert.equal((await call('丹方列表 2', 3)).value.ok, false); assert.equal((await call('炼丹 确认 x')).value.ok, false); assert.equal(calls, 3);
+});
+
+test('我的隐藏功法任务使用服务端真实列表及推进回执', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, '我的隐藏功法'); assert.deepEqual(body.arguments, { page: null });
+    return { status: 200, headers: {}, data: JSON.stringify(hiddenTaskFixture) };
+  } }));
+  const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_hidden_books', { taskInput: '我的隐藏功法' }), 'ai-plugin');
+  assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.equal((run.value.data as any).result.total, hiddenTaskFixture.data.data.page.total); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+});
+
+
+test('隐藏功法指定显示页沿用服务端查询页规则', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  let calls = 0;
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    calls++; const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.messageText, '/我的隐藏功法 0002'); assert.deepEqual(body.arguments, { page: '0002' });
+    return { status: 200, headers: {}, data: JSON.stringify(hiddenPageFixture) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = (page: number) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_hidden_books', { taskInput: '我的隐藏功法 0002', page }), 'ai-plugin');
+  const run = await call(2); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { assert.equal((run.value.data as any).result.currentPage, 2); assert.equal((run.value.data as any).taskContinuation.outcome, 'next'); }
+  assert.equal((await call(3)).value.ok, false); assert.equal(calls, 1);
 });

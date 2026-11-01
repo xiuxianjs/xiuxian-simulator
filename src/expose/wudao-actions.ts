@@ -1,6 +1,6 @@
 import { ExposeError } from 'alemonjs';
 import { parseWudaoOptions, parseWudaoResult } from '../api/bot/skill-book-wudao';
-import { intentIdSchema, mutation, observation, validateIntentId } from './mutation';
+import { intentIdSchema, mutation, observation, taskInputSchema, validateIntentId } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -61,10 +61,10 @@ export const wudaoActions = {
     (data, input) => parse(data, input.bookId),
     input => ({ bookId: String(input.bookId), label: '' })
   ),
-  perform_skill_wudao: mutation<{ bookId: number; label: string; intentId?: string }>(
-    '消耗悟道石对已学功法的指定属性悟道，先查询可选属性；实际增长及剩余数量以服务端回执为准。同消息新悟道使用新 intentId，同次重试沿用原编号。',
+  perform_skill_wudao: mutation<{ bookId: number; label: string; intentId?: string; taskInput?: string }>(
+    '消耗悟道石对已学功法的指定属性悟道，先查询可选属性；实际增长及剩余数量以服务端回执为准。同消息新悟道使用新 intentId，同次重试沿用原编号。连锁任务可传入一致的 taskInput，分别检查任务推进和悟道结果。',
     'skill-books.wudao',
-    object({ bookId: id, label: { type: 'string', minLength: 1 }, intentId: intentIdSchema }, ['intentId']),
+    object({ bookId: id, label: { type: 'string', minLength: 1 }, intentId: intentIdSchema, taskInput: taskInputSchema }, ['intentId', 'taskInput']),
     object({ bookId: integer, options, result: resultSchema }),
     input => `/悟道 ${input.bookId} ${input.label}`,
     (data, input) => parse(data, input.bookId, input.label),
@@ -75,6 +75,6 @@ export const wudaoActions = {
         throw new ExposeError('INVALID_INPUT', '悟道属性必须是单个标签');
       }
     },
-    { intentId: input => input.intentId }
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
   )
 };

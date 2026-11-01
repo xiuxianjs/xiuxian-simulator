@@ -402,7 +402,7 @@ const spiritRootMaterials = list(
 
 type TaskPagedInput = { taskInput: string; page?: number; intentId?: string };
 
-function taskPage(input: TaskPagedInput, label: '我的功法' | '我的邮件') {
+function taskPage(input: TaskPagedInput, label: '我的功法' | '我的隐藏功法' | '我的邮件') {
   const command = input.taskInput
     .trim()
     .replace(/^[!！/#＃]\s*/, '')
@@ -419,6 +419,28 @@ function taskPage(input: TaskPagedInput, label: '我的功法' | '我的邮件')
 }
 
 export const commonQueryActions = {
+  execute_task_hidden_books: mutation<TaskPagedInput>(
+    '执行我的隐藏功法连锁任务查看步骤，页码从指令读取；服务端先推进任务再查询，分别检查任务和列表回执，不改变功法显示状态。',
+    'skill-books.hidden',
+    object({ taskInput: taskInputSchema, page, intentId: intentIdSchema }, ['page', 'intentId']),
+    learned,
+    input => taskPage(input, '我的隐藏功法').command,
+    (data, input) => {
+      const result = parseRobotLearnedBooks(data);
+
+      if (result.displayPage !== taskPage(input, '我的隐藏功法').number) {
+        throw new Error('隐藏功法列表回执页码不匹配');
+      }
+
+      return result.page;
+    },
+    input => ({ page: taskPage(input, '我的隐藏功法').rawPage }),
+    input => {
+      validateIntentId(input.intentId);
+      taskPage(input, '我的隐藏功法');
+    },
+    { intentId: input => input.intentId, taskInput: input => input.taskInput }
+  ),
   execute_task_learned_books: mutation<TaskPagedInput>(
     '执行我的功法连锁任务查看步骤，页码从指令读取；显示页沿用服务端原有分页规则，不学习或升级。',
     'skill-books.learned',

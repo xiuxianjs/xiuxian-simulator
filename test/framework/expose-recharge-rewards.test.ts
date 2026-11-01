@@ -8,18 +8,21 @@ import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
-const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusiness(RechargeQueriesV1ReadOnly|FirstRechargeClaimV1ParityAndRepeat|NewcomerRechargeClaimV1ParityAndRepeat|WeeklyRebateClaimV1ParityAndReplay)$', '-v', '-count=1'], {
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobotBusiness(RechargeQueriesV1ReadOnly|FirstRechargeClaimV1ParityAndRepeat|NewcomerRechargeClaimV1ParityAndRepeat)|TestRobotWeeklyCumulativeTierStatesAndReplay)$', '-v', '-count=1'], {
   cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024
 }).toString();
 const rows = (tag: string) => [...output.matchAll(new RegExp(`${tag}=(.+)`, 'g'))].map(match => JSON.parse(match[1]));
 const queries = rows('ROBOT_RECHARGE_QUERY');
+const weeklyClaims = rows('ROBOT_WEEKLY_CUMULATIVE_CLAIM');
+assert.ok(weeklyClaims.length > 0);
+const weeklyCommand = weeklyClaims[0].input;
 const cases = [
   { action: 'get_first_recharge_rewards', op: 'recharge.first-info', command: '/礼包奖励', rows: queries.filter(row => row.kind === 'first'), input: () => ({}) },
   { action: 'get_newcomer_recharge_rebate', op: 'recharge.newcomer-info', command: '/新人返利', rows: queries.filter(row => row.kind === 'newcomer'), input: () => ({}) },
   { action: 'get_weekly_recharge_rebate', op: 'recharge.weekly-info', command: '/周周返利', rows: queries.filter(row => row.kind === 'weekly'), input: () => ({}) },
   { action: 'claim_first_recharge_reward', op: 'recharge.first-claim', command: '/领取礼包奖励 1', rows: rows('ROBOT_FIRST_RECHARGE_CLAIM').filter(row => row.yuan === 1), input: () => ({ tierYuan: 1 }) },
   { action: 'claim_newcomer_recharge_rebate', op: 'recharge.newcomer-claim', command: '/新人返利领取 1', rows: rows('ROBOT_NEWCOMER_RECHARGE_CLAIM').filter(row => row.day === 1), input: () => ({ dayIndex: 1 }) },
-  { action: 'claim_weekly_recharge_rebate', op: 'recharge.weekly-rebate-claim', command: '/周周返利领取 1', rows: rows('ROBOT_WEEKLY_REBATE_CLAIM').filter(row => row.day === 1), input: () => ({ dayIndex: 1 }) }
+  { action: 'claim_weekly_recharge_rebate', op: 'recharge.weekly-rebate-claim', command: weeklyCommand, rows: weeklyClaims, input: () => ({ thresholdYuan: 30, expectedWeekStart: weeklyClaims[0].weekStart }) }
 ];
 for (const item of cases) test(`${item.action}: 使用服务端真实回执`, async t => {
   assert.ok(item.rows.length > 0);

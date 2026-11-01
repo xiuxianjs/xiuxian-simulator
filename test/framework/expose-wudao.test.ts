@@ -8,7 +8,7 @@ import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
-const output = goTestFixture(['test', './internal/httpapi', '-run', '^TestRobotBusinessExposeWudao$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
+const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobotBusinessExposeWudao|TestRobotTaskWudaoCombinedAndReplay)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
 const fixtures = [...output.matchAll(/ROBOT_WUDAO_EXPOSE=([^|]+)\|(.+)/g)].map(row => ({ key: row[1], envelope: JSON.parse(row[2]) }));
 test('功法悟道查询和消耗返回真实候选与结算', async t => {
   const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
@@ -38,4 +38,25 @@ test('功法悟道查询和消耗返回真实候选与结算', async t => {
       envelope.data.data.result.label = '暴击率'; assert.equal((await call()).value.ok, false);
     }
   }
+});
+
+
+test('悟道任务使用真实推进和消耗回执', async t => {
+  const raw = output.match(/EXPOSE_TASK_WUDAO=(.+)/)?.[1]; assert.ok(raw);
+  const envelope = JSON.parse(raw);
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose()); await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const keys: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
+    assert.equal(body.taskInput, '悟道 2 物理攻击');
+    assert.deepEqual(body.arguments, { bookId: '2', label: '物理攻击' });
+    keys.push(request.headers['idempotency-key']);
+    return { status: 200, headers: {}, data: JSON.stringify(envelope) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'perform_skill_wudao', { bookId: 2, label: '物理攻击', taskInput: '悟道 2 物理攻击', intentId: 'first' }), 'ai-plugin');
+  const run = await call(); assert.equal(run.value.ok, true, JSON.stringify(run.value));
+  if (run.value.ok) { const data = run.value.data as any; assert.equal(data.taskContinuation.outcome, 'next'); assert.equal(data.result.result.remaining, 1); assert.equal(data.result.result.newMax, 20); }
+  await call(); assert.equal(keys[0], keys[1]);
 });
