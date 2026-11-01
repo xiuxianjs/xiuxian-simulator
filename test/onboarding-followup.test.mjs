@@ -66,7 +66,7 @@ test('return choices and normal navigation fill in commands',async()=>{
  const first=rows[0].value[0],second=rows[1].value[0];
  assert.equal(first.options.type,'command');
  assert.equal(first.options.rawData?.id,undefined);
- assert.deepEqual(first.options.permission,{type:0,userIds:['new']});
+ assert.equal(Object.hasOwn(first.options,'permission'),false);
  assert.equal(first.options.data,'/主线扫荡 1-1 7');
  assert.equal(second.options.type,'command');assert.equal(second.options.data,'/任务面板');
  assert.equal(second.options.rawData?.id,undefined);

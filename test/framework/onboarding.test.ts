@@ -38,7 +38,7 @@ test('真实教学 Context 隔离其他用户，并携带当前版本提交一�
   assert.equal(requests.length, 1);
   assert.equal(requests[0].path, '/api/v2/robot/business/onboarding.action');
   assert.deepEqual(requests[0].body.arguments, { version: 1, command: '/我' });
-  // Inspect the actual sent keyboard and its recipient permissions.
+  // Inspect the actual sent keyboard without explicit permissions.
   const buttons = continued.messages[0].nodes.flatMap(node =>
     node.type === 'ButtonGroup' || node.type === 'BT.group' ? node.value.flatMap(row => row.value) : []
   );
@@ -47,7 +47,7 @@ test('真实教学 Context 隔离其他用户，并携带当前版本提交一�
   assert.equal(choice.options?.type, 'command');
   assert.equal(choice.options?.autoEnter, false);
   assert.equal(choice.options?.rawData?.id, undefined);
-  assert.deepEqual(choice.options?.permission?.userIds, ['newcomer']);
+  assert.equal(Object.hasOwn(choice.options ?? {}, 'permission'), false);
 });
 
 test('虚拟时钟推进 30 分钟后，真实教学 Context 过期且不发送业务请求', async t => {
@@ -97,7 +97,7 @@ test('教学按钮发送失败时降级为文字，不重放业务且保留上�
   for (const button of buttons) {
     assert.equal(button.options?.type, 'command');
     assert.equal(button.options?.autoEnter, false);
-    assert.deepEqual(button.options?.permission, { type: 2 });
+    assert.equal(Object.hasOwn(button.options ?? {}, 'permission'), false);
     assert.equal(button.options?.rawData?.id, undefined);
   }
   assert.equal(requests.length, 0);

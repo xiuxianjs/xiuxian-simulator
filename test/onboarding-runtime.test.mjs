@@ -375,7 +375,7 @@ test('new QQ teaching keyboards fill in the actual command without callbacks',as
   assert.equal(button.options.rawData?.id,undefined);
   assert.equal(button.options.data,'/任务面板');
   assert.equal(button.options.type,'command');
-  assert.deepEqual(button.options.permission,{type:0,userIds:['newcomer']});
+  assert.equal(Object.hasOwn(button.options,'permission'),false);
 });
 
 test('expired Context callbacks use the original button version and unrelated callbacks pass',async()=>{
@@ -407,7 +407,7 @@ test('invalid owned callback metadata refreshes without an action, and legacy pr
 });
 
 
-test('the installed QQ adapter sends input commands and owner permissions in both wire payloads',async()=>{
+test('the installed QQ adapter sends input commands with adapter default permissions in both wire payloads',async()=>{
   await open(event('/继续引导',{Platform:'qq-bot'}),view('panel',36));
   const format=state.sent[0].value.format.value;
   for(const [send,tag] of [[GROUP_AT_MESSAGE_CREATE,'GROUP_AT_MESSAGE_CREATE'],[C2C_MESSAGE_CREATE,'C2C_MESSAGE_CREATE']]){
@@ -421,8 +421,9 @@ test('the installed QQ adapter sends input commands and owner permissions in bot
     assert.equal(button.action.type,2);
     assert.equal(button.action.enter,false);
     assert.equal(button.action.data,'/任务面板');
-    assert.ok(button.action.unsupport_tips.includes('手动发送'));
-    assert.deepEqual(button.action.permission.specify_user_ids,['newcomer']);
+    assert.equal(button.action.unsupport_tips,'');
+    assert.equal(button.action.permission.type,2);
+    assert.equal(button.action.permission.specify_user_ids,undefined);
     assert.equal(payload.keyboard.content.rows.length,2);
   }
 });
