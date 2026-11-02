@@ -1,5 +1,5 @@
 import { isFreshObservation } from '../expose/execution-policy';
-import { playContext, playTopic } from './play-context';
+import { playContext, playTopic, selectPlayTopic } from './play-context';
 import { routePluginConversation } from './conversation-routing';
 import {
   permitsPreparationFollowup,
@@ -369,6 +369,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         providerOverview = row.data;
       }
       rememberGuidance(providerOverview ?? row.data, narrator);
+      selectPlayTopic(userText);
       const selectedFlow = (guidanceSession()?.state as { flow?: string })?.flow;
       const selectedSession = guidanceSession();
 

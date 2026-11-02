@@ -90,3 +90,39 @@ for (const text of ['帮我买手机', '帮我写修仙代码', '翻译这份炼
   const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'other-topic', text }), () => Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'route_conversation', { active: false }), 'alemonjs-agent-link');
   assert.equal((result.value as any).data.decision, 'unmatched');
 });
+
+test('switching topic before a business call survives short replies and returning to directory clears focus only', async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => { throw new Error('navigation must not call backend'); });
+  const event = (text: string) => app.events.privateMessage({ platform: 'qq-bot', userId: 'topic-switch', messageId: text, text });
+  const start = await app.invoke(event('炼丹'), async () => {
+    rememberGameplay('get_inventory', { ok: true, data: { items: [] } }, '系统', { page: 2 }, 'inventory');
+    const session = guidanceSession()!;
+    session.offers = [{ action: 'confirm_alchemy', reference: 'original-ref', label: '原确认', messageId: 'preview', shown: true, submitted: false }];
+    const route = await Expose.create().call('agent.conversation.v1', 'xiuxian-game', 'route', { aiEnabled: true });
+    assert.equal((route as any).data.decision, 'claim');
+    assert.equal(session.selectedPlayTopic, 'alchemy');
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(start.errors, []);
+  const followup = await app.invoke(event('一炉'), async () => {
+    const context = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'get_play_context', {});
+    assert.equal((context as any).data.topic, 'alchemy');
+    assert.equal((context as any).data.current.lastAction, 'get_inventory');
+    assert.equal((context as any).data.current.lastActionTopic, 'inventory');
+    assert.equal((context as any).data.current.lastArgumentsJson, '{"page":2}');
+    rememberGameplay('get_alchemy_recipes', { ok: true, data: {} }, '系统', {});
+    assert.equal(guidanceSession()!.play!.topic, 'alchemy');
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(followup.errors, []);
+  const menu = await app.invoke(event('返回玩法目录'), async () => {
+    const route = await Expose.create().call('agent.conversation.v1', 'xiuxian-game', 'route', { aiEnabled: true });
+    assert.equal((route as any).data.decision, 'reply');
+    const context = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'get_play_context', {});
+    assert.equal((context as any).data.topic, '');
+    assert.equal((context as any).data.current.lastAction, 'get_alchemy_recipes');
+    assert.equal(guidanceSession()!.offers![0].reference, 'original-ref', 'navigation must not rewrite or cancel original confirmation');
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(menu.errors, []);
+});

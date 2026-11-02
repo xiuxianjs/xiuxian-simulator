@@ -1,7 +1,7 @@
 import { Expose, getCurrentEvent, type ExposeCallContext, type ExposeProvideConfig } from 'alemonjs';
 import { authorizedEvent } from '../expose/access';
 import { boolean, list, object, text } from '../expose/schema';
-import { isPlayDirectoryRequest, playDirectoryText } from './play-context';
+import { isPlayDirectoryRequest, playDirectoryText, selectPlayTopic } from './play-context';
 import { gameGuidance } from './game-guidance';
 import { captureGamePresentation, advanceGamePresentation } from './game-progress';
 import {
@@ -103,6 +103,8 @@ export const conversationLifecycle: ExposeProvideConfig = {
             rememberGuidance({ flow: 'gameplay', directoryOnly: true });
           }
 
+          selectPlayTopic(message);
+
           return { decision: 'reply', prompt: '', reply: playDirectoryText() };
         }
         const decision = await routePluginConversation('xiuxian.player.v1', 'xiuxian-game', gameConversationContinuation());
@@ -117,6 +119,7 @@ export const conversationLifecycle: ExposeProvideConfig = {
         if (!input.aiEnabled) {
           return { decision: 'reply', prompt: '', reply: 'AI游玩暂未开启。新玩家可以发送 /踏入仙途，已有角色可以发送 /我；原新手引导和玩法仍可使用。' };
         }
+        selectPlayTopic(message);
         noteGuidance('玩家：' + message);
 
         return {

@@ -44,6 +44,16 @@ export function playTopic(text: string): string | undefined {
 }
 export const isPlayDirectoryRequest = (text: string): boolean => /^(?:玩法目录|返回玩法目录|换个玩法|查看玩法目录)$/u.test(text.trim());
 
+/** Navigation intent only; never alters the last operation or its confirmation. */
+export function selectPlayTopic(request: string): void {
+  const session = guidanceSession();
+  const topic = playTopic(request);
+
+  if (session && (topic || isPlayDirectoryRequest(request))) {
+    session.selectedPlayTopic = topic ?? '';
+  }
+}
+
 export function playContext(request: string, requestedTopic?: string) {
   const session = guidanceSession();
   const provider = Expose.create()
@@ -59,7 +69,7 @@ export function playContext(request: string, requestedTopic?: string) {
       )
     }))
     .filter(item => item.entries.length);
-  const topicId = requestedTopic ?? playTopic(request) ?? session?.play?.topic;
+  const topicId = requestedTopic ?? playTopic(request) ?? session?.selectedPlayTopic ?? session?.play?.topic;
   const selected = available.find(item => item.topic.id === topicId);
   const rank = (entry: (typeof actions)[number]) => (entry[1].effect === 'read' ? 0 : isFreshObservation(entry[0]) ? 1 : 2);
   const entries = [...(selected?.entries ?? [])].sort((left, right) => rank(left) - rank(right));
@@ -70,6 +80,7 @@ export function playContext(request: string, requestedTopic?: string) {
     topicLabel: selected?.topic.label ?? '',
     directory: available.map(item => ({ id: item.topic.id, label: item.topic.label, capabilityCount: item.entries.length })),
     current: {
+      lastActionTopic: session?.play?.topic ?? '',
       lastAction: session?.play?.lastAction ?? '',
       lastArgumentsJson: session?.play?.argumentsJson ?? '',
       lastOutcome: session?.play?.outcome ?? '',

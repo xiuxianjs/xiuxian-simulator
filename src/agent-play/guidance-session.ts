@@ -15,6 +15,7 @@ export type GameOffer = {
   submitted: boolean;
 };
 type Session = {
+  selectedPlayTopic?: string;
   dialogueChoices?: string[];
   dialogueMessageId?: string;
   play?: { topic?: string; lastAction: string; argumentsJson: string; outcome: string };
@@ -55,6 +56,7 @@ export function rememberGuidance(state: unknown, narrator = '系统'): void {
 
   sessions.delete(id);
   sessions.set(id, {
+    selectedPlayTopic: previous?.selectedPlayTopic,
     dialogueChoices: previous?.dialogueChoices,
     dialogueMessageId: previous?.dialogueMessageId,
     play: previous?.play,
@@ -117,7 +119,7 @@ export function rememberGameplay(action: string, result: unknown, narrator = '�
   const row = result as { ok?: boolean; data?: { success?: boolean }; error?: { outcome?: string } };
 
   session.play = {
-    topic: topic ?? session.play?.topic,
+    topic: topic ?? session.selectedPlayTopic ?? session.play?.topic,
     lastAction: action,
     argumentsJson: input === undefined || JSON.stringify(input).length > 12000 ? '' : JSON.stringify(input),
     outcome: row?.ok === true && row.data?.success !== false ? 'returned' : (row?.error?.outcome ?? 'rejected_or_unknown')
