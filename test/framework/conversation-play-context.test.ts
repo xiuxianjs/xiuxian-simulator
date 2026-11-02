@@ -126,3 +126,24 @@ test('switching topic before a business call survives short replies and returnin
   }, 'alemonjs-agent-link');
   assert.deepEqual(menu.errors, []);
 });
+
+for (const text of ['修仙怎么玩', '炼丹怎么玩']) test(`overview follows explicit question rather than old gameplay topic: ${text}`, async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    assert.ok(request.url.includes('/identity'));
+    return { status: 200, headers: {}, data: JSON.stringify({ data: { bid: 'overview-topic', account: { status: 'registered', playerId: 123 } } }) };
+  } }));
+  const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'overview-topic', text }), async () => {
+    rememberGameplay('get_inventory', { ok: true, data: {} }, '系统', {}, 'inventory');
+    guidanceSession()!.selectedPlayTopic = 'inventory';
+    const response = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'get_guidance_state', { conversationMode: 'gameplay' });
+    assert.equal(response.ok, true, JSON.stringify(response));
+    const state = (response as any).data;
+    assert.equal(state.flow, 'overview');
+    assert.equal(state.dialogue.choices[0], text === '修仙怎么玩' ? '继续修仙' : '查看炼丹');
+    assert.ok(!state.dialogue.text.includes('我们可以先了解背包'));
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(result.errors, []);
+});

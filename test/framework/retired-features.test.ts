@@ -1,3 +1,4 @@
+import { isRetiredCommand } from '../../src/response/retiredFeatures';
 import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
@@ -20,6 +21,7 @@ test('下架商城、活动充值和海外仙岛旧指令不调用业务接口',
   await app.mount({ responseRouter: router });
   for (const prefix of ['/', '#', '＃', '']) {
     for (const command of ['黑盒拍卖', '黑盒排期', '黑盒记录', '黑盒详情 1 D01-1200-A', '黑盒出价 1 D01-1200-A 100', '黑盒入场 1 D01-1200-A', '黑盒提醒 1 D01-1200-A', '黑盒预约 1 D01-1200-A', '黑盒确认 1 D01-1200-A', '黑盒取消 1 D01-1200-A', '黑盒鉴宝 1 D01-1200-A', '确认黑盒出价 1 D01-1200-A 100', '黑盒撤标 1 D01-1200-A', '宗门大比', '宗门大比报名', '宗门大比战斗记录', '宗门大比战斗详情 1', '可挑战宗门列表', '查看晋级赛队伍', '查看押注记录', '添加宗门大比成员 1 1', '移除宗门大比成员 1', '调整宗门大比位置 1 2', '清空宗门大比队伍', '押注宗门大比 1 10', '追投宗门大比 10', '领取宗门大比奖励', '挑战宗门 1', '小店', '小店排行', '我的小店', '逛店', '逛店 123', '命名店铺', '命名店铺 测试', '店铺简介', '店铺简介 测试', '我的主题', '切换主题 1', '关闭主题', '切换墨色模式 宣纸水墨', '切换墨色模式 深底暗黑', '领取回归礼包', '领取回归礼包 OLD', '领取测试礼包', '领取测试礼包 OLD', '凡人修仙礼包码', '赞助', '赞助购买 30', '活动商城', '活动商店', '海岛', '限时活动 商店', '限时活动 任务', '限时活动 特惠', '活动购买 1 1', '活动充值', '活动充值购买 1 2', '活动充值领取 1 2', '海外仙岛', '海外仙岛 测试 货品', '海外仙岛 测试 记录', '海外仙岛 测试 转盘 10']) {
+      assert.equal(isRetiredCommand(prefix + command), true, 'AI 兼容桥必须识别同一停用指令：' + prefix + command);
       for (const privateChat of [false, true]) {
         const event = privateChat
           ? app.events.privateMessage({ text: prefix + command, platform: 'qq-bot' })
@@ -162,4 +164,26 @@ test('排行榜隐藏服务端返回的小店入口及文案，保留其他排�
   assert.ok(view.commands.includes('/境界排行榜'));
   assert.match(view.text, /查看各类排行/);
   assert.doesNotMatch(JSON.stringify(message.nodes), /小店|修仙百业/);
+});
+
+for (const raw of [false, true]) test(`业务拒绝保留原原因但不恢复下架入口 raw=${raw}`, async t => {
+  const reason = '当前不允许被更新职位，可能因为参加宗门大比等原因';
+  const { app, requests } = await gameFixture(t, () => { throw new Error('render must not execute business'); });
+  const event = app.events.privateMessage({ text: '/设置身份为 长老 9', platform: 'qq-bot' });
+  const result = await app.runHandler(async () => {
+    await sendMiddlewareReply(event, {
+      title: '操作未完成', heading: '', text: reason,
+      ...(raw ? { rawLines: [reason] } : {}),
+      buttons: [{ label: '宗门大比', command: '/宗门大比' }, { label: '我的宗门', command: '/我的宗门' }], advice: []
+    }, false, true);
+  }, event);
+  assert.deepEqual(result.errors, []);
+  assert.equal(requests.length, 0);
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  const view = inspectMessage(message.nodes);
+  assert.ok(view.text.includes(reason));
+  assert.ok(!view.commands.includes('/宗门大比'));
+  if (!raw) assert.ok(view.commands.includes('/我的宗门'));
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
 });

@@ -1,3 +1,4 @@
+import { isRetiredCommand } from '../response/retiredFeatures';
 import { declareFreshObservation } from './execution-policy';
 import { conversationPreview } from './conversation-preview';
 import { gameGuidePresentation, onboardingPresentationSchema } from './onboarding-presentation';
@@ -131,6 +132,10 @@ export function mutation<I extends Record<string, unknown>>(
     authorize: (input, context) => {
       validateInput?.(input);
       const taskInput = options.taskInput?.(input as I);
+
+      if (isRetiredCommand(command(input as I)) || (taskInput !== undefined && isRetiredCommand(taskInput))) {
+        throw new ExposeError('FORBIDDEN', '该玩法已下架，不能通过 AI 或旧教学指令执行。请返回玩法目录选择当前可用玩法。');
+      }
 
       if (taskInput !== undefined) {
         const normalize = (value: string) => value

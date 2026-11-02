@@ -1,3 +1,4 @@
+import { isRetiredCommand } from '../response/retiredFeatures';
 import { validateBackendTaskConfigPage } from '../api/bot/task-config';
 import { parseBackendTaskRuntimeAction } from '../api/bot/task-runtime-action';
 import { parseBackendTaskRuntimeCancel } from '../api/bot/task-runtime-cancel';
@@ -202,7 +203,12 @@ export const taskActions = {
       return row;
     },
     input => ({ slot: String(input.slot), step: String(input.step), content: input.content }),
-    input => validateIntentId(input.intentId),
+    input => {
+      validateIntentId(input.intentId);
+      if (isRetiredCommand(input.content)) {
+        throw new ExposeError('FORBIDDEN', '该玩法已下架，不能新增为连锁任务步骤；已有步骤可改为当前可用玩法。');
+      }
+    },
     { intentId: input => input.intentId }
   ),
   set_task_chain_alias: mutation<{ slot: number; alias: string; intentId?: string }>(

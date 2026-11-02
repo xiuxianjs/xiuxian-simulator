@@ -22,7 +22,7 @@ const schema = {
     presentation: { type: 'object', additionalProperties: false, required: ['protocol', 'delivery', 'text'], properties: { protocol: { type: 'string', enum: ['system-guide.v1', 'future.v9'] }, delivery: string, text: string } }
   }
 };
-for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unknown-version', 'already-sent', 'retry', 'sequence', 'changed-intent', 'legacy', 'middleware-model-failure', 'scene-order', 'scene-echo', 'fresh-progress']) {
+for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unknown-version', 'already-sent', 'retry', 'sequence', 'changed-intent', 'legacy', 'middleware-model-failure', 'scene-order', 'scene-echo', 'continuation-only', 'fresh-progress']) {
   test(`game guidance real Expose and platform pipeline: ${scenario}`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'game-guidance-'));
     const app = createTestApp({ config: { db: { dialect: 'sqlite', sqlite: { storage: join(root, 'managed.sqlite') } }, 'alemonjs-agent-link': {
@@ -39,7 +39,7 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
     globalThis.fetch = async (_url, init) => {
       requests++;
       if (requests === 1) return Response.json({ choices: [{ message: { content: null, tool_calls: [{
-        id: 'guide-once', type: 'function', function: { name: 'expose_write', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: ['scene-order', 'scene-echo'].includes(scenario) ? 'continue_registration_guide' : scenario === 'fresh-progress' ? 'get_onboarding' : 'perform_onboarding_action', argumentsJson: ['sequence', 'changed-intent'].includes(scenario) ? JSON.stringify({ version: 1, command: '/签到', intentId: 'step-1' }) : '{}' }) }
+        id: 'guide-once', type: 'function', function: { name: 'expose_write', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: ['scene-order', 'scene-echo', 'continuation-only'].includes(scenario) ? 'continue_registration_guide' : scenario === 'fresh-progress' ? 'get_onboarding' : 'perform_onboarding_action', argumentsJson: ['sequence', 'changed-intent'].includes(scenario) ? JSON.stringify({ version: 1, command: '/签到', intentId: 'step-1' }) : '{}' }) }
       }] } }] });
       if (['sequence', 'changed-intent'].includes(scenario) && requests === 2) return Response.json({ choices: [{ message: { content: null, tool_calls: [{ id: 'guide-next', type: 'function', function: { name: 'expose_write', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'perform_onboarding_action', argumentsJson: JSON.stringify({ version: 2, command: '/查看主线 1', intentId: scenario === 'changed-intent' ? 'step-1' : 'step-2' }) }) } }] } }] });
       if (['retry', 'fresh-progress'].includes(scenario) && requests === 2) return Response.json({ choices: [{ message: { content: null, tool_calls: [{ id: 'guide-retry', type: 'function', function: { name: 'expose_write', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: scenario === 'fresh-progress' ? 'get_onboarding' : 'perform_onboarding_action', argumentsJson: '{}' }) } }] } }] });
@@ -59,7 +59,7 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
               handler: async () => ({ protocol: 'plugin-execution-policy.v1', actions: [scenario === 'fresh-progress' ? { action: 'get_onboarding', mode: 'fresh' } : { action: 'perform_onboarding_action', mode: 'operation', keyField: 'intentId' }] }) })
           } : {}),
 
-          [['scene-order', 'scene-echo'].includes(scenario) ? 'continue_registration_guide' : scenario === 'fresh-progress' ? 'get_onboarding' : 'perform_onboarding_action']: Expose.action({ description: '教学', effect: 'write', inputSchema: ['sequence', 'changed-intent'].includes(scenario) ? { type: 'object', required: ['version', 'command', 'intentId'], additionalProperties: false, properties: { version: { type: 'integer' }, command: string, intentId: string } } : empty, outputSchema: scenario === 'legacy' ? { type: 'object', properties: { success: { type: 'boolean' }, branch: string }, required: ['success', 'branch'], additionalProperties: false } : schema, handler: async () => {
+          [['scene-order', 'scene-echo', 'continuation-only'].includes(scenario) ? 'continue_registration_guide' : scenario === 'fresh-progress' ? 'get_onboarding' : 'perform_onboarding_action']: Expose.action({ description: '教学', effect: 'write', inputSchema: ['sequence', 'changed-intent'].includes(scenario) ? { type: 'object', required: ['version', 'command', 'intentId'], additionalProperties: false, properties: { version: { type: 'integer' }, command: string, intentId: string } } : empty, outputSchema: scenario === 'legacy' ? { type: 'object', properties: { success: { type: 'boolean' }, branch: string }, required: ['success', 'branch'], additionalProperties: false } : schema, handler: async () => {
             calls++;
             if (scenario === 'legacy') return { success: true, branch: 'business' };
             return { success: scenario !== 'middleware-model-failure', branch: scenario === 'middleware-model-failure' ? 'middleware' : 'business', presentation: { protocol: scenario === 'unknown-version' ? 'future.v9' : 'system-guide.v1', delivery: scenario === 'already-sent' ? 'sent' : 'pending', text: scenario === 'fresh-progress' ? panel + (calls === 1 ? '\n旧目录 /继续引导 1 master' : '\n新目录 /继续引导 2 market') : panel } };
@@ -67,16 +67,17 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
         } }]);
         const [event] = useEvent({ selects: 'private.message.create' });
         config = getDSHConfig();
-        await runDSHChat(event.current, '带我继续修行');
-      }, app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: `human-${scenario}`, messageId: `guide-${scenario}`, text: '带我继续修行' }), 'alemonjs-agent-link');
+        await runDSHChat(event.current, scenario === 'continuation-only' ? '只继续一段序章，不要跳过' : '带我继续修行');
+      }, app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: `human-${scenario}`, messageId: `guide-${scenario}`, text: scenario === 'continuation-only' ? '只继续一段序章，不要跳过' : '带我继续修行' }), 'alemonjs-agent-link');
       assert.deepEqual(result.errors, []);
       assert.equal(calls, ['sequence', 'fresh-progress'].includes(scenario) ? 2 : 1);
       assert.equal(requests, ['retry', 'sequence', 'changed-intent', 'fresh-progress'].includes(scenario) ? 3 : 2);
       const sent = result.messages.map(message => message.text).join('\n');
       if (['unknown-version', 'already-sent', 'legacy'].includes(scenario)) assert.ok(!sent.includes('修为：25/200'));
       else assert.ok(sent.includes('修为：25/200'));
-      if (!['model-failure', 'middleware-model-failure', 'scene-echo'].includes(scenario)) assert.equal(sent.split('按你的节奏来').length - 1, 1);
+      if (!['model-failure', 'middleware-model-failure', 'scene-echo', 'continuation-only'].includes(scenario)) assert.equal(sent.split('按你的节奏来').length - 1, 1);
       if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); assert.ok(sent.includes('返回玩法目录')); assert.ok(sent.includes('退出AI游玩')); }
+      if (scenario === 'continuation-only') { assert.ok(!sent.includes('按你的节奏来')); assert.equal(sent.split('修为：25/200').length - 1, 1); }
       if (scenario === 'scene-echo') assert.equal(sent.split('修为：25/200').length - 1, 1);
       if (scenario === 'scene-order') assert.ok(sent.indexOf('修为：25/200') < sent.indexOf('先稳住'));
       if (scenario === 'retry') assert.equal(sent.split('修为：25/200').length - 1, 1);

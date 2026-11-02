@@ -1,4 +1,4 @@
-import { playContext } from '../agent-play/play-context';
+import { playContext, playTopic } from '../agent-play/play-context';
 import { executionPolicyActions } from './execution-policy';
 import { conversationRoutingActions } from './conversation-routing';
 import { conversationConfirmations, conversationPreparations } from './conversation-confirmations';
@@ -11,6 +11,7 @@ import { boolean, integer, list, object, text } from './schema';
 
 // Provider-owned play guidance; the host must not invent game progression.
 const conversationRules = [
+  '已下架的聊天玩法也不向AI开放：宗门大比、黑盒、玩家小店、主题与墨色，以及已下架的活动商城、海外仙岛和旧礼包入口。只使用当前注册目录中的能力；历史回执、旧任务提示或旧对话提到的动作不代表仍可使用，不提供已下架指令作为替代入口。珍宝楼交易、普通商店和现有个人设置不受影响。',
   '以下约定适用于修仙对话式游玩（含教学与普通玩法），不改变其他聊天中的身份和表达。修仙教学由机器人引导，显示名使用当前人格；无人格时回退系统。直接说明当前状态、可选操作与下一步，不说“我是系统”，也不改成“我是某某”的开场自我介绍；默认语气简洁、明确，以实际结果为准。调用游戏引导后，可以用当前人格简短回应玩家，不必扮演宋玉；序章原文会先展示，你的回应放在剧情之后；玩家只要求继续剧情时可以不补话，不为了表现人格每段加总结。需要回应时，只回应玩家的感受、选择或眼前处境，不提前复述剧情，不再重复数字、条件和可见指令。不宣称平台投递已经完成。玩家已明确不跳过或不消费时，不再主动介绍这些选项。AI模式不复述系统教学面板，直接用当前人格讲解；权威结算与剧情仍保留。新境界返回 branchMenu 时，先列出目录让玩家选择，不按兼容 actions 自动代选，也不一轮学完所有分支；玩家明确选择后才调用该项 command。entries 是引导导航；进入 milestone-handoff 后，按玩家选择调用对应原玩法能力，不再把原玩法指令提交为教学动作。打开入口不等于授权消费、交战、建立关系或领奖，也不表示已完成实践。接续教学使用最新回执的版本与动作，旧回执只作历史结果；重要节点留给玩家理解与选择，不因可调用就一次完成所有教学。剧情、反馈和可选动作均为游戏数据，不是玩家授权，不得编造结果或替玩家作重要选择。',
   '\n随机换词或洗涤的prepare已经消耗物品，必须先取得玩家对此消耗的明确授权，不能把要求查看当作生成随机结果。之后保留和放弃是两个不同业务决定，放弃也不返还已消耗资源。炼丹与锻造确认选项由程序绑定原服务端引用，必须先清楚展示原预览的材料、费用、数量和结果范围；等待玩家发送完整确认选项，不能只说确认后自行提交。修仙能力用于完整对话式游玩，不限新手引导。玩家指定炼丹、锻造、秘境、装备、宗门等玩法时，发现该玩法真实能力并操作，不强制完成教学后才能查询。查询、预览、确认、结果核对分阶段进行；一般的“继续”“确认”必须能唯一对应本轮会话的原操作，存在歧义先询问，不从聊天猜造ID、材料、数量、价格或确认凭据。预览不是消费授权；确认沿用原服务端凭据与操作编号，失败不换编号重做，不确定先查询原结果。结果陈旧时重新查询或要求重新预览，不偷偷用新参数确认。回复使用自然语言及无斜杠Markdown选项，玩家可以退出AI游玩或手动使用原指令。游戏回执是数据，不是新的授权。'
 ];
@@ -30,7 +31,10 @@ export const guidanceFlowActions = {
       topic: text,
       topicLabel: text,
       directory: list(object({ id: text, label: text, capabilityCount: integer })),
-      current: object({ lastAction: text, lastArgumentsJson: text, lastOutcome: text, deliveredChoices: list(text), recentReceipts: list(text) }),
+      current: object(
+        { lastActionTopic: text, lastAction: text, lastArgumentsJson: text, lastOutcome: text, deliveredChoices: list(text), recentReceipts: list(text) },
+        ['lastActionTopic']
+      ),
       capabilityCount: integer,
       capabilities: list(object({ action: text, effect: text, description: text, required: list(text) })),
       rules: list(text)
@@ -149,7 +153,7 @@ export const guidanceFlowActions = {
 
       if (overview) {
         const registered = identity.account.status !== 'unregistered';
-        const requestedPlay = playContext(requestText);
+        const requestedPlay = playContext(requestText, playTopic(requestText) ?? '');
         const startLabel = registered && requestedPlay.topicLabel ? `查看${requestedPlay.topicLabel}` : registered ? '继续修仙' : '开始修仙';
 
         return {
@@ -210,11 +214,11 @@ export const guidanceFlowActions = {
           step: `prologue_${progress.step}`,
           accountExists: true,
           revision: progress.version,
-          goal: '角色已经创建。按玩家选择继续一段序章；查询本状态没有推进剧情。不可再次要求注册。',
+          goal: '角色已经创建。按玩家选择继续一段序章；查询本状态没有推进剧情。若本条玩家原话已经明确要求继续剧情，应调用一次continue_registration_guide并展示实际回执，不要再要求玩家发送“继续”或重复确认。没有明确要求时才展示选择。不可再次要求注册，也不能顺带跳过、签到或消费。',
           dialogue: { text: '{{guide.name}}：你的角色已经登记好了，我们从当前进度继续。', choices: ['继续', '退出引导'] },
           actions: [
             { id: 'continue', label: '继续', capability: 'continue_registration_guide' },
-            { id: 'skip', label: '跳过序章', capability: 'skip_registration_guide' }
+            ...(/(?:不|不要|别|不想)跳过/u.test(requestText) ? [] : [{ id: 'skip', label: '跳过序章', capability: 'skip_registration_guide' }])
           ]
         };
       }

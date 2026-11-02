@@ -284,3 +284,22 @@ for (const unavailable of [false, true]) test(`unclaimed conversation returns ev
   assert.equal(run.nextCalls.length, 1);
   assert.equal(run.messages.length, 0);
 });
+
+for (const size of [9000, 18000]) test(`large gameplay arguments preserve prior receipts and never store truncated parameters: ${size}`, async t => {
+  const app = createTestApp();
+  t.after(() => app.dispose());
+  const event = app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: `large-receipt-${size}`, text: '核对原结果' });
+  const run = await app.invoke(event, () => {
+    rememberGameplay('original_operation', { ok: true, data: { operationId: 'original-123' } }, '系统', { id: 1 });
+    const input = { text: 'x'.repeat(size) };
+    rememberGameplay('large_response', { ok: true, data: { text: 'y'.repeat(9000) } }, '系统', input);
+    const session = guidanceSession();
+    assert.ok(session.receipts.some(text => text.includes('original-123')), 'a large entry must not erase every prior receipt');
+    assert.ok(session.receipts.some(text => JSON.parse(text).action === 'large_response'), 'retain evidence that the latest call occurred');
+    assert.ok(session.receipts.join('').length <= 16000);
+    assert.equal(session.play.argumentsJson, size > 12000 ? '' : JSON.stringify(input));
+    assert.ok(session.receipts.every(text => text.length <= 12000));
+    endGuidance(event);
+  }, event, 'alemonjs-agent-link');
+  assert.deepEqual(run.errors, []);
+});

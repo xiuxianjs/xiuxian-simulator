@@ -6,16 +6,30 @@ import { createTestApp } from 'alemonjs/testing';
 after(() => shutdownLogger());
 import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
+import ts from 'typescript';
 import { forgeReadEntries, forgeReadRoutes } from '../src/response/profession/forge/commands.ts';
 
 test('forge tool exits use the registered replacement route and real market command grammar', async () => {
   const source = readFileSync(new URL('../src/router.ts', import.meta.url), 'utf8');
-  const path = source.match(/seclusion\.use\('([^']+)', \(\) => import\('@src\/response\/profession\/replaceEquip\/res'\)\)/)?.[1];
-  assert.ok(path, 'read actual replacement route registration');
+  const tree = ts.createSourceFile('router.ts', source, ts.ScriptTarget.Latest, true);
+  let paths;
+  function visit(node) {
+    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'use'
+        && node.arguments[1]?.getText(tree).includes("@src/response/profession/replaceEquip/res")) {
+      const declaration = node.arguments[0];
+      const names = ts.isArrayLiteralExpression(declaration) ? declaration.elements : [declaration];
+      assert.ok(names.every(name => ts.isStringLiteral(name)), 'replacement route must use literal declarations');
+      assert.equal(paths, undefined, 'replacement route must have one registration');
+      paths = names.map(name => name.text);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(tree);
+  assert.ok(paths?.includes('替换'), 'read actual replacement route registration');
   const app = Router.create();
   const group = app.group({events: ['message.create'], routeText: {prefixes: ['/'], stripPrefix: true, allowBare: true}});
-  group.use(path, async () => ({default: () => {}}));
-  for (const text of ['/替换', '/替换 12']) assert.ok(app.match({name: 'message.create', MessageText: text}).matched, text);
+  group.use(paths, async () => ({default: () => {}}));
+  for (const text of paths.flatMap(path => [`/${path}`, `/${path} 12`])) assert.ok(app.match({name: 'message.create', MessageText: text}).matched, text);
   const toolSource = readFileSync(new URL('../src/response/profession/replaceEquip/res.ts', import.meta.url), 'utf8');
   assert.ok(toolSource.includes('command: `/替换 ${tool.id}`'));
   const output = await build({

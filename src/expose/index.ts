@@ -13,14 +13,12 @@ import { baoluActions } from './baolu-actions';
 import { baseDataActions } from './base-data-actions';
 import { battleActions } from './battle-actions';
 import { battleMemoryActions } from './battle-memory-actions';
-import { blackBoxActions } from './black-box-actions';
 import { bountyActions } from './bounty-actions';
 import { caveActions } from './cave-actions';
 import { caveSocialActions } from './cave-social-actions';
 import { commonActions } from './common-actions';
 import { commonQueryActions } from './common-queries';
 import { companionActions } from './companion-actions';
-import { competitionActions } from './competition-actions';
 import { craftingActions } from './crafting-actions';
 import { cultivationActions } from './cultivation-actions';
 import { decompositionActions } from './decomposition-actions';
@@ -129,7 +127,7 @@ export const gameExpose = Expose.create()
   .provide(conversationLifecycle)
   .provide({
     name: GAME_EXPOSE_PROTOCOL,
-    version: '1.326.0',
+    version: '1.327.0',
     description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
     actions: {
       ...guidanceFlowActions,
@@ -160,8 +158,6 @@ export const gameExpose = Expose.create()
       ...decompositionActions,
       ...caveSocialActions,
       ...tianjiaoActions,
-      ...competitionActions,
-      ...blackBoxActions,
       ...guildMembershipActions,
       ...friendActions,
       ...masterActions,

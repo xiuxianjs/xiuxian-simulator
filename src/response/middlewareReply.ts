@@ -6,21 +6,24 @@ import { Format, type FormatMarkDown } from 'alemonjs';
 import { activeFeatureText, mentionsRetiredFeature } from './retiredFeatures';
 import { appendTreasureEffects } from './treasureEffects';
 
-export function presentMiddlewareReply(reply: RobotMiddlewareReply): RobotMiddlewareReply {
+export function presentMiddlewareReply(reply: RobotMiddlewareReply, preserveReason = false): RobotMiddlewareReply {
+  // Failure reasons are authoritative facts, not suggestions to open retired features.
+  const presentText = preserveReason ? (value: string) => value.replaceAll('活动充值相关信息', '充值相关信息') : activeFeatureText;
+
   return {
     ...reply,
     title: activeFeatureText(reply.title),
     heading: activeFeatureText(reply.heading),
-    text: activeFeatureText(reply.text),
-    ...(reply.quote === undefined ? {} : { quote: activeFeatureText(reply.quote) }),
-    ...(reply.rawLines === undefined ? {} : { rawLines: reply.rawLines.map(activeFeatureText).filter(Boolean) }),
+    text: presentText(reply.text),
+    ...(reply.quote === undefined ? {} : { quote: presentText(reply.quote) }),
+    ...(reply.rawLines === undefined ? {} : { rawLines: reply.rawLines.map(presentText).filter(Boolean) }),
     ...(reply.blocks === undefined
       ? {}
       : {
           blocks: reply.blocks
             .map(block => ({
               ...block,
-              text: activeFeatureText(block.text),
+              text: presentText(block.text),
               ...(block.inlineButtons === undefined
                 ? {}
                 : { inlineButtons: block.inlineButtons.filter(button => !mentionsRetiredFeature(button.command) && !mentionsRetiredFeature(button.label)) })
@@ -55,8 +58,13 @@ export function appendMiddlewareBlocks(md: FormatMarkDown, blocks: RobotMiddlewa
 }
 
 // Footer mode keeps receipt actions alongside the existing global navigation.
-export async function sendMiddlewareReply(event: GameEvent, reply: RobotMiddlewareReply, useDefaultBar: boolean | 'footer' = false): Promise<void> {
-  reply = presentMiddlewareReply(reply);
+export async function sendMiddlewareReply(
+  event: GameEvent,
+  reply: RobotMiddlewareReply,
+  useDefaultBar: boolean | 'footer' = false,
+  preserveReason = false
+): Promise<void> {
+  reply = presentMiddlewareReply(reply, preserveReason);
   const [message] = useMessage(event);
   const md = Format.createMarkdown();
 

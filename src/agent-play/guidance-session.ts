@@ -117,21 +117,34 @@ export function rememberGameplay(action: string, result: unknown, narrator = '�
   }
   session.mode = 'gameplay';
   const row = result as { ok?: boolean; data?: { success?: boolean }; error?: { outcome?: string } };
+  const serializedInput = input === undefined ? '' : JSON.stringify(input);
 
   session.play = {
     topic: topic ?? session.selectedPlayTopic ?? session.play?.topic,
     lastAction: action,
-    argumentsJson: input === undefined || JSON.stringify(input).length > 12000 ? '' : JSON.stringify(input),
+    argumentsJson: serializedInput.length > 12000 ? '' : serializedInput,
     outcome: row?.ok === true && row.data?.success !== false ? 'returned' : (row?.error?.outcome ?? 'rejected_or_unknown')
   };
   session.lastGameMessageId = getCurrentEvent()?.MessageId;
   const serialized = JSON.stringify(result) ?? 'null';
 
-  const receipt = JSON.stringify({
+  let receipt = JSON.stringify({
     action,
-    ...(input !== undefined ? { arguments: input } : {}),
+    ...(input !== undefined && serializedInput.length <= 12000 ? { arguments: input } : {}),
+    ...(serializedInput.length > 12000 ? { argumentsOmitted: true } : {}),
     receipt: serialized.length <= 12000 ? result : { omitted: true, reason: '结果较大，后续操作前重新查询对应玩法。' }
   });
+
+  // Bound each entry before applying the history budget. Otherwise one large
+  // input/result pair evicts every older receipt and then evicts itself.
+  if (receipt.length > 12000) {
+    receipt = JSON.stringify({
+      action,
+      outcome: session.play.outcome,
+      omitted: true,
+      reason: '调用参数与回执较大，后续操作前重新查询原结果；不能据此重复提交。'
+    });
+  }
 
   session.receipts = [...(session.receipts ?? []), receipt];
   while (session.receipts.length > 8 || session.receipts.join('').length > 16000) {

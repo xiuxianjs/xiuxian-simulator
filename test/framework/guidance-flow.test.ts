@@ -22,7 +22,7 @@ for (const step of ['unregistered', 4, null] as const) {
         : { step, version: 8, expiresAt: null };
       return { status: 200, headers: {}, data: JSON.stringify({ data }) };
     } }));
-    const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'guide-player' });
+    const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'guide-player', text: step === 4 ? '继续一段序章，不要跳过' : '' });
     for (let i = 0; i < 2; i++) {
       const result = await app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_guidance_state', {}), 'ai-plugin');
       assert.equal(result.value.ok, true, JSON.stringify(result.value));
@@ -31,6 +31,10 @@ for (const step of ['unregistered', 4, null] as const) {
         assert.equal(data.protocol, 'plugin-guidance.v1');
         assert.equal(data.flow, step === 'unregistered' ? 'registration' : step === null ? 'onboarding' : 'prologue');
         assert.equal(data.accountExists, step !== 'unregistered');
+        if (step === 4) {
+          assert.ok(!data.actions.some((action: any) => action.capability === 'skip_registration_guide'));
+          assert.ok(data.goal.includes('不要再要求玩家发送'));
+        }
       }
     }
     assert.equal(requests.length, step === 'unregistered' ? 2 : 4);

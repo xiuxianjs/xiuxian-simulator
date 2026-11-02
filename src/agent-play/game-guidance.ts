@@ -605,6 +605,18 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
             .trim()
         : reply;
 
+      // A plain continuation already has an authoritative scene. Do not ask
+      // the model to retell it, potentially changing events or repeating lines.
+      if (
+        scenes.length &&
+        !incomplete &&
+        /序章|剧情/u.test(userText) &&
+        /继续|接着|推进/u.test(userText) &&
+        !/解释|分析|点评|总结|为什么|感想/u.test(userText)
+      ) {
+        reaction = '';
+      }
+
       const session = useGameSession ? guidanceSession() : undefined;
 
       if (!stale() && existingAccount && session && !verifiedState) {
@@ -634,7 +646,9 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
             : '请按插件返回的当前步骤继续；暂时无法取得插件的对话说明。';
       }
       if (session) {
-        const labels = options.map(label => label.split(/\s*·\s*[/]/u)[0].trim()).filter(label => label && !/[/\n\r[\]]/u.test(label));
+        const labels = options
+          .map(label => label.split(/\s*·\s*[/]/u)[0].trim())
+          .filter(label => label && !/[/\n\r[\]]/u.test(label) && !(/(?:不|不要|别|不想)跳过/u.test(userText) && /跳过/u.test(label)));
 
         if (/[/][\p{Script=Han}]/u.test(reaction)) {
           // Discard command instructions, retaining the model's separate explanation.

@@ -2,17 +2,28 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import ts from 'typescript';
-import { gameExpose } from '../../src/expose';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 const source = (path: string) => ts.createSourceFile(path, readFileSync(fileURLToPath(new URL(`../../src/expose/${path}`, import.meta.url)), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 const index = source('index.ts');
-const imports = new Map<string, string>();
-for (const statement of index.statements) {
-  if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.moduleSpecifier.text.startsWith('./')) continue;
-  const bindings = statement.importClause?.namedBindings;
-  if (!bindings || !ts.isNamedImports(bindings)) continue;
-  for (const item of bindings.elements) imports.set(item.name.text, `${statement.moduleSpecifier.text.slice(2)}.ts`);
+function importedObject(path: string, localName: string) {
+  const tree = source(path);
+  const local = findObject(tree, localName);
+  if (local) return { path, object: local };
+  for (const statement of tree.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.moduleSpecifier.text.startsWith('.')) continue;
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    const item = bindings.elements.find(item => item.name.text === localName);
+    if (!item) continue;
+    const target = join(dirname(path), `${statement.moduleSpecifier.text}.ts`);
+    const object = findObject(source(target), item.propertyName?.text ?? item.name.text);
+    assert.ok(object, `未找到 ${target} 的 ${localName} 动作对象`);
+    return { path: target, object };
+  }
+  assert.fail(`未找到 ${path} 中的 ${localName}`);
 }
 function findObject(node: ts.Node, name: string): ts.ObjectLiteralExpression | undefined {
   if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name && node.initializer && ts.isObjectLiteralExpression(node.initializer)) return node.initializer;
@@ -25,41 +36,57 @@ function findActions(node: ts.Node): void {
 }
 findActions(index);
 
-test('所有 Expose 模块动作不发生同名覆盖，注册目录与源码一致', t => {
-  assert.ok(actionObject);
-  const seen = new Map<string, string>();
-  function add(name: string, origin: string) {
-    assert.equal(seen.has(name), false, `${name} 同时出现在 ${seen.get(name)} 和 ${origin}`);
-    seen.set(name, origin);
-  }
-  for (const property of actionObject.properties) {
-    if (ts.isSpreadAssignment(property)) {
-      assert.ok(ts.isIdentifier(property.expression));
-      const symbol = property.expression.text;
-      const path = imports.get(symbol);
-      assert.ok(path, `未找到 ${symbol} 导入`);
-      const object = findObject(source(path), symbol);
-      assert.ok(object, `未找到 ${symbol} 动作对象`);
-      for (const entry of object.properties) {
-        assert.ok(ts.isPropertyAssignment(entry) && (ts.isIdentifier(entry.name) || ts.isStringLiteral(entry.name)), `${path} 含无法静态审计的动作`);
-        add(entry.name.text, path);
-      }
+function auditActions(object: ts.ObjectLiteralExpression, path: string, seen = new Map<string, string>(), stack = new Set<string>()) {
+  const identity = `${path}:${object.pos}`;
+  assert.ok(!stack.has(identity), `${path} 动作集合循环展开`);
+  stack.add(identity);
+  for (const entry of object.properties) {
+    if (ts.isSpreadAssignment(entry)) {
+      assert.ok(ts.isIdentifier(entry.expression), `${path} 含无法静态审计的展开`);
+      const imported = importedObject(path, entry.expression.text);
+      auditActions(imported.object, imported.path, seen, stack);
     } else {
-      assert.ok(ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)));
-      add(property.name.text, 'index.ts');
+      assert.ok(ts.isPropertyAssignment(entry) && (ts.isIdentifier(entry.name) || ts.isStringLiteral(entry.name)), `${path} 含无法静态审计的动作`);
+      const name = entry.name.text;
+      assert.equal(seen.has(name), false, `${name} 同时出现在 ${seen.get(name)} 和 ${path}`);
+      seen.set(name, path);
     }
   }
+  stack.delete(identity);
+  return seen;
+}
+
+test('所有 Expose 模块动作不发生同名覆盖，注册目录与源码一致', t => {
+  assert.ok(actionObject);
+  const lifecycle = findObject(source('../agent-play/lifecycle.ts'), 'conversationLifecycle');
+  assert.ok(lifecycle);
+  const lifecycleActions = lifecycle.properties.find(entry => ts.isPropertyAssignment(entry) && ts.isIdentifier(entry.name) && entry.name.text === 'actions');
+  assert.ok(lifecycleActions && ts.isPropertyAssignment(lifecycleActions) && ts.isObjectLiteralExpression(lifecycleActions.initializer));
+  const expected = new Map([
+    [GAME_EXPOSE_PROTOCOL, auditActions(actionObject, 'index.ts')],
+    ['agent.conversation.v1', auditActions(lifecycleActions.initializer, '../agent-play/lifecycle.ts')]
+  ]);
   const configs = gameExpose.getConfigs();
-  assert.equal(configs.length, 1);
-  assert.deepEqual(Object.keys(configs[0].actions).sort(), [...seen.keys()].sort());
-  t.diagnostic(`审计 ${seen.size} 个动作`);
+  assert.deepEqual(configs.map(config => config.name).sort(), [...expected.keys()].sort());
+  for (const config of configs) {
+    const seen = expected.get(config.name)!;
+    assert.deepEqual(Object.keys(config.actions).sort(), [...seen.keys()].sort());
+    t.diagnostic(`审计 ${config.name} 的 ${seen.size} 个动作`);
+  }
+});
+
+test('动作审计仍拒绝直接与展开后的同名覆盖', () => {
+  const duplicate = ts.createSourceFile('fixture.ts', 'const value = { ...conversationRoutingActions, route_conversation: {} };', ts.ScriptTarget.Latest, true);
+  assert.throws(() => auditActions(findObject(duplicate, 'value')!, 'guidance-flow.ts'), /route_conversation 同时出现在/);
 });
 
 test('常用玩法文档的每个动作都能从实际能力目录发现', t => {
   const readme = readFileSync(fileURLToPath(new URL('../../README.md', import.meta.url)), 'utf8');
   const table = readme.split('常用玩法的查询与操作入口：')[1]?.split('每次写操作后')[0];
   assert.ok(table, '缺少常用玩法查询与操作表');
-  const actions = gameExpose.getConfigs()[0].actions;
+  const provider = gameExpose.getConfigs().find(config => config.name === GAME_EXPOSE_PROTOCOL);
+  assert.ok(provider);
+  const actions = provider.actions;
   const names = [...new Set([...table.matchAll(/`([a-z]+_[a-z_]+)`/g)].map(match => match[1]))];
   assert.ok(names.length > 0, '常用玩法表没有可审计的动作');
   for (const name of names) {

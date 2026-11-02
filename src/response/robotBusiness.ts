@@ -64,7 +64,7 @@ export async function runRobotBusiness<T>(
     ) {
       await renderFeedback(reply);
     } else {
-      await sendMiddlewareReply(event, reply, 'footer');
+      await sendMiddlewareReply(event, reply, 'footer', true);
     }
 
     return { handled: true };
@@ -146,11 +146,11 @@ export async function finishRobotBusiness<T>(
     const immediateAlchemy = operation.startsWith('alchemy.') && reply.title === '炼丹' && reply.buttons.some(button => button.command.startsWith('/炼丹'));
 
     if (businessFeedback && renderFeedback && !immediateAlchemy && !reply.rawLines && (!reply.advice.length || renderFeedback.preservesAdvice)) {
-      await measureTransportStage('middleware.feedback.render', () => renderFeedback(presentMiddlewareReply(reply)), event);
+      await measureTransportStage('middleware.feedback.render', () => renderFeedback(presentMiddlewareReply(reply, true)), event);
     } else {
       await measureTransportStage(
         'middleware.reply.render',
-        () => sendMiddlewareReply(event, reply, immediateAlchemy || businessFeedback ? 'footer' : false),
+        () => sendMiddlewareReply(event, reply, immediateAlchemy || businessFeedback ? 'footer' : false, businessFeedback),
         event
       );
     }
