@@ -6,7 +6,8 @@ import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice, sendMiddlewareReply } from '@src/response/middlewareReply';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
 /**
@@ -101,7 +102,7 @@ export default onResponse(selects, async e => {
     const statusText = formatEmailState(emailItem.state);
     const goodsText = formatEmailGoods(emailItem.goodsList);
 
-    const lines = [`【${emailItem.emailId}】${emailItem.name} ${statusText}`];
+    const lines = [`状态：${statusText}`];
     const emailBtns: { label: string; command: string }[] = [{ label: '查看', command: `/查看邮件 ${emailItem.emailId}` }];
 
     if (emailItem.canClaim) {
@@ -116,7 +117,7 @@ export default onResponse(selects, async e => {
       lines.push(emailItem.subtitle);
     }
     lines.push(`附件：${goodsText}`);
-    contentMd.addBlockquote(createQuoteMarkdown(lines, emailBtns));
+    contentMd.addBlockquote(section({ title: emailItem.name, id: emailItem.emailId, lines, actions: emailBtns }));
 
     // 邮件间分隔
     if (idx < result.list.length - 1) {

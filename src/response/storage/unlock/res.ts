@@ -6,6 +6,7 @@ import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseStorageLockResult } from '@src/api/bot/storage-lock';
 import { FormatGui } from '@src/utils/messageHelper';
+import { titleWithStatus } from '@src/response/presentation/format';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -97,21 +98,21 @@ export default onResponse(selects, async e => {
     return;
   }
   const data = response.data;
-  const lines = ['✅ 解锁成功', ''];
+  const lines: string[] = [];
 
   if (data.mode === 'name') {
-    lines.push(`物品: ${data.itemName}`, data.result.message);
+    lines.push(`物品：${data.itemName}`, `结果：${data.result.message}`);
   } else if (data.mode === 'id') {
-    lines.push(`分类: ${data.category}`, `物品ID: ${data.itemId}`, data.result.message);
+    lines.push(`分类：${data.category}`, `物品编号：${data.itemId}`, `结果：${data.result.message}`);
   } else {
-    lines.push(`分类: ${data.category}`, `数量: ${data.result.count} 件`);
+    lines.push(`分类：${data.category}`, `数量：${data.result.count} 件`);
   }
   const md = Format.createMarkdown();
 
-  md.addText(lines.join('\n'));
+  md.addBlockquote(Format.createMarkdown().addText(lines.join('\n')));
   if (data.nameIssues.length) {
     md.addNewline().addText('另有项目未完成或需核对，请先查看各分类当前状态。');
     appendMiddlewareAdvice(md, storageLockRecoveryTips('storage.unlock', '名称操作存在问题明细'));
   }
-  void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+  void message.send(FormatGui({ isPrivate, bid, title: titleWithStatus('储物袋 · 解锁', 'done'), content: md }));
 });

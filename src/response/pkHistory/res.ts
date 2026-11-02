@@ -4,7 +4,8 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parsePKCommandInteger } from '@src/api/bot/pk-management';
 import { parsePKHistory, pkHistoryScope, pkHistoryScopes } from '@src/api/bot/pk-history';
 import { formatGameTime } from '@src/utils/gameTime';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { useMessage } from '@src/utils/useMessage';
 
 export default onResponse(selects, async e => {
@@ -33,18 +34,25 @@ export default onResponse(selects, async e => {
 
     for (const row of data.items) {
       const lines = [
-        `战报 #${row.reportId} · ${row.viewerRole === 'attacker' ? '我发起' : '我被打'} · ${row.opponentName}`,
-        formatGameTime(row.createdAt),
-        row.resultText,
+        `时间：${formatGameTime(row.createdAt)}`,
+        `结果：${row.resultText}`,
         row.moneyText,
         row.originalAssetText,
-        row.counterStatusText
-      ];
+        `反击状态：${row.counterStatusText}`
+      ].filter(Boolean);
 
       if (row.counterDeadline) {
         lines.push(`反击截止：${formatGameTime(row.counterDeadline)}`);
       }
-      md.addNewline().addBlockquote(createQuoteMarkdown(lines, [{ label: '详情', command: `/争夺战报 ${row.reportId}` }]));
+      md.addNewline().addBlockquote(
+        section({
+          title: row.opponentName,
+          id: row.reportId,
+          suffix: `· ${row.viewerRole === 'attacker' ? '我发起' : '我被打'}`,
+          lines,
+          actions: [{ label: '详情', command: `/争夺战报 ${row.reportId}` }]
+        })
+      );
     }
     if (!data.items.length) {
       md.addNewline().addText('暂无争夺记录');

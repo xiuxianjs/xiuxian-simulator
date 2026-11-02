@@ -97,18 +97,6 @@ export default onResponse(selects, async e => {
     const { currentPage, totalPages, total } = loaded.data.pagination;
     const footer: { label: string; command: string }[] = [{ label: '坊市交易', command: '/更多 交易' }];
 
-    if (currentPage > 1) {
-      footer.push({ label: '上一页', command: `/小店 ${currentPage - 1}` });
-    }
-
-    if (currentPage < totalPages) {
-      footer.push({ label: '下一页', command: `/小店 ${currentPage + 1}` });
-    }
-
-    contentMd.addText(`第${currentPage}/${totalPages}页 共${total}家店铺`);
-    contentMd.addNewline();
-    contentMd.addNewline();
-
     void message.send(
       FormatGui({
         isPrivate,
@@ -116,7 +104,8 @@ export default onResponse(selects, async e => {
         title: '修仙小店',
         header: SHOP_HEADER,
         content: contentMd,
-        footer
+        footer,
+        nav: { current: currentPage, total: totalPages, count: total, command: '/小店 {page}' }
       })
     );
   } catch {

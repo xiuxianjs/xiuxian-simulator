@@ -7,6 +7,7 @@ import { measureTransportStageSync } from '@src/utils/transportTiming';
 import { useMessage } from '@src/utils/useMessage';
 import { selects } from '@src/response/config';
 import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 /**
@@ -66,7 +67,11 @@ export default onResponse(selects, async e => {
         // 副标题信息
         contentMd.addBlockquote(createQuoteMarkdown([`精力：${result.data.mentalValue}`], [{ label: '✛', command: '/服用 精力丹 1' }]));
         contentMd.addBlockquote(
-          createQuoteMarkdown([`主线累计: ${result.data.milestoneTotalStars}⭐ `], [{ label: result.data.achievementLabel, command: '/成就 主线' }])
+          section({
+            title: '主线累计',
+            lines: [`进度：${result.data.milestoneTotalStars}星`],
+            actions: [{ label: result.data.achievementLabel, command: '/成就 主线' }]
+          })
         );
 
         contentMd.addNewline();
@@ -84,10 +89,12 @@ export default onResponse(selects, async e => {
 
           for (const ch of chs) {
             contentMd.addBlockquote(
-              createQuoteMarkdown(
-                [`${ch.chestIcon}第${ch.chapterNumber}章 ${ch.name} ${ch.starsText} ${ch.progressText} `],
-                [{ label: '详情', command: `/查看主线 ${ch.chapterNumber}` }]
-              )
+              section({
+                title: ch.name,
+                id: ch.chapterNumber,
+                lines: [`进度：${ch.progressText} · ${ch.starsText}`],
+                actions: [{ label: '详情', command: `/查看主线 ${ch.chapterNumber}` }]
+              })
             );
           }
 
@@ -96,7 +103,7 @@ export default onResponse(selects, async e => {
 
         // 宝箱一键领取入口
         if (result.data.showClaimAllChests) {
-          contentMd.addText(`📦 可领取宝箱：${result.data.totalClaimableChests}个 `);
+          contentMd.addText(`宝箱：${result.data.totalClaimableChests}个可领取`);
 
           addOptions(contentMd, [{ label: '一键领取', command: '/一键领取宝箱' }]);
 

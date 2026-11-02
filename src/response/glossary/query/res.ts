@@ -13,6 +13,7 @@ import { useMessage } from '@src/utils/useMessage';
 import { parseQueryParams } from '@src/api/bot/glossary-robot-query';
 import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -99,29 +100,23 @@ export default onResponse(selects, async e => {
     const entry = exact as any;
     const md = Format.createMarkdown();
 
-    md.addText(`【${entry.keyword}】【${entry.category}】`);
-    md.addNewline();
-    md.addNewline();
-    md.addText(entry.content);
-    md.addNewline();
-    md.addNewline();
-    md.addBlockquote(Format.createMarkdown().addText(`作者：${entry.authorName}`));
+    const lines = [`分类：${entry.category}`, entry.content, `作者：${entry.authorName}`];
 
     if (entry.editCount > 0) {
-      md.addText(` | 编辑${entry.editCount}次`);
+      lines.push(`编辑：${entry.editCount}次`);
 
       if (entry.lastEditorName) {
-        md.addText(` | 最后编辑：${entry.lastEditorName}`);
+        lines.push(`最后编辑：${entry.lastEditorName}`);
       }
     }
-
+    md.addBlockquote(section({ title: entry.keyword, lines }));
     md.addNewline();
 
     void message.send(
       FormatGui({
         isPrivate,
         bid,
-        title: '词典',
+        title: `词典 · ${entry.keyword}`,
         header: [{ label: '返回词典', command: '/词典' }],
         content: md,
         footer: [

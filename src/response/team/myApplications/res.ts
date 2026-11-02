@@ -1,4 +1,3 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -11,7 +10,8 @@ import type { MyApplicationsResult } from '@src/response-apps/team/myApplication
 import { parseBackendTeamWorkflow } from '@src/api/bot/social-workflows';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -101,15 +101,21 @@ export default onResponse(selects, async e => {
     const md = Format.createMarkdown();
 
     for (const app of result.data.applications) {
-      md.addText(`【${app.userId}】${app.userName}`);
-
-      addOptions(md, [
-        { label: '同意', command: `/队伍同意 ${app.id}` },
-        { label: '拒绝', command: `/队伍拒绝 ${app.id}` }
-      ]);
+      md.addBlockquote(
+        section({
+          title: app.userName,
+          id: app.userId,
+          lines: [`申请编号：${app.id}`],
+          actions: [
+            { label: '同意', command: `/队伍同意 ${app.id}` },
+            { label: '拒绝', command: `/队伍拒绝 ${app.id}` }
+          ]
+        })
+      );
+      md.addNewline();
     }
 
-    void message.send(FormatGui({ isPrivate, bid, title: `【${result.data.leaderName}】的队伍`, content: md, footer: back }));
+    void message.send(FormatGui({ isPrivate, bid, title: `${result.data.leaderName}的队伍`, content: md, footer: back }));
 
     return;
   }
@@ -145,13 +151,12 @@ export default onResponse(selects, async e => {
     const app = result.data.applications[i];
 
     md.addBlockquote(
-      Format.createMarkdown()
-        .addText(`**【${app.leaderName}】的队伍**`)
-        .addNewline()
-        .addText(`申请编号：${app.id}`)
-        .addNewline()
-        .addText(`申请时间：${app.createdAt ?? '暂无'} `)
-        .addButton(markdownButtonLabel('取消'), { data: `/取消队伍申请 ${app.id}` })
+      section({
+        title: `${app.leaderName}的队伍`,
+        id: app.id,
+        lines: [`申请时间：${app.createdAt ?? '暂无'}`],
+        actions: [{ label: '取消', command: `/取消队伍申请 ${app.id}` }]
+      })
     );
 
     if (i < result.data.applications.length - 1) {
@@ -160,5 +165,5 @@ export default onResponse(selects, async e => {
     }
   }
 
-  void message.send(FormatGui({ isPrivate, bid, title: '📋 我的队伍申请', content: md, footer: [...back, { label: '我的邀请', command: '/我的队伍邀请' }] }));
+  void message.send(FormatGui({ isPrivate, bid, title: '我的队伍申请', content: md, footer: [...back, { label: '我的邀请', command: '/我的队伍邀请' }] }));
 });

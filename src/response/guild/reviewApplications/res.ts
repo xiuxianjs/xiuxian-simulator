@@ -8,7 +8,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseGuildReview } from '@src/api/bot/guild-review-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -78,22 +79,17 @@ function handleReviewDisplay(result: any, guildInfo: any, message: any, bid: str
     // 构建申请者列表
     const md = Format.createMarkdown();
 
-    md.addBold('📋 宗门审核');
-    md.addNewline();
-    md.addText(`【${guildInfo.guildName}】`);
-    md.addNewline();
-    md.addText('');
-    md.addNewline();
-
     result.applications.forEach((app: any) => {
       md.addBlockquote(
-        createQuoteMarkdown(
-          [`【${app.userId}】【${app.realmName}】${app.userName}`],
-          [
+        section({
+          title: app.userName,
+          id: app.userId,
+          lines: [`境界：${app.realmName}`],
+          actions: [
             { label: '同意', command: `/宗门审核同意 ${app.userId}` },
             { label: '拒绝', command: `/宗门审核拒绝 ${app.userId}` }
           ]
-        )
+        })
       );
 
       md.addNewline();
@@ -103,7 +99,7 @@ function handleReviewDisplay(result: any, guildInfo: any, message: any, bid: str
       FormatGui({
         isPrivate,
         bid,
-        title: '',
+        title: `宗门审核 · ${guildInfo.guildName}`,
         content: md,
         nav: {
           current: result.currentPage,

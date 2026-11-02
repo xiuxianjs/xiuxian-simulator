@@ -15,6 +15,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotBountyClaim } from '@src/api/bot/bounty-actions';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 const bountyActionHeader = [
@@ -90,24 +91,28 @@ export default onResponse(selects, async e => {
 
         md.addButton(markdownButtonLabel('悬赏榜'), { data: '/悬赏榜' });
       } else {
-        md.addText('待领赏金');
-        md.addNewline();
-
         for (const p of pending) {
           md.addBlockquote(
-            Format.createMarkdown()
-              .addText(`#${p.bountyId} ${p.targetName} · ${p.rewardAmount}灵晶 `)
-              .addButton(markdownButtonLabel('领赏'), { data: `/领赏 ${p.bountyId}` })
+            section({
+              title: p.targetName,
+              id: p.bountyId,
+              lines: [`赏金：${p.rewardAmount}灵晶`],
+              actions: [{ label: '领赏', command: `/领赏 ${p.bountyId}` }]
+            })
           );
+          md.addNewline();
         }
       }
       break;
     }
     case 'claimed':
-      md.addText('领赏成功！');
-      md.addNewline();
-      md.addNewline();
-      md.addText(`获得灵晶：${result.data.rewardAmount}`);
+      md.addBlockquote(
+        section({
+          title: '领赏成功',
+          status: 'done',
+          lines: [`奖励：灵晶 ×${result.data.rewardAmount}`]
+        })
+      );
       break;
   }
 

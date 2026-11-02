@@ -13,7 +13,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotBountyList } from '@src/api/bot/bounty-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 const bountyHeader = [
   { label: '悬赏榜', command: '/悬赏榜' },
@@ -100,13 +101,15 @@ export default onResponse(selects, async e => {
   for (const b of list) {
     md.addNewline();
     md.addBlockquote(
-      createQuoteMarkdown(
-        [`悬赏 #${b.id} · ${b.targetName}`, `赏金：${b.rewardPerCompletion}灵晶/人 · 剩余${b.remainingSlots}/${b.maxCompletions}人 · 剩余${b.hoursLeft}小时`],
-        [
+      section({
+        title: `悬赏 · ${b.targetName}`,
+        id: b.id,
+        lines: [`赏金：${b.rewardPerCompletion}灵晶/人 · 剩余${b.remainingSlots}/${b.maxCompletions}人 · 剩余${b.hoursLeft}小时`],
+        actions: [
           { label: '查看', command: `/查看信息 ${b.targetUid}` },
           { label: '接赏', command: `/接赏 ${b.id}` }
         ]
-      )
+      })
     );
   }
 

@@ -8,7 +8,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseGuildApplications } from '@src/api/bot/guild-application-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -66,14 +67,18 @@ export default onResponse(selects, async e => {
     const contentMd = Format.createMarkdown();
 
     // sub
-    contentMd.addBlockquote(Format.createMarkdown().addText(`共有 ${applications.length} 条待审核申请`));
+    contentMd.addText(`待审核：${applications.length}条`);
+    contentMd.addNewline();
 
     applications.forEach(app => {
       contentMd.addBlockquote(
-        createQuoteMarkdown(
-          [`【${app.guildNameText}】 - ${app.statusText}`, `申请编号：${app.id}`, `申请时间：${app.createdDateText}`],
-          app.canCancel ? [{ label: '取消', command: `/取消宗门申请 ${app.id}` }] : []
-        )
+        section({
+          title: app.guildNameText,
+          id: app.id,
+          suffix: `· ${app.statusText}`,
+          lines: [`申请时间：${app.createdDateText}`],
+          actions: app.canCancel ? [{ label: '取消', command: `/取消宗门申请 ${app.id}` }] : []
+        })
       );
       contentMd.addNewline();
     });

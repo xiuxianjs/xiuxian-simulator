@@ -17,7 +17,8 @@ import { EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL } from '@src/constants';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotStorageSkillBooks } from '@src/api/bot/queries';
 import { selects } from '@src/response/config';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { renderSubTabs, SKILL_SUB_TABS } from '../tabs';
 import { skillBookItemActions, skillBookPageActions } from '../capabilities';
@@ -120,24 +121,18 @@ const response = onResponse(selects, async e => {
     let hasUnavailableLearn = false;
 
     md.addText('词条数值：当前 / 本功法上限').addNewline();
-    // 格式化功法显示（使用功法ID作为编号）
+    // 格式化功法显示：对象行 + 品级/类型 + 词条 + 行内按钮
     pageSkillBooks.forEach(item => {
-      const lines = [`【${item.id}】`];
+      const lines = [`品级：${item.displayGrade} · 类型：${item.displaySkillType}`];
 
-      lines.push(`「${item.displayName}」 ${item.displayGrade} · ${item.displaySkillType}`);
       for (let i = 0; i < item.attributeParts.length; i += 2) {
-        lines.push(item.attributeParts.slice(i, i + 2).join(' ｜ '));
+        lines.push(item.attributeParts.slice(i, i + 2).join(' · '));
       }
-      md.addText(lines[0]);
-      addOptions(md, skillBookItemActions(item));
       if (!item.capabilities.some(capability => capability.kind === 'learn')) {
-        md.addText('当前未提供学习入口，请核对实例详情与保护状态').addNewline();
+        lines.push('· 当前未提供学习入口，请核对实例详情与保护状态');
         hasUnavailableLearn = true;
       }
-      md.addText(lines[1]).addNewline();
-      if (lines.length > 2) {
-        md.addBlockquote(createQuoteMarkdown(lines.slice(2)));
-      }
+      md.addBlockquote(section({ title: item.displayName, id: item.id, lines, actions: skillBookItemActions(item) }));
       md.addNewline();
     });
 

@@ -55,7 +55,7 @@ const response = onResponse(selects, async e => {
   const result = { data: response.data };
   const md = Format.createMarkdown();
 
-  md.addText(result.data.message);
+  md.addBlockquote(Format.createMarkdown().addText(result.data.message));
 
   void message.send(
     FormatGui({

@@ -1,4 +1,3 @@
-import { formatNumber } from '@src/utils/formatHelper';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { achievementRecoveryTips, achievementProgressTips } from '@src/response/achievementRecovery';
 import { useMessage } from '@src/utils/useMessage';
@@ -11,8 +10,20 @@ import App from '@src/response-apps/achievements/combatPower/app';
 import claimResponse from '@src/response/achievements/claimCombatPower/res';
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
+
+/** 格式化战力数值展示（不足1万显示原值，超过1万显示x万） */
+function formatPower(value: number): string {
+  if (value >= 10000) {
+    const w = value / 10000;
+
+    return Number.isInteger(w) ? `${w}万` : `${w.toFixed(1)}万`;
+  }
+
+  return value.toLocaleString();
+}
 
 export default onResponse(selects, async e => {
   // The existing longer "成就 战力" route wins before the general dispatcher.
@@ -70,11 +81,7 @@ export default onResponse(selects, async e => {
       return;
     }
 
-    md.addText(`当前战力✊${formatNumber(currentPower)}`);
-    md.addNewline();
-    md.addText(`已达成：${completedCount} / ${totalCount}`);
-    md.addNewline();
-    md.addText(`待领取：${claimableCount}`);
+    md.addText(`战力：${currentPower.toLocaleString()} · 进度：${completedCount}/${totalCount} · 待领取：${claimableCount}`);
     md.addNewline();
     md.addNewline();
 
@@ -82,29 +89,31 @@ export default onResponse(selects, async e => {
 
     if (currentClaimable) {
       md.addBlockquote(
-        createQuoteMarkdown(
-          [
-            `当前可领取 · ${currentClaimable.name}`,
-            `目标战力✊${formatNumber(currentClaimable.threshold)}`,
+        section({
+          title: currentClaimable.name,
+          suffix: '· 当前可领取',
+          lines: [
+            `目标战力：${formatPower(Number(currentClaimable.threshold))}`,
             ...(currentClaimable.rewardText ? [`奖励：${currentClaimable.rewardText}`] : []),
-            ...(currentClaimable.remainingClaimableCount > 0 ? [`另有 ${currentClaimable.remainingClaimableCount} 项待领取`] : [])
+            ...(currentClaimable.remainingClaimableCount > 0 ? [`另有：${currentClaimable.remainingClaimableCount}项待领取`] : [])
           ],
-          [{ label: '一键领取', command: '/成就 战力 一键领取' }]
-        )
+          actions: [{ label: '一键领取', command: '/成就 战力 一键领取' }]
+        })
       );
     } else if (allCompleted) {
-      md.addText('🎉 所有战力成就已达成！');
+      md.addText('所有战力成就已达成');
     } else if (nextTarget) {
       md.addBlockquote(
-        createQuoteMarkdown(
-          [
-            `下一目标 · ${nextTarget.name}`,
-            `目标战力✊${formatNumber(nextTarget.threshold)}`,
+        section({
+          title: nextTarget.name,
+          suffix: '· 下一目标',
+          lines: [
+            `目标战力：${formatPower(Number(nextTarget.threshold))}`,
             nextTarget.description ?? '',
             ...(nextTarget.rewardText ? [`奖励：${nextTarget.rewardText}`] : []),
-            `还差：${formatNumber(nextTarget.remainingPower)} 战力`
+            `还差：${nextTarget.remainingPower.toLocaleString()}战力`
           ].filter(Boolean)
-        )
+        })
       );
     }
 

@@ -1,4 +1,3 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { skillInventoryRecoveryTips } from '@src/response/skillInventoryRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -10,6 +9,7 @@ import { parseRobotLearnedBooks } from '@src/api/bot/learned-books-queries';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { formatSkillBookListItem } from '@src/utils/skillBookHelper';
 import { buildLearnedBookListCommand, createLearnedBookSortRows, learnedBookSortLabel, parseLearnedBookListCommand } from '@src/utils/learnedBookSort';
 import { Format, onResponse, useEvent } from 'alemonjs';
@@ -66,19 +66,25 @@ const response = onResponse(selects, async e => {
     const equipped = inUseBooks.find(book => book.skillType === slotType);
 
     if (equipped) {
-      const actionMd = Format.createMarkdown().addText(`${slotType}：${equipped.slotText} `);
-
-      actionMd.addButton(markdownButtonLabel('选择'), { data: `/切换${slotType}` });
-      actionMd.addText(' ');
-      actionMd.addButton(markdownButtonLabel('查看'), { data: `/查看功法 ${equipped.id}` });
-      actionMd.addText(' ');
-      actionMd.addButton(markdownButtonLabel('换下'), { data: `/换下${slotType}` });
-      slotContent.addBlockquote(actionMd);
+      slotContent.addBlockquote(
+        section({
+          title: slotType,
+          suffix: `· ${equipped.slotText}`,
+          lines: [],
+          actions: [
+            { label: '选择', command: `/切换${slotType}` },
+            { label: '查看', command: `/查看功法 ${equipped.id}` },
+            { label: '换下', command: `/换下${slotType}` }
+          ]
+        })
+      );
     } else {
       slotContent.addBlockquote(
-        Format.createMarkdown()
-          .addText(`${slotType}：空 `)
-          .addButton(markdownButtonLabel('选择'), { data: `/切换${slotType}` })
+        section({
+          title: slotType,
+          lines: ['状态：空'],
+          actions: [{ label: '选择', command: `/切换${slotType}` }]
+        })
       );
     }
   });

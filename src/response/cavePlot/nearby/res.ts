@@ -1,4 +1,3 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -9,6 +8,7 @@ import { parseBackendCaveNearby } from '@src/api/bot/cave-nearby-queries';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 
 const HEADER = [{ label: '我的灵田', command: '/灵田' }];
@@ -82,18 +82,14 @@ export default onResponse(selects, async e => {
     }
 
     pageRows.forEach((row, index) => {
-      const quote = Format.createMarkdown().addText(`${row.ownerName} · ${row.relationLabel}`);
-
-      {
-        quote.addText(' ');
-        quote.addButton(markdownButtonLabel('查看灵田'), { data: `/查看灵田 ${row.ownerId}` });
-        if (row.canSteal) {
-          quote.addText(' ');
-          quote.addButton(markdownButtonLabel('偷药'), { data: `/偷药 ${row.ownerId}` });
-        }
-      }
-      quote.addNewline().addText(`灵气：${row.auraText}`).addNewline().addText(row.stolenStatusText);
-      md.addBlockquote(quote);
+      md.addBlockquote(
+        section({
+          title: row.ownerName,
+          suffix: `· ${row.relationLabel}`,
+          lines: [`灵气：${row.auraText}`, ...(row.stolenStatusText ? [`状态：${row.stolenStatusText}`] : [])],
+          actions: [{ label: '查看灵田', command: `/查看灵田 ${row.ownerId}` }, ...(row.canSteal ? [{ label: '偷药', command: `/偷药 ${row.ownerId}` }] : [])]
+        })
+      );
 
       if (index < pageRows.length - 1) {
         md.addNewline();

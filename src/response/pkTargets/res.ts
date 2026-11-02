@@ -2,7 +2,8 @@ import { Format, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parsePKCommandInteger, parsePKTargets } from '@src/api/bot/pk-management';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { useMessage } from '@src/utils/useMessage';
 
 export default onResponse(selects, async e => {
@@ -28,13 +29,15 @@ export default onResponse(selects, async e => {
 
     for (const row of data.items) {
       md.addNewline().addBlockquote(
-        createQuoteMarkdown(
-          [
-            `${row.name} · ${row.realmName}`,
-            `剩余${row.sameTargetRemaining}次`,
-            `灵石收益 ×${row.rewardPercent / 100} · 物品机会${row.itemChancePercent}%（可能落空）`
+        section({
+          title: row.name,
+          id: row.uid,
+          lines: [
+            `境界：${row.realmName}`,
+            `今日剩余：${row.sameTargetRemaining}次`,
+            `灵石收益：×${row.rewardPercent / 100} · 物品机会：${row.itemChancePercent}%（可能落空）`
           ],
-          [
+          actions: [
             { label: '查看', command: `/查看信息 ${row.uid}` },
             ...(data.canAttack && row.sameTargetRemaining > 0
               ? [
@@ -43,7 +46,7 @@ export default onResponse(selects, async e => {
                 ]
               : [])
           ]
-        )
+        })
       );
     }
     if (!data.items.length && data.canAttack) {

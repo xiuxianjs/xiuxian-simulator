@@ -76,7 +76,7 @@ function handleEssenceDisplay(result: any, message: any, bid: string | undefined
 
     md.addBold(`【${result.guildName}】宗门精华`);
     md.addNewline();
-    md.addText(`第 ${result.currentPage}/${result.totalPages} 页，共 ${result.total} 条精华`);
+
     md.addNewline();
     md.addNewline();
 
@@ -94,7 +94,16 @@ function handleEssenceDisplay(result: any, message: any, bid: string | undefined
       }
     });
 
-    void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: createGuildEssenceButtons(result.currentPage, result.totalPages) }));
+    void message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '',
+        content: md,
+        footer: createGuildEssenceButtons(result.currentPage, result.totalPages),
+        nav: { current: result.currentPage, total: result.totalPages, count: result.total, command: '/宗门精华 {page}' }
+      })
+    );
   } catch (error) {
     logger.error('[宗门精华] 显示错误:', error);
     const md = Format.createMarkdown();

@@ -128,10 +128,10 @@ for (const isPrivate of [false, true]) for (const kind of ['policy', 'published'
     assert.equal(result.messages.length, kind === 'published' && !isPrivate ? 2 : 1);
     assert.ok(!view.text.includes('建议：'));
     if (kind === 'policy') for (const word of ['10000灵晶', '200灵晶', '20%（不退还）', '48小时']) assert.ok(view.text.includes(word));
-    if (kind === 'published') for (const word of ['支付灵晶：1000', '手续费：200', '赏金池：800', '每人赏金：400']) assert.ok(view.text.includes(word));
+    if (kind === 'published') for (const word of ['支付：1000灵晶', '手续费：200灵晶', '赏金池：800', '每人：400灵晶']) assert.ok(view.text.includes(word));
     if (kind === 'won' || kind === 'pending') assert.ok(view.commands.includes('/领赏 9'));
     if (kind === 'won') { assert.ok(view.text.includes('赏金待领取')); assert.ok(view.text.includes('消耗元力：15')); assert.ok(!view.text.includes('获得灵晶：400')); }
-    if (kind === 'claimed') assert.ok(view.text.includes('获得灵晶：400'));
+    if (kind === 'claimed') assert.ok(view.text.includes('奖励：灵晶 ×400'));
     for (const message of result.messages) {
       assert.equal(message.target?.targetId, isPrivate ? event.UserId : event.ChannelId);
       assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);

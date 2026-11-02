@@ -8,6 +8,7 @@ import { teamRecoveryTips } from '@src/response/teamRecovery';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -67,16 +68,18 @@ export default onResponse(selects, async e => {
   const md = Format.createMarkdown();
 
   for (const record of result.data.records) {
-    md.addText(`【#${record.id}】${record.targetLabel}`);
-    md.addNewline();
     md.addBlockquote(
-      Format.createMarkdown()
-        .addText(
-          `队伍：${record.teamId}  结果：${record.battleResult === 'win' ? '胜利' : record.battleResult === 'lose' ? '失败' : '逃跑'}  人数：${record.participantCount}`
-        )
-        .addNewline()
-        .addText(`时间：${formatGameTime(record.settledAt)}`)
+      section({
+        title: record.targetLabel,
+        id: record.id,
+        lines: [
+          `结果：${record.battleResult === 'win' ? '胜利' : record.battleResult === 'lose' ? '失败' : '逃跑'} · 人数：${record.participantCount}`,
+          `队伍：${record.teamId}`,
+          `时间：${formatGameTime(record.settledAt)}`
+        ]
+      })
     );
+    md.addNewline();
   }
 
   void message.send(

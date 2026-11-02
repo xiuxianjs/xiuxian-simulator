@@ -3,7 +3,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseCompetitionBattles } from '@src/api/bot/competition-battle-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -78,10 +79,13 @@ export default onResponse(selects, async e => {
     const stageName = r.stage === 1 ? '淘汰赛' : r.stage === 2 ? '晋级赛' : `未知(${r.stage})`;
 
     md.addBlockquote(
-      createQuoteMarkdown(
-        [`${isWin ? '✅' : '❌'} VS ${r.opponentName}`, `${stageName} | ${r.formattedTime}`],
-        [{ label: '详情', command: `/宗门大比战斗详情 ${r.id}` }]
-      )
+      section({
+        title: `VS ${r.opponentName}`,
+        status: isWin ? 'done' : 'fail',
+        suffix: `· ${stageName}`,
+        lines: [`时间：${r.formattedTime}`],
+        actions: [{ label: '详情', command: `/宗门大比战斗详情 ${r.id}` }]
+      })
     );
   }
 
@@ -91,11 +95,10 @@ export default onResponse(selects, async e => {
     FormatGui({
       isPrivate,
       bid,
-      title: '宗门大比 - 战斗记录',
-      header: [{ label: '返回', command: '/宗门大比' }],
+      title: '宗门大比 · 战斗记录',
       content: md,
       nav: totalPages > 1 ? { current: page, total: totalPages, count: Number(count), command: '/宗门大比战斗记录 {page}' } : undefined,
-      footer: [{ label: '宗门大比', command: '/宗门大比' }]
+      footer: [{ label: '返回宗门大比', command: '/宗门大比' }]
     })
   );
 });

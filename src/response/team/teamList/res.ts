@@ -6,7 +6,8 @@ import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { teamRecoveryTips } from '@src/response/teamRecovery';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { listBubble } from '@src/response/presentation/presets';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -69,26 +70,20 @@ export default onResponse(selects, async e => {
     return;
   }
 
-  const md = Format.createMarkdown();
-
-  for (const team of result.data.teams) {
-    md.addBlockquote(
-      createQuoteMarkdown(
-        [`【${team.teamId}】${team.leaderName}的队伍`, `人数: ${team.memberCount}/${team.maxMembers}  门槛: ${team.minRealmName ?? '无'}`],
-        [
-          { label: '查看', command: `/队伍信息 ${team.teamId}` },
-          { label: '申请', command: `/加入队伍 ${team.teamId}` }
-        ]
-      )
-    );
-  }
-
   void message.send(
-    FormatGui({
+    listBubble({
       isPrivate,
       bid,
       title: '队伍列表',
-      content: md,
+      items: result.data.teams.map(team => ({
+        title: `${team.leaderName}的队伍`,
+        id: team.teamId,
+        lines: [`人数：${team.memberCount}/${team.maxMembers} · 门槛：${team.minRealmName ?? '无'}`],
+        actions: [
+          { label: '查看', command: `/队伍信息 ${team.teamId}` },
+          { label: '申请', command: `/加入队伍 ${team.teamId}` }
+        ]
+      })),
       nav: {
         current: result.data.currentPage,
         total: result.data.totalPages,

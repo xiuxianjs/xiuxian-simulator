@@ -16,7 +16,8 @@ import { EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL } from '@src/constants';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotStorageBag } from '@src/api/bot/inventory';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { MATERIAL_SUB_TABS, renderSubTabs } from '../tabs';
 import { inventoryItemActions, inventoryPageActions } from '../capabilities';
@@ -96,15 +97,14 @@ const response = onResponse(selects, async e => {
     }
 
     result.data.items.forEach(item => {
-      const lockIcon = item.isLocked ? '🔒' : '';
-      const gradeName = item.grade?.name ?? '未知';
-      const realmName = item.realm?.name ?? '未知';
-
       md.addBlockquote(
-        createQuoteMarkdown(
-          [` 【${item.id}】${lockIcon}${item.name} x${item.quantity}`, ` 品级: ${gradeName} | 境界: ${realmName}`],
-          inventoryItemActions(item)
-        )
+        section({
+          title: `${item.name}`,
+          id: item.id,
+          suffix: item.isLocked ? '🔒' : '',
+          lines: [`数量：×${item.quantity} · 品级：${item.grade?.name ?? '未知'} · 境界：${item.realm?.name ?? '未知'}`],
+          actions: inventoryItemActions(item)
+        })
       );
 
       md.addNewline();

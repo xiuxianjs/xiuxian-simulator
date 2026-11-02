@@ -65,13 +65,13 @@ export default onResponse(selects, async e => {
 
     const md = Format.createMarkdown();
 
-    md.addText(result.message);
+    md.addBlockquote(Format.createMarkdown().addText(result.message));
 
     await message.send(
       FormatGui({
         isPrivate,
         bid,
-        title: '飞信',
+        title: '飞信 · 屏蔽设置',
         content: md,
         footer: [
           ...(parsed.action === 'mute' && targetUid > 0 && result.outcome === 'updated' ? [{ label: '解除屏蔽', command: `/飞信解除 ${targetUid}` }] : []),
@@ -84,7 +84,7 @@ export default onResponse(selects, async e => {
       FormatGui({
         isPrivate,
         bid,
-        title: '飞信',
+        title: '飞信 · 屏蔽设置',
         content: Format.createMarkdown().addText('操作结果待确认，请稍后查看。'),
         footer: [{ label: '查看飞信', command: '/飞信' }]
       })

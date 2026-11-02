@@ -1,4 +1,3 @@
-import { formatNumber } from '@src/utils/formatHelper';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { leaderboardRecoveryTips } from '@src/response/leaderboardRecovery';
@@ -12,7 +11,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotRealmRanking } from '@src/api/bot/realm-ranking-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -100,10 +100,13 @@ export default onResponse(selects, async e => {
       }
 
       md.addBlockquote(
-        createQuoteMarkdown(
-          [`${icon} ${item.name}${item.uid === currentUid ? ' 👈我' : ''}  ${item.realmName}`, `ID:${item.uid} 修为:${formatNumber(item.experience)}`],
-          btns
-        )
+        section({
+          title: `${icon} ${item.name}`,
+          suffix: item.uid === currentUid ? '👈我' : '',
+          id: item.uid,
+          lines: [`境界：${item.realmName}`, `修为：${item.experience.toLocaleString()}`],
+          actions: btns
+        })
       );
     }
   }

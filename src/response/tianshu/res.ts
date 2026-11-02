@@ -4,6 +4,7 @@ import { parseBackendTianshuContent, type TianshuStage } from '@src/api/bot/tian
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -41,7 +42,7 @@ export default onResponse(selects, async e => {
   const activeUnlocks = (unlocks: TianshuStage['unlocks']) => unlocks.map(item => ({ ...item, features: item.features.filter(feature => !mentionsRetiredFeature(feature)) })).filter(item => item.features.length > 0);
 
   const addStage = (stage: TianshuStage, current: boolean) => {
-    md.addBold(`${current ? '当前大境界' : '下一大境界'}：${stage.stageName}`);
+    md.addText(`境界：${stage.stageName}${current ? ' · 当前大境界' : ' · 下一大境界'}`);
     md.addNewline();
     const unlocks = activeUnlocks(stage.unlocks);
 
@@ -50,11 +51,14 @@ export default onResponse(selects, async e => {
       md.addNewline();
     }
     for (const item of unlocks) {
-      md.addText(`${current ? (item.unlocked ? '已开放' : '待开放') + ' · ' : ''}${item.realm}`);
+      md.addBlockquote(
+        section({
+          title: item.realm,
+          status: current ? (item.unlocked ? 'done' : 'skip') : 'none',
+          lines: item.features.map(feature => `玩法：${feature}`)
+        })
+      );
       md.addNewline();
-      for (const feature of item.features) {
-        md.addBlockquote(Format.createMarkdown().addText(`- ${feature}`));
-      }
     }
     md.addNewline();
   };
@@ -71,25 +75,27 @@ export default onResponse(selects, async e => {
           ? stages.slice(page - 1, page)
           : content.featureCatalog.filter(stage => stage.stageLevel === current?.stageLevel || stage.stageLevel === content.nextStage?.stageLevel);
 
-    md.addText(current ? `当前境界：${current.realmName ?? current.stageName}` : '尚未踏入仙途');
+    md.addText(current ? `境界：${current.realmName ?? current.stageName}` : '尚未踏入仙途');
     md.addNewline().addNewline();
     for (const stage of selected) {
-      const label = browsing || match[2] === '通用' ? '' : stage.stageLevel === current?.stageLevel ? '当前大境界：' : '下一大境界：';
+      const label = browsing || match[2] === '通用' ? '' : stage.stageLevel === current?.stageLevel ? '当前大境界' : '下一大境界';
 
-      md.addBold(`${label}${stage.stageName}`).addNewline();
+      md.addText(`${label ? `${label} · ` : ''}境界：${stage.stageName}`).addNewline();
       const features = stage.features.filter(feature => !mentionsRetiredFeature(feature.name));
 
       if (!features.length) {
         md.addText('此境界暂无新增玩法。').addNewline();
       }
       for (const feature of features) {
-        const detail = Format.createMarkdown().addText(feature.description);
+        const conditions = feature.conditions.filter(condition => !mentionsRetiredFeature(condition));
 
-        for (const condition of feature.conditions.filter(condition => !mentionsRetiredFeature(condition))) {
-          detail.addNewline().addText(condition);
-        }
-        md.addBold(`${feature.name} · ${feature.realmReached ? '已开放' : '待开放'} · ${feature.realm}`).addNewline();
-        md.addBlockquote(detail);
+        md.addBlockquote(
+          section({
+            title: feature.name,
+            suffix: `· ${feature.realmReached ? '已开放' : '待开放'} · ${feature.realm}`,
+            lines: [feature.description, ...(conditions.length ? [`条件：${conditions.join(' · ')}`] : [])].filter(Boolean)
+          })
+        );
       }
       md.addNewline();
     }
@@ -132,17 +138,17 @@ export default onResponse(selects, async e => {
   } else {
     // During rollout, older backends still return the original full catalogue.
     for (const item of activeUnlocks(content.realmUnlocks)) {
-      md.addBold(item.realm);
+      md.addText(`境界：${item.realm}`);
       md.addNewline();
 
       for (const feature of item.features) {
-        md.addBlockquote(Format.createMarkdown().addText(`- ${feature}`));
+        md.addBlockquote(Format.createMarkdown().addText(`· ${feature}`));
       }
 
       md.addNewline();
     }
 
-    md.addBold('附加条件');
+    md.addText('附加条件');
     md.addNewline();
     for (const note of content.notes.filter(note => !mentionsRetiredFeature(note))) {
       md.addBlockquote(Format.createMarkdown().addText(`${note}`));

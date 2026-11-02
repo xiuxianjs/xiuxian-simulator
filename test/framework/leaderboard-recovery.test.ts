@@ -131,7 +131,7 @@ for (const entry of entries) for (const isPrivate of [false, true]) {
       assert.ok(view.commands.includes('/境界排行榜'));
     } else {
       assert.ok(view.text.includes('原道友'));
-      assert.ok(view.text.includes('ID:88'));
+      assert.ok(view.text.includes(entry.handler === realm ? '#88' : 'ID:88'));
       assert.ok(view.commands.includes('/查看信息 88'));
       assert.ok(!view.commands.some(command => command.startsWith('/比试 ')));
       if (entry.handler === battle || entry.handler === regionBattle) assert.ok(view.text.includes('555'));

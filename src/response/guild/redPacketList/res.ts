@@ -3,7 +3,8 @@ import { createGuildRedPacketButtons } from '@src/markdown/buttons/guild';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseGuildRedPackets } from '@src/api/bot/guild-red-packets-queries';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 /**
  * 宗门红包列表指令
@@ -89,18 +90,28 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addBold(`【${guildName}】宗门红包`);
-  md.addNewline();
-
   for (const p of pageList) {
-    const remainTimeStr = p.expiresAt ? `⏳${p.remainingTimeText}` : '';
+    const remainTimeStr = p.expiresAt ? `剩余时间：${p.remainingTimeText}` : '';
 
-    md.addText(`【${p.id}】 ${p.currencyName}\\*${Number(p.perAmount)}（剩余${p.remaining}） ${remainTimeStr}`);
-
-    addOptions(md, [{ label: '领取', command: `/领红包 ${p.id}` }]);
+    md.addBlockquote(
+      section({
+        title: p.currencyName,
+        id: p.id,
+        lines: [`每份：×${Number(p.perAmount)} · 剩余份数：${p.remaining}${remainTimeStr ? ` · ${remainTimeStr}` : ''}`],
+        actions: [{ label: '领取', command: `/领红包 ${p.id}` }]
+      })
+    );
+    md.addNewline();
   }
 
-  md.addText(`第 ${page}/${totalPages} 页`);
-
-  void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: createGuildRedPacketButtons(page, totalPages) }));
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: `宗门红包 · ${guildName}`,
+      content: md,
+      footer: createGuildRedPacketButtons(page, totalPages),
+      nav: { current: page, total: totalPages, command: '/宗门红包 {page}' }
+    })
+  );
 });

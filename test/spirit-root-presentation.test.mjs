@@ -54,7 +54,7 @@ test('root actions follow server eligibility and current-session bonus remains e
     text = await render('/灵根', { ...root, quality: 3, stageTarget: 0, canFeed: false }, { isPrivate });
     assert.ok(!text.includes('/灵根材料'));
     text = await render('/灵根', { ...root, meditationActive: true, activeMeditationBonusPercent: 0 }, { isPrivate });
-    assert.ok(text.includes('本轮修为 +0% · 下轮 +10%'));
+    assert.ok(text.includes('修为：本轮 +0% · 下轮 +10%'));
   }
 });
 

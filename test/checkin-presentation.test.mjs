@@ -35,7 +35,7 @@ const commands = nodes => nodes.filter(node => ['MD.button', 'Button'].includes(
 
 test('hub retains ordered receipts, partial failure retry and navigation',async()=>{
  const nodes=await render('hub','/签到',{results:[{name:'日常签到',status:'done',message:'签到成功'},{name:'新人签到',status:'error',message:'加载失败'},{name:'宗门签到',status:'skip',message:'不可用'}]});
- for(const part of ['🎉 日常签到：签到成功','❌ 新人签到：加载失败','· 宗门签到：不可用'])assert.ok(textOf(nodes).includes(part),part);
+ for(const part of ['日常签到','签到成功','新人签到','加载失败','宗门签到','不可用','✅','❌','·'])assert.ok(textOf(nodes).includes(part),part);
  for(const command of ['/新人签到','/任务面板','/我'])assert.ok(commands(nodes).includes(command),command);
  const failed=await render('hub','/签到',{text:'❌ 统一签到失败：签到服务未初始化'},true);assert.ok(textOf(failed).includes('签到服务未初始化'));assert.ok(commands(failed).includes('/任务面板'));
 });

@@ -2,6 +2,7 @@ import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { useMessage } from '@src/utils/useMessage';
 import { addOptions, createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { getCommandErrorMessage } from '@src/utils/commandError';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -52,19 +53,19 @@ export default onResponse(selects, async e => {
 
       return;
     }
-    const lines = [root.title, `闭关修为 +${root.bonusPercent}%`];
+    const lines = [`修为加成：+${root.bonusPercent}%`];
 
     if (root.stageTarget > 0) {
-      lines.push(`培养 ${root.stagePoints}/${root.stageTarget}`);
+      lines.push(`培养：${root.stagePoints}/${root.stageTarget}`);
       const realm = !root.canFeed && !root.canPromote ? `待${root.requiredRealmName}` : root.requiredRealmName;
 
-      lines.push(`晋至${root.nextQualityName}：${realm} · 修为加成 +${root.nextBonusPercent}%`);
+      lines.push(`晋至${root.nextQualityName}：${realm} · 修为加成：+${root.nextBonusPercent}%`);
     }
     if (root.overflow > 0) {
-      lines.push(`晋品后保留培养值 ${root.overflow}`);
+      lines.push(`保留：培养值 ${root.overflow}`);
     }
     if (root.meditationActive && root.activeMeditationBonusPercent !== root.bonusPercent) {
-      lines.push(`本轮修为 +${root.activeMeditationBonusPercent}% · 下轮 +${root.bonusPercent}%`);
+      lines.push(`修为：本轮 +${root.activeMeditationBonusPercent}% · 下轮 +${root.bonusPercent}%`);
     }
     const buttons: { label: string; command: string }[] = [];
 
@@ -74,7 +75,7 @@ export default onResponse(selects, async e => {
     if (root.canPromote) {
       buttons.push({ label: `晋至${root.nextQualityName}`, command: `/灵根晋品 ${root.quality} ${root.cultivation}` });
     }
-    md.addBlockquote(createQuoteMarkdown(lines, buttons));
+    md.addBlockquote(section({ title: root.title, lines, actions: buttons }));
   };
 
   try {

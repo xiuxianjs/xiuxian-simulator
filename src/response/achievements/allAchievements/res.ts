@@ -4,7 +4,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { parseCommandPage } from '@src/utils/commandPage';
 import App from '@src/response-apps/achievements/allAchievements/app';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 /**
@@ -62,7 +63,14 @@ export default onResponse(selects, async e => {
     }
 
     for (const item of items) {
-      md.addBlockquote(createQuoteMarkdown([`【${item.displayIndex}】${item.name}`, item.description].filter(Boolean)));
+      md.addBlockquote(
+        section({
+          title: item.name,
+          id: item.displayIndex,
+          lines: [item.description].filter(Boolean)
+        })
+      );
+      md.addNewline();
     }
 
     await message.send(

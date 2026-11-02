@@ -16,7 +16,8 @@ import { EMPTY_STRING, ZERO_VALUE as EMPTY_TOTAL } from '@src/constants';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotStorageEquipment } from '@src/api/bot/queries';
 import { selects } from '@src/response/config';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { renderSubTabs } from '../tabs';
 import { equipmentItemActions, equipmentPageActions } from '../capabilities';
@@ -124,28 +125,18 @@ const response = onResponse(selects, async e => {
 
     // 格式化装备显示，添加快捷按钮和属性
     items.forEach(item => {
-      const lines = [`【${item.id}】`, `「${item.displayName}」 ${item.displayGrade} · ${item.displayEquipmentType}`];
+      const lines = [`品级：${item.displayGrade} · 类型：${item.displayEquipmentType}`];
 
       for (let i = 0; i < item.attributeParts.length; i += 2) {
-        const attrPair = item.attributeParts.slice(i, i + 2).join(' ｜ ');
-
-        lines.push(attrPair);
+        lines.push(item.attributeParts.slice(i, i + 2).join(' · '));
       }
-      md.addText(lines[0]);
       const actions = equipmentItemActions(item);
 
-      addOptions(md, actions);
       if (!actions.length) {
-        md.addText('当前没有可用操作');
+        lines.push('· 当前没有可用操作');
         hasUnavailableItem = true;
       }
-      md.addText(lines[1]).addNewline();
-      if (lines.length > 2) {
-        md.addBlockquote(createQuoteMarkdown(lines.slice(2)));
-      }
-      md.addNewline();
-
-      md.addNewline();
+      md.addBlockquote(section({ title: item.displayName, id: item.id, lines, actions }));
       md.addNewline();
     });
 

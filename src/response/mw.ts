@@ -2,11 +2,12 @@ import { formatGameTime } from '@src/utils/gameTime';
 import { sendRegistrationNamePrompt } from './start/namePrompt';
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareResult } from '@src/api/bot/middleware-entry';
-import { FormatGui } from '@src/utils/messageHelper';
+import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger } from 'alemonjs';
 import { appendMiddlewareAdvice, sendMiddlewareReply } from './middlewareReply';
 import { withBusinessRecovery } from './businessRecovery';
+import { titleWithStatus } from './presentation/format';
 
 // Former player-entry middleware. It now consumes the completed entry result;
 // identity, maintenance, feature eligibility and recovery are never re-requested.
@@ -38,14 +39,10 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
     const rule = entry.maintenance;
     const md = Format.createMarkdown();
 
-    md.addText('⚠️ 该功能维护中');
-    md.addNewline();
-    md.addText(`维护原因：${rule.reason ?? '功能维护中'}`);
-    md.addNewline();
-    md.addText(`预计恢复：${formatGameTime(rule.endTime)}`);
-    md.addNewline();
-    md.addText('请耐心等待恢复后再使用。');
-    await message.send(FormatGui({ isPrivate, bid, title: '功能维护', content: md }));
+    md.addBlockquote(
+      createQuoteMarkdown(['该功能维护中', `维护原因：${rule.reason ?? '功能维护中'}`, `预计恢复：${formatGameTime(rule.endTime)}`, '请耐心等待恢复后再使用。'])
+    );
+    await message.send(FormatGui({ isPrivate, bid, title: titleWithStatus('功能维护', 'warn'), content: md }));
 
     return false;
   }

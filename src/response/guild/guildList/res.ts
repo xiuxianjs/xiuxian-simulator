@@ -9,6 +9,7 @@ import { parseRobotGuildList } from '@src/api/bot/guild-directory-robot-query';
 
 import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { listBubble } from '@src/response/presentation/presets';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -106,15 +107,11 @@ function handleGuildListDisplay(result: any, message: any, bid: string | undefin
       return;
     }
 
-    // 构建宗门列表显示
-    const contentMd = Format.createMarkdown();
-
-    result.guilds.forEach((guild: any) => {
-      const levelInfo = guild.levelName ? `${guild.levelName}` : '';
-
+    // 构建宗门列表显示（列表条目：对象行 + 事实行 + 入宗按钮）
+    const items = result.guilds.map((guild: any) => {
       const titles = guild.titles?.filter((t: string) => t?.trim()).map((t: string) => t.trim()) ?? [];
       const lines = [
-        `【${guild.id}】${guild.name}-${levelInfo}-${guild.memberCount}人`,
+        `等级：${guild.levelName ?? '无'} · 人数：${guild.memberCount}`,
         `称号：${titles.length > 0 ? titles.join('、') : '无'}`,
         `简介：${guild.intro}`
       ];
@@ -122,17 +119,22 @@ function handleGuildListDisplay(result: any, message: any, bid: string | undefin
       if (guild.minRealmName) {
         lines.push(`入宗要求：${guild.minRealmName}及以上`);
       }
-      contentMd.addBlockquote(createQuoteMarkdown(lines, canCreateOrApply ? [{ label: '加入', command: `/加入宗门 ${guild.id}` }] : []));
-      contentMd.addNewline();
+
+      return {
+        title: guild.name,
+        id: guild.id,
+        lines,
+        actions: canCreateOrApply ? [{ label: '加入', command: `/加入宗门 ${guild.id}` }] : []
+      };
     });
 
     void message.send(
-      FormatGui({
+      listBubble({
         isPrivate,
         bid,
         title: '宗门列表',
+        items,
         header: [...(canCreateOrApply ? [{ label: '创建宗门', command: '/创建宗门' }] : []), { label: '我的申请', command: '/我的申请' }],
-        content: contentMd,
         nav: {
           current: result.currentPage,
           total: result.totalPages,

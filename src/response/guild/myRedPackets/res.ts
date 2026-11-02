@@ -2,7 +2,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseGuildMyRedPackets } from '@src/api/bot/guild-my-red-packets-queries';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 /**
  * 我发的红包指令
@@ -81,13 +82,15 @@ export default onResponse(selects, async e => {
   for (const p of pageList) {
     const packetId = Number(p.id);
 
-    md.addText(`【${packetId}】${p.currencyName}×${Number(p.perAmount)} ${Number(p.claimedCount)}/${Number(p.packetCount)}份 ${p.statusText}`);
-
-    if (p.canRecycle) {
-      addOptions(md, [{ label: `回收 ${p.recycleAmount}${p.currencyName}`, command: `/回收红包 ${packetId}` }]);
-    } else {
-      md.addNewline();
-    }
+    md.addBlockquote(
+      section({
+        title: `${p.currencyName}红包`,
+        id: packetId,
+        lines: [`每份：×${Number(p.perAmount)} · 进度：${Number(p.claimedCount)}/${Number(p.packetCount)}份`, `状态：${p.statusText}`],
+        actions: p.canRecycle ? [{ label: `回收 ${p.recycleAmount}${p.currencyName}`, command: `/回收红包 ${packetId}` }] : []
+      })
+    );
+    md.addNewline();
   }
 
   const footer: Array<{ label: string; command: string }> = [
@@ -99,7 +102,7 @@ export default onResponse(selects, async e => {
     FormatGui({
       isPrivate,
       bid,
-      title: `【${guildName}】我发的红包`,
+      title: `我发的红包 · ${guildName}`,
       content: md,
       footer,
       nav: totalPages > 1 ? { current: page, total: totalPages, count: allPackets.length, command: '/我发的红包 {page}' } : undefined

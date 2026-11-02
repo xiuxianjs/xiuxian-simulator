@@ -2,7 +2,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseCheckInHub } from '@src/api/bot/checkin-robot-query';
 import { selects } from '@src/response/config';
-import { FormatGui, createQuoteMarkdown } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -60,7 +61,14 @@ export default onResponse(selects, async e => {
       if (item.status === 'error' && retryCommands[item.name]) {
         buttons.push({ label: `重试${item.name}`, command: retryCommands[item.name] });
       }
-      md.addBlockquote(createQuoteMarkdown([`${item.status === 'done' ? '🎉' : item.status === 'skip' ? '·' : '❌'} ${item.name}：${item.message}`], buttons));
+      md.addBlockquote(
+        section({
+          title: item.name,
+          status: item.status === 'done' ? 'done' : item.status === 'skip' ? 'skip' : 'fail',
+          lines: [item.message],
+          actions: buttons
+        })
+      );
     }
   } catch (error) {
     md.addText(`❌ 签到结果暂未确认，请先查看签到概览核对：${error instanceof Error ? error.message : '请稍后再试'}`);

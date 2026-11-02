@@ -42,13 +42,13 @@ test('all shared boards show ten entries, suppress unranked self, and use normal
   assert.equal(state.sent.length,1,name);
   const nodes=flatten(state.sent[0]);
   const text=nodes.filter(node=>typeof node.value==='string').map(node=>node.value).join('\n');
-  assert.equal((text.match(/ID:/g)??[]).length,10,name);
+  assert.equal((text.match(/(?:#|ID:)\d+/g)??[]).length,10,name);
   const ranked = rank !== null && rank >= 1 && rank <= 50;
   assert.equal(text.includes(`我的排名：第${rank}名`),ranked,name);
   if(!ranked)assert.doesNotMatch(text,/我的排名|暂无个人|尚无.*记录|个人排名正在/);
   assert.doesNotMatch(text,/我的附近|附近排名|第51名/);
   assert.match(text,/第2\/5页/);
-  assert.match(text,/ID:11\b/);assert.match(text,/ID:20\b/);
+  assert.match(text,/(?:#|ID:)11\b/);assert.match(text,/(?:#|ID:)20\b/);
   if(['battle','regionalBattle','tower','alchemy','storyline'].includes(name))assert.equal(state.args.top50,true,name);
  }
 });

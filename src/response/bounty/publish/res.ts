@@ -14,6 +14,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotBountyPublish } from '@src/api/bot/bounty-actions';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { resolveRobotTargetFromArg } from '@src/utils/targetUid';
 import { Format, onResponse, useMention, useEvent } from 'alemonjs';
 
@@ -115,18 +116,17 @@ export default onResponse(selects, async e => {
   const d = result.data.data;
   const md = Format.createMarkdown();
 
-  md.addText('悬赏发布成功');
-  md.addNewline();
-  md.addNewline();
-  md.addText(`悬赏编号：#${d.bountyId}`);
-  md.addNewline();
   md.addBlockquote(
-    Format.createMarkdown()
-      .addText(`支付灵晶：${d.totalCost},手续费：${d.fee}`)
-      .addNewline()
-      .addText(`赏金池：${d.rewardPool},每人赏金：${d.rewardPerPerson}`)
-      .addNewline()
-      .addText(`允许完成：${d.maxCompletions}人,有效期：${d.validHours}小时`)
+    section({
+      title: '悬赏发布成功',
+      id: d.bountyId,
+      status: 'done',
+      lines: [
+        `支付：${d.totalCost}灵晶 · 手续费：${d.fee}灵晶`,
+        `赏金池：${d.rewardPool} · 每人：${d.rewardPerPerson}灵晶`,
+        `名额：${d.maxCompletions}人 · 有效期：${d.validHours}小时`
+      ]
+    })
   );
 
   void message.send(

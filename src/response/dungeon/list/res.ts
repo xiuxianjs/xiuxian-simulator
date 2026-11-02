@@ -2,7 +2,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { dungeonCatalogArguments, parseRobotDungeonCatalog } from '@src/api/bot/dungeon-robot-query';
 import { selects } from '@src/response/config';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
@@ -111,13 +112,15 @@ export default onResponse(selects, async e => {
       dgBtns.push({ label: '探索', command: `/探索秘境 ${item.name}` });
     }
 
-    const freeText = item.freeRemaining !== null && item.freeLimit !== null ? ` | 免费剩余：${item.freeRemaining}次` : '';
+    const freeText = item.freeRemaining !== null && item.freeLimit !== null ? ` · 免费剩余：${item.freeRemaining}次` : '';
 
     contentMd.addBlockquote(
-      createQuoteMarkdown(
-        [`【${item.name}】${item.isSingle ? '' : '【多人】'}`, `${realmLimit} | 精力：${item.spiritCost}${freeText}${item.hasCleared ? '' : ' | ✨首通奖励'}`],
-        dgBtns
-      )
+      section({
+        title: item.name,
+        suffix: item.isSingle ? '' : '多人',
+        lines: [`${realmLimit} · 精力：${item.spiritCost}${freeText}`, item.hasCleared ? '' : '· 首通奖励'].filter(Boolean),
+        actions: dgBtns
+      })
     );
 
     contentMd.addNewline();

@@ -5,7 +5,8 @@ import { rankingView, rankingSelfText } from '@src/response/leaderboard/view';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseMasterRanking } from '@src/api/bot/queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -59,13 +60,13 @@ export default onResponse(selects, async e => {
     }
     list.forEach(row => {
       md.addBlockquote(
-        createQuoteMarkdown(
-          [
-            `【${row.rank}】${row.userName}${row.userId === uid ? ' 👈我' : ''}（${row.virtueTitle}）`,
-            `ID:${row.userId} 师德${row.masterVirtueExp}，徒弟${row.totalGraduatedCount + row.activeDiscipleCount}人`
-          ],
-          [{ label: '查看', command: `/查看信息 ${row.userId}` }]
-        )
+        section({
+          title: row.userName,
+          id: row.userId,
+          suffix: `· ${row.virtueTitle}${row.userId === uid ? ' · 我' : ''}`,
+          lines: [`排名：第${row.rank}名`, `师德：${row.masterVirtueExp} · 徒弟：${row.totalGraduatedCount + row.activeDiscipleCount}人`],
+          actions: [{ label: '查看', command: `/查看信息 ${row.userId}` }]
+        })
       );
     });
   }

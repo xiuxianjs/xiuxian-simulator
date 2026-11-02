@@ -4,7 +4,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendVipPrivileges } from '@src/api/bot/vip-privileges-queries';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -33,7 +34,7 @@ export default onResponse(selects, async e => {
     const mode = e.MessageText.includes('未解锁') ? 'locked' : e.MessageText.includes('月卡') ? 'month' : 'active';
 
     if (mode !== 'month') {
-      md.addText(`VIP ${data.vipLevel} · 累计充值 ¥${(data.totalRechargeAmount / 100).toFixed(2)}`).addNewline();
+      md.addText(`VIP：${data.vipLevel} · 累计充值：¥${(data.totalRechargeAmount / 100).toFixed(2)}`).addNewline();
     }
     const rows = (
       mode === 'month'
@@ -41,7 +42,9 @@ export default onResponse(selects, async e => {
         : data.vipPrivileges.filter(row => (mode === 'locked' ? !row.unlocked : row.unlocked && (row.minLevel === undefined || row.minLevel === data.vipLevel)))
     ).filter(row => !mentionsRetiredFeature(row.text) && !mentionsRetiredFeature(row.needText ?? ''));
 
-    md.addText(mode === 'locked' ? '未解锁特权' : mode === 'month' ? `月卡特权 · ${data.hasMonthCard ? '生效中' : '未生效'}` : '当前已生效特权').addNewline();
+    md.addText(
+      `状态：${mode === 'locked' ? '未解锁特权' : mode === 'month' ? `月卡特权 · ${data.hasMonthCard ? '生效中' : '未生效'}` : '当前已生效特权'}`
+    ).addNewline();
     if (!rows.length) {
       md.addText('暂无对应特权');
     }
@@ -52,10 +55,11 @@ export default onResponse(selects, async e => {
 
     for (const row of rows.slice((page - 1) * 5, page * 5)) {
       md.addBlockquote(
-        createQuoteMarkdown([
-          mode === 'locked' && row.minLevel !== undefined ? `VIP ${row.minLevel} · ${row.text}` : row.text,
-          ...(row.needText ? [row.needText] : [])
-        ])
+        section({
+          title: row.text,
+          suffix: mode === 'locked' && row.minLevel !== undefined ? `· VIP${row.minLevel}` : undefined,
+          lines: row.needText ? [`条件：${row.needText}`] : []
+        })
       );
     }
 

@@ -10,7 +10,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobberyRecords } from '@src/api/bot/robbery-records';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -54,22 +55,23 @@ export default onResponse(selects, async e => {
     md.addNewline();
     const time = formatGameTime(r.createdAt);
     const actor = r.isCounterAttack ? '反击方' : '进攻方';
-    const lines = [
-      `【战报 #${r.id}】`,
-      `时间：${time}`,
-      `${actor}：${r.attackerDisplayName}`,
-      `类型：${r.typeText}`,
-      `战斗结果：${actor}${r.isWin ? '获胜' : '未获胜'}`
-    ];
+    const lines = [`时间：${time}`, `类型：${r.typeText}`, `结果：${r.isWin ? '获胜' : '未获胜'}`];
 
     if (r.lossText) {
       const losses = r.lossText.match(/^损失：(.*)$/);
 
-      lines.push('', ...(losses ? ['损失：', ...losses[1].split('、').map(loss => loss.replace(/^(灵石|灵晶)-/, '$1 -'))] : [r.lossText]));
+      lines.push(
+        losses
+          ? `损失：${losses[1]
+              .split('、')
+              .map(loss => loss.replace(/^(灵石|灵晶)-/, '$1 -'))
+              .join(' · ')}`
+          : r.lossText
+      );
     }
 
     if (r.dropText) {
-      lines.push(`物品状态：${r.dropText}`);
+      lines.push(`物品：${r.dropText}`);
     }
 
     if (r.counterStatusText) {
@@ -83,7 +85,7 @@ export default onResponse(selects, async e => {
     if (r.counterDeadline) {
       actions.push({ label: '详情', command: `/争夺战报 ${r.id}` });
     }
-    md.addBlockquote(createQuoteMarkdown(lines, actions));
+    md.addBlockquote(section({ title: r.attackerDisplayName, id: r.id, suffix: `· ${actor}`, lines, actions }));
   }
 
   await message.send(

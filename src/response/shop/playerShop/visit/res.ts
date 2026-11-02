@@ -92,18 +92,6 @@ export default onResponse(selects, async e => {
     const { currentPage, totalPages } = pagination;
     const footer: { label: string; command: string }[] = [];
 
-    if (currentPage > 1) {
-      footer.push({ label: '上一页', command: `/逛店 ${shop.userId} ${currentPage - 1}` });
-    }
-
-    if (currentPage < totalPages) {
-      footer.push({ label: '下一页', command: `/逛店 ${shop.userId} ${currentPage + 1}` });
-    }
-
-    if (listings.length > 0) {
-      contentMd.addText(`第${currentPage}/${totalPages}页`);
-    }
-
     void message.send(
       FormatGui({
         isPrivate,
@@ -111,7 +99,8 @@ export default onResponse(selects, async e => {
         title: `逛店 - ${shop.shopName}`,
         header: SHOP_HEADER,
         content: contentMd,
-        footer
+        footer,
+        nav: { current: currentPage, total: totalPages, command: `/逛店 ${shop.userId} {page}` }
       })
     );
   } catch {

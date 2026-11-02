@@ -44,7 +44,7 @@ export default onResponse(selects, async e => {
     const data = result.data;
     const label = data.phase === 'ordinary' ? '原战' : '反击';
     const md = Format.createMarkdown()
-      .addText(`${data.summary.resultText} · ${data.summary.counterStatusText}`)
+      .addBlockquote(Format.createMarkdown().addText(`结果：${data.summary.resultText} · 反击状态：${data.summary.counterStatusText}`))
       .addNewline()
       .addCode(data.text, { language: 'markdown' });
 

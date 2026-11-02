@@ -10,7 +10,8 @@ import { PAGE_SIZE } from '@src/constants';
  */
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -98,9 +99,6 @@ export default onResponse(selects, async e => {
   md.addNewline();
 
   list.forEach(friend => {
-    md.addText(`【${friend.relationText}】【${friend.spiritBondLevel}(${friend.intimacy})】${friend.friendName}`);
-    md.addNewline();
-
     const friendBtns: { label: string; command: string }[] = [
       { label: '赠送', command: `/赠送 ${friend.friendId}` },
       { label: '飞信', command: `/发飞信 ${friend.friendId} ` },
@@ -117,8 +115,15 @@ export default onResponse(selects, async e => {
       friendBtns.push({ label: '道侣', command: `/结为道侣 ${friend.friendName}` });
     }
 
+    md.addBlockquote(
+      section({
+        title: friend.friendName,
+        id: friend.friendId,
+        lines: [`关系：${friend.relationText} · 灵犀：${friend.spiritBondLevel}（${friend.intimacy}）`],
+        actions: friendBtns
+      })
+    );
     md.addNewline();
-    addOptions(md, friendBtns);
   });
 
   void message.send(

@@ -6,6 +6,7 @@ import { parseRobotFlyMailHome, parseRobotFriendInbox } from '@src/api/bot/fly-m
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 const SCOPE_LABEL = {
@@ -127,12 +128,16 @@ export default onResponse(selects, async e => {
       md.addNewline().addText('暂无会话');
     }
     for (const item of inbox.conversations) {
-      const row = Format.createMarkdown().addText(item.targetName);
-
-      addOptions(row, [{ label: '打开会话', command: `/飞信 会话 ${item.id}` }]);
-      row.addText(flyMailTime(item.lastMessageAt)).addNewline().addText(item.preview);
-      addOptions(row, [{ label: '回复', command: flyMailDraft('friend', item.targetUid) }]);
-      md.addBlockquote(row);
+      md.addBlockquote(
+        section({
+          title: item.targetName,
+          lines: [`时间：${flyMailTime(item.lastMessageAt)}`, item.preview],
+          actions: [
+            { label: '打开会话', command: `/飞信 会话 ${item.id}` },
+            { label: '回复', command: flyMailDraft('friend', item.targetUid) }
+          ]
+        })
+      );
     }
   } else if (result.data.list.length === 0) {
     md.addNewline().addText(conversation ? '暂无消息记录' : '暂无飞信');

@@ -61,8 +61,17 @@ export default onResponse(selects, async e => {
   });
 
   md.addNewline();
-  md.addText(`第 ${actualPage}/${totalPages} 页，共 ${total} 条日志`);
+
   md.addNewline();
 
-  void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: createGuildLogButtons(actualPage, totalPages) }));
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '',
+      content: md,
+      footer: createGuildLogButtons(actualPage, totalPages),
+      nav: { current: actualPage, total: totalPages, count: total, command: '/宗门日志 {page}' }
+    })
+  );
 });

@@ -33,8 +33,8 @@ for (const isPrivate of [true, false]) {
       const view = inspectMessage(message.nodes);
       assert.doesNotMatch(view.text, /不应重复|开放状态仅表示/);
       if (command === '/天书') {
-        assert.match(view.text, /当前大境界：筑基/);
-        assert.match(view.text, /下一大境界：金丹/);
+        assert.match(view.text, /当前大境界 · 境界：筑基/);
+        assert.match(view.text, /下一大境界 · 境界：金丹/);
         assert.match(view.text, /玩法2-0 · 已开放/);
         assert.match(view.text, /玩法3-0 · 待开放/);
         assert.doesNotMatch(view.text, /玩法[01]-/);
@@ -63,7 +63,7 @@ for (const guest of [true, false]) {
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(result.messages[0].nodes);
-    assert.match(view.text, guest ? /下一大境界：炼气/ : /已至天书末境/);
+    assert.match(view.text, guest ? /下一大境界 · 境界：炼气/ : /已至天书末境/);
     assert.doesNotMatch(view.text, /玩法[23]-/);
   });
 }

@@ -4,6 +4,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import type { NewcomerLoginView } from '@src/api/schemas/newcomer-login-query';
 import { selects } from '@src/response/config';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 /** 新人狂欢入口仅解析页码，并渲染 Go 返回的七日展示投影。 */
@@ -60,11 +61,11 @@ function renderOverview(view: NewcomerLoginView, md: ReturnType<typeof Format.cr
   md.addNewline();
   md.addBold(`修行第${view.currentDayIndex}天 / 共${view.eventDays}天`);
   md.addNewline();
-  md.addText(`⏰ ${view.timeRange}`);
+  md.addText(`时间：${view.timeRange}`);
   md.addNewline();
 
   if (view.nextUnlockText) {
-    md.addText(`⏳ ${view.nextUnlockText}`);
+    md.addText(`解锁：${view.nextUnlockText}`);
     md.addNewline();
   }
 
@@ -72,17 +73,23 @@ function renderOverview(view: NewcomerLoginView, md: ReturnType<typeof Format.cr
 
   for (const day of view.overviewDays) {
     if (day.status === 'LOCKED') {
-      md.addText(`⏳第${day.day}天-${day.theme}-尚未开启`);
+      md.addText(`第${day.day}天 · ${day.theme} · 状态：尚未开启`);
       md.addNewline();
       continue;
     }
 
-    const icon = day.status === 'MISSED' ? '❌' : day.status === 'CLAIMED' ? '✅' : '✨';
+    const status = day.status === 'MISSED' ? 'fail' : 'done';
 
-    md.addText(`${icon}第${day.day}天-${day.theme}${day.taskSummary} `);
-    if (day.command) {
-      addOptions(md, [{ label: '查看', command: day.command }]);
-    }
+    md.addBlockquote(
+      section({
+        title: day.theme,
+        id: day.day,
+        status,
+        lines: [day.taskSummary].filter(Boolean),
+        actions: day.command ? [{ label: '查看', command: day.command }] : []
+      })
+    );
+    md.addNewline();
   }
 
   md.addNewline();

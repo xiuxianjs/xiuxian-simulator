@@ -10,7 +10,8 @@ import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { teamRecoveryTips } from '@src/response/teamRecovery';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -75,13 +76,19 @@ export default onResponse(selects, async e => {
   const md = Format.createMarkdown();
 
   for (const app of result.data.applications) {
-    md.addText(`【${app.userId}】${app.userName}`);
-
-    addOptions(md, [
-      { label: '同意', command: `/队伍同意 ${app.id}` },
-      { label: '拒绝', command: `/队伍拒绝 ${app.id}` }
-    ]);
+    md.addBlockquote(
+      section({
+        title: app.userName,
+        id: app.userId,
+        lines: [`申请编号：${app.id}`],
+        actions: [
+          { label: '同意', command: `/队伍同意 ${app.id}` },
+          { label: '拒绝', command: `/队伍拒绝 ${app.id}` }
+        ]
+      })
+    );
+    md.addNewline();
   }
 
-  void message.send(FormatGui({ isPrivate, bid, title: `【${result.data.leaderName}】的队伍`, content: md, footer: back }));
+  void message.send(FormatGui({ isPrivate, bid, title: `${result.data.leaderName}的队伍`, content: md, footer: back }));
 });

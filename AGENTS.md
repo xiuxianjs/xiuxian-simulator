@@ -94,3 +94,13 @@
 - 炼丹/渡劫/心魔引用保留24小时供确认及重试；锻造沿用原委托保留期，原5分钟预览校验不变。引用失效或缓存不可用时明确失败并引导核对原结果，不得重建最新参数后自动提交。
 - 新发按钮只带引用。旧 b1/b2/b3、渡劫紧凑载荷和旧 f1_ 仍作为滚动升级兼容格式读取；紧凑编码不再是新确认的首选方案。机器人先发布兼容接收支持，再切换服务端引用输出，两个组件必须配套发布。
 - 变更不涉及数据库字段，不新增迁移或SDK模型；若将来改为SQL持久化，仍须先升级DB SDK再加迁移，不能绕过项目数据库管理规则。
+
+## 气泡排版规范（bubble-style skill）
+
+新增或修改任何气泡展示前，先启用 `bubble-style` skill：
+
+- `.agents/skills/bubble-style/SKILL.md`：规则速查 + 自检清单
+- `.github/skills/bubble-style/SKILL.md` + `content.md`：组件 API、页面模板、正反例、验证与对照图流程
+- 规范总纲：`docs/bubble-style/DESIGN.md`
+
+硬性要求摘要：优先使用 `src/response/presentation` 组件；对象行 `**名称** #ID`（禁止 `ID：`/`序号：` 独立行）；事实行必须带 DESIGN §5.9 标签；返回按钮放页脚；分页只用 `nav`；符号受控（禁装饰 emoji）；每次改动出「改前 / 改后」对照图，渲染产物放仓库外 `bubble-style-mockups`，仓库只提交代码与 `docs/`。

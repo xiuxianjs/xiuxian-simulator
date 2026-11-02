@@ -17,7 +17,8 @@ import type { TiangongBagCapability, TiangongBagItem } from '@src/response-apps/
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseProfessionToolBag } from '@src/api/bot/queries';
 import { selects } from '@src/response/config';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { renderSubTabs } from '../tabs';
 
@@ -122,25 +123,26 @@ const response = onResponse(selects, async e => {
     }
     let hasUnavailableReplace = false;
 
-    // 格式化天工工具显示，添加快捷按钮
+    // 格式化天工工具显示：对象行 + 品级/编号 + 能力按钮
     pageTools.forEach(item => {
-      const lockIcon = item.isLocked ? '🔒' : '';
-
-      // 基础信息和操作按钮
-      md.addText(`【${item.id}】 ${lockIcon}${item.name}-${item.grade}`);
-
-      addOptions(
-        md,
-        item.capabilities.map(kind => itemAction(kind, item))
-      );
+      const lockMark = item.isLocked ? ' 🔒' : '';
+      const lines = [`品级：${item.grade}`];
 
       if (!item.capabilities.includes('replace')) {
-        md.addText('当前未提供替换入口，请核对工具详情与职业状态');
+        lines.push('· 当前未提供替换入口，请核对工具详情与职业状态');
         hasUnavailableReplace = true;
       }
-      md.addNewline();
 
-      // 图片面板行
+      md.addBlockquote(
+        section({
+          title: item.name,
+          id: item.id,
+          suffix: lockMark.trim(),
+          lines,
+          actions: item.capabilities.map(kind => itemAction(kind, item))
+        })
+      );
+      md.addNewline();
     });
 
     if (hasUnavailableReplace) {

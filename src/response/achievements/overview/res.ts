@@ -9,7 +9,8 @@ import { useMessage } from '@src/utils/useMessage';
 import App from '@src/response-apps/achievements/overview/app';
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -51,9 +52,7 @@ export default onResponse(selects, async e => {
       return;
     }
 
-    md.addText(`已达成：${summary.completedAchievements} / ${summary.totalAchievements}`);
-    md.addNewline();
-    md.addText(`完成率：${summary.completionRate}%`);
+    md.addText(`进度：${summary.completedAchievements}/${summary.totalAchievements} · 完成率：${summary.completionRate}%`);
     md.addNewline();
     md.addNewline();
 
@@ -69,18 +68,18 @@ export default onResponse(selects, async e => {
       md.addText('当前暂无成就分类配置。');
       appendMiddlewareAdvice(md, achievementRecoveryTips('achievements.overview', '当前暂无成就分类配置。'));
     } else {
-      md.addText('分类进度');
-      md.addNewline();
       for (const category of categories) {
         md.addBlockquote(
-          createQuoteMarkdown(
-            [
-              `${category.label}成就 · ${category.completed}/${category.total}（${category.completionRate}%）`,
-              ...(category.hasClaimable ? [`待领取 ${category.claimableCount} 项`] : [])
+          section({
+            title: category.label,
+            lines: [
+              `进度：${category.completed}/${category.total}（${category.completionRate}%）`,
+              ...(category.hasClaimable ? [`待领取：${category.claimableCount}项`] : [])
             ],
-            category.command ? [{ label: '查看', command: category.command }] : []
-          )
+            actions: category.command ? [{ label: '查看', command: category.command }] : []
+          })
         );
+        md.addNewline();
       }
     }
 

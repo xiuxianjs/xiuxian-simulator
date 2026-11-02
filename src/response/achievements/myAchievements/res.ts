@@ -6,7 +6,8 @@ import { parseCommandPage } from '@src/utils/commandPage';
 import App from '@src/response-apps/achievements/myAchievements/app';
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 /**
@@ -78,8 +79,12 @@ export default onResponse(selects, async e => {
 
     for (const item of items) {
       md.addBlockquote(
-        createQuoteMarkdown([item.name, item.description, ...(item.completedAt ? [`完成：${formatGameTime(item.completedAt)}`] : [])].filter(Boolean))
+        section({
+          title: item.name,
+          lines: [item.description, ...(item.completedAt ? [`完成：${formatGameTime(item.completedAt)}`] : [])].filter(Boolean)
+        })
       );
+      md.addNewline();
     }
 
     await message.send(

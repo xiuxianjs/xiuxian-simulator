@@ -35,78 +35,31 @@ export const createGuildShopExchangeButtons = (): GuiButton[][] => {
 /**
  * 宗门红包列表翻页按钮
  */
-export const createGuildRedPacketButtons = (page: number, totalPages: number): GuiButton[][] => {
-  const rows: GuiButton[][] = [];
-  const navRow: GuiButton[] = [];
-
-  if (page > 1) {
-    navRow.push({ label: '上一页', command: `/宗门红包 ${page - 1}` });
-  }
-
-  if (page < totalPages) {
-    navRow.push({ label: '下一页', command: `/宗门红包 ${page + 1}` });
-  }
-
-  if (navRow.length > 0) {
-    rows.push(navRow);
-  }
-
-  rows.push([
-    { label: '发红包', command: '/发红包' },
-    { label: '我发的红包', command: '/我发的红包' },
-    { label: '返回宗门', command: '/我的宗门' }
-  ]);
-
-  return rows;
+export const createGuildRedPacketButtons = (_page: number, _totalPages: number): GuiButton[][] => {
+  return [
+    [
+      { label: '发红包', command: '/发红包' },
+      { label: '我发的红包', command: '/我发的红包' },
+      { label: '返回宗门', command: '/我的宗门' }
+    ]
+  ];
 };
 
 /**
  * 宗门精华翻页按钮
  */
-export const createGuildEssenceButtons = (page: number, totalPages: number): GuiButton[][] => {
-  const rows: GuiButton[][] = [];
-  const navRow: GuiButton[] = [];
-
-  if (page > 1) {
-    navRow.push({ label: '上一页', command: `/宗门精华 ${page - 1}` });
-  }
-
-  if (page < totalPages) {
-    navRow.push({ label: '下一页', command: `/宗门精华 ${page + 1}` });
-  }
-
-  if (navRow.length > 0) {
-    rows.push(navRow);
-  }
-
-  rows.push([
-    { label: '添加精华', command: '/添加精华' },
-    { label: '返回宗门', command: '/我的宗门' }
-  ]);
-
-  return rows;
+export const createGuildEssenceButtons = (_page: number, _totalPages: number): GuiButton[][] => {
+  return [
+    [
+      { label: '添加精华', command: '/添加精华' },
+      { label: '返回宗门', command: '/我的宗门' }
+    ]
+  ];
 };
 
 /**
  * 宗门日志翻页按钮
  */
-export const createGuildLogButtons = (page: number, totalPages: number): GuiButton[][] => {
-  const rows: GuiButton[][] = [];
-  const navRow: GuiButton[] = [];
-
-  if (page > 1) {
-    navRow.push({ label: '上一页', command: `/宗门日志 ${page - 1}` });
-  }
-
-  if (page < totalPages) {
-    navRow.push({ label: '下一页', command: `/宗门日志 ${page + 1}` });
-  }
-
-  if (navRow.length > 0) {
-    rows.push(navRow);
-  }
-
-  rows.push([{ label: '返回宗门', command: '/我的宗门' }]);
-
-  return rows;
+export const createGuildLogButtons = (_page: number, _totalPages: number): GuiButton[][] => {
+  return [[{ label: '返回宗门', command: '/我的宗门' }]];
 };

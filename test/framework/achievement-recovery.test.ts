@@ -67,7 +67,7 @@ const frames = [
   { handler: all, command: '/所有成就 9', data: page(9, 5), text: '页数超出范围', expected: '/所有成就' },
   { handler: completed, command: '/我的成就', data: guarded(page(1, 5)), text: '本页暂无成就记录', expected: '/我的成就' },
   { handler: all, command: '/所有成就', data: page(1, 5), text: '本页暂无成就记录', expected: '/所有成就' },
-  { handler: combat, command: '/成就 战力', data: guarded({ ...emptyCombat, currentPower: 150, totalCount: 1, nextTarget: { ...card, remainingPower: 50 }, items: [{ ...card, completed: false, claimed: false, reachable: false }] }), text: '还差：50 战力', expected: '/我的装备' }
+  { handler: combat, command: '/成就 战力', data: guarded({ ...emptyCombat, currentPower: 150, totalCount: 1, nextTarget: { ...card, remainingPower: 50 }, items: [{ ...card, completed: false, claimed: false, reachable: false }] }), text: '还差：50战力', expected: '/我的装备' }
 ];
 for (const entry of frames) for (const isPrivate of [false, true]) {
   test(`current state ${entry.command} ${entry.text} private=${isPrivate}`, async t => {
@@ -197,7 +197,7 @@ for (const isPrivate of [false, true]) {
     const result = await app.runHandler(combat, event);
     const view = inspectMessage(result.messages[0].nodes);
     assert.equal(requests.length, 1);
-    assert.ok(view.text.includes('当前可领取 ·'));
+    assert.ok(view.text.includes('· 当前可领取'));
     assert.ok(view.text.includes('目标成就'));
     assert.ok(view.text.includes('150'));
     assert.ok(view.text.includes('200'));

@@ -55,19 +55,19 @@ export default onBlackBoxResponse(async e => {
       }
       quote(
         [
-          `【${r.roomId.slice(-1)}】${formatGameTime(r.opensAt, 'MM-DD HH:mm')} · 第${r.activityDay}日`,
-          r.title,
-          `${clicking && r.status === 'reserved' ? reminderPhaseLabel(data.serverTime, r.opensAt, r.joinClosesAt) : clicking && r.status === 'admitted' ? admittedPhaseLabel(data.serverTime, r.groupStartsAt) : statusName[r.status]}${!clicking && r.confirmed && r.status === 'reserved' ? ' · 已确认' : ''}`,
-          ...(r.statusReason ? [r.statusReason] : []),
-          ...(r.ownBid || r.ownHeld ? [`报价 ${r.ownBid}${currencyName[r.currency]} · 占用 ${r.ownHeld}${currencyName[r.currency]}`] : []),
-          ...(r.charged ? [`已支付${r.charged}${currencyName[r.currency]}`] : []),
+          `时间：${formatGameTime(r.opensAt, 'MM-DD HH:mm')} · 第${r.activityDay}日`,
+          `状态：${clicking && r.status === 'reserved' ? reminderPhaseLabel(data.serverTime, r.opensAt, r.joinClosesAt) : clicking && r.status === 'admitted' ? admittedPhaseLabel(data.serverTime, r.groupStartsAt) : statusName[r.status]}${!clicking && r.confirmed && r.status === 'reserved' ? ' · 已确认' : ''}`,
+          ...(r.statusReason ? [`说明：${r.statusReason}`] : []),
+          ...(r.ownBid || r.ownHeld ? [`报价：${r.ownBid}${currencyName[r.currency]} · 占用：${r.ownHeld}${currencyName[r.currency]}`] : []),
+          ...(r.charged ? [`已支付：${r.charged}${currencyName[r.currency]}`] : []),
           ...(clicking && r.joinClosesAt && ['reserved', 'waiting'].includes(r.status)
-            ? [`点击入场截止：${clock(r.joinClosesAt)}`]
+            ? [`入场截止：${clock(r.joinClosesAt)}`]
             : !clicking && r.status === 'reserved'
               ? [`确认窗口：${clock(new Date(open - 300000).toISOString())}—${clock(r.opensAt)}`]
               : [])
         ],
-        buttons
+        buttons,
+        { title: r.title }
       );
     }
     view.setNav({ current: data.page, hasNext: data.hasMore, command: '/黑盒记录 {page}' });

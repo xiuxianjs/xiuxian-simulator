@@ -1,5 +1,6 @@
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
-import { Format, type DataEnums } from 'alemonjs';
+import { noticeTitle } from '@src/response/presentation/format';
+import { noticeBubble } from '@src/response/presentation/presets';
+import { type DataEnums } from 'alemonjs';
 
 type Action = { label: string; command: string };
 
@@ -184,10 +185,7 @@ export function notificationNoticeData(data: DataEnums[], source = ''): DataEnum
   }
   const actions = [...notificationActions(source, text), { label: '我的通知', command: '/我的通知' }];
   const { title, lines } = notificationTextLayout(text);
-  const quote = createQuoteMarkdown(lines).addNewline();
+  const built = noticeBubble({ title: noticeTitle(title), lines, actions });
 
-  addOptions(quote, actions);
-  const content = Format.createMarkdown().addBlockquote(quote);
-
-  return [...data.filter(block => block.type === 'Mention'), ...FormatGui({ mention: false, bar: false, title, content }).format.value];
+  return [...data.filter(block => block.type === 'Mention'), ...built.format.value];
 }

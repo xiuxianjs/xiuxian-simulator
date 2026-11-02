@@ -5,6 +5,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import type { GameEvent } from '@src/types/event';
 import { formatGameTime } from '@src/utils/gameTime';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, useEvent, useRoute } from 'alemonjs';
@@ -62,7 +63,12 @@ export function createBlackBoxContext(e: GameEvent, overviewCommand: '/黑盒拍
     { label: '我的记录', command: '/黑盒记录' }
   ];
   let nav: { current: number; hasNext: boolean; command: string } | undefined;
-  const quote = (lines: string[], buttons: Button[] = []) => {
+  const quote = (lines: string[], buttons: Button[] = [], meta?: { title: string; id?: string | number; suffix?: string }) => {
+    if (meta) {
+      content.addBlockquote(section({ title: meta.title, id: meta.id, suffix: meta.suffix, lines: lines.filter(Boolean), actions: buttons }));
+
+      return;
+    }
     const block = createQuoteMarkdown(lines.filter(Boolean));
 
     for (const button of buttons) {

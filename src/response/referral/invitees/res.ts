@@ -19,6 +19,8 @@ export default onResponse(selects, async e => {
   const page = args.page ?? 1;
   const [, next] = useEvent();
   const footer: { label: string; command: string }[] = [];
+  let navTotal = 0;
+  let navPages = 1;
 
   try {
     const loaded = await runRobotBusiness(
@@ -36,7 +38,10 @@ export default onResponse(selects, async e => {
     const data = loaded.data;
     const pages = Math.max(1, Math.ceil(data.total / data.pageSize));
 
-    md.addText(`我邀请的道友：${data.total} 人 · 第 ${page}/${pages} 页`);
+    navTotal = data.total;
+    navPages = pages;
+
+    md.addText(`邀请：${data.total}人`);
     md.addNewline();
     if (!data.items.length) {
       md.addText(data.total === 0 ? '还没有道友绑定你的邀请码，分享给新来的道友吧。' : '这一页没有道友，请返回上一页。');
@@ -68,15 +73,19 @@ export default onResponse(selects, async e => {
     if (data.items.some(item => item.pendingRewards > 0)) {
       footer.push({ label: '领取奖励', command: '/领取邀请奖励' });
     }
-    if (page > 1) {
-      footer.push({ label: '上一页', command: `/我的邀请 ${page - 1}` });
-    }
-    if (page < pages) {
-      footer.push({ label: '下一页', command: `/我的邀请 ${page + 1}` });
-    }
   } catch (error) {
     md.addText(getCommandErrorMessage(error));
     appendMiddlewareAdvice(md, referralRecoveryTips('referral.invitees', '查询失败'));
   }
-  void message.send(FormatGui({ isPrivate, bid, title: '我的邀请', header: [{ label: '返回', command: '/邀请码' }], content: md, footer }));
+  void message.send(
+    FormatGui({
+      isPrivate,
+      bid,
+      title: '我的邀请',
+      header: [{ label: '返回', command: '/邀请码' }],
+      content: md,
+      footer,
+      nav: { current: page, total: navPages, count: navTotal, command: '/我的邀请 {page}' }
+    })
+  );
 });

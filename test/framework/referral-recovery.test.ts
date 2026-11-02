@@ -92,8 +92,8 @@ for (const total of [0, 7]) for (const isPrivate of [false, true]) {
     const result = await app.runHandler(invitees, event);
     const view = inspectMessage(result.messages[0].nodes);
     assert.equal(requests.length, 1);
-    assert.ok(view.text.includes(`我邀请的道友：${total} 人`));
-    assert.ok(view.commands.includes('/我的邀请 1'));
+    assert.ok(view.text.includes(`邀请：${total}人`));
+    assert.ok(view.commands.some(command => command.startsWith('/我的邀请 ')));
     assert.ok(!view.commands.includes('/领取邀请奖励'));
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   });

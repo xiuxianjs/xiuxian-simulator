@@ -527,15 +527,7 @@ export default onResponse(selects, async e => {
       if (!data.items.length) {
         content.addText('暂无委托');
       }
-      content.addBlockquote(
-        createQuoteMarkdown(
-          [`第 ${data.page} 页`],
-          [
-            ...(data.page > 1 ? [{ label: '上一页', command: `/锻造委托 ${data.page - 1}` }] : []),
-            ...(data.hasMore ? [{ label: '下一页', command: `/锻造委托 ${data.page + 1}` }] : [])
-          ]
-        )
-      );
+      nav = { current: data.page, hasNext: data.hasMore, command: '/锻造委托 {page}' };
     } else if (command === '加入锻造师' || command === '打造') {
       const recipeId = Number(arg);
 
@@ -606,15 +598,7 @@ export default onResponse(selects, async e => {
       if (!v.items.length) {
         content.addText('尚无作品');
       }
-      content.addBlockquote(
-        createQuoteMarkdown(
-          [`第 ${v.page} 页`],
-          [
-            ...(v.page > 1 ? [{ label: '上一页', command: `/锻造作品 ${v.page - 1}` }] : []),
-            ...(v.hasMore ? [{ label: '下一页', command: `/锻造作品 ${v.page + 1}` }] : [])
-          ]
-        )
-      );
+      nav = { current: v.page, hasNext: v.hasMore, command: '/锻造作品 {page}' };
     } else {
       const advancing = command === '锻造进阶';
       const expectedLevel = Number(arg);

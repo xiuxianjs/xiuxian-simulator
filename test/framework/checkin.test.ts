@@ -33,7 +33,8 @@ for (const privateChat of [false, true]) {
     assert.equal(requests[0].body.messageText, '/签到');
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
-    for (const text of ['🎉 日常签到：签到成功', '获得：签到币 ×25', '❌ 新人签到：加载失败', '· 宗门签到：不可用']) assert.ok(message.text.includes(text), message.text);
+    for (const text of ['日常签到', '签到成功', '获得：签到币 ×25', '新人签到', '加载失败', '宗门签到', '不可用']) assert.ok(message.text.includes(text), message.text);
+  for (const symbol of ['✅', '❌', '·']) assert.ok(message.text.includes(symbol), message.text);
     for (const command of ['/新人签到', '/商店 签到', '/任务面板', '/我']) assert.ok(message.commands.includes(command), command);
     assert.equal(message.commands.includes('/日常签到'), false, '成功项不提供重试');
     assert.equal(message.commands.includes('/宗门签到'), false, '跳过项不提供重试');

@@ -12,7 +12,8 @@ import { useMessage } from '@src/utils/useMessage';
  */
 import { parseCategoryParams } from '@src/api/bot/glossary-robot-query';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -54,7 +55,7 @@ export default onResponse(selects, async e => {
       FormatGui({
         isPrivate,
         bid,
-        title: '词典分类',
+        title: `词典分类 · ${category}`,
         header: [{ label: '返回词典', command: '/词典' }],
         content: md,
         footer: [
@@ -108,28 +109,26 @@ export default onResponse(selects, async e => {
     md.addText(`「${category}」分类下暂无词条`);
     md.addNewline();
     md.addNewline();
-    md.addText('💡 你可以用 /录入词典 来创建词条~');
+    md.addText('可用 /录入词典 创建词条~');
   } else {
-    md.addText(`📂 ${category} · 词条列表`);
-    md.addNewline();
-    md.addNewline();
-
     for (const entry of result.entries) {
       const e = entry as any;
 
       md.addBlockquote(
-        createQuoteMarkdown(
-          [`【${e.keyword}】`, `${(e.content as string).slice(0, 30)}${e.content.length > 30 ? '...' : ''}`],
-          [{ label: '查看', command: `/词典 ${e.keyword}` }]
-        )
+        section({
+          title: e.keyword,
+          lines: [`${(e.content as string).slice(0, 30)}${e.content.length > 30 ? '...' : ''}`],
+          actions: [{ label: '查看', command: `/词典 ${e.keyword}` }]
+        })
       );
+      md.addNewline();
     }
   }
 
   md.addNewline();
 
   // 分类切换按钮
-  md.addText('📂 切换分类：');
+  md.addText('切换分类：');
   md.addNewline();
 
   for (const cat of policy.categories) {

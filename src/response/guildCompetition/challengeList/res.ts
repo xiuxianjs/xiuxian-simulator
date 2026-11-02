@@ -2,7 +2,8 @@ import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendGuildCompetitionKnockoutCandidates } from '@src/api/bot/competition-knockout-candidates-query';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -35,7 +36,7 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addBlockquote(Format.createMarkdown().addText(`当前积分：${score}，剩余挑战次数：${remain}`));
+  md.addBlockquote(Format.createMarkdown().addText(`积分：${score} · 挑战次数：${remain}`));
 
   if (list.length <= 0) {
     md.addText('暂无可挑战宗门');
@@ -44,7 +45,7 @@ export default onResponse(selects, async e => {
       FormatGui({
         isPrivate,
         bid,
-        title: '宗门大比 - 参与挑战',
+        title: '宗门大比 · 参与挑战',
         header: [{ label: '返回', command: '/宗门大比' }],
         content: md
       })
@@ -61,7 +62,7 @@ export default onResponse(selects, async e => {
     const hasAny = slots.some(Boolean);
 
     if (!hasAny) {
-      md.addBlockquote(createQuoteMarkdown([`【${defenderGuildName}】`, '参赛成员：暂无'], [{ label: '挑战', command: `/挑战宗门 ${defenderGuildId}` }]));
+      md.addBlockquote(section({ title: defenderGuildName, lines: ['成员：暂无'], actions: [{ label: '挑战', command: `/挑战宗门 ${defenderGuildId}` }] }));
       continue;
     }
 
@@ -77,7 +78,9 @@ export default onResponse(selects, async e => {
       })
       .join(' ');
 
-    md.addBlockquote(createQuoteMarkdown([`【${defenderGuildName}】`, memberNames], [{ label: '挑战', command: `/挑战宗门 ${defenderGuildId}` }]));
+    md.addBlockquote(
+      section({ title: defenderGuildName, lines: [`成员：${memberNames}`], actions: [{ label: '挑战', command: `/挑战宗门 ${defenderGuildId}` }] })
+    );
   }
 
   void message.send(

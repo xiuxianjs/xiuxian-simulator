@@ -40,8 +40,10 @@ test('宗门审核的同意和拒绝保持在对应申请者引用行内', async
       ]);
       const lines = rendered.split('\n').filter(line => line.includes(`text="/宗门审核同意 ${userId}"`));
       assert.equal(lines.length, 1);
-      assert.match(lines[0], /^> 【/);
-      assert.ok(lines[0].includes(`申请者${index + 1}`));
+      // 展示规范：对象行 `申请者 #uid`（渲染后无 ** 标记），事实行 `境界：…`，按钮跟随事实行。
+      assert.match(lines[0], /^> 境界：/);
+      assert.ok(rendered.includes(`申请者${index + 1}`));
+      assert.ok(rendered.includes(`#${userId}`));
       assert.ok(lines[0].includes(`text="/宗门审核拒绝 ${userId}"`));
       assert.ok(lines[0].includes('show="‹同意›"'));
       assert.ok(lines[0].includes('show="‹拒绝›"'));

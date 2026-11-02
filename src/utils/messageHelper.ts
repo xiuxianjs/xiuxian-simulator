@@ -169,6 +169,30 @@ export const FormatGui = (params: {
 }) => {
   const format = Format.create();
   const { isPrivate, bid, mention = true, title, header, content, nav, footer, keyboard, bar } = params;
+  // 返回类按钮统一放页脚首行（2026-11-01 定案），头部只保留筛选/新建/跳转类入口。
+  const isBackLabel = (button: GuiButton) => button.label.includes('返回');
+  const requestedHeader = header ?? [];
+  const backButtons = requestedHeader.filter(isBackLabel);
+  const headerButtons = requestedHeader.filter(button => !isBackLabel(button));
+  const footerRows = footer && footer.length > 0 ? normalizeFooterRows(footer) : [];
+
+  if (backButtons.length > 0) {
+    const existingCommands = new Set(
+      footerRows
+        .flat()
+        .map(button => button.command)
+        .filter(Boolean)
+    );
+    const pendingBack = backButtons.filter(button => !button.command || !existingCommands.has(button.command));
+
+    if (pendingBack.length > 0) {
+      if (footerRows.length > 0) {
+        footerRows[0] = [...pendingBack, ...footerRows[0]];
+      } else {
+        footerRows.push(pendingBack);
+      }
+    }
+  }
   let md = Format.createMarkdown();
 
   // Task renderers may carry a legacy presentation snapshot. The actual
@@ -181,9 +205,9 @@ export const FormatGui = (params: {
     md.addBold(title);
     md.addNewline();
   }
-  if (header && header.length > 0) {
+  if (headerButtons.length > 0) {
     md.addNewline();
-    header.forEach((btn, index) => {
+    headerButtons.forEach((btn, index) => {
       if (index > 0) {
         md.addText(' ');
       }
@@ -209,7 +233,7 @@ export const FormatGui = (params: {
   // nav
   if (nav) {
     md.addNewline();
-    const countText = nav.count !== undefined ? `，共${nav.count}条` : '';
+    const countText = nav.count !== undefined ? ` · 共${nav.count}条` : '';
 
     md.addText(`${nav.total === undefined ? `第${nav.current}页` : `第${nav.current}/${nav.total}页`}${countText} `);
     if (nav.current > 1) {
@@ -231,11 +255,9 @@ export const FormatGui = (params: {
     }
     md.addNewline();
   }
-  // footer
-  if (footer && footer.length > 0) {
-    const rows = normalizeFooterRows(footer);
-
-    rows.forEach(row => {
+  // footer（返回类按钮已并入首行）
+  if (footerRows.length > 0) {
+    footerRows.forEach(row => {
       if (row.length === 0) {
         return;
       }

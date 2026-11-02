@@ -4,7 +4,8 @@ import { useMessage } from '@src/utils/useMessage';
 import App from '@src/response-apps/achievements/category/app';
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -37,7 +38,7 @@ export default onResponse(selects, async e => {
     } else {
       const { label, total, completed, items, claimableCount } = result.data;
 
-      md.addText(`${label}成就：${completed} / ${total}`);
+      md.addText(`进度：${completed}/${total}`);
       md.addNewline();
       md.addNewline();
 
@@ -47,15 +48,14 @@ export default onResponse(selects, async e => {
       } else {
         for (const [index, item] of items.entries()) {
           md.addBlockquote(
-            createQuoteMarkdown(
-              [
-                `【${index + 1}】${item.name}${item.completed ? ' ✅' : ''}`,
-                item.description,
-                item.progressText,
-                ...(item.rewardText ? [`奖励：${item.rewardText}`] : [])
-              ].filter(Boolean)
-            )
+            section({
+              title: item.name,
+              id: index + 1,
+              status: item.completed ? 'done' : 'none',
+              lines: [item.description, item.progressText, ...(item.rewardText ? [`奖励：${item.rewardText}`] : [])].filter(Boolean)
+            })
           );
+          md.addNewline();
         }
       }
 

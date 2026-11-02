@@ -1,13 +1,12 @@
 import type { SoulArtifactDetail } from '@src/types/storage';
-import { createQuoteMarkdown } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import type { FormatMarkDown } from 'alemonjs';
 
 /** 按服务端投影排版本命物背包条目。 */
 export function formatSoulArtifactItem(item: SoulArtifactDetail, md: FormatMarkDown): void {
-  const lockIcon = item.isLocked === 1 ? '🔒' : '';
-  const listedIcon = item.isLocked === 2 ? '📦' : '';
-  const upgradedTag = item.hasUpgraded ? ' 已升品' : '';
-  const baseInfo = `${lockIcon}${listedIcon}${item.name}（${item.gradeName}）Lv.${item.level} 洗涤${item.washCount}次${upgradedTag}`;
+  const lockMark = item.isLocked === 1 ? ' 🔒' : item.isLocked === 2 ? ' 📦' : '';
+  const upgradedTag = item.hasUpgraded ? ' · 已升品' : '';
+  const baseInfo = `品级：${item.gradeName} · 等级：Lv.${item.level} · 洗涤：${item.washCount}次${upgradedTag}`;
   const actions: { label: string; command: string }[] = [];
 
   if (item.canRefine) {
@@ -20,5 +19,5 @@ export function formatSoulArtifactItem(item: SoulArtifactDetail, md: FormatMarkD
   }
 
   actions.push({ label: '详情', command: `/本命物详情 ${item.userSoulArtifactId}` });
-  md.addBlockquote(createQuoteMarkdown([` ${baseInfo}`], actions));
+  md.addBlockquote(section({ title: item.name, id: item.userSoulArtifactId, suffix: lockMark.trim(), lines: [baseInfo], actions }));
 }
