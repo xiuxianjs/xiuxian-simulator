@@ -1,3 +1,4 @@
+import { appendAINarration } from './aiNarration';
 import { isGameEventEnabled } from '@src/utils/eventPolicy';
 import { createContext, configureContext, Format, logger, ResultCode } from 'alemonjs';
 import { parseOnboarding, type OnboardingView } from '@src/api/bot/onboarding';
@@ -163,6 +164,7 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
     appendOnboardingBranchMenu(md, view.branchMenu);
   }
   appendOnboardingEntries(md, view.entries);
+  await appendAINarration(md, [view.title, ...view.feedback, ...view.lines, ...(view.branchMenu?.lines ?? [])].join('\n'));
   const active = view.status === 'active' || view.status === 'soft';
   const buttons = onboardingFooter(view);
 

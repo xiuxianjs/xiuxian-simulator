@@ -1,3 +1,4 @@
+import { appendAINarration } from '../onboarding/aiNarration';
 import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE, newcomerGreeting } from '@src/constants/newcomerGuide';
 import { sendRegistrationNamePrompt } from './namePrompt';
 import { useMessage } from '@src/utils/useMessage';
@@ -127,6 +128,7 @@ export default onResponse(selects, async e => {
   md.addNewline();
   md.addNewline();
   md.addText(NEWCOMER_PROLOGUE);
+  await appendAINarration(md, NEWCOMER_PROLOGUE);
 
   md.addNewline();
 

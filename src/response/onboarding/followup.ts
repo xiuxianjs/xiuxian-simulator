@@ -1,3 +1,4 @@
+import { appendAINarration } from './aiNarration';
 import { Format, markdownToPlainText, type FormatMarkDown } from 'alemonjs';
 import type { RobotBusinessFollowup } from '@src/api/bot/robot-business';
 import type { GameEvent } from '@src/types/event';
@@ -34,6 +35,9 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   }
   if (!pending) {
     appendOnboardingEntries(md, view.entries);
+  }
+  if (!pending) {
+    await appendAINarration(md, [view.title, ...view.feedback, ...view.lines, ...(view.branchMenu?.lines ?? [])].join('\n'));
   }
   const active = !pending && (view.status === 'active' || view.status === 'soft');
 
