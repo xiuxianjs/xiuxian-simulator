@@ -70,6 +70,7 @@
     "README.md"
   ],
   "scripts": {
+    "test:agent-play": "node tools/run-agent-play-tests.mjs",
     "app": "node index.js",
     "build": "lvy build",
     "bundle": "lvy build",

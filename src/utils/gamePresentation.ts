@@ -1,3 +1,4 @@
+import { advanceGamePresentation } from '../agent-play/game-progress';
 import { Expose } from 'alemonjs';
 const observed = new WeakSet<object>();
 
@@ -7,17 +8,16 @@ export async function beginGamePresentation(event: object): Promise<void> {
     return;
   }
   observed.add(event);
+  advanceGamePresentation();
   try {
     const client = Expose.create();
 
     if (
-      !client
-        .list()
-        .some(provider => provider.name === 'alemonjs-agent-link' && provider.protocol === 'agent-link.game-narration.v1' && provider.actions.begin_input)
+      !client.list().some(provider => provider.name === 'alemonjs-agent-link' && provider.protocol === 'agent.presentation.v1' && provider.actions.begin_input)
     ) {
       return;
     }
-    await client.call('agent-link.game-narration.v1', 'alemonjs-agent-link', 'begin_input', {});
+    await client.call('agent.presentation.v1', 'alemonjs-agent-link', 'begin_input', {});
   } catch {
     // Missing/older Link never blocks the game.
   }

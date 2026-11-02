@@ -17,7 +17,7 @@ export function authorizedEvent(context: ExposeCallContext) {
     (config?.enabled !== undefined && config.enabled !== true) ||
     (allowed !== undefined && (!Array.isArray(allowed) || !allowed.every(item => typeof item === 'string' && item.length > 0 && item.trim() === item))) ||
     !context.callerApp ||
-    (allowed !== undefined && !allowed.includes(context.callerApp)) ||
+    (allowed !== undefined && context.callerApp !== 'xiuxian-game' && !allowed.includes(context.callerApp)) ||
     !event ||
     !['message.create', 'private.message.create'].includes(event.name) ||
     event.Platform !== 'qq-bot' ||

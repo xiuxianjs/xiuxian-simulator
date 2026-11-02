@@ -85,7 +85,7 @@ test('manual guide resolves narrator slot through optional provider without chan
   const app = createTestApp();
   t.after(() => app.dispose());
   await app.mount({ expose: Expose.create().provide({
-    name: 'agent-link.game-narration.v1', version: '1.0.0', description: 'fixture',
+    name: 'agent.presentation.v1', version: '1.0.0', description: 'fixture',
     actions: { narrator: Expose.action({
       effect: 'read', description: 'name',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },

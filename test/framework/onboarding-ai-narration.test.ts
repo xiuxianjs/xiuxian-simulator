@@ -11,7 +11,7 @@ for (const failed of [false, true]) {
   test(`游戏气泡自动调用AI呈现，失败保留原气泡：${failed}`, async t => {
     const { app, requests } = await gameFixture(t, () => { throw new Error('Narration must not execute gameplay'); });
     let calls = 0;
-    const provider = Expose.create().provide({ name: 'agent-link.game-narration.v1', version: '1.0.0', description: 'test narration provider', actions: {
+    const provider = Expose.create().provide({ name: 'agent.presentation.v1', version: '1.0.0', description: 'test narration provider', actions: {
       narrate: Expose.action<{ text: string }, { text: string }>({ description: 'test narration', effect: 'read',
         inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false },
         outputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'], additionalProperties: false },
@@ -41,7 +41,7 @@ test('手动教学操作在请求服务端前通知AI旧引导失效', async t =
     assert.equal(invalidated, 1);
     return businessEnvelope(request.bid, current);
   });
-  const provider = Expose.create().provide({ name: 'agent-link.game-narration.v1', version: '1.0.0', description: 'invalidate', actions: {
+  const provider = Expose.create().provide({ name: 'agent.presentation.v1', version: '1.0.0', description: 'invalidate', actions: {
     begin_input: Expose.action({ description: 'invalidate', effect: 'write', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, outputSchema: { type: 'object', properties: { accepted: { type: 'boolean' } }, required: ['accepted'], additionalProperties: false }, handler: async (_input, context) => { assert.equal(context.callerApp, 'xiuxian-game'); invalidated++; return { accepted: true }; } })
   } });
   await app.mount({ expose: provider }, undefined, 'alemonjs-agent-link');

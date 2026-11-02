@@ -8,11 +8,11 @@ export async function appendAINarration(md: FormatMarkDown, text: string): Promi
   try {
     const client = Expose.create();
 
-    if (!client.list().some(provider => provider.name === 'alemonjs-agent-link' && provider.protocol === 'agent-link.game-narration.v1')) {
+    if (!client.list().some(provider => provider.name === 'alemonjs-agent-link' && provider.protocol === 'agent.presentation.v1')) {
       return;
     }
     const result = await Promise.race([
-      client.call('agent-link.game-narration.v1', 'alemonjs-agent-link', 'narrate', { text: text.slice(0, 12000) }),
+      client.call('agent.presentation.v1', 'alemonjs-agent-link', 'narrate', { text: text.slice(0, 12000) }),
       new Promise<null>(resolve => {
         timer = setTimeout(() => resolve(null), 8500);
       })
@@ -53,11 +53,11 @@ export async function guideText(text: string): Promise<string> {
       try {
         const client = Expose.create();
 
-        if (!client.list().some(p => p.name === 'alemonjs-agent-link' && p.protocol === 'agent-link.game-narration.v1' && p.actions.narrator)) {
+        if (!client.list().some(p => p.name === 'alemonjs-agent-link' && p.protocol === 'agent.presentation.v1' && p.actions.narrator)) {
           return '系统';
         }
         const result = await Promise.race([
-          client.call('agent-link.game-narration.v1', 'alemonjs-agent-link', 'narrator', {}),
+          client.call('agent.presentation.v1', 'alemonjs-agent-link', 'narrator', {}),
           new Promise<null>(resolve => {
             timer = setTimeout(() => resolve(null), 1000);
           })
