@@ -12,6 +12,25 @@ const talents = object({
   )
 });
 
+// Registration dialogue belongs to the game provider, alongside its result codes.
+function registrationResult(value: unknown) {
+  const result = parseBackendRegistration(value);
+  const dialogue =
+    result.code === 'NEED_GENDER'
+      ? { text: `{{guide.name}}：道号${result.data.playerName}已经核对，接下来请选择角色性别。`, choices: ['男修', '女修', '退出引导'] }
+      : result.code === 'NEED_NAME'
+        ? { text: '{{guide.name}}：先告诉我，你想用什么道号？', choices: ['退出引导'] }
+        : {
+            text:
+              result.code === 'EXISTING_USER'
+                ? '{{guide.name}}：当前账号已有角色，我们从原角色继续。'
+                : '{{guide.name}}：角色已经登记好了，接下来可以进入序章。',
+            choices: ['继续', '退出引导']
+          };
+
+  return { ...result, dialogue };
+}
+
 export const registrationActions = {
   choose_registration_name: mutation<{ name: string }>(
     '玩家明确选择道号后调用。仅提交道号进行校验，不选择性别、不创建角色。NEED_GENDER表示可询问性别，不能说已注册成功。',
@@ -20,12 +39,13 @@ export const registrationActions = {
     object(
       {
         code: { type: 'string', enum: ['OK', 'EXISTING_USER', 'NEED_NAME', 'NEED_GENDER'] },
+        dialogue: object({ text, choices: list(text) }),
         data: object({ playerName: text, talents, spiritRoot }, ['talents', 'spiritRoot'])
       },
       ['data']
     ),
     input => `/我是 ${input.name}`,
-    parseBackendRegistration,
+    registrationResult,
     (_input, event) => ({ region: event.GuildId ?? event.ChannelId ?? '' }),
     input => {
       if (input.name !== input.name.trim() || /[\r\n\u2028\u2029]/u.test(input.name) || /\s+(男|女)$/u.test(input.name)) {
@@ -40,12 +60,13 @@ export const registrationActions = {
     object(
       {
         code: { type: 'string', enum: ['OK', 'EXISTING_USER', 'NEED_NAME', 'NEED_GENDER'] },
+        dialogue: object({ text, choices: list(text) }),
         data: object({ playerName: text, talents, spiritRoot }, ['talents', 'spiritRoot'])
       },
       ['data']
     ),
     input => `/我是 ${input.name} ${input.gender}`,
-    parseBackendRegistration,
+    registrationResult,
     (_input, event) => ({ region: event.GuildId ?? event.ChannelId ?? '' }),
     input => {
       if (input.name !== input.name.trim() || /[\r\n\u2028\u2029]/u.test(input.name)) {

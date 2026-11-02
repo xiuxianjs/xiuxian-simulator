@@ -1,3 +1,4 @@
+import { conversationPreview } from './conversation-preview';
 import { gameGuidePresentation, onboardingPresentationSchema } from './onboarding-presentation';
 import { Expose, ExposeError, type ExposeReadonly, type ExposeValueSchema } from 'alemonjs';
 import { authorizedEvent } from './access';
@@ -111,9 +112,10 @@ export function mutation<I extends Record<string, unknown>>(
         description: '连锁任务推进回执，不代表业务结算成功；检查 success、branch 和 result。'
       },
       presentation: onboardingPresentationSchema,
+      conversationPreview: object({ reference: text, text }),
       result: resultSchema
     },
-    ['result', 'guide', 'onboarding', 'onboardingPending', 'taskContinuation', 'presentation']
+    ['result', 'guide', 'onboarding', 'onboardingPending', 'taskContinuation', 'presentation', 'conversationPreview']
   );
 
   return Expose.action<I, unknown>({
@@ -190,6 +192,7 @@ export function mutation<I extends Record<string, unknown>>(
 
       return project(outputSchema, {
         presentation: gameGuidePresentation(operation, response),
+        ...(response.success && response.branch === 'business' ? { conversationPreview: conversationPreview(operation, response.data) } : {}),
         success: response.success,
         branch: response.branch,
         reason: response.middleware.reason,

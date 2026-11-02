@@ -56,6 +56,11 @@ for (const action of ['consume_item', ...actions]) test(`${action}: 实际培元
       assert.match(result.peiyuanPending.snapshot, /^[a-f0-9]{64}$/);
       assert.ok(fixtures.some(row => row.action === 'get_peiyuan_confirmation' && row.input.snapshot === result.peiyuanPending.snapshot));
     } else if (action === 'get_peiyuan_confirmation') {
+      const presentation = (run.value.data as any).conversationPreview;
+      assert.equal(presentation.reference, result.reference);
+      assert.ok(presentation.text.includes(result.expiresAt));
+      assert.ok(presentation.text.includes('放弃不会返还'));
+      for (const change of result.pending.changes) assert.ok(presentation.text.includes(`${change.attributeName}：${change.oldValue} → ${change.newValue}（变化 ${change.change}）`));
       assert.match(result.reference, /^r1_1_p_[a-z0-9]+_[a-f0-9]{24}$/);
       assert.equal(result.expiresAt, data.expiresAt);
       assert.equal(result.pending.snapshot, current.input.snapshot);

@@ -44,10 +44,13 @@ for (const action of ['preview_shop_purchase', 'confirm_shop_purchase']) test(`$
     const actual = result.value.data as any;
     assert.equal(actual.success, server.success);
     assert.deepEqual(actual.replies, server.middleware.replies);
-    if (!server.success) { refused++; assert.equal(actual.result, undefined); continue; }
+    if (!server.success) { refused++; assert.equal(actual.result, undefined); assert.equal(actual.conversationPreview, undefined); continue; }
     success++;
     assert.deepEqual(actual.result, server.data);
     if (action === 'preview_shop_purchase') {
+      assert.equal(actual.conversationPreview.reference, actual.result.reference);
+      assert.ok(actual.conversationPreview.text.includes(actual.result.preview.paid));
+      assert.ok(actual.conversationPreview.text.includes(actual.result.expiresAt));
       assert.equal(actual.result.preview.paid, '20 SPIRIT_CRYSTAL');
       assert.equal(actual.result.preview.granted, 4);
       assert.equal(actual.result.preview.buyCount, 2);
@@ -55,6 +58,7 @@ for (const action of ['preview_shop_purchase', 'confirm_shop_purchase']) test(`$
       assert.ok(actual.result.reference.includes('_s_'));
       assert.equal(actual.result.preview.quoteDigest, undefined);
     } else {
+      assert.equal(actual.conversationPreview, undefined, 'settlement is not another preview');
       assert.equal(actual.result.result.paid, '20 SPIRIT_CRYSTAL');
       assert.equal(actual.result.result.granted, 4);
       if (settled.has(current.input.reference)) { replayed++; assert.deepEqual(actual.result, settled.get(current.input.reference)); }
