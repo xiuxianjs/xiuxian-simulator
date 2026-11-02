@@ -5,6 +5,7 @@ import { FormatGui } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { listenOnboarding, sendTeachingMessage } from './context';
 import { onboardingDisplayLines, onboardingFooter } from './policy';
+import { appendOnboardingBranchMenu, appendOnboardingEntries } from './branchMenu';
 import { hasBoundReturnChoices, onboardingKeyboard } from './keyboard';
 
 // Optional guidance travels with the committed business response. This renderer
@@ -19,7 +20,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   const pending = followup.onboardingPending === true || !view;
   const lines = pending
     ? ['本次操作的结算回执见上方。', '下一步指引暂时无法读取。', '可核对当前进度。']
-    : [...view.feedback.flatMap(line => line.split('\n')), ...onboardingDisplayLines(view)];
+    : [...view.feedback.flatMap(line => line.split('\n')), ...(view.branchMenu ? [] : onboardingDisplayLines(view))];
   const buttons = pending
     ? [[{ label: '核对当前进度 · /继续引导', command: '/继续引导' }], [{ label: '任务面板 · /任务面板', command: '/任务面板' }]]
     : onboardingFooter(view);
@@ -28,12 +29,18 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   for (const line of lines) {
     md.addText(line).addNewline();
   }
+  if (!pending && view.branchMenu) {
+    appendOnboardingBranchMenu(md, view.branchMenu);
+  }
+  if (!pending) {
+    appendOnboardingEntries(md, view.entries);
+  }
   const active = !pending && (view.status === 'active' || view.status === 'soft');
 
   if (active) {
     listenOnboarding(view);
   }
-  const native = !pending && event.Platform === 'qq-bot' && (active || hasBoundReturnChoices(view));
+  const native = !pending && !view.branchMenu && event.Platform === 'qq-bot' && (active || hasBoundReturnChoices(view));
   const bubble = FormatGui({ isPrivate: isPrivateEvent(event), bid: event.UserId, title, content: md, footer: native ? undefined : buttons, bar: false });
 
   if (native) {
@@ -43,6 +50,10 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
     title,
     markdownToPlainText(receipt.value.value),
     ...lines,
+    ...(!pending && view.branchMenu
+      ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
+      : []),
+    ...(!pending ? (view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`) : []),
     '可选指令：',
     ...buttons.flat().map(button => button.label)
   ]);

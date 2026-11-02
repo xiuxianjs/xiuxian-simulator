@@ -53,7 +53,10 @@ app.res(
   () => import('@src/response/notification/community/res')
 );
 
-app.res({ events: commandEvents, regular: /^\s*[/#＃]?\s*(?:继续引导|退出引导)\s*$/ }, () => import('@src/response/onboarding/res'));
+app.res(
+  { events: commandEvents, regular: /^\s*[/#＃]?\s*(?:继续引导(?:\s+[1-9]\d{0,15}\s+[a-z][a-z0-9-]{0,63})?|退出引导)\s*$/ },
+  () => import('@src/response/onboarding/res')
+);
 
 // 任务面板（需在任务系统转义之前注册，避免被 "任务" 前缀抢占）
 app.res(

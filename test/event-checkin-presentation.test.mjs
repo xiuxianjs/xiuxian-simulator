@@ -36,13 +36,13 @@ const commands = nodes => nodes.filter(node => ['MD.button', 'Button'].includes(
 test('event check-in retains successful rewards and original activity navigation',async()=>{
  const nodes=await render('checkin','/活动签到',{results:[{eventTitle:'试炼',subTitle:'当前阶段',dayIndex:2,issued:[{type:'free_token',name:'仙缘',amount:3},{type:'paid_token',name:'仙玉',amount:2}]}]});
  for(const part of ['✅ 活动签到成功！','试炼 - 当前阶段（第2天）','仙缘×3','仙玉×2'])assert.ok(textOf(nodes).includes(part),part);
- for(const command of ['/活动签到','/限时活动 商店'])assert.ok(commands(nodes).includes(command),command);
+ for(const command of ['/签到日历 活动','/我的活动'])assert.ok(commands(nodes).includes(command),command);
 });
 test('false event feedback retains each day quote, signed markers and header/footer',async()=>{
  const nodes=await render('checkin','/活动签到',{text:'今日所有活动已签到完成',blocks:[{text:'',quoted:false},{text:'',quoted:false},{text:'📅 试炼 - 当前阶段',quoted:false},{text:'✅ 第2天：仙缘奖励',quoted:true},{text:'⬜ 第3天：明日奖励',quoted:true},{text:'',quoted:false}]},true);
  for(const part of ['今日所有活动已签到完成','📅 试炼 - 当前阶段','✅ 第2天：仙缘奖励','⬜ 第3天：明日奖励'])assert.ok(textOf(nodes).includes(part),part);
- assert.ok(commands(nodes).includes('/活动签到'));assert.ok(commands(nodes).includes('/限时活动 商店'));
+ assert.ok(commands(nodes).includes('/签到日历 活动'));assert.ok(commands(nodes).includes('/我的活动'));
  const quoted=payload=>payload.flatMap(n=>[...(n.type==='MD.blockquote'?[n]:[]),...(Array.isArray(n.value)?quoted(n.value):[])]);
  for(const part of ['✅ 第2天：仙缘奖励','⬜ 第3天：明日奖励'])assert.ok(quoted(state.sent[0]).some(n=>n.value.length===1&&n.value[0].value===part),part);
- const failed=await render('checkin','/活动签到',{text:'活动状态读取失败'},true);assert.ok(textOf(failed).includes('活动状态读取失败'));assert.ok(commands(failed).includes('/限时活动 商店'));
+ const failed=await render('checkin','/活动签到',{text:'活动状态读取失败'},true);assert.ok(textOf(failed).includes('活动状态读取失败'));assert.ok(commands(failed).includes('/我的活动'));
 });

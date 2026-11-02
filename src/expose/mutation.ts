@@ -1,3 +1,4 @@
+import { gameGuidePresentation, onboardingPresentationSchema } from './onboarding-presentation';
 import { Expose, ExposeError, type ExposeReadonly, type ExposeValueSchema } from 'alemonjs';
 import { authorizedEvent } from './access';
 import { boolean, integer, list, object, project, text } from './schema';
@@ -109,9 +110,10 @@ export function mutation<I extends Record<string, unknown>>(
         ...object({ outcome: text, command: text, message: text }, ['command', 'message']),
         description: '连锁任务推进回执，不代表业务结算成功；检查 success、branch 和 result。'
       },
+      presentation: onboardingPresentationSchema,
       result: resultSchema
     },
-    ['result', 'guide', 'onboarding', 'onboardingPending', 'taskContinuation']
+    ['result', 'guide', 'onboarding', 'onboardingPending', 'taskContinuation', 'presentation']
   );
 
   return Expose.action<I, unknown>({
@@ -187,6 +189,7 @@ export function mutation<I extends Record<string, unknown>>(
       context.signal.throwIfAborted();
 
       return project(outputSchema, {
+        presentation: gameGuidePresentation(operation, response),
         success: response.success,
         branch: response.branch,
         reason: response.middleware.reason,

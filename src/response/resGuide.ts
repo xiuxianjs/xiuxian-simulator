@@ -1,17 +1,12 @@
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareResult } from '@src/api/bot/middleware-entry';
-import type { GuiButton } from '@src/utils/messageHelper';
+import { guideActionBar } from '@src/constants/newcomerGuide';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format } from 'alemonjs';
 import { sendMiddlewareReply } from './middlewareReply';
 import { startOnboardingAfterPrologue, showOnboardingRecovery } from './onboarding/context';
-
-const GUIDE_ACTION_BAR: GuiButton[] = [
-  { label: '继续', command: '/继续' },
-  { label: '跳过剧情', command: '/跳过引导' }
-];
 
 // Guide progress, skip/continue and rewards have already completed in the API.
 // Keep the former local presentation without repeating any guide request.
@@ -62,7 +57,7 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
       bid: event.UserId,
       title: presentation.title,
       content: md,
-      bar: presentation.showActionBar ? GUIDE_ACTION_BAR : false
+      bar: presentation.showActionBar ? guideActionBar(action.action) : false
     })
   );
 

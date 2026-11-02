@@ -92,7 +92,7 @@ test('突破写请求后，同一事件的下一条气泡立即刷新开放状�
   assert.equal(requests.filter(request => request.path.startsWith('/api/v1/content/tianshu') && request.bid).length, 2);
 });
 
-test('教学回调保留版本、收件人及主线动作，未开放动作不进入气泡', async t => {
+test('教学使用普通命令键盘，未开放动作不进入气泡', async t => {
   const { app } = await gameFixture(t, request => catalog(request.bid ? 1 : 0));
   await app.mount({ responseContent: onboardingContent });
   await activate(app);
@@ -105,8 +105,9 @@ test('教学回调保留版本、收件人及主线动作，未开放动作不�
   const raw = JSON.stringify(result.messages[0].nodes);
   assert.match(raw, /主线挑战 1-1/);
   assert.doesNotMatch(raw, /加入炼丹师/);
-  assert.match(raw, /ob7.0/);
-  assert.match(raw, /"userIds":\["new"\]/);
+  assert.doesNotMatch(raw, /ob7.0/);
+  assert.doesNotMatch(raw, /"userIds"/);
+  assert.match(raw, /"autoEnter":false/);
 });
 
 test('天书当前与下境预告不受普通菜单过滤影响', async t => {

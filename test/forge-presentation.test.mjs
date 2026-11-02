@@ -8,7 +8,11 @@ import { build } from 'esbuild';
 import { logger } from 'alemonjs';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/forge-contracts.json', import.meta.url), 'utf8'));
+// Presentation-only short references; authority is exercised by server tests.
+fixture.preview.token = 'f1_fixture_preview';
+fixture.orderPreview.token = 'f1_fixture_order';
 const httpFixture = JSON.parse(readFileSync(new URL('./fixtures/forge-robot-contracts.json', import.meta.url), 'utf8'));
+httpFixture['tutorial-preview'].data.token = 'f1_fixture_tutorial';
 const state = globalThis.__forgePresentation = {};
 const framework = createPresentationHarness(state);
 const bundle = await build({

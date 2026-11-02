@@ -1,5 +1,12 @@
 // Shared v1/v2 server registry, synchronized with Go OpenAPI.
 const robotBusinessOperations = [
+  'base.forge-recipes',
+  'base.alchemy-recipes',
+  'base.grades',
+  'base.equipment-types',
+  'base.skill-types',
+  'base.realms',
+  'base.realm',
   'account.bind-email',
   'account.change-account',
   'account.change-email',

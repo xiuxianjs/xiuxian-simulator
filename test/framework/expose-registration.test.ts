@@ -1,3 +1,5 @@
+import presentGuide from '../../src/response/resGuide';
+import type { GameEvent } from '../../src/types/event';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -35,13 +37,23 @@ test('注册和剧情引导使用服务端真实回执并保留引导结果', as
   const call = (action: string, input = {}) => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
   const registration = await call('register_player', { name: 'XXx', gender: '男' });
   assert.equal(registration.value.ok, true, JSON.stringify(registration.value));
-  if (registration.value.ok) assert.equal((registration.value.data as any).result.code, 'OK');
+  if (registration.value.ok) {
+    const value = registration.value.data as any;
+    assert.equal(value.result.code, 'OK');
+    assert.equal(value.presentation.protocol, 'system-guide.v1');
+    assert.ok(value.presentation.text.includes('系统 · 初入仙途'));
+    assert.ok(value.presentation.text.includes('陨星荒野'));
+    assert.ok(value.presentation.text.includes('/跳过引导'));
+  }
   await call('register_player', { name: 'XXx', gender: '男' });
   assert.equal(requests[0].headers['idempotency-key'], requests[1].headers['idempotency-key']);
   const continued = await call('continue_registration_guide');
   assert.equal(continued.value.ok, true, JSON.stringify(continued.value));
   if (continued.value.ok) {
     assert.equal((continued.value.data as any).guide.action, 'step-3');
+    assert.equal((continued.value.data as any).presentation.protocol, 'system-guide.v1');
+    assert.ok((continued.value.data as any).presentation.text.includes('宋玉'));
+    assert.ok((continued.value.data as any).presentation.text.includes('寻找破绽 · /继续'));
     assert.deepEqual((continued.value.data as any).guide.progress.version, envelopes.continue.data.middleware.guide.progress.version);
   }
   const firstIntentIndex = requests.length;
@@ -58,6 +70,7 @@ test('注册和剧情引导使用服务端真实回执并保留引导结果', as
   if (skipped.value.ok) {
     const guide = (skipped.value.data as any).guide;
     assert.equal(guide.action, 'skipped');
+    assert.ok((skipped.value.data as any).presentation.text.includes('/继续引导'));
     assert.deepEqual(guide.completion, envelopes.skip.data.middleware.guide.completion);
     assert.equal(guide.detailsIncomplete, false);
   }
@@ -72,4 +85,22 @@ test('注册和剧情引导使用服务端真实回执并保留引导结果', as
   const before = requests.length;
   assert.equal((await call('register_player', { name: 'XXx\n另一个', gender: '男' })).value.ok, false);
   assert.equal(requests.length, before);
+});
+
+
+test('无 AI 的序章实际气泡先呈现场景，阶段按钮沿用原指令', async t => {
+  const app = createTestApp();
+  t.after(() => app.dispose());
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: bid });
+  const result = await app.invoke(event, () => presentGuide(event as GameEvent, envelopes.continue.data.middleware));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const text = result.messages[0].text;
+  assert.ok(text.includes('序章 · 剑光截雾'));
+  assert.ok(text.includes('先将你挡在身后'));
+  const nodes = JSON.stringify(result.messages[0].nodes);
+  assert.ok(nodes.includes('寻找破绽'));
+  assert.ok(nodes.includes('/继续'));
+  assert.ok(nodes.includes('/跳过引导'));
+  assert.ok(result.actions[result.messages[0].actionIndex].results?.every(receipt => receipt.code === 2000));
 });

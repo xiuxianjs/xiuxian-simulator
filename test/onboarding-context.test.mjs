@@ -56,6 +56,6 @@ test('soft guidance yields other commands and resume/exit reach their exact rout
 test('an uncertain action offers recovery without retrying the write',async()=>{
  await run('/主线挑战 1-1',{error:true});
  assert.equal(state.calls.length,1);
- assert.equal(state.sent[0].title,'宋玉 · 操作暂未确认');
+ assert.equal(state.sent[0].title,'系统 · 操作暂未确认');
  assert.deepEqual(state.sent[0].footer.flat().map(b=>b.command),['/继续引导','/退出引导']);
 });

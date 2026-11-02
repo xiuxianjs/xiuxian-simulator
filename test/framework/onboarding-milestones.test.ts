@@ -7,6 +7,7 @@ import achievements from '../../src/response/achievements/route/res';
 import profession from '../../src/response/profession/myProfession/res';
 import meridians from '../../src/response/meditation/meridian/res';
 import soul from '../../src/response/soulPath/path/res';
+import tianshu from '../../src/response/tianshu/res';
 import { businessEnvelope, gameFixture } from './fixture';
 
 // Analytics batching uses native timers outside app.clock. Discard its pending
@@ -23,9 +24,9 @@ after(async () => {
 const sourceURL = new URL('../../../xiuxian-game-server/internal/service/robot_onboarding_milestone.go', import.meta.url);
 const source = existsSync(sourceURL) ? readFileSync(sourceURL, 'utf8') : '';
 const courses = [...source.matchAll(/\{"([^"\n]+)", "([^"\n]+)", "([^"\n]+)", "[^"\n]+"\}/g)];
-if (source) assert.equal(courses.length, 6);
+if (source) assert.deepEqual(courses.map(course => course[1]), ['master', 'market', 'guilds', 'friends', 'herbalist', 'cave', 'meridians', 'graduate', 'soul-path']);
 else test('阶段教学指令跨项目校验需要相邻服务端源码', { skip: true }, () => {});
-const handlers = { '/我的师门': master, '/成就': achievements, '/我的职业': profession, '/经络': meridians, '/元婴道途': soul };
+const handlers = { '/我的师门': master, '/成就': achievements, '/我的职业': profession, '/经络': meridians, '/元婴道途': soul, '/天书': tianshu };
 
 for (const [, anchor, command, operation] of courses) {
   test(`天书 ${anchor} 教学指令与普通入口请求同一业务：${command}`, async t => {

@@ -192,8 +192,21 @@ for (const entry of cases) for (const mode of ['success', 'refused', 'malformed'
   if (result.value.ok) {
     const value = result.value.data as any;
     assert.equal(value.success, mode === 'success');
-    if (mode === 'refused') { assert.equal(value.result, undefined); assert.equal(value.replies[0].text, '稍后再试'); }
+    if (mode === 'refused') { assert.equal(value.result, undefined); assert.equal(value.replies[0].text, '稍后再试'); assert.ok(value.presentation.text.includes('稍后再试')); }
     if (mode === 'success') {
+      if (['get_onboarding', 'resume_onboarding', 'exit_onboarding', 'perform_onboarding_action'].includes(entry.action)) {
+        const guide = entry.data as { title: string; status: string; actions: { command: string }[] };
+        assert.equal(value.presentation.protocol, 'system-guide.v1');
+        assert.equal(value.presentation.delivery, 'pending');
+        assert.ok(value.presentation.text.includes(guide.title));
+        for (const action of guide.actions) assert.ok(value.presentation.text.includes(action.command));
+        if (['active', 'soft'].includes(guide.status)) assert.ok(value.presentation.text.includes('/退出引导'));
+      } else if (entry.action === 'register_player') {
+        assert.equal(value.presentation.protocol, 'system-guide.v1');
+        assert.ok(value.presentation.text.includes('/我'));
+      } else {
+        assert.equal(value.presentation, undefined);
+      }
       const again = await invoke();
       assert.deepEqual(again.value.ok && again.value.data, value);
       assert.equal(requests.length, 2);

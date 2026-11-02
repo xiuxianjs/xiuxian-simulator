@@ -46,6 +46,14 @@ export const onboardingButtonId = (version: number, index: number): string => `o
 // QQ preserves resolved button_id/data in InteractionData without changing
 // MessageText, so visible and manually typed commands remain real commands.
 export function onboardingButtonVersion(event: { name?: string; MessageText?: string; InteractionData?: string }): number | null | undefined {
+  const inline = /^继续引导 ([1-9]\d{0,15}) ([a-z][a-z0-9-]{0,63})$/.exec(canonicalOnboardingCommand(event.MessageText ?? ''));
+
+  if (inline) {
+    const version = Number(inline[1]);
+
+    return Number.isSafeInteger(version) && version > 0 ? version : null;
+  }
+
   if (!event.name?.includes('interaction') || !event.InteractionData) {
     return undefined;
   }
@@ -101,12 +109,21 @@ export function isOnboardingAddressed(event: OnboardingInput, view: OnboardingVi
     command === '继续引导' ||
     command === '退出引导' ||
     isOnboardingHelp(command) ||
-    view.actions.some(action => canonicalOnboardingCommand(action.command) === command) ||
+    onboardingChoices(view).some(action => canonicalOnboardingCommand(action.command) === command) ||
     matchesGameCommand?.(event) === true
   );
 }
 
+export const onboardingChoices = (view: OnboardingView) => [
+  ...view.actions,
+  ...(view.entries ?? []),
+  ...(view.branchMenu?.items ?? []).filter(item => !mentionsRetiredFeature(item.name))
+];
+
 export function onboardingFooter(view: OnboardingView): { label: string; command: string }[][] {
+  if (view.branchMenu) {
+    return [[{ label: '暂离教学 · /退出引导', command: '/退出引导' }]];
+  }
   if (view.status === 'active' || view.status === 'soft') {
     return [...view.actions.map(button => [button]), [{ label: '暂离教学 · /退出引导', command: '/退出引导' }]];
   }

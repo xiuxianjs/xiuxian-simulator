@@ -63,5 +63,5 @@ export default onResponse(selects, async e => {
     );
   }
 
-  void message.send(FormatGui({ isPrivate, bid, title: '活动签到', header: EVENT_HEADER, content: md, footer: EVENT_FOOTER }));
+  await message.send(FormatGui({ isPrivate, bid, title: '活动签到', header: EVENT_HEADER, content: md, footer: EVENT_FOOTER }));
 });

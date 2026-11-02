@@ -29,7 +29,7 @@ release
 
 ### Expose 玩家操作与入口
 
-协议为 `xiuxian.player.v1`，当前版本 `1.320.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
+协议为 `xiuxian.player.v1`，当前版本 `1.325.0`。默认开启；在框架配置中设置 `xiuxian-game.expose.enabled: false` 可关闭。可选的 `allowed_callers` 按插件实际加载名限制调用方，空数组拒绝所有调用。操作取当前 QQ 消息的玩家身份，不能由调用方指定主体 UID；普通业务还会执行服务端准入和结算。完整配置示例见 `alemon.config.example.yaml`。
 
 常用玩法的查询与操作入口：
 
@@ -685,4 +685,14 @@ async function readGameTasks() {
 
 版本 `1.309.0` 修正好友申请的路由指令，并为好友申请、同意及拒绝增加连锁任务和操作重试编号。
 
-版本 `1.320.0` 增加 `get_public_tribulations`（分页与 UID/道号搜索）、`get_public_tribulation`（事件详情）和私聊 `get_recharge_periodic_packs`（周/月礼包目录）。这些入口仅查询，不创建订单或执行渡劫互动。
+版本 `1.324.0` 增加 `get_public_tribulations`（分页与 UID/道号搜索）、`get_public_tribulation`（事件详情）和私聊 `get_recharge_periodic_packs`（周/月礼包目录）。这些入口仅查询，不创建订单或执行渡劫互动。
+
+基础配置查询：`get_base_data_categories` 返回真实基础分类；`get_base_data_entries` 按类别、子类和页码返回模板编号、名称及品阶。仅允许道具、材料、装备、天工、功法、本命物，不接受表名、SQL 或目标玩家参数；返回值不含库存、所属玩家或业务记录。编号为基础模板编号，不是实例编号。
+
+境界基础配置：`get_base_realms({ page?, pageSize? })` 查询目录，`get_base_realm({ realmId })` 查询境界模板详情。字段来自服务端 `realms` 白名单，包括层级、基础属性、修为上限、属性点和五维上限；不含玩家进度，不推算突破概率或消耗。需先部署支持 `base.realms` 和 `base.realm` 的服务端。
+
+基础类型配置：`get_base_grades` 返回品阶类别、等级及关联境界编号；`get_base_equipment_types` 返回装备分类与可打造标记；`get_base_skill_types` 返回技能类型。均支持 `page` / `pageSize`（最多100），仅查询固定基础表及字段，不返回玩家实例。需配套发布服务端 `base.grades`、`base.equipment-types`、`base.skill-types`。
+
+`get_base_alchemy_recipes` 分页读取与实际炼丹相同选中版本及校验逻辑的 V2 配方规则，返回版本、等级要求、火焰/丹炉要求、经验配置、材料及产物模板编号。配置缺失或无效时明确失败，不回退旧成功率，不查询玩家数据。需先部署服务端 `base.alchemy-recipes`。
+
+`get_base_forge_recipes` 分页读取已开放图纸的普通锻造基础配置，返回材料/产物模板编号、灵石、经验、考核、原始等级/工具品阶及提前锻造生效要求。全局开关和入门境界编号一并返回；不含免费入门特例、玩家库存、学习/考核记录或可打造判断，也不返回旧炼器成功率。版本 `1.325.0`，需配套部署服务端 `base.forge-recipes`。

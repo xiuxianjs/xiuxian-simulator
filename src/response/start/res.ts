@@ -1,3 +1,4 @@
+import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE, newcomerGreeting } from '@src/constants/newcomerGuide';
 import { sendRegistrationNamePrompt } from './namePrompt';
 import { useMessage } from '@src/utils/useMessage';
 import { invalidateEventCommandEntry } from '@src/api/bot/command-entry';
@@ -8,11 +9,6 @@ import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { formatName } from '@src/utils/name';
 import { Format, onResponse, useEvent } from 'alemonjs';
-
-const GUIDE_ACTION_BAR = [
-  { label: '继续', command: '/继续' },
-  { label: '跳过剧情', command: '/跳过引导' }
-];
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -109,9 +105,9 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addBold('新手引导');
+  md.addBold('系统 · 新手引导');
   md.addNewline();
-  md.addText(`${result.data.playerName}，你的仙途从此刻开始。`);
+  md.addText(newcomerGreeting(result.data.playerName));
   if (result.data.spiritRoot?.granted) {
     md.addNewline();
     md.addText(`先天灵根：${result.data.spiritRoot.title} · 闭关修为+${result.data.spiritRoot.bonusPercent}%`);
@@ -130,9 +126,7 @@ export default onResponse(selects, async e => {
 
   md.addNewline();
   md.addNewline();
-  md.addText(
-    '"你独行于陨星荒野，夜色浓如墨，四周草木无声。忽然，一阵阴冷的笑声自身后传来——"呵呵，又是一只迷途的羔羊……"你猛然回头，只见一名黑袍修士手持炼魂幡，正缓步逼近。"'
-  );
+  md.addText(NEWCOMER_PROLOGUE);
 
   md.addNewline();
 

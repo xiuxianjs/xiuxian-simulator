@@ -34,7 +34,7 @@ export const registrationActions = {
     }
   ),
   continue_registration_guide: mutation<{ intentId?: string }>(
-    '继续注册后的剧情引导；服务端返回实际步骤和可能发生的奖励或晋级。同消息每次新推进使用新 intentId，同次重试沿用原编号。',
+    '继续注册后的序章剧情引导（/继续），每次推进一段；服务端返回实际步骤和可能发生的奖励或晋级。同消息每次新推进使用新 intentId，同次重试沿用原编号。',
     'guide.continue',
     object({ intentId: intentIdSchema }, ['intentId']),
     object({}),
@@ -45,7 +45,7 @@ export const registrationActions = {
     { intentId: input => input.intentId }
   ),
   skip_registration_guide: mutation<{ intentId?: string }>(
-    '跳过注册后的剧情引导；服务端决定奖励和晋级结果。',
+    '跳过注册后的序章剧情引导（/跳过引导），仅在玩家明确要求跳过时使用；服务端决定奖励和晋级结果。',
     'guide.skip',
     object({ intentId: intentIdSchema }, ['intentId']),
     object({}),

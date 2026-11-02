@@ -15,8 +15,10 @@ import {
   isOnboardingResolution,
   onboardingDisplayLines,
   onboardingFooter,
-  onboardingButtonVersion
+  onboardingButtonVersion,
+  onboardingChoices
 } from './policy';
+import { appendOnboardingBranchMenu, appendOnboardingEntries } from './branchMenu';
 import { hasBoundReturnChoices, onboardingKeyboard } from './keyboard';
 
 const onboarding = createContext({
@@ -53,10 +55,10 @@ const onboarding = createContext({
 
         return;
       }
-      const choice = state.view.actions.find(button => canonical(button.command) === command);
+      const choice = onboardingChoices(state.view).find(button => canonical(button.command) === command);
 
       if (!choice) {
-        if (state.view.status === 'soft' && buttonVersion === undefined) {
+        if ((state.view.status === 'soft' || state.view.phase.startsWith('milestone.')) && buttonVersion === undefined) {
           action.close();
           action.pass();
 
@@ -64,6 +66,27 @@ const onboarding = createContext({
         }
       }
       try {
+        // AI or another conversation can advance the UID-owned cursor without
+        // updating this local Context. A plain gameplay entry must not be
+        // swallowed by its old teaching choice. Versioned choices still go
+        // through the server's stale-action validation.
+        if (choice && buttonVersion === undefined && state.view.phase.startsWith('milestone.')) {
+          const current = await requestRobotBusiness(gameEvent, 'onboarding.view', {}, parseOnboarding);
+
+          if (!current.success || current.branch !== 'business') {
+            for (const reply of current.middleware.replies) {
+              await sendMiddlewareReply(gameEvent, reply);
+            }
+
+            return;
+          }
+          if (current.data.version !== state.view.version || current.data.phase !== state.view.phase || current.data.status !== state.view.status) {
+            action.close();
+            action.pass();
+
+            return;
+          }
+        }
         const execute = buttonVersion !== null && (choice !== undefined || buttonVersion !== undefined);
         const result = await requestRobotBusiness(
           gameEvent,
@@ -133,9 +156,13 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
   if (view.feedback.length) {
     md.addBlockquote(createQuoteMarkdown(view.feedback.flatMap(line => line.split('\n'))));
   }
-  for (const line of onboardingDisplayLines(view)) {
+  for (const line of view.branchMenu ? [] : onboardingDisplayLines(view)) {
     md.addText(line).addNewline();
   }
+  if (view.branchMenu) {
+    appendOnboardingBranchMenu(md, view.branchMenu);
+  }
+  appendOnboardingEntries(md, view.entries);
   const active = view.status === 'active' || view.status === 'soft';
   const buttons = onboardingFooter(view);
 
@@ -147,7 +174,7 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
     onboarding.cancel();
   }
   const choices = buttons.flat().map(button => (button.label.includes(button.command) ? button.label : `${button.label} · ${button.command}`));
-  const native = event.Platform === 'qq-bot' && (active || hasBoundReturnChoices(view));
+  const native = event.Platform === 'qq-bot' && !view.branchMenu && (active || hasBoundReturnChoices(view));
   const bubble = FormatGui({
     isPrivate: isPrivateEvent(event),
     bid: event.UserId,
@@ -165,7 +192,10 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
     view.title,
     ...(introduction ? [introduction] : []),
     ...view.feedback,
-    ...onboardingDisplayLines(view),
+    ...(view.branchMenu
+      ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
+      : onboardingDisplayLines(view)),
+    ...(view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`),
     '可选指令：',
     ...choices
   ]);
@@ -179,7 +209,7 @@ export async function showOnboardingRecovery(event: GameEvent, error: unknown, i
   if (introduction) {
     md.addBlockquote(createQuoteMarkdown(introduction.split('\n')));
   }
-  md.addText('宋玉停住脚步：“先核对进度，别急着重复操作。”').addNewline();
+  md.addText('先核对当前进度，避免重复操作。').addNewline();
   const reason = error instanceof Error ? error.message : '教学进度暂时无法确认，请稍后继续。';
 
   md.addText(reason);
@@ -188,15 +218,15 @@ export async function showOnboardingRecovery(event: GameEvent, error: unknown, i
     FormatGui({
       isPrivate: isPrivateEvent(event),
       bid: event.UserId,
-      title: '宋玉 · 操作暂未确认',
+      title: '系统 · 操作暂未确认',
       content: md,
       footer: [[{ label: '核对当前进度 · /继续引导', command: '/继续引导' }], [{ label: '暂离教学 · /退出引导', command: '/退出引导' }]],
       bar: false
     }),
     [
-      '宋玉 · 操作暂未确认',
+      '系统 · 操作暂未确认',
       ...(introduction ? [introduction] : []),
-      '宋玉停住脚步：“先核对进度，别急着重复操作。”',
+      '先核对当前进度，避免重复操作。',
       reason,
       '可选指令：',
       '核对当前进度 · /继续引导',

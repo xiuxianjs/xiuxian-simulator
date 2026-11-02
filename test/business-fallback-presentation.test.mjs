@@ -37,10 +37,10 @@ async function render(middleware, success = true) {
 }
 
 test('mute fallback retains the backend notice quota and the original message', async () => {
-  const middleware = { reason: 'MUTED', replies: [], mute: { muted: true, claimed: true, muteUnlockTime: '明日' } };
+  const middleware = { reason: 'MUTED', replies: [], mute: { muted: true, claimed: true, muteUnlockTime: '2026-11-03T04:00:00Z' } };
   const sent = await render(middleware);
   assert.equal(sent.length, 1);
-  assert.match(text(sent[0]), /你的修仙功能已被禁言，限制将于明日解除/);
+  assert.match(text(sent[0]), /你的修仙功能已被禁言，限制将于2026-11-03 12:00:00解除/);
   assert.equal((await render({ ...middleware, mute: { ...middleware.mute, claimed: false } })).length, 0);
 });
 
