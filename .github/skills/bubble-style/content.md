@@ -202,6 +202,14 @@ nav: { current: page, total: totalPages, count: total, command: '/xx {page}' }
 - 裸文本行只用于分隔提示、代码/回放正文、极短补充。
 - 反例：`md.addText('物品：聚灵丹')` 直接平铺在引用块外 → 正确：`md.addBlockquote(Format.createMarkdown().addText('物品：聚灵丹\n结果：锁定成功'))`。
 
+### 6.2 长列表分页（硬规则，2026-11-03）
+
+- 条目数**可能超过 8 条**的列表页必须分页；禁止一次渲染全部条目。
+- 标准写法：`nav: { current, total, count?, command: '/xx {page}' }`，由 `FormatGui` 统一渲染。
+- 适用：背包各分类、邮件、好友、悬赏、订单、战斗/领取记录、宗门成员/精华/日志、排行榜（>10）、秘境列表。
+- 反例：`items.forEach(...)` 全塞进气泡且无 `nav`；或手写「第 X/Y 页」。
+- 分页按钮不进页脚；页脚只放页面级动作。
+
 ## 7. 正反例
 
 ```ts

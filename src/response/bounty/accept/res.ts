@@ -17,6 +17,7 @@ import { parseBackendBountyAccept } from '@src/api/bot/bounty-actions';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { selects } from '@src/response/config';
 import type { GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
@@ -93,49 +94,43 @@ export default onResponse(selects, async e => {
     const sideACount = br.finalState.sideA.length;
     const sideBCount = br.finalState.sideB.length;
 
-    md.addText(`目标：${d.targetName ?? '未知'}`);
-    md.addNewline();
-    md.addText('胜负：✅ 接赏成功');
-    md.addNewline();
-    md.addBlockquote(
-      Format.createMarkdown()
-        .addText(`战斗类型：${sideACount}v${sideBCount}，回合数：${br.totalRounds}`)
-        .addNewline()
-        .addText(`消耗元力：${d.qiCost}，今日剩余：${d.remainingCount}/${d.dailyAcceptLimit}`)
-    );
-
     const loot: string[] = [];
 
     if (d.stoneReward) {
-      loot.push(`灵石+${d.stoneReward}`);
+      loot.push(`灵石 +${d.stoneReward}`);
     }
     if (d.crystalReward) {
-      loot.push(`灵晶+${d.crystalReward}`);
+      loot.push(`灵晶 +${d.crystalReward}`);
     }
+
+    const resultLines = [
+      `战斗：${sideACount}v${sideBCount} · 回合数：${br.totalRounds}`,
+      `消耗元力：${d.qiCost} · 今日剩余：${d.remainingCount}/${d.dailyAcceptLimit}`
+    ];
+
     if (loot.length > 0) {
-      md.addText(`💰 ${loot.join(',')}`);
-      md.addNewline();
+      resultLines.push(`奖励：${loot.join(' · ')}`);
     }
+    if (d.droppedItem) {
+      resultLines.push(`掉落：${d.droppedItem.name} ×${d.droppedItem.quantity}（${d.droppedItem.category}）`);
+    }
+    if (d.normalExperienceGained !== undefined || experience > 0) {
+      resultLines.push(`修为：+${experience}`);
+    }
+
+    md.addBlockquote(section({ title: d.targetName ?? '未知', status: 'done', suffix: '· 接赏成功', lines: resultLines }));
 
     if (d.bonusText) {
       md.addBlockquote(Format.createMarkdown().addText(d.bonusText));
     }
 
-    if (d.droppedItem) {
-      md.addText(`🎁 掉落：${d.droppedItem.name}×${d.droppedItem.quantity}（${d.droppedItem.category}）`);
-      md.addNewline();
-    }
-
-    if (d.normalExperienceGained !== undefined || experience > 0) {
-      md.addText(`📖 获得修为：+${experience}`);
-      md.addNewline();
-    }
-
     md.addNewline();
     md.addBlockquote(
-      Format.createMarkdown()
-        .addText('赏金待领取 ')
-        .addButton(markdownButtonLabel('领赏'), { data: `/领赏 ${bountyId}` })
+      section({
+        title: '赏金待领取',
+        lines: [`目标：${d.targetName ?? '未知'}`],
+        actions: [{ label: '领赏', command: `/领赏 ${bountyId}` }]
+      })
     );
   } else if (d.battleWon && !d.completionId) {
     md.addText('战斗胜利，但名额已满');

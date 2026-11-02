@@ -1,7 +1,7 @@
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { lootboxRecoveryTips } from '@src/response/lootboxRecovery';
+import { section } from '@src/response/presentation/sections';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 礼盒分类处理器
@@ -51,7 +51,13 @@ const response = onResponse(selects, async e => {
         );
         appendMiddlewareAdvice(md, reply.advice, false);
         await message.send(
-          FormatGui({ isPrivate, bid, title: '礼盒', content: md, footer: [...manualTabs(), ...(reply.buttons.length ? [reply.buttons.map(button => ({ ...button, autoEnter: false }))] : [])] })
+          FormatGui({
+            isPrivate,
+            bid,
+            title: '礼盒',
+            content: md,
+            footer: [...manualTabs(), ...(reply.buttons.length ? [reply.buttons.map(button => ({ ...button, autoEnter: false }))] : [])]
+          })
         );
       })
     );
@@ -77,25 +83,27 @@ const response = onResponse(selects, async e => {
       md.addText(`本页暂无礼盒，当前共 ${result.data.total} 条礼盒记录`);
       appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '本页无记录'), false);
     }
+    let hasUnavailableBox = false;
+
     result.data.items.forEach(item => {
-      const lootboxMd = Format.createMarkdown().addText(` 🎁 ${item.name} x${item.quantity}`);
-
       const actions = lootboxActions(item);
+      const lines = [`数量：×${item.quantity}`];
 
-      actions.forEach(action => {
-        lootboxMd.addText(' ');
-        lootboxMd.addButton(markdownButtonLabel(`${action.label}`), { data: action.command, autoEnter: false });
-      });
-      if (actions.length === 0) {
-        lootboxMd.addText(' · 当前没有可用开启入口');
-        appendMiddlewareAdvice(lootboxMd, lootboxRecoveryTips('storage.lootboxes', '暂无可用开启选项'), false);
-      }
-      md.addBlockquote(lootboxMd);
-      md.addNewline();
       if (item.description) {
-        md.addBlockquote(Format.createMarkdown().addText(` ${item.description}`));
+        lines.push(`说明：${item.description}`);
       }
+      if (actions.length === 0) {
+        lines.push('· 当前没有可用开启入口');
+        hasUnavailableBox = true;
+      }
+
+      md.addBlockquote(section({ title: `🎁 ${item.name}`, lines, actions }));
+      md.addNewline();
     });
+
+    if (hasUnavailableBox) {
+      appendMiddlewareAdvice(md, lootboxRecoveryTips('storage.lootboxes', '暂无可用开启选项'));
+    }
 
     void message.send(
       FormatGui({
