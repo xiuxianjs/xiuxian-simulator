@@ -78,7 +78,7 @@ export const conversationLifecycle: ExposeProvideConfig = {
               '这个选择已失效，本次没有提交操作。之前已经执行的操作不会撤销。请先核对原结果，可以说“带我玩修仙”恢复，或发送 /我 使用原始玩法；不要重复消费。'
           };
         }
-        if (session && (['退出引导', '暂离教学', '退出AI游玩', '退出对话游玩'].includes(message) || !input.aiEnabled)) {
+        if (['退出AI游玩', '退出对话游玩'].includes(message) || (session && (['退出引导', '暂离教学'].includes(message) || !input.aiEnabled))) {
           advanceGamePresentation();
           endGuidance(event);
 
@@ -265,7 +265,8 @@ export const conversationLifecycle: ExposeProvideConfig = {
           input.text +
           '\nAI暂时未完成回复。可以发送 ' +
           ((guidanceSession()?.state as { accountExists?: boolean } | undefined)?.accountExists === false ? '/踏入仙途' : '/我') +
-          ' 切回原始玩法。已经提交的操作不会因此撤销，请先核对原结果，不要直接重复消费。'
+          ' 切回原始玩法。已经提交的操作不会因此撤销，请先核对原结果，不要直接重复消费。' +
+          '\n以下入口无需等待 AI 回复：\n[[返回玩法目录]] [[退出AI游玩]]'
       })
     })
   }

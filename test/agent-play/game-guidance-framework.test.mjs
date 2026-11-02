@@ -76,7 +76,7 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
       if (['unknown-version', 'already-sent', 'legacy'].includes(scenario)) assert.ok(!sent.includes('修为：25/200'));
       else assert.ok(sent.includes('修为：25/200'));
       if (!['model-failure', 'middleware-model-failure', 'scene-echo'].includes(scenario)) assert.equal(sent.split('按你的节奏来').length - 1, 1);
-      if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); }
+      if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); assert.ok(sent.includes('返回玩法目录')); assert.ok(sent.includes('退出AI游玩')); }
       if (scenario === 'scene-echo') assert.equal(sent.split('修为：25/200').length - 1, 1);
       if (scenario === 'scene-order') assert.ok(sent.indexOf('修为：25/200') < sent.indexOf('先稳住'));
       if (scenario === 'retry') assert.equal(sent.split('修为：25/200').length - 1, 1);

@@ -1,3 +1,4 @@
+import pluginConversationHandler from '../../../alemonjs-agent-link/lib/response/dsh/plugin-conversation.js';
 import { conversationLifecycle } from '../../src/agent-play/lifecycle.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -192,6 +193,19 @@ for (const scenario of ['registration', 'gameplay', 'manual-exit']) test(`model 
       assert.ok(nodes.includes(scenario === 'registration' ? '/踏入仙途' : '/我'));
       assert.ok(nodes.includes('已经提交的操作不会因此撤销'));
       assert.ok(nodes.includes('不要直接重复消费'));
+      assert.ok(nodes.includes('返回玩法目录'));
+      assert.ok(nodes.includes('退出AI游玩'));
+      const modelCalls = calls;
+      for (const text of ['返回玩法目录', '退出AI游玩', '退出AI游玩']) {
+        const recoveryEvent = app.events.privateMessage({ platform: 'qq-bot', userId: `failure-${scenario}`, messageId: `recover-${text}-${calls}`, text });
+        const recovery = await app.runHandler(pluginConversationHandler, recoveryEvent, 'alemonjs-agent-link');
+        assert.deepEqual(recovery.errors, []);
+        assert.equal(recovery.nextCalls.length, 0);
+        assert.equal(calls, modelCalls, 'recovery navigation must work while the model remains unavailable');
+        assert.ok(recovery.messages.some(message => message.text.includes(text === '返回玩法目录' ? '想先玩哪一项' : '已退出AI游玩')));
+        assert.ok(recovery.messages.every(message => recovery.actions[message.actionIndex].results.every(receipt => receipt.code === 2000)));
+      }
+
       assert.ok(result.messages.every(message => result.actions[message.actionIndex].results.every(receipt => receipt.code === 2000)));
     }
   } finally {

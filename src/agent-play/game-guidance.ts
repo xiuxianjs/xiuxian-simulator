@@ -48,6 +48,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
   let directContract = '';
   let useGameSession = true;
   let verifiedState = false;
+  let stateAttempted = false;
   let existingAccount = false;
   let options: string[] = [];
   let actionDialogue: { text?: string; choices?: string[] } | undefined;
@@ -251,6 +252,16 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         };
       }
     }
+    if (game && stateAttempted && !verifiedState && effect !== 'read' && !isFreshObservation(String(args.action))) {
+      return {
+        ok: false,
+        error: {
+          code: 'GAME_STATE_UNAVAILABLE',
+          outcome: 'not_started',
+          message: '本轮身份或流程状态尚未核对成功，未提交操作。可继续查询或重新核对状态；不得按旧会话推进、消费或重新生成结果。也可使用原始指令。'
+        }
+      };
+    }
     if (game && isPaidPreparation(String(args.action), preparationDefinitions)) {
       if (context?.autonomous) {
         return { ok: false, error: { code: 'PLAYER_CHOICE_REQUIRED', outcome: 'not_started', message: '生成随机结果须由玩家选择，不能自主消费。' } };
@@ -272,6 +283,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
       }
     }
     if (game && args.action === 'get_guidance_state') {
+      stateAttempted = true;
       verifiedState = false;
     }
 
@@ -670,6 +682,17 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
           }
         }
         noteGuidance('引导者：' + reaction);
+      }
+
+      // Recovery must remain usable even when the model stopped before a session
+      // or gameplay footer was established. These choices never replay actions.
+      if (incomplete && !stale()) {
+        if (!reaction.includes('[[返回玩法目录]]')) {
+          reaction += '\n[[返回玩法目录]]';
+        }
+        if (!reaction.includes('[[退出AI游玩]]')) {
+          reaction += ' [[退出AI游玩]]';
+        }
       }
 
       return [
