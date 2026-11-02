@@ -126,11 +126,6 @@ export default onResponse(selects, async e => {
     }
 
     if (!selected) {
-      if (result.monthCard && result.seclusionPass) {
-        const total = Number(result.monthCard.package.yuan) + Number(result.seclusionPass.package.yuan);
-
-        md.addBlockquote(section({ title: '双卡', lines: [`价格：¥${total.toFixed(2)}`, '简介：月卡 + 金手指组合，权益可叠加'] }));
-      }
       md.addBlockquote(
         section({
           title: '道晶套餐',
@@ -141,15 +136,9 @@ export default onResponse(selects, async e => {
       md.addBlockquote(
         section({ title: '灵脉租契', lines: ['简介：按收益日每日发放灵晶的长效租契'], actions: [{ label: '查看', command: '/充值 灵脉租契' }] })
       );
-      md.addBlockquote(
-        section({ title: '每日礼包', lines: ['简介：每日可购的小额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 日礼包' }] })
-      );
-      md.addBlockquote(
-        section({ title: '周礼包', lines: ['简介：每周可购的中额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 周礼包' }] })
-      );
-      md.addBlockquote(
-        section({ title: '月礼包', lines: ['简介：每月可购的大额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 月礼包' }] })
-      );
+      md.addBlockquote(section({ title: '每日礼包', lines: ['简介：每日可购的小额礼包，仅私聊查看'], actions: [{ label: '查看', command: '/充值 日礼包' }] }));
+      md.addBlockquote(section({ title: '周礼包', lines: ['简介：每周可购的中额礼包，仅私聊查看'], actions: [{ label: '查看', command: '/充值 周礼包' }] }));
+      md.addBlockquote(section({ title: '月礼包', lines: ['简介：每月可购的大额礼包，仅私聊查看'], actions: [{ label: '查看', command: '/充值 月礼包' }] }));
       md.addBlockquote(
         section({
           title: '月卡',
