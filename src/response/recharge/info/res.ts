@@ -68,11 +68,12 @@ export default onResponse(selects, async e => {
     const md = Format.createMarkdown();
 
     // 商品标题与购买按钮在引用外，奖励和资格说明在引用内。
-    const addPackage = (pkg: (typeof result.normalPackages)[number], rewards = pkg.rewardParts, benefits: string[] = []) => {
+    const addPackage = (pkg: (typeof result.normalPackages)[number], rewards = pkg.rewardParts, benefits: string[] = [], intro?: string) => {
       const card = buildRechargeProductCard({
         heading: `${pkg.name} · ¥${pkg.yuan.toFixed(2)}${pkg.limitText}`,
         emphasis: pkg.doubleText.replace(/^\s*·\s*/u, '').trim() || undefined,
-        lines: [...benefits, ...(pkg.description ? [pkg.description] : []), ...rewards],
+        intro,
+        lines: [...benefits, ...(pkg.description ? [pkg.description] : []), ...(rewards.length ? [`奖励：${rewards.join('、')}`] : [])],
         buttons: [{ label: '购买', command: `/充值购买 ${pkg.id}` }]
       });
 
@@ -99,7 +100,7 @@ export default onResponse(selects, async e => {
             section({
               title: '首充礼包',
               suffix: `· ${tier.tierAmountYuan}元档 · ${status}`,
-              lines: [`奖励：${displayCurrencyText(tier.rewardText)}`],
+              lines: ['简介：首次充值达标即送的成长礼包', `奖励：${displayCurrencyText(tier.rewardText)}`],
               actions: tier.status === 'claimable' ? [{ label: '领取', command: `/领取礼包奖励 ${tier.tierAmountYuan}` }] : []
             })
           );
@@ -122,23 +123,31 @@ export default onResponse(selects, async e => {
       if (result.monthCard && result.seclusionPass) {
         const total = Number(result.monthCard.package.yuan) + Number(result.seclusionPass.package.yuan);
 
-        md.addBlockquote(section({ title: '双卡', lines: [`价格：¥${total.toFixed(2)}`, '说明：月卡与金手指权益可叠加'] }));
+        md.addBlockquote(section({ title: '双卡', lines: [`价格：¥${total.toFixed(2)}`, '简介：月卡 + 金手指组合，权益可叠加'] }));
       }
       md.addBlockquote(
         section({
           title: '道晶套餐',
-          lines: [`数量：${result.normalPackages.length}款`],
+          lines: [`数量：${result.normalPackages.length}款`, '简介：充值道晶，即时到账，多档可选'],
           actions: [{ label: '查看', command: '/充值 道晶套餐' }]
         })
       );
-      md.addBlockquote(section({ title: '灵脉租契', lines: ['说明：按收益日结算灵晶租契'], actions: [{ label: '查看', command: '/充值 灵脉租契' }] }));
-      md.addBlockquote(section({ title: '每日礼包', lines: ['说明：仅支持私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 日礼包' }] }));
-      md.addBlockquote(section({ title: '周礼包', lines: ['说明：仅支持私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 周礼包' }] }));
-      md.addBlockquote(section({ title: '月礼包', lines: ['说明：仅支持私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 月礼包' }] }));
+      md.addBlockquote(
+        section({ title: '灵脉租契', lines: ['简介：按收益日每日发放灵晶的长效租契'], actions: [{ label: '查看', command: '/充值 灵脉租契' }] })
+      );
+      md.addBlockquote(
+        section({ title: '每日礼包', lines: ['简介：每日可购的小额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 日礼包' }] })
+      );
+      md.addBlockquote(
+        section({ title: '周礼包', lines: ['简介：每周可购的中额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 周礼包' }] })
+      );
+      md.addBlockquote(
+        section({ title: '月礼包', lines: ['简介：每月可购的大额礼包，仅私聊查看'], actions: [{ label: '查看（私聊）', command: '/充值 月礼包' }] })
+      );
       md.addBlockquote(
         section({
           title: '月卡',
-          lines: [result.monthCard ? `价格：¥${result.monthCard.package.yuan}` : '状态：暂未开放'],
+          lines: [result.monthCard ? `价格：¥${result.monthCard.package.yuan}` : '状态：暂未开放', '简介：每日灵晶与多项便利特权'],
           actions: [
             { label: '查看', command: '/充值 月卡' },
             ...(result.monthCard ? [{ label: '购买', command: `/充值购买 ${result.monthCard.package.id}` }] : [])
@@ -148,7 +157,7 @@ export default onResponse(selects, async e => {
       md.addBlockquote(
         section({
           title: '金手指',
-          lines: [result.seclusionPass ? `价格：¥${result.seclusionPass.package.yuan}` : '状态：暂未开放'],
+          lines: [result.seclusionPass ? `价格：¥${result.seclusionPass.package.yuan}` : '状态：暂未开放', '简介：闭关、探索等修为加成与额外权益'],
           actions: [
             { label: '查看', command: '/充值 金手指' },
             ...(result.seclusionPass ? [{ label: '购买', command: `/充值购买 ${result.seclusionPass.package.id}` }] : [])
@@ -160,31 +169,37 @@ export default onResponse(selects, async e => {
       }
     }
     if (selected === '道晶套餐') {
-      md.addText('道晶套餐').addNewline();
       if (result.normalPackages.length) {
-        result.normalPackages.forEach(pkg => addPackage(pkg));
+        result.normalPackages.forEach(pkg => addPackage(pkg, pkg.rewardParts, [], '简介：充值道晶，即时到账'));
       } else {
         md.addText('暂无套餐上架');
       }
     }
     if (selected === '月卡') {
-      md.addNewline().addText('月卡').addNewline();
       if (result.monthCard) {
-        addPackage(result.monthCard.package, result.monthCard.instantRewards, result.benefitView.monthCardPrivilegeLines);
+        addPackage(
+          result.monthCard.package,
+          result.monthCard.instantRewards,
+          result.benefitView.monthCardPrivilegeLines,
+          '简介：每日灵晶与多项便利特权，30 日有效'
+        );
       } else {
         md.addText('月卡暂未开放');
       }
     }
     if (selected === '金手指') {
-      md.addNewline().addText('金手指').addNewline();
       if (result.seclusionPass) {
-        addPackage(result.seclusionPass.package, result.seclusionPass.instantRewards, result.benefitView.seclusionPassPrivilegeLines);
+        addPackage(
+          result.seclusionPass.package,
+          result.seclusionPass.instantRewards,
+          result.benefitView.seclusionPassPrivilegeLines,
+          '简介：闭关、探索等修为加成与额外权益'
+        );
       } else {
         md.addText(result.benefitView.seclusionPassFallbackLine);
       }
     }
     if (selected === '优惠礼包' && result.firstChargePackages.length) {
-      md.addNewline().addText('优惠礼包').addNewline();
       result.firstChargePackages.forEach(pkg => addPackage(pkg));
     }
     if (periodicCategory) {

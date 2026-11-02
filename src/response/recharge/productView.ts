@@ -27,6 +27,7 @@ export function offerPromotionLines(lines: string[]): string[] {
 export function buildRechargeProductCard(options: {
   heading: string;
   emphasis?: string;
+  intro?: string;
   metadata?: string[];
   lines: string[];
   rewardLineCount?: number;
@@ -35,6 +36,9 @@ export function buildRechargeProductCard(options: {
 }): FormatMarkDown {
   const content = Format.createMarkdown().addText(options.heading).addNewline();
 
+  if (options.intro) {
+    content.addText(options.intro).addNewline();
+  }
   if (options.emphasis) {
     content.addBold(options.emphasis).addNewline();
   }
@@ -48,6 +52,21 @@ export function buildRechargeProductCard(options: {
   }
 
   if (lines.length) {
+    const grouped: string[] = [];
+
+    for (const line of lines) {
+      const prefix = /^(上限|低保|加成|原有权益|天赋权益|说明|注意|玩法)[:：]/u.exec(line)?.[1];
+
+      if (prefix && grouped.length && grouped[grouped.length - 1] !== '' && grouped.some(prev => prev !== '')) {
+        const prevPrefix = /^(上限|低保|加成|原有权益|天赋权益|说明|注意|玩法)[:：]/u.exec(grouped[grouped.length - 1] ?? '')?.[1];
+
+        if (prevPrefix && prevPrefix !== prefix) {
+          grouped.push('');
+        }
+      }
+      grouped.push(line);
+    }
+    lines.splice(0, lines.length, ...grouped);
     let quote = createQuoteMarkdown(lines);
     const rewardLineCount = options.rewardLineCount ?? 0;
 
