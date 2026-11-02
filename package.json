@@ -55,6 +55,6 @@
     "test:framework:audit": "node tools/audit-framework-tests.mjs"
   },
   "type": "module",
-  "version": "0.0.37",
-  "gitHead": "6d5d46e7a6be894c5386ecaae400b5914ac402e0"
+  "version": "0.0.38",
+  "gitHead": "63332a93cfc73be10fc0aeaa9783a24079a3ece5"
 }
