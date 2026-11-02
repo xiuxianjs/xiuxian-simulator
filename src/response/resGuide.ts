@@ -1,4 +1,4 @@
-import { appendAINarration } from './onboarding/aiNarration';
+import { appendAINarration, guideText } from './onboarding/aiNarration';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareResult } from '@src/api/bot/middleware-entry';
@@ -43,7 +43,7 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
     md.addBold(presentation.heading);
     md.addNewline();
   }
-  md.addText(presentation.text);
+  md.addText(await guideText(presentation.text));
   await appendAINarration(md, presentation.text);
   for (const [index, advice] of presentation.advice.entries()) {
     if (index === 0) {

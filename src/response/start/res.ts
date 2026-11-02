@@ -1,21 +1,22 @@
-import { appendAINarration } from '../onboarding/aiNarration';
-import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE, newcomerGreeting } from '@src/constants/newcomerGuide';
-import { sendRegistrationNamePrompt } from './namePrompt';
-import { useMessage } from '@src/utils/useMessage';
 import { invalidateEventCommandEntry } from '@src/api/bot/command-entry';
 import { invalidateEventBackendRobotIdentity } from '@src/api/bot/identity';
-import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendRegistration } from '@src/api/bot/registration';
+import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE, newcomerGreeting } from '@src/constants/newcomerGuide';
 import { selects } from '@src/response/config';
+import { runRobotBusiness } from '@src/response/robotBusiness';
 import { FormatGui } from '@src/utils/messageHelper';
+import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
+import { appendAINarration, guideText } from '../onboarding/aiNarration';
+import { sendRegistrationNamePrompt } from './namePrompt';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const bid = e.UserId;
   const isPrivate = e.isPrivate ?? false;
 
-  const [, parentNext] = useEvent();
+  const [_, parentNext] = useEvent();
+
   const feedback = async (title: string, text: string): Promise<void> => {
     const md = Format.createMarkdown().addText(text);
 
@@ -54,23 +55,28 @@ export default onResponse(selects, async e => {
   }
 
   if (result.code === 'EXISTING_USER') {
-    const md = Format.createMarkdown();
+    // const md = Format.createMarkdown();
 
-    md.addText('可发送 /我 查看账号信息。');
+    // md.addText('可发送 /我 查看账号信息。');
 
-    md.addNewline();
-    await message.send(
-      FormatGui({
-        isPrivate,
-        bid,
-        title: '踏入仙途',
-        content: md,
-        footer: [
-          { label: '我', command: '/我' },
-          { label: '查看主线', command: '/查看主线' }
-        ]
-      })
-    );
+    // md.addNewline();
+    // await message.send(
+    //   FormatGui({
+    //     isPrivate,
+    //     bid,
+    //     title: '踏入仙途',
+    //     content: md,
+    //     footer: [
+    //       { label: '我', command: '/我' },
+    //       { label: '查看主线', command: '/查看主线' }
+    //     ]
+    //   })
+    // );
+
+    // 修改消息，变成 /我，交给后续的指令进行操作
+    e.MessageText = '/我';
+
+    parentNext();
 
     return;
   }
@@ -103,7 +109,7 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addBold('系统 · 新手引导');
+  md.addBold(await guideText('{{guide.name}} · 新手引导'));
   md.addNewline();
   md.addText(newcomerGreeting(result.data.playerName));
   if (result.data.spiritRoot?.granted) {
@@ -124,7 +130,7 @@ export default onResponse(selects, async e => {
 
   md.addNewline();
   md.addNewline();
-  md.addText(NEWCOMER_PROLOGUE);
+  md.addText(await guideText(NEWCOMER_PROLOGUE));
   await appendAINarration(md, NEWCOMER_PROLOGUE);
 
   md.addNewline();

@@ -115,6 +115,8 @@ app.res(
     ['修仙帮助'],
     withAccessFacts(['realm'], () => import('@src/response/help'))
   );
+
+  //  一定要在/我 之前
   publicXiuxian.use(['踏入仙途', '开始游戏', '开始修仙', '开始降临', '降临世界', '我是'], () => import('@src/response/start/res'));
 
   // const xiuxian = publicXiuxian.group({}, () => import('@src/response/mwMiddleware'));

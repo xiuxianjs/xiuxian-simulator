@@ -13,6 +13,26 @@ const talents = object({
 });
 
 export const registrationActions = {
+  choose_registration_name: mutation<{ name: string }>(
+    '玩家明确选择道号后调用。仅提交道号进行校验，不选择性别、不创建角色。NEED_GENDER表示可询问性别，不能说已注册成功。',
+    'account.register',
+    object({ name: { type: 'string', minLength: 1, maxLength: 8 } }),
+    object(
+      {
+        code: { type: 'string', enum: ['OK', 'EXISTING_USER', 'NEED_NAME', 'NEED_GENDER'] },
+        data: object({ playerName: text, talents, spiritRoot }, ['talents', 'spiritRoot'])
+      },
+      ['data']
+    ),
+    input => `/我是 ${input.name}`,
+    parseBackendRegistration,
+    (_input, event) => ({ region: event.GuildId ?? event.ChannelId ?? '' }),
+    input => {
+      if (input.name !== input.name.trim() || /[\r\n\u2028\u2029]/u.test(input.name) || /\s+(男|女)$/u.test(input.name)) {
+        throw new ExposeError('INVALID_INPUT', '请单独提供道号，不附加性别或换行');
+      }
+    }
+  ),
   register_player: mutation<{ name: string; gender: '男' | '女' }>(
     '为当前平台账号创建角色；必须使用玩家明确选择的道号和性别。角色创建及道号校验由服务端执行，重复请求使用原消息幂等键。',
     'account.register',

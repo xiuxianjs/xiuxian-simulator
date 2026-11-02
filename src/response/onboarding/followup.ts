@@ -1,4 +1,4 @@
-import { appendAINarration } from './aiNarration';
+import { appendAINarration, guideText } from './aiNarration';
 import { Format, markdownToPlainText, type FormatMarkDown } from 'alemonjs';
 import type { RobotBusinessFollowup } from '@src/api/bot/robot-business';
 import type { GameEvent } from '@src/types/event';
@@ -28,7 +28,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   const md = Format.createMarkdown().addBlockquote(receipt).addNewline();
 
   for (const line of lines) {
-    md.addText(line).addNewline();
+    md.addText(await guideText(line)).addNewline();
   }
   if (!pending && view.branchMenu) {
     appendOnboardingBranchMenu(md, view.branchMenu);

@@ -1,4 +1,4 @@
-import { appendAINarration } from './aiNarration';
+import { appendAINarration, guideText } from './aiNarration';
 import { isGameEventEnabled } from '@src/utils/eventPolicy';
 import { createContext, configureContext, Format, logger, ResultCode } from 'alemonjs';
 import { parseOnboarding, type OnboardingView } from '@src/api/bot/onboarding';
@@ -149,6 +149,15 @@ export async function sendTeachingMessage(event: GameEvent, bubble: TeachingMess
 }
 
 export async function showOnboarding(event: GameEvent, view: OnboardingView, introduction?: string): Promise<void> {
+  view = {
+    ...view,
+    title: await guideText(view.title),
+    lines: await Promise.all(view.lines.map(guideText)),
+    feedback: await Promise.all(view.feedback.map(guideText))
+  };
+  if (introduction) {
+    introduction = await guideText(introduction);
+  }
   const md = Format.createMarkdown();
 
   if (introduction) {
@@ -208,6 +217,9 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
 // Recovery is presentation only. It never repeats a gameplay request, even
 // when the previous action or prologue reward has already committed.
 export async function showOnboardingRecovery(event: GameEvent, error: unknown, introduction?: string): Promise<void> {
+  if (introduction) {
+    introduction = await guideText(introduction);
+  }
   const md = Format.createMarkdown();
 
   if (introduction) {
