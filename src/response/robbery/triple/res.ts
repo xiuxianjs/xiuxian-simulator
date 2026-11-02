@@ -1,16 +1,16 @@
-import { Format, onResponse, useEvent, useMention } from 'alemonjs';
 import { createBackendRequestContext } from '@src/api/bot/context';
-import { parseBackendRobbery } from '@src/api/bot/robbery';
 import { parsePKReceipt } from '@src/api/bot/pk-receipt';
+import { parseBackendRobbery } from '@src/api/bot/robbery';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
+import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { sendBattleResult } from '@src/utils/battleMemoryMessage';
 import { formatGameTime } from '@src/utils/gameTime';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { resolveRobotTarget } from '@src/utils/targetUid';
 import { useMessage } from '@src/utils/useMessage';
-import { appendTreasureEffects } from '@src/response/treasureEffects';
+import { Format, onResponse, useEvent, useMention } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -138,6 +138,6 @@ export default onResponse(selects, async e => {
       content: md,
       footer: [...stopButtons, { label: '打劫记录', command: '/打劫记录' }, { label: '可打劫道友', command: '/可打劫道友' }]
     },
-    receipts.map((result, index) => ({ id: result.battleLogId, label: `第${index + 1}次战斗回忆` }))
+    receipts.map((result, index) => ({ id: result.battleLogId, label: `第${index + 1}次` }))
   );
 });
