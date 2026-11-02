@@ -85,6 +85,7 @@ export default onResponse(selects, async e => {
       periodicCategory ??
       (dailyCategory ? '日礼包' : giftPage ? '首充礼包' : ['道晶套餐', '月卡', '金手指', '优惠礼包', '灵脉租契'].includes(category) ? category : '');
     let giftNav: { current: number; total: number; command: string } | undefined;
+    const claimedTiers: Array<{ tierAmountYuan: number }> = [];
 
     // 首充赠礼属于充值入口，和付费优惠礼包分开展示；状态以服务端为准。
     if (!selected || selected === '首充礼包') {
@@ -94,13 +95,18 @@ export default onResponse(selects, async e => {
         const page = Math.max(1, Math.min(total, Number(giftPage?.[1] ?? 1)));
 
         for (const tier of first.tiers.slice((page - 1) * 5, page * 5)) {
-          const status = tier.status === 'claimable' ? '可领取' : tier.status === 'claimed' ? '已领取' : `首次充值满 ¥${tier.tierAmountYuan} 解锁`;
+          if (!selected && tier.status === 'claimed') {
+            claimedTiers.push({ tierAmountYuan: tier.tierAmountYuan });
+
+            continue;
+          }
+          const suffix = `· ${tier.tierAmountYuan}元档${tier.status === 'claimable' ? ' · 可领取' : ''}`;
 
           md.addBlockquote(
             section({
               title: '首充礼包',
-              suffix: `· ${tier.tierAmountYuan}元档 · ${status}`,
-              lines: ['简介：首次充值达标即送的成长礼包', `奖励：${displayCurrencyText(tier.rewardText)}`],
+              suffix,
+              lines: [`简介：首次充值满 ¥${tier.tierAmountYuan} 解锁，达标即送成长礼包`, `奖励：${displayCurrencyText(tier.rewardText)}`],
               actions: tier.status === 'claimable' ? [{ label: '领取', command: `/领取礼包奖励 ${tier.tierAmountYuan}` }] : []
             })
           );
@@ -166,6 +172,9 @@ export default onResponse(selects, async e => {
       );
       if (result.firstChargePackages.length) {
         result.firstChargePackages.forEach(pkg => addPackage(pkg, pkg.rewardParts, [], '简介：限时优惠礼包，档位见下'));
+      }
+      for (const tier of claimedTiers) {
+        md.addBlockquote(section({ title: `首充礼包 · ${tier.tierAmountYuan}元档`, suffix: '· 已领取', lines: [] }));
       }
     }
     if (selected === '道晶套餐') {

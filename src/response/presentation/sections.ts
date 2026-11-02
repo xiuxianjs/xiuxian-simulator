@@ -58,6 +58,7 @@ export const section = (input: BubbleSection): FormatMarkDown => {
   });
 
   if (input.actions && input.actions.length > 0) {
+    md.addNewline();
     addOptions(md, input.actions);
   }
 
