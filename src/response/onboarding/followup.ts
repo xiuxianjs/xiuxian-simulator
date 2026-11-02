@@ -36,7 +36,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   if (!pending) {
     appendOnboardingEntries(md, view.entries);
   }
-  if (!pending) {
+  if (!pending && view.branchMenu) {
     await appendAINarration(md, [view.title, ...view.feedback, ...view.lines, ...(view.branchMenu?.lines ?? [])].join('\n'));
   }
   const active = !pending && (view.status === 'active' || view.status === 'soft');

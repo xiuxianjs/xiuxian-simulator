@@ -1,3 +1,4 @@
+import { beginGamePresentation } from '@src/utils/gamePresentation';
 import type { GameEvent } from '../../types/event';
 import { measureTransportStageSync } from '../../utils/transportTiming';
 import type { HomeOverviewData } from '../schemas/player-overview';
@@ -571,6 +572,7 @@ export async function requestRobotBusiness<T>(
   decode: (data: unknown, uid: number) => T,
   request?: BackendRequestContext
 ): Promise<RobotBusinessResult<T>> {
+  await beginGamePresentation(event);
   const input = businessInputFromEvent(event);
 
   // Canonical group identity comes from the native platform target, even when

@@ -8,7 +8,6 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseBackendRegistration } from '@src/api/bot/registration';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
-import { formatName } from '@src/utils/name';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -17,23 +16,21 @@ export default onResponse(selects, async e => {
   const isPrivate = e.isPrivate ?? false;
 
   const [, parentNext] = useEvent();
-  const feedback = (title: string, text: string): Promise<void> => {
+  const feedback = async (title: string, text: string): Promise<void> => {
     const md = Format.createMarkdown().addText(text);
 
     if (title) {
       md.addNewline();
     }
-    void message.send(
+    await message.send(
       FormatGui({
         isPrivate,
         bid,
         title,
         content: md,
-        ...(title ? { bar: [{ label: `我是 ${formatName(e?.UserName)}`, command: `/我是 ${formatName(e?.UserName)}` }] } : {})
+        ...(title ? { bar: [{ label: '重新输入道号', command: '/我是' }] } : {})
       })
     );
-
-    return Promise.resolve();
   };
   let result;
 
@@ -62,7 +59,7 @@ export default onResponse(selects, async e => {
     md.addText('可发送 /我 查看账号信息。');
 
     md.addNewline();
-    void message.send(
+    await message.send(
       FormatGui({
         isPrivate,
         bid,
@@ -86,7 +83,7 @@ export default onResponse(selects, async e => {
 
   if (result.code === 'NEED_GENDER') {
     const name = result.data.playerName;
-    const md = Format.createMarkdown().addText(`道号：${name}`).addNewline().addText('选择角色性别，踏入仙途。');
+    const md = Format.createMarkdown().addText(`道号：${name}`).addNewline().addText('请选择角色性别。道号将在创建时再次核对，此时尚未创建角色。');
 
     await message.send(
       FormatGui({
@@ -132,7 +129,7 @@ export default onResponse(selects, async e => {
 
   md.addNewline();
 
-  void message.send(
+  await message.send(
     FormatGui({
       isPrivate,
       bid,
