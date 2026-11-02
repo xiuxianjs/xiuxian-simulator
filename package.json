@@ -36,6 +36,7 @@
     "README.md"
   ],
   "scripts": {
+    "test:agent-play": "node tools/run-agent-play-tests.mjs",
     "app": "node index.js",
     "dev": "lvy app.ts",
     "format": "prettier --write .",
@@ -54,6 +55,6 @@
     "test:framework:audit": "node tools/audit-framework-tests.mjs"
   },
   "type": "module",
-  "version": "0.0.36",
-  "gitHead": "052bb6ad77ed25331934baa9aaf2ded1e96325c9"
+  "version": "0.0.37",
+  "gitHead": "6d5d46e7a6be894c5386ecaae400b5914ac402e0"
 }

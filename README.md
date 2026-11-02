@@ -1,5 +1,9 @@
 # 修仙机器人
 
+连续游玩实现与验证：[AI 对话式游玩修仙](docs/AI对话式游玩实现.md)。
+
+AI 对话游玩、无 AI 降级及配套发布说明：[AI 对话接入与解耦](docs/AI对话接入与解耦.md)。
+
 本项目是基于 AlemonJS 的修仙文字消息游戏机器人。机器人接收聊天平台指令，处理交互与气泡排版，并通过 HTTP API 向 游戏服务查询和提交操作；游戏规则、状态变更与结算以服务端为准。
 
 ## 安装
@@ -98,11 +102,9 @@ async function readGameTasks() {
 `send_flymail`、`reply_flymail`、`mute_flymail`、`unmute_flymail` 仅在私聊中使用；发送和回复会实际投递，失败或结果不明时先核对原会话，重试使用原消息。
 `preview_remove_friend` 预览删除目标；`confirm_remove_friend` 根据玩家明确意愿执行，实际是否删除以服务端结果为准。
 `get_notification_history` 仅在私聊中分页查询本人历史通知；通知是历史记录，当前任务和奖励状态应另行查询。
-`get_themes`、`activate_theme`、`deactivate_theme` 和 `set_theme_ink_mode` 支持查询与切换本人主题；操作结果以服务端状态为准。
 `accept_companion_proposal`、`reject_companion_proposal` 使用申请列表原编号、申请人和创建时间，服务端在事务内核对原申请；需配套升级 Go 服务端。`propose_companion` 使用候选列表中的誓约道具 ID 发起申请，需配套升级 Go 服务端；道具不可用时不会替换成其他道具。
 `rename_guild` 与 `set_guild_min_realm` 支持宗门改名和入宗最低境界设置；实际名称、匹配境界与消耗以服务端回执为准。
 `get_guild_auto_refresh`、`set_guild_auto_refresh` 查询和设置宗门商店自动刷新；关闭会清空整点，失败后也应先查询配置，因配置可能已提交。
-`get_my_player_shop`、`list_player_shops`、`get_player_shop_ranking` 查询玩家小店；`visit_player_shop` 按店主 UID 浏览挂单，购买仍需原报价确认；`rename_player_shop` 和 `set_player_shop_description` 修改本人店铺。查询本人店铺可能先创建店铺。
 `get_master_lineage` 查询师承谱系，返回带父节点索引的列表；`get_master_ranking` 查询圣人榜及本人、附近排名。
 `get_guild_role_options` 查询成员可任命职位；`appoint_guild_member` 和 `resign_guild_role` 按服务端权限执行，卸任返回 confirmation 时尚未完成。
 `kick_guild_member` 按成员 UID 立即移出成员，需玩家明确要求，服务端核验权限并返回实际结果。
@@ -696,3 +698,5 @@ async function readGameTasks() {
 `get_base_alchemy_recipes` 分页读取与实际炼丹相同选中版本及校验逻辑的 V2 配方规则，返回版本、等级要求、火焰/丹炉要求、经验配置、材料及产物模板编号。配置缺失或无效时明确失败，不回退旧成功率，不查询玩家数据。需先部署服务端 `base.alchemy-recipes`。
 
 `get_base_forge_recipes` 分页读取已开放图纸的普通锻造基础配置，返回材料/产物模板编号、灵石、经验、考核、原始等级/工具品阶及提前锻造生效要求。全局开关和入门境界编号一并返回；不含免费入门特例、玩家库存、学习/考核记录或可打造判断，也不返回旧炼器成功率。版本 `1.325.0`，需配套部署服务端 `base.forge-recipes`。
+
+下架玩法同步停用 AI 能力：宗门大比、黑盒、玩家小店、主题与墨色不再注册查询或操作能力；旧动作调用会被拒绝。普通商店、珍宝楼交易与个人设置继续使用现有能力。
