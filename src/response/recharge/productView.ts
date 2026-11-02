@@ -104,6 +104,7 @@ export function buildRechargeProductCard(options: {
 export function buildSpiritVeinProductBlock(lease: ReturnType<typeof parseSpiritVein>): FormatMarkDown {
   return buildRechargeProductCard({
     heading: `灵脉租契 · ¥${(lease.priceAmount / 100).toFixed(2)}`,
+    intro: '简介：按收益日每日发放灵晶的长效租契',
     lines: [
       `购买即得 ${lease.immediateDaoCrystal}道晶`,
       `新购每日 ${lease.dailyCrystal}灵晶，共30收益日`,
@@ -159,6 +160,7 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
   content.absorb(
     buildRechargeProductCard({
       heading: `${name} · ¥${(product.priceAmount / 100).toFixed(2)} · 每日限购${product.remaining}/${product.limit}`,
+      intro: '简介：每日限购礼包，档位可自选',
       emphasis: product.label ? `${product.label.replace(/！+$/u, '')}！！！` : undefined,
       metadata:
         selected === 'all' ? [`原价 ¥${(product.basePriceAmount / 100).toFixed(2)} · 已计入单购金额 ¥${(product.creditedAmount / 100).toFixed(2)}`] : [],

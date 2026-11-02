@@ -165,7 +165,7 @@ export default onResponse(selects, async e => {
         })
       );
       if (result.firstChargePackages.length) {
-        result.firstChargePackages.forEach(pkg => addPackage(pkg));
+        result.firstChargePackages.forEach(pkg => addPackage(pkg, pkg.rewardParts, [], '简介：限时优惠礼包，档位见下'));
       }
     }
     if (selected === '道晶套餐') {
@@ -200,7 +200,7 @@ export default onResponse(selects, async e => {
       }
     }
     if (selected === '优惠礼包' && result.firstChargePackages.length) {
-      result.firstChargePackages.forEach(pkg => addPackage(pkg));
+      result.firstChargePackages.forEach(pkg => addPackage(pkg, pkg.rewardParts, [], '简介：限时优惠礼包，档位见下'));
     }
     if (periodicCategory) {
       const period = periodicCategory === '周礼包' ? 'weekly' : 'monthly';
