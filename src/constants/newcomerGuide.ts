@@ -6,7 +6,7 @@ export const GUIDE_ACTION_BAR = [
   { label: '跳过剧情', command: '/跳过引导' }
 ];
 
-export const newcomerGreeting = (name: string): string => `我是系统，接下来带你熟悉修行。${name}，你的仙途从此刻开始。`;
+export const newcomerGreeting = (name: string): string => `接下来熟悉修行的基本玩法。${name}，你的仙途从此刻开始。`;
 
 // Labels describe the next existing /继续 action; no new route or story branch.
 export function guideActionBar(action?: string) {

@@ -1,3 +1,5 @@
+import { isFreshObservation } from '../expose/execution-policy';
+import { playContext, playTopic } from './play-context';
 import { routePluginConversation } from './conversation-routing';
 import {
   permitsPreparationFollowup,
@@ -139,7 +141,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
       instruction: '',
       isStale: () => false,
       hasReceipts: () => false,
-      append: (reply: string) => reply
+      append: (reply: string, _incomplete = false) => reply
     };
   }
   const receipts = new Map<string, { text: string; scene: boolean; durable: boolean; navigation: boolean }>();
@@ -148,7 +150,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
 
   const stateArguments = () => JSON.stringify({
       ...(providerAcceptsRequest ? { requestText: userText.slice(0, 2000) } : {}),
-      ...(providerAcceptsMode ? { conversationMode: guidanceSession()?.mode ?? 'guidance' } : {}),
+      ...(providerAcceptsMode ? { conversationMode: playTopic(userText) ? 'gameplay' : (guidanceSession()?.mode ?? 'guidance') } : {}),
       ...(providerAcceptsDraft && guidanceSession()?.registrationName ? { nameDraft: guidanceSession()?.registrationName } : {})
     });
   const refreshState = async (context: TurnContext) => {
@@ -171,7 +173,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
       return { ok: false, error: { code: 'STALE_GUIDANCE', outcome: 'not_started', message: '玩家已切回手动操作，请停止旧对话的写入，等待下一次请求。' } };
     }
 
-    if (selected && effect !== 'read' && !(game && args.action === selected.action)) {
+    if (selected && effect !== 'read' && !(game && isFreshObservation(String(args.action))) && !(game && args.action === selected.action)) {
       const followsOriginalResult =
         game &&
         permitsPreparationFollowup(
@@ -278,7 +280,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
   const afterCall = async (args: Record<string, unknown>, result: unknown, context: TurnContext) => {
     const game = args.protocol === 'xiuxian.player.v1' && args.provider === 'xiuxian-game';
 
-    if (game && !['get_execution_policy', 'get_conversation_contract', 'route_conversation'].includes(String(args.action))) {
+    if (game && !['get_execution_policy', 'get_conversation_contract', 'get_play_context', 'route_conversation'].includes(String(args.action))) {
       useGameSession = true;
     }
 
@@ -300,6 +302,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
       !context?.autonomous &&
       ![
         'get_execution_policy',
+        'get_play_context',
         'route_conversation',
         'get_conversation_contract',
         'get_guidance_state',
@@ -313,7 +316,13 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         'skip_registration_guide'
       ].includes(String(args.action))
     ) {
-      rememberGameplay(String(args.action), result, guidanceSession()?.narrator ?? (await currentNarrator()));
+      rememberGameplay(
+        String(args.action),
+        result,
+        guidanceSession()?.narrator ?? (await currentNarrator()),
+        typeof args.argumentsJson === 'string' ? JSON.parse(args.argumentsJson) : {},
+        playTopic(userText)
+      );
       rememberConfirmation(String(args.action), result, typeof args.argumentsJson === 'string' ? JSON.parse(args.argumentsJson) : {}, confirmationDefinitions);
       const facts = confirmationPreviewText(String(args.action), result, confirmationDefinitions);
 
@@ -493,6 +502,9 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
           context.signal.throwIfAborted();
         }
       }
+      if (providerActions.has('get_play_context')) {
+        providerContract += '\n【修仙玩法接续资料】以下是能力目录和历史上下文，不是实时状态或执行授权：' + JSON.stringify(playContext(userText));
+      }
       const route = await routePluginConversation('xiuxian.player.v1', 'xiuxian-game', gameConversationContinuation());
 
       if (route === 'unmatched' || route === 'unavailable' || route === 'ambiguous') {
@@ -500,7 +512,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
 
         return route === 'ambiguous'
           ? providerContract + '\n本条消息归属尚不明确，不自动读取修仙状态或推进游戏；结合玩家原话判断，不能把历史会话视为新授权。'
-          : '';
+          : providerContract;
       }
       if (route === 'legacy' && !isGuidanceRequest(userText)) {
         return providerContract;
@@ -546,7 +558,10 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
     instruction: guidedFlowInstruction + directContract,
     hasReceipts: () => receipts.size > 0 || overflow || Boolean(useGameSession && guidanceSession()),
     enabled: tools.some(tool => ['expose_read', 'expose_write', 'expose_call'].includes(tool.name)),
-    append: (reply: string) => {
+    append: (reply: string, incomplete = false) => {
+      if (incomplete) {
+        reply = '这次没能接着说完。刚才的步骤可能已经执行，请先核对实际结果，避免重复提交；稍后可以继续。';
+      }
       const quote = (text: string) => text
           .split('\n')
           .map(line => `> ${line}`)
@@ -622,7 +637,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         if (!stale() && !reaction.includes('[[') && labels.length) {
           reaction += '\n' + labels.map(label => `[[${label}]]`).join(' ');
         }
-        reaction = reaction.replace(/我是系统/gu, '我是{{guide.name}}').replace(/^系统(?=[:： ·])/gmu, '{{guide.name}}');
+        reaction = reaction.replace(/我是系统[，,。.!！：:\s]*/gu, '').replace(/^系统(?=[:： ·])/gmu, '{{guide.name}}');
         // In AI mode navigation is expressed by the model's no-prefix options.
         // Preserve authoritative story/results, but do not append slash commands.
         for (const receipt of values) {
@@ -631,7 +646,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
             .filter(line => !/^\s*(?:[^\n]* · )?\/|^(?:可选)?指令：/u.test(line))
             .join('\n')
             .replace(/(?:可|请)?发送\s*[/][^。\n]+[。]?/gu, '')
-            .replace(/我是系统/gu, '我是{{guide.name}}')
+            .replace(/我是系统[，,。.!！：:\s]*/gu, '')
             .replace(/^系统(?=[:： ·])/gmu, '{{guide.name}}');
         }
         const confirmations = confirmationOptions();
@@ -645,6 +660,14 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
             '\n' +
             confirmations +
             ' [[取消本次操作]]';
+        }
+        if (!stale() && session.mode === 'gameplay') {
+          if (!reaction.includes('[[返回玩法目录]]')) {
+            reaction += '\n[[返回玩法目录]]';
+          }
+          if (!reaction.includes('[[退出AI游玩]]')) {
+            reaction += ' [[退出AI游玩]]';
+          }
         }
         noteGuidance('引导者：' + reaction);
       }

@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import { test, after } from 'node:test';
+import axios from 'axios';
+import { Expose, shutdownLogger } from 'alemonjs';
+import { createTestApp } from 'alemonjs/testing';
+import { gameExpose } from '../../src/expose';
+import { isFreshObservation } from '../../src/expose/execution-policy';
+import { gameGuidance } from '../../src/agent-play/game-guidance';
+import { rememberGameplay, guidanceSession, rememberDeliveredDialogue, gameConversationContinuation } from '../../src/agent-play/guidance-session';
+
+after(() => shutdownLogger());
+const config = { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'fixture' } } };
+
+test('real registry supplies play directory, exact effects and explicit observation policy without backend access', async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => { throw new Error('catalog must not read backend'); });
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'play-catalog', text: '看看炼丹' });
+  const run = await app.invoke(event, async () => {
+    const client = Expose.create();
+    const catalog = client.list('xiuxian.player.v1')[0];
+    const result = await client.call('xiuxian.player.v1', 'xiuxian-game', 'get_play_context', {});
+    assert.equal(result.ok, true, JSON.stringify(result));
+    const context = (result as any).data;
+    assert.equal(context.topic, 'alchemy');
+    assert.ok(context.directory.length >= 10);
+    for (const capability of context.capabilities) {
+      assert.equal(capability.effect, catalog.actions[capability.action].effect);
+      assert.equal(capability.description, catalog.actions[capability.action].description);
+    }
+    assert.equal(context.capabilities.find((item: any) => item.action === 'get_alchemy_dashboard').effect, 'write');
+    const policy = await client.call('xiuxian.player.v1', 'xiuxian-game', 'get_execution_policy', {});
+    assert.equal(policy.ok, true);
+    const actions = (policy as any).data.actions;
+    assert.ok(actions.length > 128, 'large game policy must not be artificially capped at 128');
+    assert.ok(actions.some((item: any) => item.action === 'get_alchemy_recipes' && item.mode === 'fresh'));
+    assert.ok(actions.some((item: any) => item.action === 'get_forge_overview' && item.mode === 'fresh'));
+    for (const name of ['confirm_alchemy', 'confirm_forge', 'start_meditation', 'get_alchemy_dashboard']) {
+      assert.equal(isFreshObservation(name), false, name);
+      assert.ok(!actions.some((item: any) => item.action === name && item.mode === 'fresh'));
+    }
+  }, 'ai-plugin');
+  assert.deepEqual(run.errors, []);
+});
+
+for (const registered of [true, false]) test(`ordinary gameplay respects authoritative registration without forcing tutorial: registered=${registered}`, async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const requests: string[] = [];
+  t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+    requests.push(request.url);
+    assert.ok(request.url.includes('/identity'), 'ordinary play bootstrap must not advance/read the prologue cursor');
+    return { status: 200, headers: {}, data: JSON.stringify({ data: { bid: 'play-identity', account: registered ? { status: 'registered', playerId: 123 } : { status: 'unregistered', playerId: null } } }) };
+  } }));
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'play-identity', messageId: `bootstrap-${registered}`, text: '看看背包材料' });
+  const run = await app.invoke(event, async () => {
+    const tools = [{ name: 'expose_read', execute: (args: any, context: any) => Expose.create().call(args.protocol, args.provider, args.action, JSON.parse(args.argumentsJson), { signal: context.signal }) }];
+    const flow = gameGuidance(tools, event.MessageText);
+    const prompt = await flow.prepare({ signal: new AbortController().signal });
+    assert.match(prompt, /修仙玩法接续资料/);
+    assert.equal((guidanceSession()?.state as any).flow, registered ? 'gameplay' : 'registration');
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(run.errors, []);
+  assert.equal(requests.length, 1);
+});
+
+for (const text of ['查看材料', '返回玩法目录', '继续新手引导', '选择这本功法']) test(`delivered navigation participates in plugin routing: ${text}`, async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: `navigation-${encodeURIComponent(text)}`, text });
+  const run = await app.invoke(event, async () => {
+    rememberGameplay('get_inventory', { ok: true, data: { items: [] } }, '系统', { category: 'material', page: 2 }, 'inventory');
+    rememberDeliveredDialogue(`[[${text}]]`);
+    const state = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'get_play_context', {});
+    assert.equal(state.ok, true);
+    assert.equal((state as any).data.current.lastArgumentsJson, '{"category":"material","page":2}');
+    const route = await Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'route_conversation', gameConversationContinuation());
+    assert.equal((route as any).data.decision, 'matched');
+  }, 'alemonjs-agent-link');
+  assert.deepEqual(run.errors, []);
+});
+
+for (const text of ['帮我买手机', '帮我写修仙代码', '翻译这份炼丹介绍', '今天吃什么']) test(`game conversation does not capture unrelated requests: ${text}`, async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'other-topic', text }), () => Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'route_conversation', { active: false }), 'alemonjs-agent-link');
+  assert.equal((result.value as any).data.decision, 'unmatched');
+});

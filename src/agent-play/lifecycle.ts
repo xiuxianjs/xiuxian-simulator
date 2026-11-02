@@ -1,9 +1,19 @@
 import { Expose, getCurrentEvent, type ExposeCallContext, type ExposeProvideConfig } from 'alemonjs';
 import { authorizedEvent } from '../expose/access';
 import { boolean, list, object, text } from '../expose/schema';
+import { isPlayDirectoryRequest, playDirectoryText } from './play-context';
 import { gameGuidance } from './game-guidance';
 import { captureGamePresentation, advanceGamePresentation } from './game-progress';
-import { isGuidanceRequest, gameConversationContinuation, guidanceSession, noteGuidance, endGuidance, rememberGameReply } from './guidance-session';
+import {
+  isGuidanceRequest,
+  gameConversationContinuation,
+  guidanceSession,
+  noteGuidance,
+  endGuidance,
+  rememberGameReply,
+  rememberDeliveredDialogue,
+  rememberGuidance
+} from './guidance-session';
 import { acknowledgeConfirmationOptions, isGameConfirmationChoice, pendingBusinessCancellations, pendingBusinessCancellationNotice } from './game-confirmation';
 import { routePluginConversation } from './conversation-routing';
 import type { AgentTool } from './types';
@@ -87,6 +97,13 @@ export const conversationLifecycle: ExposeProvideConfig = {
           session.offers = [];
 
           return { decision: 'reply', prompt: '', reply: '已取消本次对话中的待确认选择。已执行的操作不会撤销，请按需核对原结果。' };
+        }
+        if (isPlayDirectoryRequest(message) && input.aiEnabled) {
+          if (!session) {
+            rememberGuidance({ flow: 'gameplay', directoryOnly: true });
+          }
+
+          return { decision: 'reply', prompt: '', reply: playDirectoryText() };
         }
         const decision = await routePluginConversation('xiuxian.player.v1', 'xiuxian-game', gameConversationContinuation());
 
@@ -200,13 +217,13 @@ export const conversationLifecycle: ExposeProvideConfig = {
         return { recorded: true };
       }
     }),
-    render: Expose.action<{ text: string }, unknown>({
-      description: '按实际回执呈现剧情结果与选择',
+    render: Expose.action<{ text: string; incomplete?: boolean }, unknown>({
+      description: '按实际回执呈现剧情结果与选择；模型未完成时仍保留已产生的结果。',
       effect: 'write',
-      inputSchema: object({ text }),
+      inputSchema: object({ text, incomplete: boolean }, ['incomplete']),
       outputSchema: object({ text, stale: boolean }),
       authorize,
-      handler: input => ({ text: current().append(input.text), stale: current().isStale() })
+      handler: input => ({ text: current().append(input.text, input.incomplete), stale: current().isStale() })
     }),
     delivered: Expose.action<{ text: string; receipts: { id: string; referenceId?: string }[] }, unknown>({
       description: '平台成功回执后才确认选项已送达',
@@ -216,6 +233,7 @@ export const conversationLifecycle: ExposeProvideConfig = {
       authorize,
       handler: input => {
         acknowledgeConfirmationOptions(input.text);
+        rememberDeliveredDialogue(input.text);
         for (const receipt of input.receipts) {
           rememberGameReply(receipt);
         }

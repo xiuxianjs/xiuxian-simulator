@@ -199,11 +199,14 @@ test('plugin execution policy declares only registered write actions without bac
   if (result.value.policy.ok) {
     const data = result.value.policy.data as any;
     assert.equal(data.protocol, 'plugin-execution-policy.v1');
-    assert.deepEqual(data.actions, [
+    assert.deepEqual(data.actions.filter((item: any) => ['get_onboarding', 'continue_registration_guide', 'perform_onboarding_action'].includes(item.action)), [
       { action: 'get_onboarding', mode: 'fresh' },
       { action: 'continue_registration_guide', mode: 'operation', keyField: 'intentId' },
       { action: 'perform_onboarding_action', mode: 'operation', keyField: 'intentId' }
     ]);
+    assert.ok(data.actions.some((item: any) => item.action === 'get_alchemy_recipes' && item.mode === 'fresh'));
+    assert.ok(!data.actions.some((item: any) => item.action === 'confirm_alchemy'));
+    assert.equal(new Set(data.actions.map((item: any) => item.action)).size, data.actions.length);
     for (const declaration of data.actions) {
       const action = result.value.definition!.actions[declaration.action];
       assert.equal(action.effect, 'write');

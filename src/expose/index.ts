@@ -1,3 +1,4 @@
+import { bindExecutionPolicies } from './execution-policy';
 import { conversationLifecycle } from '../agent-play/lifecycle';
 import { Expose } from 'alemonjs';
 import { getBackendAttributePanel } from '../api/bot/attribute-panel';
@@ -128,7 +129,7 @@ export const gameExpose = Expose.create()
   .provide(conversationLifecycle)
   .provide({
     name: GAME_EXPOSE_PROTOCOL,
-    version: '1.325.0',
+    version: '1.326.0',
     description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
     actions: {
       ...guidanceFlowActions,
@@ -288,3 +289,6 @@ export const gameExpose = Expose.create()
       })
     }
   });
+
+// Bind explicit observation declarations to their exported names, never name heuristics.
+bindExecutionPolicies(gameExpose.getConfigs());

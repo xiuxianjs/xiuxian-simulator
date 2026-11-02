@@ -1,3 +1,4 @@
+import { declareFreshObservation } from './execution-policy';
 import { conversationPreview } from './conversation-preview';
 import { gameGuidePresentation, onboardingPresentationSchema } from './onboarding-presentation';
 import { Expose, ExposeError, type ExposeReadonly, type ExposeValueSchema } from 'alemonjs';
@@ -63,7 +64,11 @@ export function observation<I extends Record<string, unknown>>(
   argumentsFor: (input: I, event: GameEvent) => Record<string, unknown> = input => input,
   validateInput?: (input: ExposeReadonly<I>) => void
 ) {
-  return mutation(description, operation, inputSchema, resultSchema, command, decode, argumentsFor, validateInput, { freshRead: true });
+  const action = mutation(description, operation, inputSchema, resultSchema, command, decode, argumentsFor, validateInput, { freshRead: true });
+
+  declareFreshObservation(action.handler);
+
+  return action;
 }
 
 export const replySchema = object(

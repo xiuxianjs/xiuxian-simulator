@@ -647,7 +647,7 @@ export function acknowledgeConfirmationOptions(text: string): void {
   const rendered = [...text.matchAll(/\[\[([^\]\n[]{1,24})\]\]/gu)]
     .map(match => match[1].trim())
     .filter(label => label && !/^[/#!！＃]/u.test(label))
-    .slice(0, 20);
+    .slice(0, 100);
 
   for (const offer of guidanceSession()?.offers ?? []) {
     if (rendered.includes(offer.label)) {

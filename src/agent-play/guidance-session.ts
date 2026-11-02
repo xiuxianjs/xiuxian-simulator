@@ -15,6 +15,9 @@ export type GameOffer = {
   submitted: boolean;
 };
 type Session = {
+  dialogueChoices?: string[];
+  dialogueMessageId?: string;
+  play?: { topic?: string; lastAction: string; argumentsJson: string; outcome: string };
   lastGameMessageId?: string;
   replyReferences?: string[];
   offers?: GameOffer[];
@@ -52,6 +55,9 @@ export function rememberGuidance(state: unknown, narrator = '系统'): void {
 
   sessions.delete(id);
   sessions.set(id, {
+    dialogueChoices: previous?.dialogueChoices,
+    dialogueMessageId: previous?.dialogueMessageId,
+    play: previous?.play,
     lastGameMessageId: event.MessageId,
     replyReferences: previous?.replyReferences,
     offers: previous?.offers,
@@ -96,7 +102,7 @@ export function isGuidanceRequest(text: string): boolean {
 
 // Conversation context only. Original provider receipts remain authoritative;
 // large results must be queried again instead of storing a truncated payload.
-export function rememberGameplay(action: string, result: unknown, narrator = '系统'): void {
+export function rememberGameplay(action: string, result: unknown, narrator = '系统', input?: unknown, topic?: string): void {
   const previous = guidanceSession();
 
   if (!previous) {
@@ -108,11 +114,20 @@ export function rememberGameplay(action: string, result: unknown, narrator = '�
     return;
   }
   session.mode = 'gameplay';
+  const row = result as { ok?: boolean; data?: { success?: boolean }; error?: { outcome?: string } };
+
+  session.play = {
+    topic: topic ?? session.play?.topic,
+    lastAction: action,
+    argumentsJson: input === undefined || JSON.stringify(input).length > 12000 ? '' : JSON.stringify(input),
+    outcome: row?.ok === true && row.data?.success !== false ? 'returned' : (row?.error?.outcome ?? 'rejected_or_unknown')
+  };
   session.lastGameMessageId = getCurrentEvent()?.MessageId;
   const serialized = JSON.stringify(result) ?? 'null';
 
   const receipt = JSON.stringify({
     action,
+    ...(input !== undefined ? { arguments: input } : {}),
     receipt: serialized.length <= 12000 ? result : { omitted: true, reason: '结果较大，后续操作前重新查询对应玩法。' }
   });
 
@@ -143,6 +158,23 @@ export function gameConversationContinuation() {
     active: Boolean(session),
     ...(typeof state?.flow === 'string' ? { flow: state.flow } : {}),
     hasNameDraft: Boolean(session?.registrationName),
-    choices: (state?.dialogue?.choices ?? []).filter((choice): choice is string => typeof choice === 'string').slice(0, 32)
+    choices: [...new Set([...(state?.dialogue?.choices ?? []), ...(session?.dialogueChoices ?? [])])]
+      .filter((choice): choice is string => typeof choice === 'string')
+      .slice(0, 100)
   };
+}
+
+/** Record only navigation text that has an actual successful platform receipt. */
+export function rememberDeliveredDialogue(text: string): void {
+  const session = guidanceSession();
+
+  if (!session) {
+    return;
+  }
+  const messageId = getCurrentEvent()?.MessageId;
+  const previous = session.dialogueMessageId === messageId ? (session.dialogueChoices ?? []) : [];
+  const labels = [...text.matchAll(/\[\[([^\]\n[]{1,24})\]\]/gu)].map(match => match[1].trim()).filter(label => label && !/^[/#!！＃]/u.test(label));
+
+  session.dialogueChoices = [...new Set([...previous, ...labels])].slice(0, 100);
+  session.dialogueMessageId = messageId;
 }
