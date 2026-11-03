@@ -116,3 +116,15 @@ test('无效目标编号不能生成看似可用的目标跳转', async t => {
   assert.ok(!view.commands.some(command => command.startsWith('/查看灵田 ')));
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
 });
+
+ test('本人暂无成熟灵植不误报部分失败', async t => {
+ const { app } = await gameFixture(t, request => businessEnvelope(request.bid, { message: '收割：暂无成熟灵植' }));
+ const result = await app.runHandler(tend, app.events.groupMessage({ text: '/一键打理灵田', platform: 'qq-bot' }));
+ assert.equal(result.messages.length, 1);
+ const message = result.messages[0];
+ const view = inspectMessage(message.nodes);
+ assert.ok(view.text.includes('收割：暂无成熟灵植'));
+ assert.ok(!view.text.includes('部分失败'));
+ assert.ok(view.commands.includes('/我的灵田'));
+ assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+ });

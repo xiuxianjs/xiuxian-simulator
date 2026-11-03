@@ -41,7 +41,7 @@ export default onResponse(selects, async e => {
     const operation = companion ? 'cave.companion-tend-all' : 'cave.tend-all';
     const lines = loaded.data.message.split('\n');
     const tips = lines.flatMap(line => caveRecoveryTips(operation, line));
-    const failedStep = lines.some(line => /^(浇灌|除虫|除草|收割)：/.test(line) && !/^(浇灌|除虫|除草)：\d+ 项$/.test(line));
+    const failedStep = lines.some(line => /^(浇灌|除虫|除草|收割)：/.test(line) && line !== '收割：暂无成熟灵植' && !/^(浇灌|除虫|除草)：\d+ 项$/.test(line));
 
     if (failedStep && !tips.length) {
       tips.push(...caveRecoveryTips(operation, '操作失败，请稍后重试'));
