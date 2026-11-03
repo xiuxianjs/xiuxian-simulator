@@ -51,6 +51,20 @@ for (const privateChat of [false, true]) {
   });
 }
 
+test('权益首页里程碑境界未达标时显示后端门槛原因，不吞成状态暂未获取', async t => {
+  const data = rights();
+  const locked = { code: 'FEATURE_REALM_LOCKED', message: '需达到筑基初期后开放世界里程碑' };
+  const { app } = await gameFixture(
+    t,
+    request => (request.path.endsWith('/recharge/world-milestones') ? locked : request.path.includes('/membership.rights') ? businessEnvelope(request.bid, data) : {}),
+    request => (request.path.endsWith('/recharge/world-milestones') ? 403 : 200)
+  );
+  const result = await app.runHandler(rightsHandler, app.events.privateMessage({ text: '/我的权益', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.match(view.text, /世界里程碑[\s\S]*需达到筑基初期后开放世界里程碑/);
+});
+
 test('月卡可领按钮在对应引用块，详情日历沿用七天分页且不补查概要', async t => {
   const data = rights(); data.monthCard.daily.claimableCount = 2;
   const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
