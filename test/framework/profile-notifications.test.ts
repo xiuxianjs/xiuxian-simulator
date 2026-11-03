@@ -94,7 +94,7 @@ for (const guildName of ['青云宗', null, undefined]) {
 
 for (const privateChat of [false, true]) {
   for (const active of [true, false, undefined]) {
-    test(`资料道号仅为有效月卡输出QQ彩色字：私聊=${privateChat}，月卡=${String(active)}`, async t => {
+    test(`资料不输出 QQ Markdown 不支持的 LaTeX 彩色字：私聊=${privateChat}，月卡=${String(active)}`, async t => {
       const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, {
         profile: { ...profile, homeView: { ...profile.homeView, hasMonthCard: active } },
         notifications: [], atmosphere: { text: null, kind: 'none' }
@@ -104,22 +104,19 @@ for (const privateChat of [false, true]) {
       assert.deepEqual(result.errors, []);
       assert.equal(result.messages.length, 1);
       assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+      const view = inspectMessage(result.messages[0].nodes);
       const nodes = JSON.stringify(result.messages[0].nodes);
-      if (active) {
-        for (const [color, letter] of [['#FF3333', '测'], ['#FF7733', '试'], ['#FFDD33', '道'], ['#AAFF33', '友']]) {
-          assert.ok(nodes.includes(JSON.stringify(`\\color{${color}}{\\text{${letter}}}`).slice(1, -1)), nodes);
-        }
-      } else {
-        assert.doesNotMatch(nodes, /textcolor|\\\\color\{/);
-        assert.match(inspectMessage(result.messages[0].nodes).text, /道号：测试道友/);
-      }
-      assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/改名 测试道友'));
+      // QQ 官方 Markdown 只支持标题/样式/链接/图片/列表/引用/分割线，公式会原样显示为乱码。
+      assert.doesNotMatch(nodes, /textcolor|\\\\color\{|\\\\text\{/, nodes);
+      assert.match(view.text, /UID: 1 /);
+      assert.match(view.text, /道号：测试道友/);
+      assert.ok(view.commands.includes('/改名 测试道友'));
       assert.equal(requests.length, 1);
     });
   }
 }
 
-test('彩色道号转义公式字符，不拆开组合emoji，也不改动改名参数', async t => {
+test('道号按普通文本展示，不生成 LaTeX 节点，也不改动改名参数', async t => {
   const name = 'A$\\{👩‍🚀';
   const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
     profile: { ...profile, user: { ...profile.user, name }, homeView: { ...profile.homeView, hasMonthCard: true } },
@@ -128,11 +125,10 @@ test('彩色道号转义公式字符，不拆开组合emoji，也不改动改名
   const result = await app.runHandler(handler, app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' }));
   assert.equal(result.messages.length, 1);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
-  const raw = JSON.stringify(result.messages[0].nodes);
-  assert.ok(raw.includes(JSON.stringify('\\text{👩‍🚀}').slice(1, -1)));
-  assert.ok(raw.includes(JSON.stringify('\\text{\\$}').slice(1, -1)));
-  assert.ok(raw.includes(JSON.stringify('\\text{\\textbackslash{}}').slice(1, -1)));
-  assert.ok(inspectMessage(result.messages[0].nodes).commands.includes(`/改名 ${name}`));
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.doesNotMatch(JSON.stringify(result.messages[0].nodes), /\\\\color\{|\\\\text\{/);
+  assert.ok(view.text.includes(name));
+  assert.ok(view.commands.includes(`/改名 ${name}`));
 });
 
 test('非QQ平台的月卡用户保留普通道号', async t => {
@@ -147,3 +143,19 @@ test('非QQ平台的月卡用户保留普通道号', async t => {
   assert.doesNotMatch(JSON.stringify(result.messages[0].nodes), /textcolor|\\\\color\{/);
   assert.match(inspectMessage(result.messages[0].nodes).text, /道号：测试道友/);
 });
+
+for (const privateChat of [false, true]) {
+  test(`资料暂不展示个性签名（${privateChat ? '私聊' : '群聊'}）`, async t => {
+    const signature = '仙之巅傲世间，有我柠檬才有天！';
+    const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
+      profile: { ...profile, user: { ...profile.user, signature } },
+      notifications: [], atmosphere: { text: null, kind: 'none' }
+    }));
+    const input = { text: '/我的资料', platform: 'qq-bot' };
+    const result = await app.runHandler(handler, privateChat ? app.events.privateMessage(input) : app.events.groupMessage(input));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.ok(!inspectMessage(result.messages[0].nodes).text.includes(signature));
+  });
+}

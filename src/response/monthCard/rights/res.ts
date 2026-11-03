@@ -8,6 +8,7 @@ import { createBackendRequestContext } from '@src/api/bot/context';
 import { getBackendFirstRechargeInfo } from '@src/api/bot/first-recharge-queries';
 import { getBackendWorldMilestoneView } from '@src/api/bot/world-milestone-queries';
 import { selects } from '@src/response/config';
+import { getCommandBusinessErrorMessage } from '@src/utils/commandError';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { formatGameTime, formatGameDate } from '@src/utils/gameTime';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
@@ -252,7 +253,8 @@ export default onResponse(selects, async e => {
           ? world.value.code === 'VIEW'
             ? `全服 ${world.value.worldCountText} 人 · ${countText(world.value.unclaimedCount)}`
             : '暂无里程碑配置'
-          : '状态暂未获取'
+          : // 境界门槛是后端明确返回的业务原因，可以展示；其它错误仍不猜原因。
+            (getCommandBusinessErrorMessage(world.reason) ?? '状态暂未获取')
       ],
       [
         { label: '详情', command: '/里程碑' },
