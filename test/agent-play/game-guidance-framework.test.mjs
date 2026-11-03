@@ -48,7 +48,7 @@ for (const scenario of ['personality', 'player-language', 'model-failure', 'deli
         assert.ok(returned.some(value => value.ok === false && value.error.code === 'DUPLICATE_WRITE'));
       }
       if (['model-failure', 'middleware-model-failure'].includes(scenario)) return Response.json({ error: { message: 'fixture-model-down' } }, { status: 401 });
-      return Response.json({ choices: [{ message: { content: scenario === 'scene-echo' ? panel : scenario === 'player-language' ? '先稳住，按你的节奏来。宝箱 claimed: true，其他宝箱 claimed=false、unlocked=false。' : '先稳住，按你的节奏来。' } }] });
+      return Response.json({ choices: [{ message: { content: scenario === 'scene-echo' ? panel : scenario === 'player-language' ? '先稳住，按你的节奏来。宝箱已领取，其他宝箱尚未领取、尚未解锁。' : '先稳住，按你的节奏来。' } }] });
     };
     try {
       const result = await app.runHandler(async () => {
@@ -77,8 +77,9 @@ for (const scenario of ['personality', 'player-language', 'model-failure', 'deli
       else assert.ok(sent.includes('修为：25/200'));
       if (!['model-failure', 'middleware-model-failure', 'scene-echo', 'continuation-only'].includes(scenario)) assert.equal(sent.split('按你的节奏来').length - 1, 1);
       if (scenario === 'player-language') { assert.match(sent, /已领取/u); assert.match(sent, /尚未领取、尚未解锁/u); assert.doesNotMatch(sent, /claimed|unlocked/u); }
-      if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); assert.ok(sent.includes('返回玩法目录')); assert.ok(sent.includes('暂离')); }
-      if (scenario === 'continuation-only') { assert.ok(!sent.includes('按你的节奏来')); assert.equal(sent.split('修为：25/200').length - 1, 1); }
+      if (scenario === 'model-failure') { assert.doesNotMatch(sent, /避免重复提交|后续模型请求|这次没能接着说完|返回玩法目录|暂离/u); assert.equal(sent.split('修为：25/200').length - 1, 1); }
+      // The provider no longer deletes an independent model sentence.
+      if (scenario === 'continuation-only') { assert.equal(sent.split('按你的节奏来').length - 1, 1); assert.equal(sent.split('修为：25/200').length - 1, 1); }
       if (scenario === 'scene-echo') assert.equal(sent.split('修为：25/200').length - 1, 1);
       if (scenario === 'scene-order') assert.ok(sent.indexOf('修为：25/200') < sent.indexOf('先稳住'));
       if (scenario === 'retry') assert.equal(sent.split('修为：25/200').length - 1, 1);

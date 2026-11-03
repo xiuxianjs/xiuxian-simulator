@@ -89,7 +89,8 @@ export function playContext(request: string, requestedTopic?: string) {
       lastArgumentsJson: session?.play?.argumentsJson ?? '',
       lastOutcome: session?.play?.outcome ?? '',
       deliveredChoices: session?.dialogueChoices ?? [],
-      recentReceipts: session?.receipts ?? []
+      recentReceipts: session?.receipts ?? [],
+      ...(session?.deliveredLesson ? { lesson: session.deliveredLesson } : {})
     },
     // Complete schemas remain discoverable through the tool bridge. Keep this
     // turn's index small; counts make truncation explicit instead of hiding it.
@@ -101,8 +102,9 @@ export function playContext(request: string, requestedTopic?: string) {
       required: meta.inputSchema?.type === 'object' ? (meta.inputSchema.required ?? []) : []
     })),
     rules: [
-      'planning是本次目标的步骤建议，不是执行授权。actions只列当前已注册能力，missingActions不可调用。先读get_tianshu了解服务端当前设计，再核对实时状态；没有预约执行回执不能承诺定时操作。',
+      'planning是本次目标的步骤建议，不是执行授权。actions只列当前已注册能力，missingActions不可调用。需要玩法规则时读取get_tianshu，需要角色条件时读取对应实时状态；没有预约执行回执不能承诺定时操作。',
       '目录说明插件已公开哪些能力，不代表当前角色已解锁。先查询对应玩法实时状态；按实际effect选择工具，名字带get或prepare也可能改变状态。',
+      'current.lesson只记录已投递教学版本和动作，属于历史证据，不是实时状态或授权。玩家明确选择对应教学动作时沿用原version与command，服务端拒绝陈旧版本则重新查询，不自动替换版本后执行。',
       '先理解本次目标，再查状态和对象。缺少对象、数量或分支时每次问一个必要问题；名字重复或“第二个”不能唯一对应最近已展示对象时先澄清。',
       '已投递普通选项只用于理解上下文，不构成消费凭据。下一步必须使用真实查询结果中的对象和参数；重要写入仍走原预览与确认。',
       'current与recentReceipts是历史资料，不能据此声称当前库存、价格或操作已成功。结果不明时先核对原结果，不换编号重做。',

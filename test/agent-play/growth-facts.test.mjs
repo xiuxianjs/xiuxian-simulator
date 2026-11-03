@@ -48,7 +48,9 @@ test('conflicting model balance is replaced before the real Markdown send', asyn
       return { ok: false, error: { code: 'fixture-unavailable' } };
     } }));
     const engine = gameGuidance(tools, '如何快速升级');
-    await engine.prepare({ signal: new AbortController().signal });
+    const ctx = { signal: new AbortController().signal };
+    await engine.prepare(ctx);
+    for (const { action } of facts) await tools.find(tool => tool.name === 'expose_write').execute({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action, argumentsJson: '{}' }, ctx);
     const text = engine.append('你现在灵石0，所以什么也做不了。[[返回玩法目录]]');
     const durationText = engine.append('闭关默认每15分钟给6.25修为，一天最多12小时。[[返回玩法目录]]');
     assert.match(durationText, /7200分钟，即120小时/u);

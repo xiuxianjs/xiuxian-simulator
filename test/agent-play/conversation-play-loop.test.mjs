@@ -53,12 +53,12 @@ test('multi-turn play remembers delivered choices and real arguments, stays in g
         await handler();
         assert.equal(guidanceSession().mode, 'gameplay');
         assert.ok(guidanceSession().dialogueChoices.includes('再看一些'), JSON.stringify({ round, calls, reads, session: guidanceSession() }));
-        assert.ok(guidanceSession().dialogueChoices.includes('返回玩法目录'));
+        assert.ok(!guidanceSession().dialogueChoices.includes('返回玩法目录'));
         assert.equal(JSON.parse(guidanceSession().play.argumentsJson).page, round + 1);
       }, event, 'alemonjs-agent-link');
       assert.deepEqual(run.errors, []);
       assert.equal(run.nextCalls.length, 0);
-      assert.match(JSON.stringify(run.messages.map(message => message.nodes)), /返回玩法目录/);
+      assert.doesNotMatch(JSON.stringify(run.messages.map(message => message.nodes)), /返回玩法目录|暂离/);
       assert.ok(!run.messages.some(message => /\/(?:我|继续引导|背包)/u.test(message.text)));
       assert.ok(run.messages.every(message => run.actions[message.actionIndex].results.every(receipt => receipt.code === 2000)));
     }
@@ -68,7 +68,7 @@ test('multi-turn play remembers delivered choices and real arguments, stays in g
     assert.equal(calls, count, 'directory navigation cannot submit or replay a business operation');
     assert.match(JSON.stringify(menu.messages[0].nodes), /背包与装备/);
     assert.deepEqual(reads, [1, 2]);
-    assert.equal(stateReads, 2);
+    assert.equal(stateReads, 0, 'inventory requests must not bootstrap tutorial state');
     const exitEvent = app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: 'play-human', messageId: 'manual', text: '/我' });
     const manual = await app.runHandler(handler, exitEvent, 'alemonjs-agent-link');
     assert.equal(manual.nextCalls.length, 1);

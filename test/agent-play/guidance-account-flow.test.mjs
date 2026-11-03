@@ -50,7 +50,7 @@ for (const scenario of ['already-registered', 'registration-race', 'lookup-faile
       const outcome = await tools[1].execute({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action, argumentsJson: '{}' }, context);
       if (scenario === 'already-registered') { assert.equal(outcome.error.code, 'ALREADY_REGISTERED'); assert.equal(writes, 0); }
       if (scenario === 'lookup-failed') { assert.equal(outcome.error.code, 'GUIDANCE_STATE_UNAVAILABLE'); assert.equal(writes, 0); return; }
-      if (scenario === 'registration-race') { assert.equal(writes, 1); assert.equal(guidanceSession().state.accountExists, true); assert.ok(reads >= 3); }
+      if (scenario === 'registration-race') { assert.equal(writes, 1); assert.equal(guidanceSession().state.accountExists, true); assert.equal(reads, 2, 'registration checks identity before execution and refreshes the result, without a startup read'); }
       const text = scenario === 'lesson'
         ? '先签到领今天的补给吧。\n领取今日补给 · /签到'
         : '叶飞雨这个号已经有了，我白跑一趟没登记成。发 /我 就能调出来。';
@@ -133,7 +133,11 @@ test('provider flow switches an existing gameplay session into tutorial mode', a
     } }]);
     rememberGameplay('get_inventory', { ok: true });
     const tools = [{ name: 'expose_read', execute: args => Expose.create().call(args.protocol, args.provider, args.action, JSON.parse(args.argumentsJson)) }];
-    await gameGuidance(tools, event.MessageText).prepare({ signal: new AbortController().signal });
+    const engine = gameGuidance(tools, event.MessageText);
+    const ctx = { signal: new AbortController().signal };
+    await engine.prepare(ctx);
+    assert.equal(guidanceSession().mode, 'gameplay');
+    await tools[0].execute({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'get_guidance_state', argumentsJson: JSON.stringify({ conversationMode: 'gameplay' }) }, ctx);
     assert.equal(guidanceSession().mode, 'guidance');
     endGuidance(event);
   }, event, 'alemonjs-agent-link');
@@ -288,8 +292,8 @@ for (const decision of ['matched', 'unmatched', 'ambiguous', 'unavailable']) tes
     const execute = args => Expose.create().call(args.protocol, args.provider, args.action, JSON.parse(args.argumentsJson));
     const flow = gameGuidance([{ name: 'expose_read', execute }], event.MessageText);
     await flow.prepare({ signal: new AbortController().signal });
-    assert.equal(routes, 1);
-    assert.equal(reads, decision === 'matched' ? 1 : 0);
+    assert.equal(routes, 0, 'engine preparation must not reroute the message');
+    assert.equal(reads, 0, 'routing history never authorizes startup state reads');
     if (decision !== 'matched') {
       assert.equal(JSON.stringify(guidanceSession()), before, 'history is not current request ownership');
       assert.equal(flow.hasReceipts(), false);

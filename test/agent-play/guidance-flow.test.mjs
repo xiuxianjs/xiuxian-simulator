@@ -114,10 +114,14 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
     const body = JSON.parse(init.body);
     if (registered !== 'gameplay') assert.ok(body.messages.some(message => typeof message.content === 'string' && message.content.includes('本轮已执行的权威引导状态查询')));
     modelCalls++;
+    if ((registered === 'gameplay' && modelCalls === 3) || (registered !== 'gameplay' && modelCalls === 2)) {
+      assert.ok(body.messages.some(message => typeof message.content === 'string' && /本轮已核实|自然语言和无斜杠选项/u.test(message.content)));
+      return Response.json({ choices: [{ message: { content: registered === 'gameplay' ? '背包已查到。[[查看材料]]' : registered === true ? '角色已经登记好了，剧情尚未推进。[[继续]]' : '直接回复名字就可以。', }, finish_reason: 'stop' }] });
+    }
     if (registered === 'gameplay') return Response.json({ choices: [{ message: modelCalls === 1
       ? { content: null, tool_calls: [{ id: 'inventory-read', type: 'function', function: { name: 'expose_read', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'get_inventory', argumentsJson: '{}' }) } }] }
       : { content: '背包已查到，可以继续选择，也可以退出AI。[[查看材料]] [[退出AI模式]]' }, finish_reason: modelCalls === 1 ? 'tool_calls' : 'stop' }] });
-    return Response.json({ choices: [{ message: { content: registered === true ? '宋玉突然踏破虚空，凭空升仙。[[继续]]' : '道号还是没登记上呀。发“/我是 柠檬”就行，一字不多。' }, finish_reason: 'stop' }] });
+    return Response.json({ choices: [{ message: { content: registered === true ? '角色还没登记，先重新注册。' : '道号还是没登记上呀。发“/我是 柠檬”就行，一字不多。' }, finish_reason: 'stop' }] });
   };
   try {
     const event = app.events.privateMessage({ platform: 'qq-bot', userId: `bootstrap-human-${registered}`, text: registered === 'gameplay' ? '看看背包' : '修仙道号还没登记吗' });
@@ -137,7 +141,7 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
       endGuidance(event);
     }, event, 'alemonjs-agent-link');
     assert.deepEqual(result.errors, []);
-    assert.equal(modelCalls, registered === 'gameplay' ? 2 : 1);
+    assert.equal(modelCalls, registered === 'gameplay' ? 3 : 2);
     const sent = result.messages.map(message => message.text).join('\n');
     assert.ok(!sent.includes('/我是'));
     assert.ok(sent.includes(registered === 'gameplay' ? '背包已查到' : registered === true ? '角色已经登记好了' : '直接回复名字'));
@@ -147,7 +151,8 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
       assert.match(sent, /剧情尚未推进/u);
     }
     const nodes = JSON.stringify(result.messages.map(message => message.nodes));
-    if (registered !== 'delivery-failure') assert.ok(nodes.includes(registered === 'gameplay' ? '暂离' : '退出引导'));
+    if (registered === 'gameplay') assert.ok(nodes.includes('查看材料'));
+    assert.doesNotMatch(nodes, /暂离|退出引导/u);
     assert.ok(!nodes.includes('[[退出引导]]'));
     assert.ok(!/退出\s*AI/iu.test(nodes));
     assert.ok(!result.actions.some(action => action.name === 'message.stream'));
@@ -198,17 +203,8 @@ for (const scenario of ['registration', 'gameplay', 'manual-exit']) test(`model 
     if (scenario === 'manual-exit') assert.equal(result.messages.length, 0, 'old model error must not follow manual takeover');
     else {
       const nodes = JSON.stringify(result.messages.map(message => message.nodes));
-      assert.ok(nodes.includes(scenario === 'registration' ? '/踏入仙途' : '/我'));
-      assert.ok(nodes.includes('已经提交的操作不会因此撤销'));
-      assert.ok(nodes.includes('不要直接重复消费'));
-      assert.ok(nodes.includes('返回玩法目录'));
-      assert.ok(nodes.includes('暂离'));
-      assert.ok(!/退出\s*AI|等待 AI|切回原始玩法/u.test(nodes));
-      const buttons = result.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])).filter(node => node.type === 'MD.button');
-      for (const label of ['返回玩法目录', '暂离']) {
-        assert.ok(buttons.some(button => button.options?.data === label && button.options.autoEnter === false), JSON.stringify(buttons));
-      }
-      assert.ok(!nodes.includes('[[返回玩法目录]]') && !nodes.includes('\\\\[\\\\[返回玩法目录'));
+      assert.doesNotMatch(nodes, /已经提交的操作不会因此撤销|不要直接重复消费|返回玩法目录|暂离|退出\s*AI/u);
+      assert.ok(result.messages.some(message => message.text.trim()));
       const modelCalls = calls;
       for (const text of ['返回玩法目录', '暂离', '退出AI游玩']) {
         const recoveryEvent = app.events.privateMessage({ platform: 'qq-bot', userId: `failure-${scenario}`, messageId: `recover-${text}-${calls}`, text });

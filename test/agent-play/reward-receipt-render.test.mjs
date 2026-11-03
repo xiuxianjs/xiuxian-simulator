@@ -45,6 +45,6 @@ for (const [label, receipt, expected] of [
   assert.match(text, expected);
   assert.doesNotMatch(text, /本轮奖励已经到账|尚未执行领取|退出AI|\[\[/u);
   const buttons = run.messages.flatMap(message => message.nodes).flatMap(node => node.type === 'Markdown' ? node.value.filter(item => item.type === 'MD.button') : []);
-  assert.ok(buttons.length > 0);
+  assert.equal(buttons.length, 0, 'uncertain result must not invent a generic navigation footer');
   assert.ok(buttons.every(button => !button.options.data.startsWith('/') && button.options.autoEnter === false));
 });

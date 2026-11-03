@@ -44,7 +44,6 @@ for (const embedded of [false, true]) test(`server commands survive real guidanc
   if (embedded) assert.ok(rendered.indexOf('境界提升：炼气一层 → 炼气二层') < rendered.indexOf('学习分支0'));
   const buttons = run.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])).filter(node => node.type === 'MD.button');
   const expected = [...view.actions, ...view.entries, ...items.slice(0, 6)].map(item => item.command.slice(1));
-  if (embedded) expected.push('返回玩法目录', '暂离');
   assert.deepEqual(new Set(buttons.filter(button => !button.options.data.startsWith('引导目录分页 ')).map(button => button.options.data)), new Set(expected));
   assert.ok(buttons.every(button => !button.options.data.startsWith('/') && button.options.autoEnter === false));
   let navigation = buttons.find(button => button.options.data.startsWith('引导目录分页 ')).options.data;
@@ -124,7 +123,8 @@ for (const incomplete of [false, true]) test(`original operation receipt precede
   }, app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: `receipt-order-${incomplete}`, text: '领取补给' }), 'alemonjs-agent-link');
   assert.deepEqual(run.errors, []);
   const text = run.messages.map(message => message.text).join('\n');
-  assert.ok(text.indexOf('领取结果：已领取') < text.indexOf(incomplete ? '这次没能' : '补给收好了'), text);
+  if (incomplete) assert.doesNotMatch(text, /这次没能|返回玩法目录|暂离/u);
+  else assert.ok(text.indexOf('领取结果：已领取') < text.indexOf('补给收好了'), text);
   assert.ok(text.indexOf('奖励：灵晶 ×50') < text.indexOf('‹查看主线 1›'), text);
   assert.equal(text.split('奖励：灵晶 ×50').length - 1, 1);
   const buttons = run.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])).filter(node => node.type === 'MD.button');

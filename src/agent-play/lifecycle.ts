@@ -3,7 +3,6 @@ import { authorizedEvent } from '../expose/access';
 import { boolean, list, object, text } from '../expose/schema';
 import { isPlayDirectoryRequest, playDirectoryText, selectPlayTopic } from './play-context';
 import { gameGuidance } from './game-guidance';
-import { isFreshObservation } from '../expose/execution-policy';
 import { captureGamePresentation, advanceGamePresentation } from './game-progress';
 import {
   isGuidanceRequest,
@@ -20,7 +19,7 @@ import { routePluginConversation } from './conversation-routing';
 import type { AgentTool } from './types';
 import { menuPagePattern, onboardingMenuPage, conversationalMenuPage } from '../response/onboarding/menu-pages';
 
-const turns = new Map<string, { engine: ReturnType<typeof gameGuidance>; prompt?: string; selectedAction?: boolean; expires: number }>();
+const turns = new Map<string, { engine: ReturnType<typeof gameGuidance>; prompt?: string; expires: number }>();
 const turnKey = () => {
   const event = getCurrentEvent();
 
@@ -161,12 +160,6 @@ export const conversationLifecycle: ExposeProvideConfig = {
       authorize,
       handler: async (_input, context) => {
         const key = turnKey();
-        const chosenContinuation = getCurrentEvent()?.MessageText?.trim() === '继续' && guidanceSession()?.dialogueChoices?.includes('继续');
-        const selectedText = getCurrentEvent()?.MessageText?.trim() ?? '';
-        const deliveredLesson = guidanceSession()?.deliveredLesson;
-        const lessonChoices = guidanceSession()?.dialogueChoices?.includes(selectedText)
-          ? (deliveredLesson?.actions.filter(action => action.command.startsWith('/') && action.command.slice(1) === selectedText) ?? [])
-          : [];
 
         for (const [id, value] of turns) {
           if (value.expires <= Date.now()) {
@@ -201,62 +194,8 @@ export const conversationLifecycle: ExposeProvideConfig = {
         }
 
         try {
-          let prompt = engine.instruction + (await engine.prepare({ signal: context.signal }));
+          const prompt = engine.instruction + (await engine.prepare({ signal: context.signal }));
           const turn = turns.get(key);
-
-          const state = guidanceSession()?.state as { flow?: string; step?: string; actions?: { label: string; capability: string }[] } | undefined;
-
-          // An already delivered, exact choice needs no model interpretation.
-          // Only the current original prologue action is eligible. Promotion
-          // and completion retain server checks; free text never auto-advances.
-          if (
-            chosenContinuation &&
-            !engine.isStale() &&
-            state?.flow === 'prologue' &&
-            /^prologue_[2345]$/u.test(state.step ?? '') &&
-            state.actions?.filter(action => action.label === '继续' && action.capability === 'continue_registration_guide').length === 1 &&
-            turn?.engine === engine
-          ) {
-            turn.selectedAction = true;
-            const tool = tools.find(tool => tool.name === 'expose_write')!;
-            const receipt = await tool.execute(
-              {
-                protocol: 'xiuxian.player.v1',
-                provider: 'xiuxian-game',
-                action: 'continue_registration_guide',
-                argumentsJson: JSON.stringify({ intentId: 'dialogue-continue' })
-              },
-              { signal: context.signal }
-            );
-
-            prompt +=
-              '\n玩家点击的原剧情选项已由插件尝试一次，以下为实际回执。不要再次推进、换编号重试或编写新剧情；仅依据回执回应：' + JSON.stringify(receipt);
-          }
-
-          if (
-            lessonChoices.length === 1 &&
-            deliveredLesson?.phase !== 'milestone-handoff' &&
-            !engine.isStale() &&
-            state?.flow === 'onboarding' &&
-            turn?.engine === engine &&
-            !turn.selectedAction
-          ) {
-            turn.selectedAction = true;
-            const tool = tools.find(tool => tool.name === 'expose_write')!;
-            const receipt = await tool.execute(
-              {
-                protocol: 'xiuxian.player.v1',
-                provider: 'xiuxian-game',
-                action: 'perform_onboarding_action',
-                argumentsJson: JSON.stringify({ version: deliveredLesson!.version, command: lessonChoices[0].command, intentId: 'dialogue-lesson' })
-              },
-              { signal: context.signal }
-            );
-
-            prompt +=
-              '\n玩家已点击送达的原教学按钮，插件已按该按钮的原版本尝试一次。以下为实际回执，不能重试、换版本、追加操作或重新要求确认：' +
-              JSON.stringify(receipt);
-          }
 
           if (turn?.engine === engine) {
             turn.prompt = prompt;
@@ -278,21 +217,6 @@ export const conversationLifecycle: ExposeProvideConfig = {
       outputSchema: object({ allowed: boolean, rejectionJson: text }),
       authorize,
       handler: async (input, context) => {
-        if (turns.get(turnKey())?.selectedAction) {
-          const meta = Expose.create()
-            .list(input.protocol)
-            .find(provider => provider.name === input.provider)?.actions[input.action];
-
-          if (meta?.effect !== 'read' && !(input.protocol === 'xiuxian.player.v1' && input.provider === 'xiuxian-game' && isFreshObservation(input.action))) {
-            return {
-              allowed: false,
-              rejectionJson: JSON.stringify({
-                ok: false,
-                error: { code: 'SELECTION_ALREADY_HANDLED', outcome: 'not_started', message: '本次选项已尝试执行，请展示原结果，等待玩家下一次选择。' }
-              })
-            };
-          }
-        }
         const denied = await current().beforeCall(input, { signal: context.signal });
 
         return { allowed: !denied, rejectionJson: denied ? JSON.stringify(denied) : '' };
@@ -317,6 +241,14 @@ export const conversationLifecycle: ExposeProvideConfig = {
       outputSchema: object({ accepted: boolean, feedback: text }),
       authorize,
       handler: input => current().review(input.text)
+    }),
+    present: Expose.action<{ incomplete: boolean }, unknown>({
+      description: '仅返回本轮修仙回执、剧情与确认选项，不接收或改写 AI 正文及其他插件内容。',
+      effect: 'write',
+      inputSchema: object({ incomplete: boolean }),
+      outputSchema: object({ text, stale: boolean }),
+      authorize,
+      handler: input => ({ text: current().append('', input.incomplete, true), stale: current().isStale() })
     }),
     render: Expose.action<{ text: string; incomplete?: boolean }, unknown>({
       description: '按实际回执呈现剧情结果与选择；模型未完成时仍保留已产生的结果。',

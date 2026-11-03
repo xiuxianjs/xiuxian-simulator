@@ -130,7 +130,8 @@ export const gameExpose = Expose.create()
   .provide({
     name: GAME_EXPOSE_PROTOCOL,
     version: '1.327.0',
-    description: '当前消息玩家的结构化查询与游戏操作；身份、准入和结算由服务端校验。',
+    description:
+      '修仙游戏：玩法说明、角色注册、修炼、探索、炼丹、宗门和分支教学。先按需读取 get_conversation_contract 的入门说明和能力入口，再查对应玩法；身份、准入和结算由服务端校验。',
     actions: {
       ...guidanceFlowActions,
       ...membershipActions,

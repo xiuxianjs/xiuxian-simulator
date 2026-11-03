@@ -25,7 +25,9 @@ test('actual dialogue renderer preserves slash units, ratios and tables while re
       return { ok: false, error: { outcome: 'not_started' } };
     } }));
     const engine = gameGuidance(tools, '修仙如何快速升级，只分析不执行');
-    await engine.prepare({ signal: new AbortController().signal });
+    const ctx = { signal: new AbortController().signal };
+    await engine.prepare(ctx);
+    await tools.find(tool => tool.name === 'expose_read').execute({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'get_guidance_state', argumentsJson: '{}' }, ctx);
     const reply = engine.append([...facts, '请发送 /签到', '/继续引导', '可选指令：', '领取补给 · /签到', '[[返回玩法目录]]'].join('\n'));
     const receipts = await useMessage()[0].send({ format: createChatReplyFormat(reply, 'qq-bot') });
     assert.ok(receipts.length && receipts.every(receipt => receipt.code === ResultCode.Ok));

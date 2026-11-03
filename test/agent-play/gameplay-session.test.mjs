@@ -32,7 +32,7 @@ test('ordinary gameplay without teaching presentation opens scoped conversation;
     assert.ok(guidanceSession().receipts.some(text => text.includes('get_inventory') && text.includes('count')));
     assert.equal(guidanceSession({ ...event, UserId: 'other' }), undefined);
     const followup = gameGuidance([], '选这个');
-    assert.ok((await followup.prepare({ signal: new AbortController().signal })).includes('普通玩法对话'));
+    assert.ok((await followup.prepare({ signal: new AbortController().signal })).includes('按本次请求按需发现和调用能力'));
     await handler();
     assert.equal(guidanceSession(), undefined);
     assert.equal(flow.isStale(), true);

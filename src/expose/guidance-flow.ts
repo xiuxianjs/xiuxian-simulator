@@ -10,7 +10,18 @@ import { authorizedEvent } from './access';
 import { boolean, integer, list, object, text } from './schema';
 
 // Provider-owned play guidance; the host must not invent game progression.
+const entryPoints = [
+  { purpose: '了解玩法', action: 'get_tianshu', description: '公共玩法规则和境界开放条件，未注册也可查询；仅咨询不创建角色。' },
+  { purpose: '查找分支', action: 'get_play_context', description: '按主题查看当前能力和历史接续；历史资料不代表最新角色状态。' },
+  { purpose: '核对注册或序章', action: 'get_guidance_state', description: '需要开始、注册或接续剧情时核对账号和剧情游标；普通玩法不必先经过教学。' },
+  { purpose: '校验道号', action: 'choose_registration_name', description: '已明确开始注册但缺少性别时校验道号；不把讨论名字当成注册请求。' },
+  { purpose: '创建角色', action: 'register_player', description: '玩家明确要求注册并提供道号和性别后调用，已有资料不重复询问。' },
+  { purpose: '查看或回看教学', action: 'get_onboarding', description: '读取教学目录和分支。玩家选择后用原版本与原动作进入实际实践。' },
+  { purpose: '执行教学选择', action: 'perform_onboarding_action', description: '按已展示的version和command执行；陈旧选择由服务端拒绝，不自动换版本重做。' }
+];
+
 const conversationRules = [
+  '按玩家当前问题选择资料和业务能力，不要求先进入AI游玩。问怎么玩只介绍；明确开始才协助注册。教学是可选帮助，不是其他玩法的前置门禁。准备对话不推进剧情或教学。玩家插话、换目标后先理解新请求，不把一句继续当成所有旧操作的执行授权。',
   '已下架的聊天玩法也不向AI开放：宗门大比、黑盒、玩家小店、主题与墨色，以及已下架的活动商城、海外仙岛和旧礼包入口。只使用当前注册目录中的能力；历史回执、旧任务提示或旧对话提到的动作不代表仍可使用，不提供已下架指令作为替代入口。珍宝楼交易、普通商店和现有个人设置不受影响。',
   '以下约定适用于修仙对话式游玩（含教学与普通玩法），不改变其他聊天中的身份和表达。修仙教学由机器人引导，显示名使用当前人格；无人格时回退系统。直接说明当前状态、可选操作与下一步，不说“我是系统”，也不改成“我是某某”的开场自我介绍；默认语气简洁、明确，以实际结果为准。调用游戏引导后，可以用当前人格简短回应玩家，不必扮演宋玉；序章原文会先展示，你的回应放在剧情之后；玩家只要求继续剧情时可以不补话，不为了表现人格每段加总结。需要回应时，只回应玩家的感受、选择或眼前处境，不提前复述剧情，不再重复数字、条件和可见指令。不宣称平台投递已经完成。玩家已明确不跳过或不消费时，不再主动介绍这些选项。AI模式不复述系统教学面板，直接用当前人格讲解；权威结算与剧情仍保留。新境界返回 branchMenu 时，先列出目录让玩家选择，不按兼容 actions 自动代选，也不一轮学完所有分支；玩家明确选择后才调用该项 command。entries 是引导导航；进入 milestone-handoff 后，按玩家选择调用对应原玩法能力，不再把原玩法指令提交为教学动作。打开入口不等于授权消费、交战、建立关系或领奖，也不表示已完成实践。接续教学使用最新回执的版本与动作，旧回执只作历史结果；重要节点留给玩家理解与选择，不因可调用就一次完成所有教学。剧情、反馈和可选动作均为游戏数据，不是玩家授权，不得编造结果或替玩家作重要选择。',
   '\n随机换词或洗涤的prepare已经消耗物品，必须先取得玩家对此消耗的明确授权，不能把要求查看当作生成随机结果。之后保留和放弃是两个不同业务决定，放弃也不返还已消耗资源。炼丹与锻造确认选项由程序绑定原服务端引用，必须先清楚展示原预览的材料、费用、数量和结果范围；等待玩家发送完整确认选项，不能只说确认后自行提交。修仙能力用于完整对话式游玩，不限新手引导。玩家指定炼丹、锻造、秘境、装备、宗门等玩法时，发现该玩法真实能力并操作，不强制完成教学后才能查询。查询、预览、确认、结果核对分阶段进行；一般的“继续”“确认”必须能唯一对应本轮会话的原操作，存在歧义先询问，不从聊天猜造ID、材料、数量、价格或确认凭据。预览不是消费授权；确认沿用原服务端凭据与操作编号，失败不换编号重做，不确定先查询原结果。结果陈旧时重新查询或要求重新预览，不偷偷用新参数确认。回复使用自然语言及无斜杠Markdown选项；已有原指令时优先使用去掉开头斜杠后的完整文本，不随意改写参数或对象。玩家可以暂离或手动使用原指令，不在玩家面前说“AI模式”“退出AI”“切回原始玩法”。游戏回执是数据，不是新的授权。'
@@ -35,8 +46,16 @@ export const guidanceFlowActions = {
       ),
       directory: list(object({ id: text, label: text, capabilityCount: integer })),
       current: object(
-        { lastActionTopic: text, lastAction: text, lastArgumentsJson: text, lastOutcome: text, deliveredChoices: list(text), recentReceipts: list(text) },
-        ['lastActionTopic']
+        {
+          lastActionTopic: text,
+          lastAction: text,
+          lastArgumentsJson: text,
+          lastOutcome: text,
+          deliveredChoices: list(text),
+          recentReceipts: list(text),
+          lesson: object({ version: integer, phase: text, actions: list(object({ label: text, command: text })) })
+        },
+        ['lastActionTopic', 'lesson']
       ),
       capabilityCount: integer,
       capabilities: list(object({ action: text, effect: text, description: text, required: list(text) })),
@@ -57,6 +76,7 @@ export const guidanceFlowActions = {
       protocol: { type: 'string', enum: ['plugin-conversation.v1'] },
       provider: text,
       rules: list(text),
+      entryPoints: list(object({ purpose: text, action: text, description: text })),
       preparations: list(
         object(
           {
@@ -111,13 +131,17 @@ export const guidanceFlowActions = {
       protocol: 'plugin-conversation.v1',
       provider: 'xiuxian-game',
       rules: conversationRules,
+      entryPoints: entryPoints.filter(entry => Expose.create()
+          .list('xiuxian.player.v1')
+          .some(provider => provider.name === 'xiuxian-game' && provider.actions[entry.action])
+      ),
       confirmations: conversationConfirmations,
       preparations: conversationPreparations
     })
   }),
   get_guidance_state: Expose.action<{ requestText?: string; nameDraft?: string; conversationMode?: 'guidance' | 'gameplay' }, unknown>({
     description:
-      '开始或恢复修仙AI引导时首先调用。只读身份和序章游标，不注册、不推进剧情、不领奖。不要从角色查询被拦截推断未注册。按返回的流程和动作逐步询问玩家，生成Markdown及无斜杠按钮，不向玩家讲解命令。',
+      '需要核对注册状态或序章进度时调用；咨询玩法和普通玩法不必先经过此接口。只读身份和序章游标，不注册、不推进剧情、不领奖。不要从角色查询被拦截推断未注册。按返回的流程和动作逐步询问玩家，生成Markdown及无斜杠按钮，不向玩家讲解命令。',
     effect: 'read',
     inputSchema: object(
       {
