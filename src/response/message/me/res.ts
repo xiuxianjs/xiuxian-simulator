@@ -1,4 +1,3 @@
-import { QQMarkdown } from '@alemonjs/qq-bot/markdown';
 import { getRobotHomeOverview } from '@src/api/bot/robot-business';
 import type { HomeNotificationItem, HomeNotificationType } from '@src/api/schemas/home-notification-query';
 import App from '@src/response-apps/message/me/app';
@@ -12,23 +11,6 @@ import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { measureTransportStage, measureTransportStageSync, transportCheckpoint } from '@src/utils/transportTiming';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
-
-const monthCardNameColors = ['#FF3333', '#FF5533', '#FF7733', '#FF9933', '#FFBB33', '#FFDD33', '#FFFF33', '#AAFF33'];
-
-// Keep names as escaped text inside one inline formula, including emoji clusters.
-const coloredMonthCardName = (name: string) => {
-  const letters = [...new Intl.Segmenter('zh-CN', { granularity: 'grapheme' }).segment(name)].map(part => part.segment);
-
-  return QQMarkdown.math(
-    letters
-      .map((letter, index) => {
-        const color = monthCardNameColors[Math.round((index * (monthCardNameColors.length - 1)) / Math.max(1, letters.length - 1))];
-
-        return QQMarkdown.color(letter, color).slice(1, -1);
-      })
-      .join('')
-  );
-};
 
 const notificationButtonMap: Record<Exclude<HomeNotificationType, 'UNREAD_NOTICE'>, { label: string; command: string }> = {
   UNREAD_EMAIL: { label: '📬待处理邮件', command: '/我的邮件' },
@@ -135,7 +117,6 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
           () => {
             const { data } = res;
             const isEarlyStarter = data.actions.isEarlyStarter;
-            const hasSignature = data.profile.signature.length > 0;
             const pageTitle = data.profile.title !== '无' ? `主页 - ${data.profile.title}` : '主页 - 我的信息';
 
             const noticeButtons: Array<{ label: string; command: string }> = [];
@@ -162,12 +143,7 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               contentMd.addNewline();
             }
 
-            if (e.Platform === 'qq-bot' && data.profile.hasMonthCard) {
-              contentMd.addText('UID: ');
-              contentMd.addContent(coloredMonthCardName(String(data.profile.uid)));
-            } else {
-              contentMd.addText(`UID: ${data.profile.uid} `);
-            }
+            contentMd.addText(`UID: ${data.profile.uid} `);
 
             const socialButtons: { label: string; command: string }[] = [];
 
@@ -184,12 +160,8 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
             appendButtons(contentMd, socialButtons);
             contentMd.addNewline();
 
-            if (e.Platform === 'qq-bot' && data.profile.hasMonthCard) {
-              contentMd.addText('道号：');
-              contentMd.addContent(coloredMonthCardName(data.profile.name));
-            } else {
-              contentMd.addText(`道号：${data.profile.name} `);
-            }
+            // QQ 官方 Markdown 不支持 LaTeX 公式，月卡彩色道号会原样显示为 $\color{...}$ 乱码，统一按普通文本展示。
+            contentMd.addText(`道号：${data.profile.name} `);
             if (data.actions.canUseFifthLayerFeature) {
               socialButtons.push({ label: '结交', command: `/结交 ${data.actions.socialTargetUid}` });
             }
@@ -206,11 +178,9 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               contentMd.addNewline();
             }
 
-            if (!isEarlyStarter && hasSignature) {
-              contentMd.addBlockquote(Format.createMarkdown().addText(data.profile.signature));
-            } else {
-              contentMd.addNewline();
-            }
+            // 个性签名先不在「我的资料」展示：群聊回复对全群可见，待签名展示方案确认后再恢复。
+            // 服务端仍返回 profile.signature，/改签名 功能不受影响。
+            contentMd.addNewline();
 
             contentMd.addText(`战力：${data.stats.combatPower} ✊`);
 
