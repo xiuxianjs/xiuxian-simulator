@@ -64,6 +64,7 @@ export default onResponse(selects, async e => {
           updatedAt: Date.now()
         });
         settings[configuration[1] === '群欢迎' ? 'welcomeEnabled' : 'requestReminders'] = enabled;
+        quote.addText(`结果：本群${configuration[1] === '群欢迎' ? '成员欢迎' : '加群提醒'}已${enabled ? '开启' : '关闭'}。`).addNewline();
       } else if (text !== '群通知管理') {
         throw new Error('请使用 /群通知管理、/配置群欢迎 开启或关闭、/配置加群提醒 开启或关闭、/加群申请记录。');
       }

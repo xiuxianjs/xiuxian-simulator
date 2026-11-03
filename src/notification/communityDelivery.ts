@@ -69,6 +69,8 @@ export function buildCommunityBatch(batch: CommunityBatch) {
       { label: '我的主页', command: '/我' },
       { label: '玩法大厅', command: '/我的活动' }
     ]);
+    quote.addNewline();
+    addOptions(quote, [{ label: '关闭', command: '/配置群欢迎 关闭' }]);
   } else {
     quote.addText(`收到 ${count} 条加群申请事件，请管理员在 QQ 群管理中核实与处理。`).addNewline();
     quote.addText('事件记录不代表申请仍待审核；不会自动审批。').addNewline();

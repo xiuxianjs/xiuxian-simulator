@@ -3,6 +3,7 @@ import { after, test, type TestContext } from 'node:test';
 import axios from 'axios';
 import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
+import community from '../../src/response/notification/community/res';
 import { dispatchCommunityNotifications } from '../../src/notification/communityDelivery';
 import type { CommunityBatch } from '../../src/api/bot/notification-cache';
 
@@ -12,6 +13,7 @@ function fixture(t: TestContext) {
   const batches: CommunityBatch[] = [];
   const absent = new Set<string>();
   const receipts = new Map<string, unknown>();
+  const writes: Record<string, any>[] = [];
   const finished: Array<{ eventId: string; retry: boolean }> = [];
   let enabled = true;
   t.mock.method(axios, 'create', () => ({
@@ -19,6 +21,7 @@ function fixture(t: TestContext) {
       let data: unknown = null;
       if (path.endsWith('/community/claim')) data = batches.shift() ?? null;
       else if (path.endsWith('/community/settings/read')) data = { welcomeEnabled: enabled, requestReminders: false };
+      else if (path.endsWith('/community/settings/write')) { writes.push(body); enabled = body.settings.welcomeEnabled; }
       else if (path.endsWith('/availability/read')) data = { available: !absent.has(body.memberId), updatedAt: 1 };
       else if (path.endsWith('/permission/probe')) data = { previous: '', acquired: false };
       else if (path.endsWith('/permission/read')) data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
@@ -44,7 +47,7 @@ function fixture(t: TestContext) {
     batches.push(value);
     return app.runHandler(dispatchCommunityNotifications, app.events.groupMessage({ platform: 'qq-bot', botId: 'community-bot' }));
   };
-  return { app, batch, run, absent, finished, receipts, disable: () => { enabled = false; } };
+  return { app, batch, run, absent, finished, receipts, writes, disable: () => { enabled = false; } };
 }
 
 function quoteOf(message: { nodes: NonNullable<Parameters<typeof inspectMessage>[0]> }) {
@@ -70,7 +73,7 @@ test('单人欢迎提及真实成员，新老玩家与玩法入口在同一引�
   assert.match(view.text, /愿你在此结识同道，共赴仙途/);
   assert.doesNotMatch(view.text, /欢迎 1 位|新玩家|帮助查看|礼包|UID|登录/);
   assert.deepEqual(quote.filter(node => node.type === 'MD.mention').map(node => node.value), ['new-member']);
-  assert.deepEqual(view.commands, ['/踏入仙途', '/我', '/我的活动']);
+  assert.deepEqual(view.commands, ['/踏入仙途', '/我', '/我的活动', '/配置群欢迎 关闭']);
   assert.ok(quote.filter(node => node.type === 'MD.button').every(node => !node.options?.autoEnter));
   assert.deepEqual(receipts.get(value.eventId), { route: 'group', reason: 'sent' });
   assert.deepEqual(finished, [{ eventId: value.eventId, retry: false }]);
@@ -119,4 +122,38 @@ test('欢迎关闭或成员全部离群时结束批次，不发送空欢迎', as
   disable();
   assert.equal((await run(batch('disabled', ['member']))).messages.length, 0);
   assert.deepEqual(finished, [{ eventId: 'all-left', retry: false }, { eventId: 'disabled', retry: false }]);
+});
+
+test('欢迎按钮往返：普通成员拒绝，群管理关闭指定群，重复关闭不反转，管理页仅显示开启', async t => {
+  const { app, run, batch, writes } = fixture(t);
+  const value = batch('welcome-toggle', ['new-member']);
+  const welcome = await run(value);
+  const command = inspectMessage(welcome.messages[0].nodes).commands.find(command => command === '/配置群欢迎 关闭');
+  assert.ok(command);
+  for (const role of ['member', 'admin', 'admin'] as const) {
+    const result = await app.runHandler(community, {
+      ...app.events.groupMessage({ platform: 'qq-bot', botId: 'community-bot', text: command }),
+      Role: role, Target: value.target
+    });
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    if (role === 'member') {
+      assert.equal(writes.length, 0);
+      assert.match(view.text, /仅本群管理员或群主可操作/);
+    } else {
+      assert.match(view.text, /结果：本群成员欢迎已关闭/);
+      assert.ok(view.commands.includes('/配置群欢迎 开启'));
+      assert.ok(!view.commands.includes('/配置群欢迎 关闭'));
+    }
+  }
+  assert.equal(writes.length, 2);
+  for (const write of writes) {
+    assert.deepEqual(write.target, value.target);
+    assert.equal(write.settings.welcomeEnabled, false);
+  }
+  const stopped = await run(batch('after-disable', ['another-member']));
+  assert.equal(stopped.messages.length, 0);
 });
