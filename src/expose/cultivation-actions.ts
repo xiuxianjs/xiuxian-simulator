@@ -75,7 +75,7 @@ export const cultivationActions = {
     { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
   get_meditation_progress: observationQuery(
-    '查询闭关进度和服务端收益预估；不会启动或结算，预估不代表实际入账。reason 区分未开始和进行中。',
+    '查询闭关进度和服务端收益预估；不会启动或结算，预估不代表实际入账。reason 区分未开始和进行中；not_started时不能把占位的elapsed、dailyRemaining、maxDurationHours零值当成可用收益。maxDurationMinutes与config.MAX_DURATION_MINUTES为单次上限分钟数，除以60才是小时，不是每日时长限制。config中的QI和DAILY_QI_CAP是灵气，不是修为；EXP_PER_INTERVAL是每周期配置修为，不是已到账奖励。',
     object({ ...startFields, reason: { type: 'string', enum: ['not_started', 'active'] } }, ['bonusLines', 'boost', 'button', 'buttonText']),
     async ({ bid, uid, request }) => {
       const raw = await requestBackend(bid, 'get_players_id_meditation_progress', { path: { id: uid }, ...request });

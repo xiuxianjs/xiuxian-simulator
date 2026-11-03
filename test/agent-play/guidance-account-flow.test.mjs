@@ -86,7 +86,7 @@ test('overview remains provider-owned and cannot register in the same inquiry', 
       claim_reward: Expose.action({ effect: 'write', description: 'reward', inputSchema: empty, outputSchema: empty, handler: async () => { writes++; return {}; } })
     } }]);
     registerExpose('other-game', [{ name: 'other.player.v1', description: 'independent provider', actions: {
-      register_player: Expose.action({ effect: 'write', description: 'unrelated registration', inputSchema: empty, outputSchema: empty, handler: async () => { writes++; return {}; } }),
+      register_player: Expose.action({ effect: 'write', description: 'unrelated registration', authorize: () => false, inputSchema: empty, outputSchema: empty, handler: async () => { writes++; return {}; } }),
       get_status: Expose.action({ effect: 'read', description: 'read only', inputSchema: empty, outputSchema: empty, handler: async () => ({}) })
     } }]);
     const execute = args => Expose.create().call(args.protocol, args.provider, args.action, JSON.parse(args.argumentsJson));
@@ -101,8 +101,7 @@ test('overview remains provider-owned and cannot register in the same inquiry', 
     assert.equal(otherWrite.error.code, 'PLUGIN_CHOICE_REQUIRED');
     for (const action of ['register_player', 'unknown_action']) {
       const crossProvider = await tools[1].execute({ protocol: 'other.player.v1', provider: 'other-game', action, argumentsJson: '{}' }, context);
-      assert.equal(crossProvider.error.code, 'PLUGIN_CHOICE_REQUIRED', 'introduction does not authorize another provider or an unknown effect');
-      assert.equal(crossProvider.error.outcome, 'not_started');
+      assert.notEqual(crossProvider.error.code, 'PLUGIN_CHOICE_REQUIRED', 'a game overview cannot impose its flow on another provider');
     }
     const readOnly = await tools[0].execute({ protocol: 'other.player.v1', provider: 'other-game', action: 'get_status', argumentsJson: '{}' }, context);
     assert.equal(readOnly.ok, true);

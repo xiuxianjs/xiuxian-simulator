@@ -59,16 +59,6 @@ for (const [request, expected] of cases) test(`real action catalogue selects the
     } else if (request.includes('不考虑秘境')) {
       assert.doesNotMatch(prompt, /【秘境比较边界】/);
     }
-    if (request === '帮我提升境界') {
-      const contracts = JSON.parse(prompt.match(/【本轮境界操作的运行时契约】([^\n]+)/u)[1]);
-      for (const contract of contracts) {
-        const meta = provider.actions[contract.action];
-        assert.deepEqual(contract.inputSchema, meta.inputSchema);
-        assert.equal(contract.executionTool, meta.effect === 'read' ? 'expose_read' : meta.effect === 'write' ? 'expose_write' : 'expose_call');
-      }
-      assert.ok(contracts.some(contract => contract.action === 'breakthrough_realm'));
-      assert.ok(contracts.some(contract => contract.action === 'promote_realm'));
-    }
     if (request === '帮我领取奖励') {
       assert.equal(engine.review('这些项目还是查询失败。').accepted, false, 'Current eligibility must win over historical failure text');
       await engine.afterCall({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'claim_all_daily_activity', argumentsJson: '{}' },

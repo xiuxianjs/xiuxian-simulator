@@ -78,9 +78,7 @@ export const conversationLifecycle: ExposeProvideConfig = {
           return {
             decision: 'reply',
             prompt: '',
-            reply: page
-              ? conversationalMenuPage(page, session.narrator) + '\n[[返回玩法目录]] [[暂离]]'
-              : '这份目录已失效，请重新核对引导进度。[[继续引导]] [[返回玩法目录]]'
+            reply: page ? conversationalMenuPage(page, session.narrator) : '这份目录已失效，请重新核对引导进度。[[继续引导]] [[返回玩法目录]]'
           };
         }
 
@@ -288,19 +286,16 @@ export const conversationLifecycle: ExposeProvideConfig = {
       }
     }),
     failure: Expose.action<{ text: string }, unknown>({
-      description: '提供插件恢复入口',
+      description: '旧宿主兼容：优先保留本轮实际结果，没有结果时沿用原错误，不添加通用操作警告。',
       effect: 'read',
       inputSchema: object({ text }),
       outputSchema: object({ text }),
       authorize,
-      handler: input => ({
-        text:
-          input.text +
-          '\n这次没能接着说完。可以发送 ' +
-          ((guidanceSession()?.state as { accountExists?: boolean } | undefined)?.accountExists === false ? '/踏入仙途' : '/我') +
-          ' 查看当前进度。已经提交的操作不会因此撤销，请先核对原结果，不要直接重复消费。' +
-          '\n也可以先选：\n[[返回玩法目录]] [[暂离]]'
-      })
+      handler: input => {
+        const result = turns.get(turnKey())?.engine.append('', true, true);
+
+        return { text: result?.trim() ? result : input.text };
+      }
     })
   }
 };

@@ -196,7 +196,7 @@ export const guidanceFlowActions = {
                 ? `{{guide.name}}：我们可以先了解${requestedPlay.topicLabel}。开始操作后，我会先核对相关状态和可用选项，再按你的选择继续。`
                 : '{{guide.name}}：修仙可以从创建角色、体验序章开始，再逐步接触修行、探索、炼丹和宗门等玩法。') +
               (registered ? '你已经有角色了，可以接着玩，也可以先了解玩法。' : '想开始时，我会带你选道号和性别，再由修仙系统创建角色。'),
-            choices: [startLabel, '返回玩法目录', '暂离']
+            choices: [startLabel, '返回玩法目录']
           },
           actions: [{ id: 'start', label: startLabel, capability: 'get_guidance_state' }]
         };
@@ -212,8 +212,8 @@ export const guidanceFlowActions = {
           goal: '每次只询问一个缺失信息。道号由玩家提供后调用choose_registration_name校验，返回NEED_GENDER才询问性别；仅在道号和性别均由玩家明确选择后调用register_player。nameDraft仅为会话草稿，不是创建授权。EXISTING_USER表示当前账号已有角色，不能当成道号重名。',
           dialogue:
             typeof input.nameDraft === 'string' && input.nameDraft
-              ? { text: `{{guide.name}}：道号暂记为${input.nameDraft}，接下来请选择角色性别。`, choices: ['男修', '女修', '退出引导'] }
-              : { text: '{{guide.name}}：先告诉我，你想用什么道号？直接回复名字就可以。', choices: ['退出引导'] },
+              ? { text: `{{guide.name}}：道号暂记为${input.nameDraft}，接下来请选择角色性别。`, choices: ['男修', '女修'] }
+              : { text: '{{guide.name}}：先告诉我，你想用什么道号？直接回复名字就可以。', choices: [] },
           actions: [
             { id: 'choose_name', label: '选择道号', capability: 'choose_registration_name' },
             { id: 'register', label: '创建角色', capability: 'register_player' }
@@ -228,7 +228,7 @@ export const guidanceFlowActions = {
           accountExists: true,
           revision: 0,
           goal: '继续当前普通玩法，根据玩家原话发现并查询对应能力，不自动切回教学。打开面板不代表授权消费或战斗；写操作须来自本次明确选择，服务端回执决定结果。',
-          dialogue: { text: '{{guide.name}}：可以继续你正在玩的内容，我会先核对相关状态。', choices: ['暂离'] },
+          dialogue: { text: '{{guide.name}}：可以继续你正在玩的内容，我会先核对相关状态。', choices: [] },
           actions: []
         };
       }
@@ -242,7 +242,7 @@ export const guidanceFlowActions = {
           accountExists: true,
           revision: progress.version,
           goal: '角色已经创建。按玩家选择继续一段序章；查询本状态没有推进剧情。若本条玩家原话已经明确要求继续剧情，应调用一次continue_registration_guide并展示实际回执，不要再要求玩家发送“继续”或重复确认。没有明确要求时才展示选择。不可再次要求注册，也不能顺带跳过、签到或消费。',
-          dialogue: { text: '{{guide.name}}：你的角色已经登记好了，我们从当前进度继续。', choices: ['继续', '退出引导'] },
+          dialogue: { text: '{{guide.name}}：你的角色已经登记好了，我们从当前进度继续。', choices: ['继续'] },
           actions: [
             { id: 'continue', label: '继续', capability: 'continue_registration_guide' },
             ...(/(?:不|不要|别|不想)跳过/u.test(requestText) ? [] : [{ id: 'skip', label: '跳过序章', capability: 'skip_registration_guide' }])
@@ -257,7 +257,7 @@ export const guidanceFlowActions = {
         accountExists: true,
         revision: progress.version,
         goal: '序章已不在进行中。查询当前教学状态，按玩家选择继续或自由探索。',
-        dialogue: { text: '{{guide.name}}：你的角色已经登记好了，可以接着熟悉玩法，也可以自由探索。', choices: ['看看下一步', '继续教学', '退出引导'] },
+        dialogue: { text: '{{guide.name}}：你的角色已经登记好了，可以接着熟悉玩法，也可以自由探索。', choices: ['看看下一步', '继续教学'] },
         actions: [
           { id: 'inspect', label: '看看下一步', capability: 'get_onboarding' },
           { id: 'resume', label: '继续教学', capability: 'resume_onboarding' }

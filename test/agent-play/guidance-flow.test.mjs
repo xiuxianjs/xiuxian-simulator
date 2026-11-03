@@ -95,7 +95,7 @@ test('discovered authoritative flow activates AI session through the real Expose
   assert.deepEqual(result.errors, []);
 });
 
-for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bootstrap reads state before model and prevents old slash reply: registered=${registered}`, async t => {
+for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`model explicitly reads state and corrects stale registration advice: registered=${registered}`, async t => {
   const root = await mkdtemp(join(tmpdir(), 'guide-bootstrap-'));
   const app = createTestApp({ config: { db: { dialect: 'sqlite', sqlite: { storage: join(root, 'db.sqlite') } }, 'alemonjs-agent-link': {
     apiKey: 'fixture-bootstrap', model: 'fixture', runtimeMode: 'chat-only', stateBackend: 'local', privateChatAccess: 'all',
@@ -110,11 +110,14 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
   const previousSql = globalThis.sequelize;
   delete globalThis.sequelize;
   globalThis.fetch = async (_url, init) => {
-    assert.equal(reads, registered === 'gameplay' ? 0 : 1, 'tutorial state is required only for tutorial requests');
     const body = JSON.parse(init.body);
-    if (registered !== 'gameplay') assert.ok(body.messages.some(message => typeof message.content === 'string' && message.content.includes('本轮已执行的权威引导状态查询')));
     modelCalls++;
-    if ((registered === 'gameplay' && modelCalls === 3) || (registered !== 'gameplay' && modelCalls === 2)) {
+    if (registered !== 'gameplay' && modelCalls === 1) {
+      assert.equal(reads, 0, 'no automatic player-state lookup before the model');
+      return Response.json({ choices: [{ message: { content: null, tool_calls: [{ id: 'explicit-state', type: 'function', function: { name: 'expose_read', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'get_guidance_state', argumentsJson: '{}' }) } }] }, finish_reason: 'tool_calls' }] });
+    }
+    assert.equal(reads, registered === 'gameplay' ? 0 : 1);
+    if (modelCalls === 3) {
       assert.ok(body.messages.some(message => typeof message.content === 'string' && /本轮已核实|自然语言和无斜杠选项/u.test(message.content)));
       return Response.json({ choices: [{ message: { content: registered === 'gameplay' ? '背包已查到。[[查看材料]]' : registered === true ? '角色已经登记好了，剧情尚未推进。[[继续]]' : '直接回复名字就可以。', }, finish_reason: 'stop' }] });
     }
@@ -141,7 +144,7 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
       endGuidance(event);
     }, event, 'alemonjs-agent-link');
     assert.deepEqual(result.errors, []);
-    assert.equal(modelCalls, registered === 'gameplay' ? 3 : 2);
+    assert.equal(modelCalls, 3);
     const sent = result.messages.map(message => message.text).join('\n');
     assert.ok(!sent.includes('/我是'));
     assert.ok(sent.includes(registered === 'gameplay' ? '背包已查到' : registered === true ? '角色已经登记好了' : '直接回复名字'));

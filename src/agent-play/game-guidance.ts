@@ -63,7 +63,6 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
   const actions = new Set<string>();
   const writes = new Set<string>();
   const providerWrites = new Set<string>();
-  let providerOverview: unknown;
   let providerAcceptsRequest = false;
   let providerAcceptsDraft = false;
   let providerAcceptsMode = false;
@@ -194,6 +193,10 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
 
   const beforeCall = async (args: Record<string, unknown>, context: TurnContext) => {
     const game = args.protocol === 'xiuxian.player.v1' && args.provider === 'xiuxian-game';
+
+    if (game && !['get_execution_policy', 'get_conversation_contract', 'get_play_context', 'route_conversation'].includes(String(args.action))) {
+      useGameSession = true;
+    }
     const selected = guidanceSession()?.offers?.find(offer => offer.label === getCurrentEvent()?.MessageText?.trim());
     const effect = exposedEffects.get(effectKey(args.protocol, args.provider, args.action));
 
@@ -238,15 +241,20 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         }
       };
     }
-    if (providerOverview && effect !== 'read') {
+    if (
+      game &&
+      verifiedState &&
+      (guidanceSession()?.state as { flow?: string })?.flow === 'overview' &&
+      effect !== 'read' &&
+      !isFreshObservation(String(args.action))
+    ) {
       return {
         ok: false,
         error: {
           code: 'PLUGIN_CHOICE_REQUIRED',
           outcome: 'not_started',
-          message: '插件本轮只提供玩法介绍，不能执行注册、领奖或跨插件写操作。请等待玩家下一次明确选择。'
-        },
-        currentState: providerOverview
+          message: '本轮修仙请求仅为玩法介绍，尚未提交操作；可以继续查询规则，具体操作需要玩家明确提出。'
+        }
       };
     }
     if (game && ['choose_registration_name', 'register_player'].includes(String(args.action)) && actions.has('get_guidance_state')) {
@@ -319,6 +327,9 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
       if (exposedEffects.get(effectKey(args.protocol, args.provider, args.action)) === 'read' || isFreshObservation(String(args.action))) {
         observedFacts.set(String(args.action), result);
         growthSnapshot = growthFacts([...observedFacts].map(([action, result]) => ({ action, result })));
+        if (growthSnapshot) {
+          growthSnapshotInvalid = false;
+        }
       } else {
         // Never combine pre-write observations with post-write player state.
         observedFacts.clear();
@@ -398,10 +409,7 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
     if (!stale() && args.action === 'get_guidance_state' && row?.ok === true && (row.data as { protocol?: string })?.protocol === 'plugin-guidance.v1') {
       const narrator = await currentNarrator();
 
-      if ((row.data as { flow?: string }).flow === 'overview') {
-        providerOverview = row.data;
-      }
-      rememberGuidance(providerOverview ?? row.data, narrator);
+      rememberGuidance(row.data, narrator);
       selectPlayTopic(userText);
       const selectedFlow = (guidanceSession()?.state as { flow?: string })?.flow;
       const selectedSession = guidanceSession();
@@ -460,7 +468,9 @@ export function gameGuidance(tools: AgentTool[], userText = '', stale = captureG
         row.data.branch === 'business' &&
         (payload?.onboarding || ['get_onboarding', 'resume_onboarding', 'perform_onboarding_action'].includes(String(args.action)))
       ) {
-        if (!guidanceSession()) { rememberGuidance({ flow: 'onboarding' }, await currentNarrator()); }
+        if (!guidanceSession()) {
+          rememberGuidance({ flow: 'onboarding' }, await currentNarrator());
+        }
         const session = guidanceSession();
 
         if (session) {

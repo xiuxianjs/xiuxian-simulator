@@ -72,7 +72,7 @@ test('conversation pagination preserves all original no-prefix commands and scop
     assert.equal(response.data.decision, 'reply');
     assert.match(response.data.reply, /第2\/4页/);
     assert.match(response.data.reply, /\[\[继续引导 42 branch-6\]\]/);
-    assert.match(response.data.reply, /返回玩法目录/);
+    assert.doesNotMatch(response.data.reply, /返回玩法目录|暂离/);
   }, request, 'xiuxian-game');
   assert.deepEqual(result.errors, []);
 });

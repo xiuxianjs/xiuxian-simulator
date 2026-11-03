@@ -73,7 +73,7 @@ test('full chat schedules game harvest and settles through real Go service', { s
  });
  const expose = failRender ? Framework.Expose.create() : gameExpose;
  if (failRender) for (const entry of gameExpose.getConfigs()) expose.provide(entry.name === 'agent.conversation.v1'
-  ? { ...entry, actions: { ...entry.actions, render: { ...entry.actions.render, handler: () => { renderAttempts++; throw new Error('fixture-private-render-failure'); } } } }
+  ? { ...entry, actions: { ...entry.actions, present: { ...entry.actions.present, handler: () => { renderAttempts++; throw new Error('fixture-private-render-failure'); } } } }
   : entry);
  await app.mount({ expose }, undefined, 'xiuxian-game');
  let modelCalls = 0;
@@ -112,17 +112,17 @@ test('full chat schedules game harvest and settles through real Go service', { s
   const nodes = run.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []));
   if (failRender) {
    assert.equal(renderAttempts, 1);
-   assert.match(reply, /后续说明暂时未完成/u);
+   assert.doesNotMatch(reply, /后续说明暂时未完成|部分操作可能已执行|后续模型请求/u);
    assert.doesNotMatch(reply, /fixture-private-render-failure/u);
    assert.equal(nodes.filter(node => node.type === 'MD.button').length, 0, 'Do not fabricate choices after rendering fails');
-  } else assert.ok(nodes.some(node => node.type === 'MD.button' && node.options.data === '返回玩法目录' && node.options.autoEnter === false));
+  } else assert.equal(nodes.filter(node => node.type === 'MD.button').length, 0, 'a saved task does not need a gameplay footer');
   assert.ok(reply.includes(jobs[0].id));
   assert.equal(receipts, 1, 'Failure must not resend or replay the turn');
   assert.equal(modelCalls, 2);
   const recovery = run.actions.filter(action => action.name === 'message.send');
   assert.equal(recovery.length, 1);
   assert.ok(recovery[0].results.every(result => result.code === (rejectReply ? Framework.ResultCode.Fail : Framework.ResultCode.Ok)));
- } else assert.doesNotMatch(reply, /这次没能|没能接|未安排|未创建/u);
+ } else assert.doesNotMatch(reply, /这次没能|没能接|未安排|未创建|部分操作可能已执行|后续模型请求/u);
  assert.equal(jobs[0].dueAt, now + 600000);
  assert.equal(jobs[0].everyMs, 0);
  if (live) {
