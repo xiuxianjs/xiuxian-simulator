@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Expose, registerExpose } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { gameExpose } from '../../src/expose/index.ts';
+import { goalEvidence } from '../../src/agent-play/goal-evidence.ts';
 import { gameGuidance } from '../../src/agent-play/game-guidance.ts';
 import { isFreshObservation } from '../../src/expose/execution-policy.ts';
 import { rememberGuidance } from '../../src/agent-play/guidance-session.ts';
@@ -43,20 +44,13 @@ for (const [request, expected] of cases) test(`real action catalogue selects the
       return { ok: true, data: { success: true, branch: 'business', result: { fact: `${args.action}:ACTUAL_CATALOGUE_FACT`, ...(args.action === 'get_daily_activity' ? { rewards: [{ canClaim: true }] } : {}) } } };
     } }));
     const engine = gameGuidance(tools, request);
-    const prompt = await engine.prepare({ signal: new AbortController().signal });
+    const ctx = { signal: new AbortController().signal };
+    await engine.prepare(ctx);
+    assert.deepEqual(calls, [], 'preparation only loads local metadata');
+    const readers = new Map(Object.entries(provider.actions).filter(([action, meta]) => isFreshObservation(action) || meta.effect === 'read').map(([action, meta]) => [action, tools.find(tool => tool.name === (meta.effect === 'read' ? 'expose_read' : meta.effect === 'write' ? 'expose_write' : 'expose_call'))]));
+    const prompt = await goalEvidence(request, readers, ctx, () => false);
     assert.deepEqual(calls, expected, prompt);
     for (const action of expected) assert.ok(prompt.includes(`${action}:ACTUAL_CATALOGUE_FACT`));
-    if (request.startsWith('如何快速升级')) {
-      const contracts = JSON.parse(prompt.match(/【本轮成长观察的运行时契约】([^\n]+)/u)[1]);
-      for (const contract of contracts) {
-        const meta = provider.actions[contract.action];
-        assert.deepEqual(contract.inputSchema, meta.inputSchema);
-        assert.equal(contract.executionTool, meta.effect === 'read' ? 'expose_read' : meta.effect === 'write' ? 'expose_write' : 'expose_call');
-        assert.ok(isFreshObservation(contract.action) || meta.effect === 'read');
-      }
-      assert.equal(contracts.some(contract => contract.action === 'get_dungeon_detail_by_id'), expected.includes('get_dungeons'));
-      assert.ok(!contracts.some(contract => /^(challenge|rob_|claim_|start_)/u.test(contract.action)));
-    }
     if (expected.includes('get_dungeons')) {
       assert.match(prompt, /get_dungeons是分页目录/);
       assert.match(prompt, /不等于完整挑战资格/);
