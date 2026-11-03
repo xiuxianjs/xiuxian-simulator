@@ -7,6 +7,8 @@ import { parseMarketCredibility } from '../api/bot/market-credibility';
 import { confirmationReferenceSchema, validateConfirmationReference } from './confirmation';
 import { mutation, observation } from './mutation';
 import { boolean, fields, integer, list, object, page, text } from './schema';
+import { ExposeError } from 'alemonjs';
+import { validFishingReference } from '../api/bot/fishing';
 
 const pagination = object(fields(integer, 'currentPage totalPages total'));
 const commonItem = {
@@ -15,7 +17,7 @@ const commonItem = {
 };
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 
-type MarketCategory = 'prop' | 'material' | 'equipment' | 'profession_tool' | 'skill_book' | 'soul_artifact';
+type MarketCategory = 'prop' | 'material' | 'equipment' | 'profession_tool' | 'skill_book' | 'soul_artifact' | 'fish';
 type BrowseInput = {
   page?: number;
   keyword?: string;
@@ -23,7 +25,9 @@ type BrowseInput = {
   subtype?: string;
   sort?: 'latest' | 'price_asc' | 'price_desc' | 'grade_asc' | 'grade_desc';
 };
-const category = { type: 'string' as const, enum: ['prop', 'material', 'equipment', 'profession_tool', 'skill_book', 'soul_artifact'] };
+const legacyCategory = { type: 'string' as const, enum: ['prop', 'material', 'equipment', 'profession_tool', 'skill_book', 'soul_artifact'] };
+const category = { ...legacyCategory, enum: [...legacyCategory.enum, 'fish'] };
+const catchIdentifier = { type: 'string' as const, minLength: 1, maxLength: 40 };
 const priceRange = object({
   ...fields(integer, 'minPrice maxPrice referencePrice templateItemId maxListingQuantity'),
   source: text,
@@ -32,6 +36,61 @@ const priceRange = object({
 });
 
 export const marketActions = {
+  get_fish_market_listing_price_range: observation<{ catchId: string }>(
+    '查询本人原鱼实例的整尾灵晶报价与重量参考，不上架；catchId为完整字符串，不是普通物品编号。',
+    'market.sell',
+    object({ catchId: catchIdentifier }),
+    object({ range: priceRange }),
+    input => `/交易上架 鱼类 ${input.catchId}`,
+    (data, _input, uid) => {
+      const result = parseRobotMarketSell(data, 'start', 'fish', uid);
+
+      if (result.mode !== 'start' || result.listingId || result.fishConfirmation) { throw new Error('鱼报价回执不匹配'); }
+
+      return { range: result.range };
+    },
+    input => ({ mode: 'start', category: 'fish', catchId: input.catchId, firstNumber: null, secondNumber: null }),
+    input => {
+      if (!/^[A-Za-z0-9_.:-]{1,40}$/.test(input.catchId)) { throw new ExposeError('INVALID_INPUT', '鱼编号格式无效'); }
+    }
+  ),
+  prepare_fish_market_listing: observation<{ catchId: string; unitPrice: number }>(
+    '冻结本人这尾鱼的编号、克重、版本、灵晶单价与手续费，取得原确认；不直接挂牌或扣手续费。',
+    'market.sell',
+    object({ catchId: catchIdentifier, unitPrice: id }),
+    object({ ref: text, operationId: text, expiresAt: text, viewJson: text }),
+    input => `/交易上架 鱼类 ${input.catchId} ${input.unitPrice}`,
+    (data, _input, uid) => {
+      const result = parseRobotMarketSell(data, 'start', 'fish', uid);
+      const view = result.mode === 'start' ? result.fishConfirmation : undefined;
+
+      if (!view?.confirmationRef || !view.operationId || !view.expiresAt) { throw new Error('鱼挂牌预览缺少原引用'); }
+
+      return { ref: view.confirmationRef, operationId: view.operationId, expiresAt: view.expiresAt, viewJson: JSON.stringify(view) };
+    },
+    input => ({ mode: 'start', category: 'fish', catchId: input.catchId, firstNumber: input.unitPrice, secondNumber: null }),
+    input => {
+      if (!/^[A-Za-z0-9_.:-]{1,40}$/.test(input.catchId)) { throw new ExposeError('INVALID_INPUT', '鱼编号格式无效'); }
+    }
+  ),
+  confirm_fish_market_listing: mutation<{ ref: string }>(
+    '确认原鱼挂牌引用；服务端按原实例、原单价和费用重验，重试沿同一引用，不重新选鱼或生成新报价。',
+    'market.sell',
+    object({ ref: { type: 'string', minLength: 1, maxLength: 64 } }),
+    object({ viewJson: text }),
+    input => `/交易上架 鱼类 确认 ${input.ref}`,
+    (data, _input, uid) => {
+      const result = parseRobotMarketSell(data, 'confirm', 'fish', uid);
+
+      if (result.mode !== 'confirm') { throw new Error('鱼挂牌原回执不匹配'); }
+
+      return { viewJson: JSON.stringify(result.fishConfirmation) };
+    },
+    input => ({ mode: 'confirm', reference: input.ref }),
+    input => {
+      if (!validFishingReference(input.ref)) { throw new ExposeError('INVALID_INPUT', '请使用原鱼挂牌预览完整引用'); }
+    }
+  ),
   browse_market: observation<BrowseInput>(
     '分页查询珍宝楼挂单、价格、购买资格和交易额度；数据是当前快照，不能作为后续购买报价的保证。',
     'market.browse',
@@ -138,12 +197,13 @@ export const marketActions = {
         object(
           {
             ...fields(integer, 'userItemId templateId quantity'),
-            ...fields(text, 'name category grade realm'),
+            ...fields(text, 'name category grade realm catchId'),
+            weightG: integer,
             currentLowestPrice: integer,
             priceRange,
             attributesJson: text
           },
-          ['currentLowestPrice', 'priceRange']
+          ['currentLowestPrice', 'priceRange', 'catchId', 'weightG']
         )
       )
     }),
@@ -169,7 +229,7 @@ export const marketActions = {
   get_market_listing_price_range: observation<{ category: MarketCategory; userItemId: number }>(
     '查询指定资产的服务端上架价格范围和数量规则，不上架、不扣费；上架前需重新核对当前规则。',
     'market.sell',
-    object({ category, userItemId: id }),
+    object({ category: legacyCategory, userItemId: id }),
     object({ range: priceRange }),
     input => `/交易上架 ${input.category} ${input.userItemId}`,
     (data, input) => {
@@ -186,7 +246,7 @@ export const marketActions = {
   create_market_listing: mutation<{ category: MarketCategory; userItemId: number; quantity: number; unitPrice: number }>(
     '按指定数量和灵晶单价上架本人资产；服务端校验资产归属、定价、库存和手续费。固定数量资产必须传 1。',
     'market.sell',
-    object({ category, userItemId: id, quantity: { type: 'integer', minimum: 1, maximum: 2147483647 }, unitPrice: id }),
+    object({ category: legacyCategory, userItemId: id, quantity: { type: 'integer', minimum: 1, maximum: 2147483647 }, unitPrice: id }),
     object({ listingId: id, message: text, range: priceRange }),
     input => `/交易上架 ${input.category} ${input.userItemId} ${input.quantity} ${input.unitPrice}`,
     (data, input) => {

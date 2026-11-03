@@ -3,6 +3,8 @@ import type { MyMarketInstance } from './my-market-listings';
 export type MarketBrowseSort = 'latest' | 'price_asc' | 'price_desc' | 'grade_asc' | 'grade_desc';
 
 export interface MarketBrowseItem {
+  catchId?: string;
+  weightG?: number;
   listingId: number;
   sellerUserId: number;
   sellerName: string;

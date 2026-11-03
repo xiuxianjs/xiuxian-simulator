@@ -3,7 +3,7 @@ export interface MarketPriceRange {
   minPrice: number;
   maxPrice: number;
   referencePrice: number;
-  source: 'median' | 'base_price' | 'fallback';
+  source: 'median' | 'base_price' | 'fallback' | 'fish_weight_anchor';
   maxListingQuantity: number;
   fixedQuantity: boolean;
   credibilityReady: boolean;
@@ -11,6 +11,8 @@ export interface MarketPriceRange {
 }
 
 export interface SellableMarketAsset {
+  catchId?: string;
+  weightG?: number;
   userItemId: number;
   templateId: number;
   name: string;

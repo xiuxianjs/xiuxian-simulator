@@ -6,6 +6,7 @@ import { appendMarketCommandGuide, createMarketCommandBar, getMarketEmptyText, p
 import { formatNumber } from '@src/utils/formatHelper';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
+import { section } from '@src/response/presentation';
 
 const appendMarketCurrencyText = (md: ReturnType<typeof Format.createMarkdown>, spiritsCrystal: number) => {
   md.addText(`灵晶：${formatNumber(spiritsCrystal)}`);
@@ -149,6 +150,24 @@ export default onResponse(selects, async e => {
   data.items.forEach(it => {
     const canBuy = it.canPurchase;
     const typeLabel = it.itemCategoryLabel;
+
+    if (it.itemCategory === 'fish') {
+      contentMd.addBlockquote(
+        section({
+          title: it.itemName,
+          id: it.catchId,
+          suffix: `· 挂单#${it.listingId}`,
+          lines: [
+            `数量：${Math.trunc(it.weightG! / 1000)}.${String(it.weightG! % 1000).padStart(3, '0')} kg · 单尾`,
+            `支付：${it.unitPriceAmount}${it.currencyName}`,
+            `说明：卖家${it.sellerName}`
+          ],
+          actions: canBuy ? [{ label: '购买', command: `/选购 ${it.listingId} 1`, autoEnter: false }] : []
+        })
+      );
+
+      return;
+    }
 
     const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName}×${it.quantity}`];
     const mktBtns: { label: string; command: string }[] = [];

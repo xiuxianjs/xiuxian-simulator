@@ -9,7 +9,7 @@ import type { ItemSubtype, ItemType } from './itemTypes';
 /**
  * 交易所物品类型（扩展ItemType，包含装备和功法）
  */
-export type MarketItemType = ItemType | 'equipment' | 'profession_tool' | 'skill_book' | 'soul_artifact';
+export type MarketItemType = ItemType | 'equipment' | 'profession_tool' | 'skill_book' | 'soul_artifact' | 'fish';
 
 /**
  * 交易所分类键
@@ -34,6 +34,7 @@ export type MarketCategory = {
  * - displayName: 中文显示名，用于UI展示
  */
 export const MARKET_CATEGORIES: MarketCategory[] = [
+  { key: { type: 'fish' }, displayName: '鱼类', description: '独立编号与精确克重的渔获' },
   // ===== 道具分类 =====
   {
     key: { type: 'prop', subtype: 'pill' },
@@ -96,6 +97,7 @@ export const MARKET_CATEGORIES: MarketCategory[] = [
  * 用于解析用户指令
  */
 export const CHINESE_TO_CATEGORY_KEY: Record<string, MarketCategoryKey> = {
+  鱼类: { type: 'fish' },
   丹药: { type: 'prop', subtype: 'pill' },
   礼物: { type: 'prop', subtype: 'gift' },
   本命: { type: 'soul_artifact' },
@@ -112,6 +114,7 @@ export const CHINESE_TO_CATEGORY_KEY: Record<string, MarketCategoryKey> = {
  * 用于UI展示
  */
 export const CATEGORY_KEY_TO_CHINESE: Record<string, string> = {
+  fish: '鱼类',
   'prop:pill': '丹药',
   'prop:gift': '礼物',
   soul_artifact: '本命',

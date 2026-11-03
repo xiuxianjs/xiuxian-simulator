@@ -1,5 +1,6 @@
 import { assertMyMarketInstance } from '../schemas/my-market-listings';
 import type { MyMarketListingPage } from '../schemas/my-market-listings';
+import { assertMarketFish } from '../schemas/market-fish';
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -32,6 +33,7 @@ export function parseMyMarketListings(data: unknown): MyMarketListingPage {
       throw new Error('挂单字段不完整');
     }
     assertMyMarketInstance(item.attributes, '挂单属性不完整');
+    assertMarketFish(item, '挂单鱼实例编号或重量不完整');
     if (item.attributeView !== null) {
       const view = record(item.attributeView);
 

@@ -14,6 +14,7 @@ import {
 import type { GuiButton } from '@src/utils/messageHelper';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
+import { handleFishingMarketSell } from '@src/response/fishing/marketSell';
 
 /**
  * 交易上架指令
@@ -28,6 +29,9 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
   const text = (e.MessageText ?? EMPTY_STRING).trim();
+  const [, next] = useEvent();
+
+  if (await handleFishingMarketSell(e, next)) { return; }
 
   type Parsed =
     | { kind: 'choose' }
@@ -50,7 +54,8 @@ export default onResponse(selects, async e => {
       ],
       [
         { label: '功法', command: '/交易上架 功法' },
-        { label: '本命', command: '/交易上架 本命' }
+        { label: '本命', command: '/交易上架 本命' },
+        { label: '鱼类', command: '/交易上架 鱼类', autoEnter: false }
       ]
     ];
 
@@ -437,7 +442,6 @@ export default onResponse(selects, async e => {
 
   const parsed = parseCommand(text);
 
-  const [, next] = useEvent();
   const mode = parsed?.kind ?? 'invalid';
   const args =
     parsed?.kind === 'list'

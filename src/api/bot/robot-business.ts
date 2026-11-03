@@ -18,6 +18,10 @@ export type RobotBusinessResult<T = unknown> =
   | ({ success: true; branch: 'business'; middleware: RobotMiddlewareResult; data: T } & RobotBusinessFollowup);
 
 export type RobotBusinessOperation =
+  | 'fishing.query'
+  | 'fishing.preview'
+  | 'fishing.confirm'
+  | 'fishing.pack-checkout'
   | 'base.forge-recipes'
   | 'base.alchemy-recipes'
   | 'base.grades'

@@ -1,3 +1,4 @@
+import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
@@ -112,8 +113,10 @@ export default onResponse(selects, async e => {
     Format.createMarkdown().addText(`消耗元力：${result.data.hpCost}`).addNewline().addText(`今日次数：${result.data.newCount}/${result.data.dailyMax}`)
   );
 
-  const experienceText = result.data.normalExperienceGained !== undefined
-    ? String(result.data.normalExperienceGained) : batch ? String(result.data.experience) : `${result.data.expGain}${result.data.expBonusText}`;
+  const ordinaryExperience = result.data.normalExperienceGained ?? (batch ? result.data.experience : result.data.expGain);
+  const bonusText = result.data.normalExperienceGained !== undefined || batch
+    ? fishingBlessingSuffix(result.data.expBonusText) : result.data.expBonusText;
+  const experienceText = `${ordinaryExperience}${bonusText}`;
 
   md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${experienceText}`));
 

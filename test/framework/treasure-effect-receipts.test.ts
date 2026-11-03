@@ -154,6 +154,33 @@ const scenarios: Scenario[] = [
 ];
 
 type Node = { type?: string; value?: unknown; options?: Record<string, unknown> };
+
+const koiText='锦鲤赐福+10';
+const koiScenarios:Scenario[]=[
+  {slug:'koi-dungeon',handler:dungeonChallenge,command:'/秘境挑战 青云秘境',data:{outcome:'result',data:{...dungeon,won:true,battle:{...battle,Winner:'A'},rewardsByUser:[{...member,eligible:true,experienceGained:130,normalExperienceGained:110,experienceBonusText:koiText,treasureEffects:[jade]}]}},expected:[jade]},
+  {slug:'koi-sweep',handler:dungeonSweep,command:'/扫荡秘境 青云秘境 1',data:{outcome:'result',data:{...sweep,totalExp:130,normalExperienceGained:110,experienceBonusText:koiText,treasureEffects:[jade]}},expected:[jade]},
+  {slug:'koi-free',handler:dungeonSweep,command:'/扫荡免费秘境',data:{sweptDungeons:[{...sweep,totalExp:130,normalExperienceGained:110,experienceBonusText:koiText}],skippedDungeons:[],totalTimes:1,totalExp:130,normalExperienceGained:110,totalSpiritCost:0,treasureEffects:[jade]},expected:[jade]},
+  {slug:'koi-story',handler:storylineChallenge,command:'/主线挑战 1-1',data:{...manual,winner:'A',settlement:{...manual.settlement,experienceGained:130,normalExperienceGained:110,expBonusText:'旧宝物+20 · '+koiText,stars:3,treasureEffects:[jade]}},expected:[jade]},
+  {slug:'koi-story-sweep',handler:storylineSweep,command:'/主线扫荡 1-1',data:{chapterNumber:1,stageNumber:1,result:{...storySweep,totalExp:130,normalExperienceGained:110,expBonusText:'旧宝物+20 · '+koiText,treasureEffects:[jade]}},expected:[jade]},
+  {slug:'koi-spar',handler:spar,command:'/比试 2',data:{allowed:true,realmName:'筑基',targetUid:2,battle:{...sparred,experience:130,normalExperienceGained:110,expBonusText:'旧宝物+20 · '+koiText,treasureEffects:[jade]}},expected:[jade]},
+  {slug:'koi-pk-lost',handler:robbery,command:'/打劫 2',data:{...robbed,experience:130,normalExperienceGained:110,bonusText:'旧宝物+20 · '+koiText,treasureEffects:[jade]},expected:[jade]},
+  {slug:'koi-pk-triple-lost',handler:robberyTriple,command:'/三连打劫 2',data:{...robbed,remaining:0,experience:130,normalExperienceGained:110,bonusText:koiText,treasureEffects:[jade]},expected:[jade]},
+  {slug:'koi-counter-lost',handler:counterAttack,command:'/回击 9',data:{...countered,experience:130,normalExperienceGained:110,bonusText:koiText,treasureEffects:[jade]},expected:[jade]},
+  {slug:'koi-pill',handler:consume,command:'/服用 聚灵丹 1',data:{...consumed,message:'服用聚灵丹1颗，获得修为130。\n'+koiText,normalMessage:'服用聚灵丹1颗，获得修为110。\n'+koiText,treasureEffects:[jade]},expected:[jade]}
+];
+
+for(const scenario of koiScenarios){
+  test(`锦鲤说明保留宝物分拆且不重复计数 ${scenario.slug}`,async t=>{
+    const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,scenario.data));
+    const result=await app.runHandler(scenario.handler,app.events.privateMessage({text:scenario.command,platform:'qq-bot'}));
+    const {view,message}=assertNotices(result,scenario.expected);
+    assert.equal(view.text.split(koiText).length-1,1,'锦鲤说明只出现一次');
+    assert.match(view.text,/110/);
+    assert.doesNotMatch(view.text,/修为 \+130|获得修为130|旧宝物\+20/);
+    assert.equal(view.text.split(jade.description).length-1,1);
+    previews.push({slug:scenario.slug,title:scenario.slug,command:scenario.command,source:'离线原结算合同+真实处理器',text:view.text,commands:view.commands,nodes:message.nodes});
+  });
+}
 const nodeText = (node: Node): string => typeof node.value === 'string' ? node.value : Array.isArray(node.value) ? node.value.map(child => nodeText(child as Node)).join('') : '';
 function assertNotices(result: TestRunResult, expected: TreasureEffectNotice[]) {
   assert.deepEqual(result.errors, []);

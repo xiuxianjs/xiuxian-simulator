@@ -1,3 +1,4 @@
+import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness, finishRobotBusiness } from '@src/response/robotBusiness';
@@ -62,7 +63,8 @@ export default onResponse(selects, async e => {
       const stars = typeof settlement.stars === 'number' ? settlement.stars : 0;
       const exp = typeof settlement.normalExperienceGained === 'number'
         ? settlement.normalExperienceGained : typeof settlement.experienceGained === 'number' ? settlement.experienceGained : 0;
-      const expBonusText = settlement.normalExperienceGained === undefined && typeof settlement.expBonusText === 'string' ? settlement.expBonusText : '';
+      const bonusText = typeof settlement.expBonusText === 'string' ? settlement.expBonusText : '';
+      const expBonusText = settlement.normalExperienceGained === undefined ? bonusText : fishingBlessingSuffix(bonusText);
       const stones = typeof settlement.spiritStoneGained === 'number' ? settlement.spiritStoneGained : 0;
       const spiritCost = typeof settlement.spiritCostPaid === 'number' ? settlement.spiritCostPaid : 0;
       const monsterName = typeof settlement.monsterName === 'string' ? settlement.monsterName : '';

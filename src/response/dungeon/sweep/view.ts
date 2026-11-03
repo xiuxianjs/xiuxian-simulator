@@ -27,6 +27,7 @@ export function parseSweepCommand(text: string): ParsedCommand {
   return { ok: true, dungeonName, times };
 }
 export interface SweepData {
+  experienceBonusText?:string;
   treasureEffects?: TreasureEffectNotice[];
   dungeonName: string;
   times: number;
@@ -43,6 +44,7 @@ export function dungeonSweepView(value: DungeonSweep): SweepData {
     times: value.times,
     totalSpiritCost: value.totalSpiritCost,
     totalExp: value.normalExperienceGained ?? value.totalExp,
+    experienceBonusText: value.experienceBonusText,
     totalCurrencyText: value.currency.map(r => `${displayCurrencyText(r.name)} +${r.amount}`).join(' | '),
     totalItemsText: (value.normalItems ?? value.items).map(r => `${r.name}×${r.amount}`).join('、')
   };

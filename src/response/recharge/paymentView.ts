@@ -48,11 +48,20 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     Boolean(payResult.spiritVein) ||
     Boolean(payResult.dailyTreasurePack) ||
     Boolean(payResult.periodicPack);
+  const fishingPack = payResult.fishingPack;
 
-  if (!hasDetail) {
+  if (!hasDetail && !fishingPack) {
     successMd.addText('订单已完成，可查看到账奖励。');
 
     return successMd;
+  }
+
+  if (fishingPack) {
+    successMd.addText(fishingPack.name).addNewline();
+    for (const rodId of fishingPack.rodIds) { successMd.addText(`原竿：${rodId}`).addNewline(); }
+    if (fishingPack.coinGrant > 0) { successMd.addText(`灵鳞钱 +${fishingPack.coinGrant}`).addNewline(); }
+    for (const item of fishingPack.items) { successMd.addText(`${item.name} ×${item.quantity}`).addNewline(); }
+    successMd.addButton(markdownButtonLabel('查看钓具'), { data: '/垂钓 钓具 1', autoEnter: false }).addNewline();
   }
 
   if (totalMilk > 0) {

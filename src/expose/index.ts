@@ -82,6 +82,7 @@ import { tianjiaoActions } from './tianjiao-actions';
 import { tianshuActions } from './tianshu-actions';
 import { tongtianActions } from './tongtian-actions';
 import { treasureActions } from './treasure-actions';
+import { fishingActions } from './fishing-actions';
 import { tribulationActions } from './tribulation-actions';
 import { wudaoActions } from './wudao-actions';
 
@@ -170,6 +171,7 @@ export const gameExpose = Expose.create()
       ...pkActions,
       ...pkBattleActions,
       ...treasureActions,
+      ...fishingActions,
       ...companionActions,
       ...encyclopediaActions,
       ...baseDataActions,

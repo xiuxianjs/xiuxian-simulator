@@ -1,4 +1,6 @@
 export interface MyMarketInstance {
+  catchId?: string | null;
+  weightG?: number | null;
   status: number | null;
   gradeId: number | null;
   washCount: number | null;
@@ -31,6 +33,8 @@ export interface MyMarketInstance {
   maxCritDamage: number | null;
 }
 export interface MyMarketListing {
+  catchId?: string;
+  weightG?: number;
   listingId: number;
   itemCategory: string;
   itemCategoryLabel: string;

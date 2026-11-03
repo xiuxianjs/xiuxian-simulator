@@ -56,6 +56,7 @@ export default onResponse(selects, async e => {
 
     for (const item of result.data.sweptDungeons) {
       md.addText(`${item.dungeonName} × ${item.times} | 修为 +${item.totalExp}`);
+      if (item.experienceBonusText?.trim()) { md.addNewline().addText('其中：' + item.experienceBonusText); }
       md.addNewline();
       if (item.totalCurrencyText) {
         md.addText(item.totalCurrencyText);
@@ -112,6 +113,7 @@ export default onResponse(selects, async e => {
   const contentMd = Format.createMarkdown();
 
   contentMd.addText(`${d.dungeonName} × ${d.times} | 精力 -${d.totalSpiritCost} | 修为 +${d.totalExp}`);
+  if (d.experienceBonusText?.trim()) { contentMd.addNewline().addText('其中：' + d.experienceBonusText); }
   contentMd.addNewline();
 
   if (d.totalCurrencyText) {

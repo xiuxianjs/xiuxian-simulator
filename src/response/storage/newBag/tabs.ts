@@ -6,11 +6,12 @@ import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GuiButton } from '@src/utils/messageHelper';
 import type { FormatMarkDown } from 'alemonjs';
 
-/** 一级分类定义（footer 按钮，2行：3+4） */
+/** 一级分类定义；鱼实例复用统一储物袋入口，另走渔获实例页。 */
 const PRIMARY_TABS_ROW1: GuiButton[] = [
   { label: '道具', command: '/储物袋 道具 丹药' },
   { label: '材料', command: '/储物袋 材料 草药' },
-  { label: '装备', command: '/储物袋 装备' }
+  { label: '装备', command: '/储物袋 装备' },
+  { label: '渔获', command: '/垂钓 渔获 1', autoEnter: false }
 ];
 
 const PRIMARY_TABS_ROW2: GuiButton[] = [

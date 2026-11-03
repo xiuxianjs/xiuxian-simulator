@@ -568,6 +568,7 @@ app.res(
   // xiuxian.use('黑盒详情', () => import('@src/response/blackBox/room/res'));
   // xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
   xiuxian.use(['宝物', '上古遗珍', '灵脉租契', '确认宝物', '确认礼包'], () => import('@src/response/treasures/res'));
+  xiuxian.use(['垂钓', '渔获', '钓具', '渔市'], () => import('@src/response/fishing/res'));
   xiuxian.use('活动任务', () => import('@src/response/limitedEvent/tasks/res'));
   xiuxian.use('活动道具', () => import('@src/response/limitedEvent/tokens/res'));
 

@@ -1,3 +1,4 @@
+import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { parsePKReceipt } from '@src/api/bot/pk-receipt';
@@ -97,6 +98,9 @@ export default onResponse(selects, async e => {
       }
     }
     const experience = result.normalExperienceGained ?? result.experience;
+    const koiNote = fishingBlessingNote(result.bonusText);
+
+    if (!won && koiNote) { rewards.push('其中：' + koiNote); }
 
     if (result.normalExperienceGained !== undefined || experience > 0) {
       rewards.push(`修为 +${experience}`);

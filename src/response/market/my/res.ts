@@ -1,5 +1,6 @@
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
+import { section } from '@src/response/presentation';
 import { parseMyMarketListings } from '@src/api/bot/my-market-listings';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
@@ -93,6 +94,25 @@ export default onResponse(selects, async e => {
     const lockTag = it.lockTag;
     // 显示到期时间（优先 expiresAt，回退 createdAt）
     const time = it.expiresAt ? formatGameTime(it.expiresAt) : formatGameTime(it.createdAt);
+
+    if (it.itemCategory === 'fish') {
+      contentMd.addBlockquote(
+        section({
+          title: it.itemName,
+          id: it.catchId,
+          suffix: `· 挂单#${it.listingId}`,
+          lines: [
+            `数量：${Math.trunc(it.weightG! / 1000)}.${String(it.weightG! % 1000).padStart(3, '0')} kg · 单尾`,
+            `状态：${lockTag.trim().length > 0 ? lockTag : '交易中'}`,
+            `每份：${it.unitPriceAmount}${it.currencyName}`,
+            `时间：${time}`
+          ],
+          actions: [{ label: '下架', command: `/交易下架 ${it.listingId}`, autoEnter: false }]
+        })
+      );
+
+      return;
+    }
 
     const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName} ×${it.quantity}${lockTag}`];
     const extra = it.attributeView;

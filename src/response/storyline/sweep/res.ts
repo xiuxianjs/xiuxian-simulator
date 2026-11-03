@@ -1,3 +1,4 @@
+import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 主线扫荡指令
@@ -74,7 +75,7 @@ export default onResponse(selects, async e => {
   contentMd.addNewline();
 
   const experienceText = result.data.normalExperienceGained === undefined
-    ? `${result.data.totalExp}${result.data.expBonusText}` : String(result.data.normalExperienceGained);
+    ? `${result.data.totalExp}${result.data.expBonusText}` : `${result.data.normalExperienceGained}${fishingBlessingSuffix(result.data.expBonusText)}`;
 
   contentMd.addText(`获得修为：+${experienceText}`);
   contentMd.addNewline();

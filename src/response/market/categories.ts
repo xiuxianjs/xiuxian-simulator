@@ -1,14 +1,15 @@
 import { CHINESE_TO_CATEGORY_KEY, type MarketCategoryKey } from '@src/constants/marketCategories';
 
-export type MarketFilterPrimaryLabel = '全部' | '道具' | '材料' | '装备' | '天工' | '功法' | '本命';
+export type MarketFilterPrimaryLabel = '全部' | '道具' | '材料' | '装备' | '天工' | '功法' | '本命' | '鱼类';
 export type MarketSellPrimaryLabel = Exclude<MarketFilterPrimaryLabel, '全部'>;
 export type MarketFilterSecondaryLabel = '丹药' | '礼物' | '其它' | '草药' | '经验材料';
 export type MarketSecondaryParentLabel = '道具' | '材料';
 
-export const MARKET_FILTER_PRIMARY_LABELS: MarketFilterPrimaryLabel[] = ['全部', '道具', '材料', '装备', '天工', '功法', '本命'];
-export const MARKET_SELL_PRIMARY_LABELS: MarketSellPrimaryLabel[] = ['道具', '材料', '装备', '天工', '功法', '本命'];
+export const MARKET_FILTER_PRIMARY_LABELS: MarketFilterPrimaryLabel[] = ['全部', '道具', '材料', '装备', '天工', '功法', '本命', '鱼类'];
+export const MARKET_SELL_PRIMARY_LABELS: MarketSellPrimaryLabel[] = ['道具', '材料', '装备', '天工', '功法', '本命', '鱼类'];
 
 export const MARKET_PRIMARY_CATEGORY_KEYS: Record<MarketFilterPrimaryLabel, MarketCategoryKey | undefined> = {
+  鱼类: { type: 'fish' },
   全部: undefined,
   道具: { type: 'prop' },
   材料: { type: 'material' },

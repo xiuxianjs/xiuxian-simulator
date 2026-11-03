@@ -1,8 +1,11 @@
 import { requestBackend } from './client';
+import { assertMarketFish } from '../schemas/market-fish';
 
 type Row = Record<string, unknown>;
 
 export type BackendMarketSellableAsset = {
+  catchId?: string;
+  weightG?: number;
   userItemId: number;
   templateId: number;
   name: string;
@@ -34,7 +37,7 @@ export type BackendMarketPriceRange = {
   minPrice: number;
   maxPrice: number;
   referencePrice: number;
-  source: 'median' | 'base_price' | 'fallback';
+  source: 'median' | 'base_price' | 'fallback' | 'fish_weight_anchor';
   credibilityReady: boolean;
   templateItemId: number;
   maxListingQuantity: number;
@@ -62,7 +65,7 @@ export function assertMarketPriceRange(value: unknown, message: string): asserts
     !range ||
     !['minPrice', 'maxPrice', 'referencePrice', 'templateItemId', 'maxListingQuantity'].every(key => integer(range[key])) ||
     typeof range.source !== 'string' ||
-    !['median', 'base_price', 'fallback'].includes(range.source) ||
+    !['median', 'base_price', 'fallback', 'fish_weight_anchor'].includes(range.source) ||
     typeof range.credibilityReady !== 'boolean' ||
     typeof range.fixedQuantity !== 'boolean'
   ) {
@@ -96,9 +99,9 @@ export function parseBackendMarketSellable(data: unknown): BackendMarketSellable
     if (
       !item ||
       !integer(item.userItemId) ||
-      item.userItemId < 1 ||
+      item.userItemId < (item.category === 'fish' ? 0 : 1) ||
       !integer(item.templateId) ||
-      item.templateId < 1 ||
+      item.templateId < (item.category === 'fish' ? 0 : 1) ||
       typeof item.name !== 'string' ||
       typeof item.category !== 'string' ||
       (item.type !== undefined && typeof item.type !== 'string') ||
@@ -117,6 +120,7 @@ export function parseBackendMarketSellable(data: unknown): BackendMarketSellable
     ) {
       throw new Error('可上架物品字段不完整');
     }
+    assertMarketFish(item, '可上架鱼实例编号或重量不完整');
 
     if (item.priceRange !== undefined) {
       assertMarketPriceRange(item.priceRange, '可上架物品价格区间不完整');

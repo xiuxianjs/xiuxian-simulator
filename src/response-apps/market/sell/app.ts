@@ -59,7 +59,7 @@ type PriceRangeResult =
         minPrice: number;
         maxPrice: number;
         refPrice: number;
-        source: 'median' | 'base_price' | 'fallback';
+        source: 'median' | 'base_price' | 'fallback' | 'fish_weight_anchor';
         isAboveThreshold: boolean;
         maxListingQuantity: number;
         fixedQuantity: boolean;

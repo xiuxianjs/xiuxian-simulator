@@ -1,3 +1,4 @@
+import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parsePKReceipt } from '@src/api/bot/pk-receipt';
 import { parseBackendRobbery } from '@src/api/bot/robbery';
@@ -100,6 +101,9 @@ export default onResponse(selects, async e => {
       }
     }
     const experience = result.normalExperienceGained ?? result.experience;
+    const koiNote = fishingBlessingNote(result.bonusText);
+
+    if (!won && koiNote) { lines.push('其中：' + koiNote); }
 
     if (result.normalExperienceGained !== undefined || experience > 0) {
       lines.push(`修为 +${experience}`);

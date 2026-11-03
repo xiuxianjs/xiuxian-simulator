@@ -1,5 +1,6 @@
 import { assertMyMarketInstance } from './my-market-listings';
 import type { MarketBrowseItem } from './market-browse-query';
+import { assertMarketFish } from './market-fish';
 
 const isInteger = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value);
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -30,4 +31,5 @@ export function assertMarketBrowseItem(item: unknown, message: string): asserts 
     throw new Error(message);
   }
   assertMyMarketInstance(item.attributes, message);
+  assertMarketFish(item, message);
 }

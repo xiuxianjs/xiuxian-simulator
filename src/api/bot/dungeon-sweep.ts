@@ -5,6 +5,7 @@ import type { BackendRequestContext } from './context';
 
 export type DungeonSweepReward = { category: string; name: string; amount: number };
 export type DungeonSweep = {
+  experienceBonusText?:string;
   treasureEffects?: TreasureEffectNotice[];
   normalExperienceGained?: number;
   normalItems?: DungeonSweepReward[];
@@ -51,10 +52,12 @@ export function parseDungeonSweep(value: unknown): DungeonSweep {
   if (value.normalItems !== undefined && !Array.isArray(value.normalItems)) {
     throw new Error('普通秘境掉落响应无效');
   }
+  if (value.experienceBonusText !== undefined && typeof value.experienceBonusText !== 'string') { throw new Error('秘境收益说明不完整'); }
 
   return {
     treasureEffects: parseTreasureEffects(value.treasureEffects),
     normalExperienceGained: parseNormalExperienceGained(value.normalExperienceGained),
+    ...(typeof value.experienceBonusText === 'string' ? { experienceBonusText: value.experienceBonusText } : {}),
     normalItems: value.normalItems?.map(reward),
     dungeonName: value.dungeonName,
     times: value.times,

@@ -66,6 +66,7 @@ export default onResponse(selects, async e => {
     } else {
       md.addNewline();
       md.addText(`修为 +${ownReward.normalExperienceGained ?? ownReward.experienceGained}`);
+      if (ownReward.experienceBonusText?.trim()) { md.addNewline().addText('其中：' + ownReward.experienceBonusText); }
       const rewards = [...ownReward.currency, ...(ownReward.normalItems ?? ownReward.items)];
 
       if (rewards.length) {

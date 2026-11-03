@@ -13,6 +13,7 @@ export type BackendDungeonChallenge = {
   battle: { winner: 'A' | 'B' | 'draw'; rounds: number };
   drops: Array<{ category: string; amount: number; currencyCode?: string; itemId?: number }>;
   rewardsByUser: Array<{
+    experienceBonusText?:string;
     treasureEffects?: TreasureEffectNotice[];
     normalExperienceGained?: number;
     normalItems?: Array<{ category: string; name: string; amount: number }>;
@@ -42,6 +43,7 @@ const rewards = (value: unknown): BackendDungeonChallenge['rewardsByUser'] => {
       !integer(row.spiritCostPaid) ||
       !integer(row.experienceGained) ||
       (row.noRewardReason !== undefined && typeof row.noRewardReason !== 'string')
+      || (row.experienceBonusText !== undefined && typeof row.experienceBonusText !== 'string')
     ) {
       throw new Error('秘境挑战成员结算响应不完整');
     }
@@ -68,6 +70,7 @@ const rewards = (value: unknown): BackendDungeonChallenge['rewardsByUser'] => {
       ...(typeof row.noRewardReason === 'string' ? { noRewardReason: row.noRewardReason } : {}),
       spiritCostPaid: row.spiritCostPaid,
       experienceGained: row.experienceGained,
+      ...(typeof row.experienceBonusText === 'string' ? { experienceBonusText: row.experienceBonusText } : {}),
       currency: rewardList(row.currency),
       items: rewardList(row.items),
       ...(row.firstClear === undefined ? {} : { firstClear: rewardList(row.firstClear) })
