@@ -67,6 +67,7 @@ export function buildPeriodicPackProductPage(data: ReturnType<typeof parseRechar
   content.absorb(
     buildRechargeProductCard({
       heading: `${tierLabel(selected)}${selected.isBundle || data.period === 'monthly' ? '' : '礼包'} · ¥${(selected.priceAmount / 100).toFixed(2)} · ${cycle}限购${selected.remaining}/${selected.limit}`,
+      intro: `简介：${cycle}限购礼包，含奖励与返利`,
       emphasis: selected.label || undefined,
       metadata: [
         `${data.period === 'weekly' ? '本周' : '本月'}自 ${data.periodStart} 起，统一在 ${data.periodEnd} 00:00 刷新（北京时间，周期结束）`,

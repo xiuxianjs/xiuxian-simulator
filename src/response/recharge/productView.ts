@@ -27,6 +27,7 @@ export function offerPromotionLines(lines: string[]): string[] {
 export function buildRechargeProductCard(options: {
   heading: string;
   emphasis?: string;
+  intro?: string;
   metadata?: string[];
   lines: string[];
   rewardLineCount?: number;
@@ -35,6 +36,9 @@ export function buildRechargeProductCard(options: {
 }): FormatMarkDown {
   const content = Format.createMarkdown().addText(options.heading).addNewline();
 
+  if (options.intro) {
+    content.addText(options.intro).addNewline();
+  }
   if (options.emphasis) {
     content.addBold(options.emphasis).addNewline();
   }
@@ -48,6 +52,21 @@ export function buildRechargeProductCard(options: {
   }
 
   if (lines.length) {
+    const grouped: string[] = [];
+
+    for (const line of lines) {
+      const prefix = /^(上限|低保|加成|原有权益|天赋权益|说明|注意|玩法)[:：]/u.exec(line)?.[1];
+
+      if (prefix && grouped.length && grouped[grouped.length - 1] !== '' && grouped.some(prev => prev !== '')) {
+        const prevPrefix = /^(上限|低保|加成|原有权益|天赋权益|说明|注意|玩法)[:：]/u.exec(grouped[grouped.length - 1] ?? '')?.[1];
+
+        if (prevPrefix && prevPrefix !== prefix) {
+          grouped.push('');
+        }
+      }
+      grouped.push(line);
+    }
+    lines.splice(0, lines.length, ...grouped);
     let quote = createQuoteMarkdown(lines);
     const rewardLineCount = options.rewardLineCount ?? 0;
 
@@ -85,6 +104,7 @@ export function buildRechargeProductCard(options: {
 export function buildSpiritVeinProductBlock(lease: ReturnType<typeof parseSpiritVein>): FormatMarkDown {
   return buildRechargeProductCard({
     heading: `灵脉租契 · ¥${(lease.priceAmount / 100).toFixed(2)}`,
+    intro: '简介：按收益日每日发放灵晶的长效租契',
     lines: [
       `购买即得 ${lease.immediateDaoCrystal}道晶`,
       `新购每日 ${lease.dailyCrystal}灵晶，共30收益日`,
@@ -140,6 +160,7 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
   content.absorb(
     buildRechargeProductCard({
       heading: `${name} · ¥${(product.priceAmount / 100).toFixed(2)} · 每日限购${product.remaining}/${product.limit}`,
+      intro: '简介：每日限购礼包，档位可自选',
       emphasis: product.label ? `${product.label.replace(/！+$/u, '')}！！！` : undefined,
       metadata:
         selected === 'all' ? [`原价 ¥${(product.basePriceAmount / 100).toFixed(2)} · 已计入单购金额 ¥${(product.creditedAmount / 100).toFixed(2)}`] : [],

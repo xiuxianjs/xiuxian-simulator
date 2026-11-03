@@ -88,7 +88,7 @@ for (const [handler, command, data, label, back] of [
   });
 }
 
-test('充值首页精简双卡说明，价格实时合计，查看与购买直达对应商品', async t => {
+test('充值首页不再展示双卡，商品查看与购买直达对应入口', async t => {
   const data = structuredClone(catalogData);
   data.catalog.packages = data.catalog.packages.filter(p => p.packageType !== 'first_charge');
   data.catalog.packages[1].priceYuan = 30;
@@ -103,22 +103,19 @@ test('充值首页精简双卡说明，价格实时合计，查看与购买直�
   const message = result.messages[0];
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const cards = quotes(message.nodes);
-  assert.equal(cards.length, 8);
-  assert.match(cards[0].text, /双卡/);
-  assert.match(cards[0].text, /价格：¥39.90/);
-  assert.match(cards[0].text, /月卡与金手指权益可叠加/);
-  assert.deepEqual(cards[0].commands, []);
-  assert.deepEqual(cards[1].commands, ['/充值 道晶套餐']);
-  assert.deepEqual(cards[2].commands, ['/充值 灵脉租契']);
-  assert.deepEqual(cards[3].commands, ['/充值 日礼包']);
-  assert.match(cards[4].text, /周礼包/);
-  assert.deepEqual(cards[4].commands, ['/充值 周礼包']);
-  assert.match(cards[5].text, /月礼包/);
-  assert.deepEqual(cards[5].commands, ['/充值 月礼包']);
-  assert.match(cards[6].text, /价格：¥30/);
-  assert.deepEqual(cards[6].commands, ['/充值 月卡', '/充值购买 2']);
-  assert.match(cards[7].text, /价格：¥9.9/);
-  assert.deepEqual(cards[7].commands, ['/充值 金手指', '/充值购买 3']);
+  assert.equal(cards.length, 7);
+  assert.doesNotMatch(inspectMessage(message.nodes).text, /双卡/);
+  assert.deepEqual(cards[0].commands, ['/充值 道晶套餐']);
+  assert.deepEqual(cards[1].commands, ['/充值 灵脉租契']);
+  assert.deepEqual(cards[2].commands, ['/充值 日礼包']);
+  assert.match(cards[3].text, /周礼包/);
+  assert.deepEqual(cards[3].commands, ['/充值 周礼包']);
+  assert.match(cards[4].text, /月礼包/);
+  assert.deepEqual(cards[4].commands, ['/充值 月礼包']);
+  assert.match(cards[5].text, /价格：¥30/);
+  assert.deepEqual(cards[5].commands, ['/充值 月卡', '/充值购买 2']);
+  assert.match(cards[6].text, /价格：¥9.9/);
+  assert.deepEqual(cards[6].commands, ['/充值 金手指', '/充值购买 3']);
   const view = inspectMessage(message.nodes);
   assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), ['/充值 道晶套餐', '/充值 灵脉租契', '/充值 日礼包', '/充值 周礼包', '/充值 月礼包', '/充值 月卡', '/充值购买 2', '/充值 金手指', '/充值购买 3', '/我的权益', '/充值 灵脉租契', '/新人返利', '/周周返利']);
   assert.doesNotMatch(view.text, /低保|叠乘|分别购买|独立计时|点击购买|查看套餐|查看详情/);
@@ -127,13 +124,12 @@ test('充值首页精简双卡说明，价格实时合计，查看与购买直�
   assert.equal(requests[1].path, '/api/v1/players/1/recharge/first');
 });
 
-test('双卡价格跟随配置，缺卡时不展示合计或缺失商品购买按钮', async t => {
+test('双卡不再单独展示，月卡缺卡时显示暂未开放且不提供购买', async t => {
   const data = structuredClone(catalogData);
   const { app } = await gameFixture(t, r => businessEnvelope(r.bid, data));
   let result = await app.runHandler(catalog, app.events.privateMessage({ text: '/充值', platform: 'qq-bot' }));
   assert.equal(result.messages.length, 1);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
-  assert.match(inspectMessage(result.messages[0].nodes).text, /价格：¥13.00/);
   data.catalog.packages = data.catalog.packages.filter(p => p.packageType !== 'month_card');
   result = await app.runHandler(catalog, app.events.privateMessage({ text: '/充值', platform: 'qq-bot' }));
   assert.equal(result.messages.length, 1);
@@ -184,13 +180,18 @@ test('充值首页直接展示首充赠礼，奖励、条件、领取动作同�
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   const cards = quotes(result.messages[0].nodes);
   assert.match(cards[0].text, /首充礼包.*1元档.*可领取/);
-  assert.match(cards[0].text, /铁剑x1、精力丹x5/);
+  assert.match(cards[0].text, /奖励：铁剑x1、精力丹x5/);
   assert.deepEqual(cards[0].commands, ['/领取礼包奖励 1']);
-  assert.match(cards[1].text, /已领取/);
+  assert.match(cards[1].text, /30元档/);
+  assert.match(cards[1].text, /首次充值满 ¥30 解锁/);
+  assert.match(cards[1].text, /奖励：元力丹x3/);
   assert.deepEqual(cards[1].commands, []);
-  assert.match(cards[2].text, /首次充值满 ¥30 解锁/);
-  assert.match(cards[2].text, /元力丹x3/);
-  assert.deepEqual(cards[2].commands, []);
+  const claimed = cards.find(card => /已领取/.test(card.text));
+  assert.ok(claimed, '已领取档位应保留在主列表');
+  assert.match(claimed!.text, /首充礼包 · 6元档/);
+  assert.doesNotMatch(claimed!.text, /奖励：/);
+  assert.deepEqual(claimed!.commands, []);
+  assert.equal(cards.indexOf(claimed!), cards.length - 1);
   const view = inspectMessage(result.messages[0].nodes);
   assert.ok(view.commands.includes('/充值购买 4'));
   assert.ok(!view.commands.includes('/充值 优惠礼包'));
