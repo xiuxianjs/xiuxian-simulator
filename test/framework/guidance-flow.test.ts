@@ -189,7 +189,7 @@ test('plugin request routing uses actual message without backend access', async 
   }
 });
 
-test('plugin execution policy declares only registered write actions without backend access', async t => {
+test('plugin execution policy preserves registered observation effects and operation keys without backend access', async t => {
   const app = createTestApp();
   t.after(() => app.dispose());
   await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
@@ -211,9 +211,16 @@ test('plugin execution policy declares only registered write actions without bac
     assert.ok(data.actions.some((item: any) => item.action === 'get_alchemy_recipes' && item.mode === 'fresh'));
     assert.ok(!data.actions.some((item: any) => item.action === 'confirm_alchemy'));
     assert.equal(new Set(data.actions.map((item: any) => item.action)).size, data.actions.length);
+    const observations = new Set(['get_meditation_progress', 'get_realm', 'get_emails', 'get_checkin_status', 'get_profile', 'get_storyline_chapters', 'get_storyline_chapter', 'get_cave', 'get_dungeons']);
+    assert.deepEqual(data.actions.filter((item: any) => observations.has(item.action)).map((item: any) => item.action).sort(), [...observations].sort());
     for (const declaration of data.actions) {
       const action = result.value.definition!.actions[declaration.action];
-      assert.equal(action.effect, 'write');
+      assert.ok(action, `Unregistered policy action: ${declaration.action}`);
+      assert.equal(action.effect, observations.has(declaration.action) ? 'unknown' : 'write', declaration.action);
+      if (observations.has(declaration.action)) {
+        assert.equal(declaration.mode, 'fresh');
+        assert.equal(declaration.keyField, undefined);
+      }
       if (declaration.keyField) assert.equal((action.inputSchema as any).properties[declaration.keyField].type, 'string');
     }
   }

@@ -115,7 +115,7 @@ export const normalizeFooterRows = (footer: GuiFooter): GuiButton[][] => {
 /**
  * 分页信息配置
  */
-interface GuiNav {
+export interface GuiNav {
   autoEnter?: boolean;
   /** 当前页码 */
   current: number;
@@ -128,6 +128,17 @@ interface GuiNav {
   /** 翻页命令模板，{page} 会被替换为页码，如 '/查看秘境 {page}' */
   command: string;
 }
+
+/** Shared page state for native Markdown and conversational input renderers. */
+export const guiNavigation = (nav: GuiNav) => ({
+  text: `${nav.total === undefined ? `第${nav.current}页` : `第${nav.current}/${nav.total}页`}${nav.count !== undefined ? ` · 共${nav.count}条` : ''}`,
+  actions: [
+    ...(nav.current > 1 ? [{ label: '上一页', command: nav.command.replace('{page}', String(nav.current - 1)) }] : []),
+    ...((nav.total === undefined ? nav.hasNext === true : nav.current < nav.total)
+      ? [{ label: '下一页', command: nav.command.replace('{page}', String(nav.current + 1)) }]
+      : [])
+  ]
+});
 
 /**
  * qq-bot 风格说明
@@ -233,23 +244,15 @@ export const FormatGui = (params: {
   // nav
   if (nav) {
     md.addNewline();
-    const countText = nav.count !== undefined ? ` · 共${nav.count}条` : '';
+    const navigation = guiNavigation(nav);
 
-    md.addText(`${nav.total === undefined ? `第${nav.current}页` : `第${nav.current}/${nav.total}页`}${countText} `);
-    if (nav.current > 1) {
-      md.addText(' ');
-      md.addButton(markdownButtonLabel('上一页'), {
-        data: nav.command.replace('{page}', String(nav.current - 1)),
-        ...(nav.autoEnter === undefined ? {} : { autoEnter: nav.autoEnter })
-      });
-    }
-    if (nav.total === undefined ? nav.hasNext === true : nav.current < nav.total) {
-      // 中间页时与 [上一页] 保持间隙，避免误点
+    md.addText(navigation.text + ' ');
+    for (const button of navigation.actions) {
       if (nav.current > 1) {
         md.addText(' ');
       }
-      md.addButton(markdownButtonLabel('下一页'), {
-        data: nav.command.replace('{page}', String(nav.current + 1)),
+      md.addButton(markdownButtonLabel(button.label), {
+        data: button.command,
         ...(nav.autoEnter === undefined ? {} : { autoEnter: nav.autoEnter })
       });
     }

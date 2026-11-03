@@ -3,6 +3,7 @@ import { authorizedEvent } from '../expose/access';
 import { boolean, list, object, text } from '../expose/schema';
 import { isPlayDirectoryRequest, playDirectoryText, selectPlayTopic } from './play-context';
 import { gameGuidance } from './game-guidance';
+import { isFreshObservation } from '../expose/execution-policy';
 import { captureGamePresentation, advanceGamePresentation } from './game-progress';
 import {
   isGuidanceRequest,
@@ -17,8 +18,9 @@ import {
 import { acknowledgeConfirmationOptions, isGameConfirmationChoice, pendingBusinessCancellations, pendingBusinessCancellationNotice } from './game-confirmation';
 import { routePluginConversation } from './conversation-routing';
 import type { AgentTool } from './types';
+import { menuPagePattern, onboardingMenuPage, conversationalMenuPage } from '../response/onboarding/menu-pages';
 
-const turns = new Map<string, { engine: ReturnType<typeof gameGuidance>; prompt?: string; expires: number }>();
+const turns = new Map<string, { engine: ReturnType<typeof gameGuidance>; prompt?: string; selectedAction?: boolean; expires: number }>();
 const turnKey = () => {
   const event = getCurrentEvent();
 
@@ -69,6 +71,19 @@ export const conversationLifecycle: ExposeProvideConfig = {
         const event = getCurrentEvent()!;
         const message = event.MessageText?.trim() ?? '';
         const session = guidanceSession();
+        const pageRequest = message.match(menuPagePattern);
+
+        if (pageRequest && session && !message.startsWith('/') && input.aiEnabled) {
+          const page = onboardingMenuPage(pageRequest[1], Number(pageRequest[2]), event);
+
+          return {
+            decision: 'reply',
+            prompt: '',
+            reply: page
+              ? conversationalMenuPage(page, session.narrator) + '\n[[返回玩法目录]] [[暂离]]'
+              : '这份目录已失效，请重新核对引导进度。[[继续引导]] [[返回玩法目录]]'
+          };
+        }
 
         if (!session?.offers?.some(offer => offer.label === message) && (await isGameConfirmationChoice(message))) {
           return {
@@ -78,11 +93,11 @@ export const conversationLifecycle: ExposeProvideConfig = {
               '这个选择已失效，本次没有提交操作。之前已经执行的操作不会撤销。请先核对原结果，可以说“带我玩修仙”恢复，或发送 /我 使用原始玩法；不要重复消费。'
           };
         }
-        if (['退出AI游玩', '退出对话游玩'].includes(message) || (session && (['退出引导', '暂离教学'].includes(message) || !input.aiEnabled))) {
+        if (['退出AI游玩', '退出对话游玩'].includes(message) || (session && (['暂离', '退出引导', '暂离教学'].includes(message) || !input.aiEnabled))) {
           advanceGamePresentation();
           endGuidance(event);
 
-          return { decision: 'reply', prompt: '', reply: '已退出AI游玩，进度保留。可以使用 /我 或原来的玩法指令继续。' };
+          return { decision: 'reply', prompt: '', reply: '先歇一会儿，进度已保留。想继续时叫我就好，也可以使用原来的玩法指令。' };
         }
         if (session?.offers?.length && ['取消', '取消本次操作'].includes(message)) {
           const labels = pendingBusinessCancellations();
@@ -117,7 +132,7 @@ export const conversationLifecycle: ExposeProvideConfig = {
           return { decision: 'skip', prompt: '', reply: '' };
         }
         if (!input.aiEnabled) {
-          return { decision: 'reply', prompt: '', reply: 'AI游玩暂未开启。新玩家可以发送 /踏入仙途，已有角色可以发送 /我；原新手引导和玩法仍可使用。' };
+          return { decision: 'reply', prompt: '', reply: '暂时无法接着聊。新玩家可以发送 /踏入仙途，已有角色可以发送 /我；新手引导和玩法仍可继续。' };
         }
         selectPlayTopic(message);
         noteGuidance('玩家：' + message);
@@ -146,6 +161,12 @@ export const conversationLifecycle: ExposeProvideConfig = {
       authorize,
       handler: async (_input, context) => {
         const key = turnKey();
+        const chosenContinuation = getCurrentEvent()?.MessageText?.trim() === '继续' && guidanceSession()?.dialogueChoices?.includes('继续');
+        const selectedText = getCurrentEvent()?.MessageText?.trim() ?? '';
+        const deliveredLesson = guidanceSession()?.deliveredLesson;
+        const lessonChoices = guidanceSession()?.dialogueChoices?.includes(selectedText)
+          ? (deliveredLesson?.actions.filter(action => action.command.startsWith('/') && action.command.slice(1) === selectedText) ?? [])
+          : [];
 
         for (const [id, value] of turns) {
           if (value.expires <= Date.now()) {
@@ -180,8 +201,62 @@ export const conversationLifecycle: ExposeProvideConfig = {
         }
 
         try {
-          const prompt = engine.instruction + (await engine.prepare({ signal: context.signal }));
+          let prompt = engine.instruction + (await engine.prepare({ signal: context.signal }));
           const turn = turns.get(key);
+
+          const state = guidanceSession()?.state as { flow?: string; step?: string; actions?: { label: string; capability: string }[] } | undefined;
+
+          // An already delivered, exact choice needs no model interpretation.
+          // Only the current original prologue action is eligible. Promotion
+          // and completion retain server checks; free text never auto-advances.
+          if (
+            chosenContinuation &&
+            !engine.isStale() &&
+            state?.flow === 'prologue' &&
+            /^prologue_[2345]$/u.test(state.step ?? '') &&
+            state.actions?.filter(action => action.label === '继续' && action.capability === 'continue_registration_guide').length === 1 &&
+            turn?.engine === engine
+          ) {
+            turn.selectedAction = true;
+            const tool = tools.find(tool => tool.name === 'expose_write')!;
+            const receipt = await tool.execute(
+              {
+                protocol: 'xiuxian.player.v1',
+                provider: 'xiuxian-game',
+                action: 'continue_registration_guide',
+                argumentsJson: JSON.stringify({ intentId: 'dialogue-continue' })
+              },
+              { signal: context.signal }
+            );
+
+            prompt +=
+              '\n玩家点击的原剧情选项已由插件尝试一次，以下为实际回执。不要再次推进、换编号重试或编写新剧情；仅依据回执回应：' + JSON.stringify(receipt);
+          }
+
+          if (
+            lessonChoices.length === 1 &&
+            deliveredLesson?.phase !== 'milestone-handoff' &&
+            !engine.isStale() &&
+            state?.flow === 'onboarding' &&
+            turn?.engine === engine &&
+            !turn.selectedAction
+          ) {
+            turn.selectedAction = true;
+            const tool = tools.find(tool => tool.name === 'expose_write')!;
+            const receipt = await tool.execute(
+              {
+                protocol: 'xiuxian.player.v1',
+                provider: 'xiuxian-game',
+                action: 'perform_onboarding_action',
+                argumentsJson: JSON.stringify({ version: deliveredLesson!.version, command: lessonChoices[0].command, intentId: 'dialogue-lesson' })
+              },
+              { signal: context.signal }
+            );
+
+            prompt +=
+              '\n玩家已点击送达的原教学按钮，插件已按该按钮的原版本尝试一次。以下为实际回执，不能重试、换版本、追加操作或重新要求确认：' +
+              JSON.stringify(receipt);
+          }
 
           if (turn?.engine === engine) {
             turn.prompt = prompt;
@@ -203,6 +278,21 @@ export const conversationLifecycle: ExposeProvideConfig = {
       outputSchema: object({ allowed: boolean, rejectionJson: text }),
       authorize,
       handler: async (input, context) => {
+        if (turns.get(turnKey())?.selectedAction) {
+          const meta = Expose.create()
+            .list(input.protocol)
+            .find(provider => provider.name === input.provider)?.actions[input.action];
+
+          if (meta?.effect !== 'read' && !(input.protocol === 'xiuxian.player.v1' && input.provider === 'xiuxian-game' && isFreshObservation(input.action))) {
+            return {
+              allowed: false,
+              rejectionJson: JSON.stringify({
+                ok: false,
+                error: { code: 'SELECTION_ALREADY_HANDLED', outcome: 'not_started', message: '本次选项已尝试执行，请展示原结果，等待玩家下一次选择。' }
+              })
+            };
+          }
+        }
         const denied = await current().beforeCall(input, { signal: context.signal });
 
         return { allowed: !denied, rejectionJson: denied ? JSON.stringify(denied) : '' };
@@ -219,6 +309,14 @@ export const conversationLifecycle: ExposeProvideConfig = {
 
         return { recorded: true };
       }
+    }),
+    review_reply: Expose.action<{ text: string }, unknown>({
+      description: '只读核对本轮回复与领取回执；反馈不是新授权，不执行任何玩法。旧宿主可继续使用原render兜底。',
+      effect: 'read',
+      inputSchema: object({ text }),
+      outputSchema: object({ accepted: boolean, feedback: text }),
+      authorize,
+      handler: input => current().review(input.text)
     }),
     render: Expose.action<{ text: string; incomplete?: boolean }, unknown>({
       description: '按实际回执呈现剧情结果与选择；模型未完成时仍保留已产生的结果。',
@@ -266,10 +364,10 @@ export const conversationLifecycle: ExposeProvideConfig = {
       handler: input => ({
         text:
           input.text +
-          '\nAI暂时未完成回复。可以发送 ' +
+          '\n这次没能接着说完。可以发送 ' +
           ((guidanceSession()?.state as { accountExists?: boolean } | undefined)?.accountExists === false ? '/踏入仙途' : '/我') +
-          ' 切回原始玩法。已经提交的操作不会因此撤销，请先核对原结果，不要直接重复消费。' +
-          '\n以下入口无需等待 AI 回复：\n[[返回玩法目录]] [[退出AI游玩]]'
+          ' 查看当前进度。已经提交的操作不会因此撤销，请先核对原结果，不要直接重复消费。' +
+          '\n也可以先选：\n[[返回玩法目录]] [[暂离]]'
       })
     })
   }

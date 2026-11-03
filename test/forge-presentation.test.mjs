@@ -258,7 +258,7 @@ test('assessment pagination retains filter and the return path from recipe detai
   data.recipes.push({ ...base, id: 90, name: '其他阶段图纸', requiredLevel: data.level + 1, assessment: true, completed: false, canCraft: false });
   data.recipes.push({ ...base, id: 91, name: '已完成图纸', requiredLevel: data.level, assessment: true, completed: true });
   const first = await render('/锻造图纸 考核', data);
-  assert.ok(first.includes('第1/2页，共6条'));
+  assert.ok(first.includes('第1/2页 · 共6条'));
   assert.ok(first.includes('/锻造图纸 考核 2'));
   assert.ok(!first.includes('本阶段图纸6'));
   assert.ok(!first.includes('其他阶段图纸'));

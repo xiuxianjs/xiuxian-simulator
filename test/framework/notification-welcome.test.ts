@@ -7,7 +7,7 @@ import welcome from '../../src/response/notification/welcome/res';
 
 after(() => shutdownLogger());
 
-test('入群欢迎实际发送自我介绍、权限说明与夺宝修为引导，说明和按钮保留在同一个引用块', async t => {
+test('入群欢迎使用陪伴式口吻并保留权限入口与修为引导，说明和按钮在同一个引用块', async t => {
   const requests: Array<{ path: string; body: unknown }> = [];
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: unknown) {
@@ -36,14 +36,12 @@ test('入群欢迎实际发送自我介绍、权限说明与夺宝修为引导�
   if (quote.type !== 'MD.blockquote' || !Array.isArray(quote.value)) throw new Error('Expected structured quote');
   const view = inspectMessage([{ type: 'Markdown', value: quote.value }]);
   for (const text of [
-    '我是修仙机器人', '请群主或管理员在 QQ 的机器人设置中开启', '① 接收全部消息',
-    '帮助游戏通知找到合适的投递群', '请先 @ 我再发送指令', '普通聊天也无法用于更新活动位置',
-    '② 主动消息', '虾仁夺宝受袭、反击机会和物品归属', '这些提醒无法主动送达本群',
-    '个人通知仍按各自订阅设置投递', '虾仁夺宝（打劫）是游戏主要的修为获取方式之一',
-    '秘境与夺宝分别使用精力、元力'
+    '接下来由我来陪大家一起修行、闯秘境、争夺机缘',
+    '请群主点击机器人头像，在设置中开启', '① 接收群内全部消息',
+    '② 允许群内主动发言', '虾仁夺宝（打劫）是游戏主要的修为获取方式之一'
   ]) assert.ok(view.text.includes(text), text);
   assert.deepEqual(view.commands, ['/修仙帮助', '/踏入仙途', '/我的设置', '/登录']);
-  assert.doesNotMatch(view.text, /固定翻倍|已开启|已允许/);
+  assert.doesNotMatch(view.text, /固定翻倍|已开启|已允许|我是系统|我是修仙机器人|退出AI/);
   assert.deepEqual(requests.map(request => request.path.split('/cache')[1]), [
     '/availability/event', '/availability/read', '/receipt/lease/acquire', '/receipt/store'
   ]);

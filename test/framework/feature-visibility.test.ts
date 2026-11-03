@@ -127,8 +127,8 @@ test('天书当前与下境预告不受普通菜单过滤影响', async t => {
     const view = inspectMessage(result.messages[0].nodes);
     assert.match(view.text, /炼丹师 · 待开放/);
     if (text === '/天书') {
-      assert.match(view.text, /当前大境界：炼气/);
-      assert.match(view.text, /下一大境界：筑基/);
+      assert.match(view.text, /当前大境界 · 境界：炼气/);
+      assert.match(view.text, /下一大境界 · 境界：筑基/);
       assert.ok(view.commands.includes('/天书 1'));
     } else {
       assert.match(view.text, /第2\/2页/);

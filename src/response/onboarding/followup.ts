@@ -8,12 +8,14 @@ import { listenOnboarding, sendTeachingMessage } from './context';
 import { onboardingDisplayLines, onboardingFooter } from './policy';
 import { appendOnboardingBranchMenu, appendOnboardingEntries } from './branchMenu';
 import { hasBoundReturnChoices, onboardingKeyboard } from './keyboard';
+import { createOnboardingMenu, menuPageFallback } from './menu-pages';
 
 // Optional guidance travels with the committed business response. This renderer
 // cannot request or settle gameplay. Active milestone views attach their
 // existing Context; completed return views stay outside the teaching Context.
 export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBusinessFollowup, title: string, receipt: FormatMarkDown): Promise<boolean> {
-  const view = followup.onboarding;
+  const directory = followup.onboarding?.branchMenu ? createOnboardingMenu(followup.onboarding, event) : undefined;
+  const view = directory?.view ?? followup.onboarding;
 
   if (!view && !followup.onboardingPending) {
     return false;
@@ -45,7 +47,15 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
     listenOnboarding(view);
   }
   const native = !pending && !view.branchMenu && event.Platform === 'qq-bot' && (active || hasBoundReturnChoices(view));
-  const bubble = FormatGui({ isPrivate: isPrivateEvent(event), bid: event.UserId, title, content: md, footer: native ? undefined : buttons, bar: false });
+  const bubble = FormatGui({
+    isPrivate: isPrivateEvent(event),
+    bid: event.UserId,
+    title,
+    content: md,
+    nav: directory?.nav,
+    footer: native ? undefined : buttons,
+    bar: false
+  });
 
   if (native) {
     bubble.format.addButtonGroup(onboardingKeyboard(buttons));
@@ -58,6 +68,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
       ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
       : []),
     ...(!pending ? (view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`) : []),
+    ...menuPageFallback(directory),
     '可选指令：',
     ...buttons.flat().map(button => button.label)
   ]);

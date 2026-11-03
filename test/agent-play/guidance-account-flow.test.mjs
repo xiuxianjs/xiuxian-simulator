@@ -62,7 +62,7 @@ for (const scenario of ['already-registered', 'registration-race', 'lookup-faile
     if (scenario === 'lookup-failed') return;
     const text = result.messages.map(item => item.text).join('\n');
     assert.ok(!/\/签到|\/我|\/继续引导|我是系统|可选指令：|白跑|没登记成/u.test(text), text);
-    assert.ok(text.includes(scenario === 'lesson' ? '领取今日补给' : '角色已经登记好了'));
+    assert.ok(text.includes(scenario === 'lesson' ? '签到' : '角色已经登记好了'));
     assert.ok(!text.includes('[[领取今日补给]]'));
     assert.ok(result.messages.every(item => result.actions[item.actionIndex].results.every(receipt => receipt.code === 2000)));
   });
@@ -80,7 +80,7 @@ test('overview remains provider-owned and cannot register in the same inquiry', 
         handler: async input => {
           assert.equal(input.requestText, event.MessageText);
           assert.equal(input.conversationMode, 'gameplay');
-          return { protocol: 'plugin-guidance.v1', flow: 'overview', accountExists: false, dialogue: { text: '插件专属玩法介绍，不是宿主的注册问答。', choices: ['开始修仙', '退出AI游玩'] } };
+          return { protocol: 'plugin-guidance.v1', flow: 'overview', accountExists: false, dialogue: { text: '插件专属玩法介绍，不是宿主的注册问答。', choices: ['开始修仙', '暂离'] } };
         } }),
       register_player: Expose.action({ effect: 'write', description: 'register', inputSchema: empty, outputSchema: empty, handler: async () => { writes++; return {}; } }),
       claim_reward: Expose.action({ effect: 'write', description: 'reward', inputSchema: empty, outputSchema: empty, handler: async () => { writes++; return {}; } })

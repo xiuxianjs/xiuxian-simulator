@@ -86,8 +86,9 @@ for (const valid of [false, true]) for (const isPrivate of [false, true]) {
     const result = await app.runHandler(list, event);
     const view = inspectMessage(result.messages[0].nodes);
     assert.equal(requests.length, 1);
-    assert.ok(view.text.includes('原礼盒 x3'));
-    assert.ok(view.text.includes('原描述'));
+    assert.ok(view.text.includes('原礼盒'), view.text);
+    assert.ok(view.text.includes('数量：×3'), view.text);
+    assert.ok(view.text.includes('说明：原描述'), view.text);
     assert.equal(view.commands.includes('/开启礼盒 201 10'), valid);
     assert.equal(view.text.includes('当前没有可用开启入口'), !valid);
     if (valid) assert.ok(view.text.includes('开启 x10（本次 x3）'));

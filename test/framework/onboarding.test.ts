@@ -159,13 +159,22 @@ test('十多个境界分支用 Markdown input 展示，选择后回到小组按�
   assert.equal(opened.actions[opened.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   assert.ok(!opened.messages[0].nodes.some(node => node.type === 'ButtonGroup' || node.type === 'BT.group'));
   const nodes = JSON.stringify(opened.messages[0].nodes);
-  for (const item of menu.branchMenu!.items) assert.ok(nodes.includes(item.command));
+  for (const item of menu.branchMenu!.items.slice(0, 6)) assert.ok(nodes.includes(item.command));
+  for (const item of menu.branchMenu!.items.slice(6)) assert.ok(!nodes.includes(item.command));
+  const pageCommand = nodes.match(/\/引导目录分页 [a-f0-9]{12} 2/u)?.[0];
+  assert.ok(pageCommand);
+  const pageEvent = app.events.groupMessage({ text: pageCommand, platform: 'qq-bot' });
+  await app.dispatch(pageEvent);
+  assert.equal(requests.length, 0, 'Context must pass pagination without a gameplay query');
+  const pageTwo = await app.invoke(pageEvent, () => handleOnboardingResponse(pageEvent as GameEvent, () => assert.fail('pagination belongs to plugin')));
+  for (const item of menu.branchMenu!.items.slice(6)) assert.ok(JSON.stringify(pageTwo.messages[0].nodes).includes(item.command));
+  assert.equal(requests.length, 0);
   assert.ok(nodes.includes('MD.button'));
   assert.ok(nodes.includes('MD.blockquote'));
-  const selected = await app.dispatch(app.events.groupMessage({ text: '/继续引导 12 feature-3', platform: 'qq-bot' }));
+  const selected = await app.dispatch(app.events.groupMessage({ text: '/继续引导 12 feature-9', platform: 'qq-bot' }));
   assert.equal(selected.context.claimed, true);
   assert.equal(requests.length, 1);
-  assert.deepEqual(requests[0].body.arguments, { version: 12, command: '/继续引导 12 feature-3' });
+  assert.deepEqual(requests[0].body.arguments, { version: 12, command: '/继续引导 12 feature-9' });
   assert.ok(selected.messages[0].nodes.some(node => node.type === 'ButtonGroup' || node.type === 'BT.group'));
 });
 
@@ -182,7 +191,9 @@ test('突破回执后的分支目录不请求第二次业务，不生成大键�
   assert.equal(requests.length, 0);
   assert.ok(result.messages[0].text.includes('本次实际结算回执'));
   assert.ok(!result.messages[0].nodes.some(node => node.type === 'ButtonGroup' || node.type === 'BT.group'));
-  for (const item of menu.branchMenu!.items) assert.ok(JSON.stringify(result.messages[0].nodes).includes(item.command));
+  for (const item of menu.branchMenu!.items.slice(0, 6)) assert.ok(JSON.stringify(result.messages[0].nodes).includes(item.command));
+  for (const item of menu.branchMenu!.items.slice(6)) assert.ok(!JSON.stringify(result.messages[0].nodes).includes(item.command));
+  assert.match(JSON.stringify(result.messages[0].nodes), /引导目录分页 [a-f0-9]{12} 2/u);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 

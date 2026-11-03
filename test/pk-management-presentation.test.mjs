@@ -138,7 +138,7 @@ test('invalid report/replay input still reaches admission as null, and mismatche
 test('battle discovery strips implementation notes while keeping costs, quotes and privacy state',async()=>{
  const raw={mode:'active',canAttack:true,reason:'',qiCost:15,dailyRemaining:9,dailyLimit:10,items:[{uid:2,name:'青云',realmName:'筑基',sameTargetRemaining:4,pairOrdinal:2,rewardPercent:60,itemChancePercent:24}]};
  const nodes=await render('targets','/可打劫道友',raw);
- assert.ok(text(nodes).includes('每次15元力'));assert.ok(text(nodes).includes('剩余4次'));
+ assert.ok(text(nodes).includes('每次15元力'));assert.ok(text(nodes).includes('今日剩余：4次'));
  for(const phrase of ['重新核验','UID','双方今日第'])assert.ok(!text(nodes).includes(phrase));
  const hiding=await render('hiding','/隐藏物品 物品',inventory);
  assert.ok(!text(hiding).includes('共享容量'));assert.ok(!text(hiding).includes('手动锁不能替代隐藏'));

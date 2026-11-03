@@ -6,6 +6,7 @@ import { Expose, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+import { goalEvidence } from '../../src/agent-play/goal-evidence';
 
 after(() => shutdownLogger());
 const output = goTestFixture(['test', './internal/httpapi', '-run', '^(TestRobotBusinessRealmOverview|TestRobotBusinessSoulPathState)', '-v', '-count=1'], {
@@ -19,9 +20,26 @@ for (const [marker, action] of [['ROBOT_REALM_OVERVIEW', 'get_realm'], ['ROBOT_S
     t.after(() => app.dispose());
     await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
     let current = rows[0];
-    t.mock.method(axios, 'create', () => ({ request: async (request: any) => ({ status: 200, headers: {}, data: JSON.stringify(request.url.endsWith('/robot/identity') ? { data: { bid: 'owner', account: { status: 'registered', playerId: 1 } } } : current.v1) }) }));
+    t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
+      if (action === 'get_realm') {
+        assert.equal(request.method, 'GET', 'Planning facts must not submit advancement');
+        assert.ok(['/api/v1/robot/identity', '/api/v1/players/1/realm/overview'].includes(new URL(request.url).pathname));
+      }
+      return { status: 200, headers: {}, data: JSON.stringify(request.url.endsWith('/robot/identity') ? { data: { bid: 'owner', account: { status: 'registered', playerId: 1 } } } : current.v1) };
+    } }));
     for (current of rows) {
       const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, {}), 'ai-plugin');
+      if (action === 'get_realm') {
+        const prepared = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'owner' }), () => goalEvidence('帮我提升境界', new Map([['get_realm', {
+          name: 'expose_call', execute: args => Expose.create().call(String(args.protocol), String(args.provider), String(args.action), JSON.parse(String(args.argumentsJson)))
+        }]]), { signal: new AbortController().signal }, () => false), 'ai-plugin');
+        const prompt = prepared.value;
+        const facts = JSON.parse(prompt.slice(prompt.indexOf('{'), prompt.lastIndexOf('}') + 1)).facts;
+        const evidence = facts.find((fact: any) => fact.action === 'get_realm').result;
+        assert.equal(evidence.ok, result.value.ok, current.state);
+        if (result.value.ok) assert.deepEqual(evidence.data, result.value.data, 'Material deficits, eligibility and probability must survive unchanged');
+        else assert.equal(evidence.error.code, result.value.error.code);
+      }
       if (action === 'get_realm' && ['unsafe-material', 'unsafe-exp'].includes(current.state)) {
         assert.equal(result.value.ok, false);
         if (!result.value.ok) assert.equal(result.value.error.code, 'INVALID_OUTPUT');

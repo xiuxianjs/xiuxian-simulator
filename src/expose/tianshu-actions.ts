@@ -1,3 +1,5 @@
+import { activeDesign } from './active-design';
+import { isRetiredCommand } from '../response/retiredFeatures';
 import { parseBackendNavigation } from '../api/bot/navigation';
 import { parseBackendTianshuContent } from '../api/bot/tianshu-content';
 import { observation } from './mutation';
@@ -33,10 +35,18 @@ export const tianshuActions = {
     object({}),
     object({ registered: boolean, moreVisibleCommands: list(text), foldVisibleCommands: list(text) }),
     () => '/修仙帮助',
-    parseBackendNavigation
+    data => {
+      const navigation = parseBackendNavigation(data);
+
+      return {
+        ...navigation,
+        moreVisibleCommands: navigation.moreVisibleCommands.filter(command => !isRetiredCommand(command)),
+        foldVisibleCommands: navigation.foldVisibleCommands.filter(command => !isRetiredCommand(command))
+      };
+    }
   ),
   get_tianshu: observation(
-    '查询天书的玩法规则、境界开放条件和当前角色的服务端功能状态；未注册账号也可查询公共内容。visible 和 realmReached 不保证满足所有业务条件。',
+    '查询机器人当前支持玩法的天书规则、境界开放条件和当前角色的服务端功能状态；已下架玩法不在本目录中；未注册账号也可查询公共内容。visible 和 realmReached 不保证满足所有业务条件。',
     'tianshu.content',
     object({}),
     object(
@@ -54,7 +64,7 @@ export const tianshuActions = {
     ),
     () => '/天书',
     data => {
-      const content = parseBackendTianshuContent(data);
+      const content = activeDesign(parseBackendTianshuContent(data));
 
       const commandFeatures = content.commandFeatures && Object.entries(content.commandFeatures).map(([command, featureId]) => ({ command, featureId }));
 

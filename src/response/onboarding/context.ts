@@ -21,6 +21,7 @@ import {
 } from './policy';
 import { appendOnboardingBranchMenu, appendOnboardingEntries } from './branchMenu';
 import { hasBoundReturnChoices, onboardingKeyboard } from './keyboard';
+import { createOnboardingMenu, menuPagePattern, menuPageFallback, type OnboardingMenuPage } from './menu-pages';
 
 const onboarding = createContext({
   name: 'xiuxian-onboarding',
@@ -35,6 +36,12 @@ const onboarding = createContext({
     async listen(event, state, action) {
       const gameEvent = event as GameEvent;
       const text = String(gameEvent.MessageText ?? '');
+
+      if (menuPagePattern.test(text)) {
+        action.pass();
+
+        return;
+      }
 
       if (!isGameEventEnabled(gameEvent) || !isOnboardingAddressed(gameEvent, state.view)) {
         action.pass();
@@ -148,7 +155,7 @@ export async function sendTeachingMessage(event: GameEvent, bubble: TeachingMess
   }
 }
 
-export async function showOnboarding(event: GameEvent, view: OnboardingView, introduction?: string): Promise<void> {
+export async function showOnboarding(event: GameEvent, view: OnboardingView, introduction?: string, page?: OnboardingMenuPage): Promise<void> {
   view = {
     ...view,
     title: await guideText(view.title),
@@ -157,6 +164,11 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
   };
   if (introduction) {
     introduction = await guideText(introduction);
+  }
+  const directory = view.branchMenu ? (page ?? createOnboardingMenu(view, event)) : undefined;
+
+  if (directory) {
+    view = directory.view;
   }
   const md = Format.createMarkdown();
 
@@ -193,6 +205,7 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
     bid: event.UserId,
     title: view.title,
     content: md,
+    nav: directory?.nav,
     footer: native ? undefined : buttons,
     bar: false
   });
@@ -209,6 +222,7 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
       ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
       : onboardingDisplayLines(view)),
     ...(view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`),
+    ...menuPageFallback(directory),
     '可选指令：',
     ...choices
   ]);

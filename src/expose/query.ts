@@ -1,6 +1,7 @@
 import { Expose, type ExposeCallContext, type ExposeValueSchema } from 'alemonjs';
 import { authorize, currentPlayer } from './access';
 import { object, project } from './schema';
+import { declareFreshObservation } from './execution-policy';
 
 type Player = Awaited<ReturnType<typeof currentPlayer>>;
 type Input = {
@@ -16,6 +17,15 @@ type Input = {
   skillType?: string;
   typeName?: string;
 };
+
+/** Explicitly audited state observations; keeps the original effect and authorization. */
+export function observationQuery(...args: Parameters<typeof query>) {
+  const action = query(...args);
+
+  declareFreshObservation(action.handler);
+
+  return action;
+}
 // Each request is selected in source, never by model-supplied URL, operation or actor ID.
 export function query(
   description: string,

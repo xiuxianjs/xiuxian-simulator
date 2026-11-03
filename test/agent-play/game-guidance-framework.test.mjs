@@ -22,7 +22,7 @@ const schema = {
     presentation: { type: 'object', additionalProperties: false, required: ['protocol', 'delivery', 'text'], properties: { protocol: { type: 'string', enum: ['system-guide.v1', 'future.v9'] }, delivery: string, text: string } }
   }
 };
-for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unknown-version', 'already-sent', 'retry', 'sequence', 'changed-intent', 'legacy', 'middleware-model-failure', 'scene-order', 'scene-echo', 'continuation-only', 'fresh-progress']) {
+for (const scenario of ['personality', 'player-language', 'model-failure', 'delivery-failure', 'unknown-version', 'already-sent', 'retry', 'sequence', 'changed-intent', 'legacy', 'middleware-model-failure', 'scene-order', 'scene-echo', 'continuation-only', 'fresh-progress']) {
   test(`game guidance real Expose and platform pipeline: ${scenario}`, async () => {
     const root = await mkdtemp(join(tmpdir(), 'game-guidance-'));
     const app = createTestApp({ config: { db: { dialect: 'sqlite', sqlite: { storage: join(root, 'managed.sqlite') } }, 'alemonjs-agent-link': {
@@ -48,7 +48,7 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
         assert.ok(returned.some(value => value.ok === false && value.error.code === 'DUPLICATE_WRITE'));
       }
       if (['model-failure', 'middleware-model-failure'].includes(scenario)) return Response.json({ error: { message: 'fixture-model-down' } }, { status: 401 });
-      return Response.json({ choices: [{ message: { content: scenario === 'scene-echo' ? panel : '先稳住，按你的节奏来。' } }] });
+      return Response.json({ choices: [{ message: { content: scenario === 'scene-echo' ? panel : scenario === 'player-language' ? '先稳住，按你的节奏来。宝箱 claimed: true，其他宝箱 claimed=false、unlocked=false。' : '先稳住，按你的节奏来。' } }] });
     };
     try {
       const result = await app.runHandler(async () => {
@@ -76,7 +76,8 @@ for (const scenario of ['personality', 'model-failure', 'delivery-failure', 'unk
       if (['unknown-version', 'already-sent', 'legacy'].includes(scenario)) assert.ok(!sent.includes('修为：25/200'));
       else assert.ok(sent.includes('修为：25/200'));
       if (!['model-failure', 'middleware-model-failure', 'scene-echo', 'continuation-only'].includes(scenario)) assert.equal(sent.split('按你的节奏来').length - 1, 1);
-      if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); assert.ok(sent.includes('返回玩法目录')); assert.ok(sent.includes('退出AI游玩')); }
+      if (scenario === 'player-language') { assert.match(sent, /已领取/u); assert.match(sent, /尚未领取、尚未解锁/u); assert.doesNotMatch(sent, /claimed|unlocked/u); }
+      if (scenario === 'model-failure') { assert.ok(sent.includes('避免重复提交')); assert.ok(!sent.includes('后续模型请求')); assert.ok(sent.includes('这次没能接着说完')); assert.ok(sent.includes('返回玩法目录')); assert.ok(sent.includes('暂离')); }
       if (scenario === 'continuation-only') { assert.ok(!sent.includes('按你的节奏来')); assert.equal(sent.split('修为：25/200').length - 1, 1); }
       if (scenario === 'scene-echo') assert.equal(sent.split('修为：25/200').length - 1, 1);
       if (scenario === 'scene-order') assert.ok(sent.indexOf('修为：25/200') < sent.indexOf('先稳住'));

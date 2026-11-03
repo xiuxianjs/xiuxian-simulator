@@ -91,7 +91,7 @@ test('目标卡片保留服务端概率、收益倍率及同目标次数',async 
  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,data));
  const result=await app.runHandler(targets,app.events.privateMessage({text:'/可打劫道友',platform:'qq-bot'}));
  assert.equal(requests.length,1);assert.equal(result.messages.length,1);const m=result.messages[0];assert.equal(result.actions[m.actionIndex].results?.[0].code,ResultCode.Ok);
- const row=cards(m.nodes)[0];assert.match(row.text,/剩余3次/);assert.match(row.text,/灵石收益 ×0.6/);assert.match(row.text,/24%（可能落空）/);assert.ok(row.commands.includes('/打劫 2'));
+ const row=cards(m.nodes)[0];assert.match(row.text,/今日剩余：3次/);assert.match(row.text,/灵石收益：×0.6/);assert.match(row.text,/24%（可能落空）/);assert.ok(row.commands.includes('/打劫 2'));
 });
 test('隐藏物品保留库存、保护和可执行动作，移除手写指令教程',async t=>{
  const item={assetKind:'item',assetId:8,name:'草药',quantity:12,hiddenQuantity:2,heldQuantity:3,maxHiddenQuantity:9,protectionText:'暂存物品不可隐藏'};

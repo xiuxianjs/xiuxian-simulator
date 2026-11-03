@@ -14,7 +14,10 @@ export type GameOffer = {
   shown: boolean;
   submitted: boolean;
 };
+type LessonChoice = { version: number; phase: string; actions: { label: string; command: string }[] };
 type Session = {
+  lesson?: LessonChoice;
+  deliveredLesson?: LessonChoice;
   selectedPlayTopic?: string;
   dialogueChoices?: string[];
   dialogueMessageId?: string;
@@ -56,6 +59,8 @@ export function rememberGuidance(state: unknown, narrator = '系统'): void {
 
   sessions.delete(id);
   sessions.set(id, {
+    lesson: previous?.lesson,
+    deliveredLesson: previous?.deliveredLesson,
     selectedPlayTopic: previous?.selectedPlayTopic,
     dialogueChoices: previous?.dialogueChoices,
     dialogueMessageId: previous?.dialogueMessageId,
@@ -99,7 +104,7 @@ export function rememberRegistrationName(name: string): void {
 }
 
 export function isGuidanceRequest(text: string): boolean {
-  return !/^\s*[/#!！＃]/u.test(text) && (Boolean(guidanceSession()) || /修仙|道号|序章|新手引导|登记角色|注册角色|带我修行/u.test(text));
+  return !/^\s*[/#!！＃]/u.test(text) && (Boolean(guidanceSession()) || /修仙|道号|序章|新手引导|登记角色|注册角色|带我(?:继续|接着)?修行/u.test(text));
 }
 
 // Conversation context only. Original provider receipts remain authoritative;
@@ -188,8 +193,17 @@ export function rememberDeliveredDialogue(text: string): void {
   }
   const messageId = getCurrentEvent()?.MessageId;
   const previous = session.dialogueMessageId === messageId ? (session.dialogueChoices ?? []) : [];
-  const labels = [...text.matchAll(/\[\[([^\]\n[]{1,24})\]\]/gu)].map(match => match[1].trim()).filter(label => label && !/^[/#!！＃]/u.test(label));
+  const labels = [...text.matchAll(/\[\[([^\]\n[]{1,80})\]\]/gu)].map(match => match[1].trim()).filter(label => label && !/^[/#!！＃]/u.test(label));
 
   session.dialogueChoices = [...new Set([...previous, ...labels])].slice(0, 100);
   session.dialogueMessageId = messageId;
+  if (session.lesson) {
+    const actions = session.lesson.actions.filter(action => labels.includes(action.command.replace(/^\//u, '')));
+
+    if (actions.length) {
+      session.deliveredLesson = { ...session.lesson, actions };
+    } else if (previous.length === 0) {
+      session.deliveredLesson = undefined;
+    }
+  }
 }

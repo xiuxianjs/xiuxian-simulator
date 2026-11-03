@@ -110,9 +110,10 @@ for (const [index, label] of ['1元', '6元', '18元', '30元全包'].entries())
     for (const line of policy) assert.ok(quoteText.includes(line.replace('周返利', '周周返利')));
     assert.ok(quoteText.includes(`道晶 ×${product.rewardParts[0].quantity}`));
     assert.match(view.text, /^每日礼包\n/);
-    const headerPosition = view.text.indexOf('‹返回权益›‹商品分类›');
+    const headerPosition = view.text.indexOf('‹商品分类›');
     const tabsPosition = view.text.indexOf(index === 0 ? '‹▸1元›' : '‹1元›');
     assert.ok(headerPosition >= 0 && tabsPosition > headerPosition && view.text.indexOf(heading) > tabsPosition);
+    assert.ok(view.text.indexOf('‹返回权益›') > view.text.indexOf('‹购买›'), 'Return stays after the product and purchase action');
     assert.ok(!view.text.includes('（粗体）') && !view.text.includes('\\'));
     if (index === 0) assert.ok(quoteText.includes('稀有随机同名碎片 ×2（独立1次，每次2片）'));
     assert.equal(requests.length, 2);

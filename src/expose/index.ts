@@ -1,3 +1,4 @@
+import { scheduledHarvest } from './scheduled-harvest';
 import { bindExecutionPolicies } from './execution-policy';
 import { conversationLifecycle } from '../agent-play/lifecycle';
 import { Expose } from 'alemonjs';
@@ -125,6 +126,7 @@ type Attributes = {
 
 export const gameExpose = Expose.create()
   .provide(conversationLifecycle)
+  .provide(scheduledHarvest)
   .provide({
     name: GAME_EXPOSE_PROTOCOL,
     version: '1.327.0',

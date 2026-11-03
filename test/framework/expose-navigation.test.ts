@@ -1,3 +1,4 @@
+import { isRetiredCommand } from '../../src/response/retiredFeatures';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -27,6 +28,8 @@ test('导航查询保留未注册与已注册账号的服务端状态', async t 
     const run = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: current.bid }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'get_navigation', {}), 'ai-plugin');
     assert.deepEqual(run.errors, []);
     assert.equal(run.value.ok, true, JSON.stringify(run.value));
-    if (run.value.ok) assert.deepEqual((run.value.data as any).result, current.result.data);
+    if (run.value.ok) assert.deepEqual((run.value.data as any).result, { ...current.result.data,
+      moreVisibleCommands: current.result.data.moreVisibleCommands.filter((command: string) => !isRetiredCommand(command)),
+      foldVisibleCommands: current.result.data.foldVisibleCommands.filter((command: string) => !isRetiredCommand(command)) });
   }
 });

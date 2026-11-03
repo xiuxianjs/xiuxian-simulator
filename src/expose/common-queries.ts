@@ -14,7 +14,7 @@ import { parseSoulPathState } from '../api/bot/soul-path';
 import { parseBackendEquipped } from '../api/bot/equipped-queries';
 import { parseBackendLearnedBooks, parseRobotLearnedBooks } from '../api/bot/learned-books-queries';
 import { parseBackendDungeonCatalog, parseBackendEmails } from '../api/bot/queries';
-import { query } from './query';
+import { query, observationQuery } from './query';
 import { intentIdSchema, mutation, taskInputSchema, validateIntentId } from './mutation';
 import { text, number, integer, boolean, page, fields, list, object } from './schema';
 
@@ -552,7 +552,7 @@ export const commonQueryActions = {
     spiritRootMaterials,
     async ({ bid, uid, request }) => parseSpiritRootMaterials(await requestBackend(bid, 'get_players_id_spirit_root_materials', { path: { id: uid }, ...request }))
   ),
-  get_realm: query('查询境界、突破与晋升材料及资格、服务端成功率；不会执行突破、晋升或开劫。', realmOverview, async ({ bid, uid, request }) => {
+  get_realm: observationQuery('查询境界、突破与晋升材料及资格、服务端成功率；不会执行突破、晋升或开劫。', realmOverview, async ({ bid, uid, request }) => {
     const value = await requestBackend(bid, 'get_players_id_realm_overview', { path: { id: uid }, ...request });
 
     if (!value || typeof value !== 'object' || !('playerId' in value) || value.playerId !== uid) {
@@ -586,7 +586,7 @@ export const commonQueryActions = {
       ),
     object({ page, visibility: { type: 'string', enum: ['visible', 'hidden'] } }, ['page', 'visibility'])
   ),
-  get_dungeons: query(
+  get_dungeons: observationQuery(
     '分页查询秘境目录、消耗、免费次数和匹配资格。items[].id 用于 get_dungeon_detail_by_id、challenge_dungeon_by_id、sweep_dungeon_by_id、start_dungeon_match。',
     dungeons,
     async ({ bid, uid, request }, input) => parseBackendDungeonCatalog(
@@ -594,7 +594,7 @@ export const commonQueryActions = {
       ),
     object({ page }, ['page'])
   ),
-  get_emails: query(
+  get_emails: observationQuery(
     '分页查询邮件及领取/删除资格，不标记已读或领取附件。list[]."email.id" 可传给 get_email_detail、claim_email 和 delete_email。',
     emails,
     async ({ bid, uid, request }, input) => parseBackendEmails(await requestBackend(bid, 'get_players_id_emails', { path: { id: uid }, query: { page: input.page ?? 1, pageSize: 5 }, ...request })),
@@ -630,7 +630,7 @@ export const commonQueryActions = {
       }));
     }
   ),
-  get_checkin_status: query('查询每日、新人、宗门和天时签到状态及可用时段，不代为签到。', checkin, ({ bid, uid, request }) => requestBackend(bid, 'get_players_id_check_ins_status', { path: { id: uid }, ...request })
+  get_checkin_status: observationQuery('查询每日、新人、宗门和天时签到状态及可用时段，不代为签到。', checkin, ({ bid, uid, request }) => requestBackend(bid, 'get_players_id_check_ins_status', { path: { id: uid }, ...request })
   ),
   get_shop_products: query(
     '分页查询商店商品、货币价格、限购及解锁状态；products[].productId 可用于 preview_shop_purchase，shopCode 可选，DAOLV 是道侣商店。',
@@ -642,7 +642,7 @@ export const commonQueryActions = {
       }),
     object({ page, shopCode: { type: 'string', minLength: 1, maxLength: 100 } }, ['page', 'shopCode'])
   ),
-  get_profile: query('查询当前角色资料、修为、灵气和神念；缺失的可选字段表示服务端未提供。', profile, async ({ bid, uid, request }) => {
+  get_profile: observationQuery('查询当前角色资料、修为、灵气和神念；缺失的可选字段表示服务端未提供。', profile, async ({ bid, uid, request }) => {
     const data = validatePlayerProfile(await requestBackend(bid, 'get_players_id_profile', { path: { id: uid }, ...request }));
 
     if (data.found && data.user?.id !== uid) {
@@ -663,7 +663,7 @@ export const commonQueryActions = {
 
     return { ...data, remainingAttempts: String(data.remainingAttempts) };
   }),
-  get_storyline_chapters: query(
+  get_storyline_chapters: observationQuery(
     '分页查询主线章节进度、星数和可领取宝箱；章节 chapterNumber 可传给 get_storyline_chapter。',
     chapters,
     async ({ bid, uid, request }, input) => decodeStorylineCatalog(
@@ -672,7 +672,7 @@ export const commonQueryActions = {
       ),
     object({ page }, ['page'])
   ),
-  get_storyline_chapter: query(
+  get_storyline_chapter: observationQuery(
     '查询指定主线章节关卡、消耗、掉落和扫荡资格；关卡 stageNumber 与 chapterNumber 用于 challenge_storyline 或 sweep_storyline，保留 LOCKED/NOT_FOUND 等服务端状态。',
     chapter,
     async ({ bid, uid, request }, input) => decodeStorylineCatalog(
@@ -685,6 +685,6 @@ export const commonQueryActions = {
       ),
     object({ chapterNumber: page })
   ),
-  get_cave: query('查询洞府灵田、成熟倒计时、照料状态和阵法，不执行种植或收获。', caveSchema, async ({ bid, uid, request }) => parseBackendCaveOverview(await requestBackend(bid, 'get_players_id_cave_view', { path: { id: uid }, ...request }))
+  get_cave: observationQuery('查询洞府灵田、成熟倒计时、照料状态和阵法，不执行种植或收获。', caveSchema, async ({ bid, uid, request }) => parseBackendCaveOverview(await requestBackend(bid, 'get_players_id_cave_view', { path: { id: uid }, ...request }))
   )
 };

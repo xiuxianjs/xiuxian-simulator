@@ -47,7 +47,7 @@ test('AI guide renders real no-prefix buttons and isolates narrator/draft by pla
   assert.ok(result.actions[result.messages[0].actionIndex].results.every(r => r.code === 2000));
 });
 
-for (const text of ['/我', '退出引导', '继续']) {
+for (const text of ['/我', '暂离', '退出AI游玩', '退出引导', '继续']) {
   test(`active guidance routing and disabled fallback: ${text}`, async t => {
     const app = createTestApp({ config: { 'alemonjs-agent-link': { aiEnabled: false } } });
     t.after(() => app.dispose());
@@ -60,7 +60,10 @@ for (const text of ['/我', '退出引导', '继续']) {
     if (text === '/我') { assert.equal(result.messages.length, 0); assert.equal(result.nextCalls.length, 1); }
     else {
       assert.equal(result.messages.length, 1);
-      assert.ok(result.messages[0].text.includes('已退出'));
+      assert.ok(result.messages[0].text.includes('先歇一会儿'));
+      assert.ok(!result.messages[0].text.includes('退出AI'));
+      const cleared = await app.runHandler(() => { assert.equal(guidanceSession(), undefined); }, event, 'alemonjs-agent-link');
+      assert.deepEqual(cleared.errors, []);
     }
     // Slash requests must retain the original event and never emit an AI answer.
     if (text !== '/我') assert.equal(result.nextCalls.length, 0);
@@ -113,8 +116,8 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
     modelCalls++;
     if (registered === 'gameplay') return Response.json({ choices: [{ message: modelCalls === 1
       ? { content: null, tool_calls: [{ id: 'inventory-read', type: 'function', function: { name: 'expose_read', arguments: JSON.stringify({ protocol: 'xiuxian.player.v1', provider: 'xiuxian-game', action: 'get_inventory', argumentsJson: '{}' }) } }] }
-      : { content: '背包已查到，可以继续选择。[[查看材料]] [[退出AI游玩]]' }, finish_reason: modelCalls === 1 ? 'tool_calls' : 'stop' }] });
-    return Response.json({ choices: [{ message: { content: '道号还是没登记上呀。发“/我是 柠檬”就行，一字不多。' }, finish_reason: 'stop' }] });
+      : { content: '背包已查到，可以继续选择，也可以退出AI。[[查看材料]] [[退出AI模式]]' }, finish_reason: modelCalls === 1 ? 'tool_calls' : 'stop' }] });
+    return Response.json({ choices: [{ message: { content: registered === true ? '宋玉突然踏破虚空，凭空升仙。[[继续]]' : '道号还是没登记上呀。发“/我是 柠檬”就行，一字不多。' }, finish_reason: 'stop' }] });
   };
   try {
     const event = app.events.privateMessage({ platform: 'qq-bot', userId: `bootstrap-human-${registered}`, text: registered === 'gameplay' ? '看看背包' : '修仙道号还没登记吗' });
@@ -139,9 +142,14 @@ for (const registered of [false, true, 'gameplay', 'delivery-failure']) test(`bo
     assert.ok(!sent.includes('/我是'));
     assert.ok(sent.includes(registered === 'gameplay' ? '背包已查到' : registered === true ? '角色已经登记好了' : '直接回复名字'));
     assert.ok(!sent.includes('道号还是没登记上'));
+    if (registered === true) {
+      assert.doesNotMatch(sent, /踏破虚空|凭空升仙/u);
+      assert.match(sent, /剧情尚未推进/u);
+    }
     const nodes = JSON.stringify(result.messages.map(message => message.nodes));
-    if (registered !== 'delivery-failure') assert.ok(nodes.includes(registered === 'gameplay' ? '退出AI游玩' : '退出引导'));
+    if (registered !== 'delivery-failure') assert.ok(nodes.includes(registered === 'gameplay' ? '暂离' : '退出引导'));
     assert.ok(!nodes.includes('[[退出引导]]'));
+    assert.ok(!/退出\s*AI/iu.test(nodes));
     assert.ok(!result.actions.some(action => action.name === 'message.stream'));
     assert.ok(result.messages.every(message => result.actions[message.actionIndex].results.every(receipt => receipt.code === (registered === 'delivery-failure' ? 4000 : 2000))));
   } finally {
@@ -194,15 +202,21 @@ for (const scenario of ['registration', 'gameplay', 'manual-exit']) test(`model 
       assert.ok(nodes.includes('已经提交的操作不会因此撤销'));
       assert.ok(nodes.includes('不要直接重复消费'));
       assert.ok(nodes.includes('返回玩法目录'));
-      assert.ok(nodes.includes('退出AI游玩'));
+      assert.ok(nodes.includes('暂离'));
+      assert.ok(!/退出\s*AI|等待 AI|切回原始玩法/u.test(nodes));
+      const buttons = result.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])).filter(node => node.type === 'MD.button');
+      for (const label of ['返回玩法目录', '暂离']) {
+        assert.ok(buttons.some(button => button.options?.data === label && button.options.autoEnter === false), JSON.stringify(buttons));
+      }
+      assert.ok(!nodes.includes('[[返回玩法目录]]') && !nodes.includes('\\\\[\\\\[返回玩法目录'));
       const modelCalls = calls;
-      for (const text of ['返回玩法目录', '退出AI游玩', '退出AI游玩']) {
+      for (const text of ['返回玩法目录', '暂离', '退出AI游玩']) {
         const recoveryEvent = app.events.privateMessage({ platform: 'qq-bot', userId: `failure-${scenario}`, messageId: `recover-${text}-${calls}`, text });
         const recovery = await app.runHandler(pluginConversationHandler, recoveryEvent, 'alemonjs-agent-link');
         assert.deepEqual(recovery.errors, []);
         assert.equal(recovery.nextCalls.length, 0);
         assert.equal(calls, modelCalls, 'recovery navigation must work while the model remains unavailable');
-        assert.ok(recovery.messages.some(message => message.text.includes(text === '返回玩法目录' ? '想先玩哪一项' : '已退出AI游玩')));
+        assert.ok(recovery.messages.some(message => message.text.includes(text === '返回玩法目录' ? '想先玩哪一项' : '先歇一会儿')));
         assert.ok(recovery.messages.every(message => recovery.actions[message.actionIndex].results.every(receipt => receipt.code === 2000)));
       }
 
@@ -234,4 +248,19 @@ test('disabled AI without an existing session keeps original plugin entry availa
   assert.match(run.messages[0].text, /\/踏入仙途/);
   assert.match(run.messages[0].text, /\/我/);
   assert.ok(run.actions[run.messages[0].actionIndex].results.every(receipt => receipt.code === 2000));
+});
+
+
+test('leaving word without a game session does not claim unrelated conversation', async t => {
+  const app = createTestApp();
+  t.after(() => app.dispose());
+  const event = app.events.privateMessage({ platform: 'qq-bot', botId: 'fish', userId: 'unrelated-leave', text: '暂离' });
+  const result = await app.runHandler(async () => {
+    registerExpose('xiuxian-game', [conversationLifecycle]);
+    assert.equal(guidanceSession(), undefined);
+    await guidance();
+  }, event, 'alemonjs-agent-link');
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 0);
+  assert.equal(result.nextCalls.length, 1);
 });

@@ -83,7 +83,7 @@ for (const pageVersion of [version, 'treasure-v8-first-guards-20261029']) for (c
   assert.equal(done.messages.length, 1);
   assert.equal(done.actions[done.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(done.messages[0].nodes);
-  assert.ok(view.text.includes('上古遗珍\n\n综合概率\n\n'));
+  assert.match(view.text, /上古遗珍\n\n综合概率\n单抽出整品概率12%/);
   for (const text of ['单抽综合概率 4.058%', '单抽综合概率 1.704%', '单抽综合概率 0.958%', '十连综合概率 5%', '十连综合概率 2.1%', '十连综合概率 1.18%', '保底(13/20)', '保底(28/50)', '保底(119/120)']) {
     assert.ok(view.text.includes(text), text);
   }

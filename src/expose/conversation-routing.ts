@@ -32,7 +32,7 @@ export const conversationRoutingActions = {
         if (
           (playTopic(message) && (input.active || explicitPlay)) ||
           isPlayDirectoryRequest(message) ||
-          /修仙|道号|序章|新手引导|登记角色|注册角色|带我修行|炼丹|锻造|秘境|宗门|洞府|灵根|经脉|神魂|渡劫|功法|灵石/u.test(message)
+          /修仙|道号|序章|新手引导|登记角色|注册角色|带我(?:继续|接着)?修行|炼丹|锻造|秘境|宗门|洞府|灵根|经脉|神魂|渡劫|功法|灵石/u.test(message)
         ) {
           decision = 'matched';
         } else if (input.active && input.flow === 'registration' && input.hasNameDraft && /^(?:男修|女修|男|女)$/u.test(message)) {

@@ -7,7 +7,7 @@ import { FormatGui } from '../../src/utils/messageHelper';
 
 after(() => shutdownLogger());
 
-test('分页后的操作行带正文前缀，保留命令与多行分组', async t => {
+test('分页后的操作行使用标准 input 样式，保留命令与多行分组', async t => {
   const app = createTestApp();
   t.after(() => app.dispose());
   for (const grouped of [false, true]) {
@@ -33,7 +33,8 @@ test('分页后的操作行带正文前缀，保留命令与多行分组', async
     const rendered = message.nodes.filter(node => node.type === 'Markdown').map(node => createMarkdownText(node.value)).join('\n');
     const lines = rendered.split('\n').filter(line => /text="\/(开垦所有|播种)"/.test(line));
     assert.equal(lines.length, grouped ? 2 : 1);
-    for (const line of lines) assert.match(line, /^操作：\s*<qqbot-cmd-input/);
+    for (const line of lines) assert.match(line, /^<qqbot-cmd-input/);
+    assert.doesNotMatch(rendered, /操作：/);
     assert.doesNotMatch(rendered, /```|^ {4}\S/m);
     for (const label of ['开垦所有', '播种空田', '上一页', '下一页']) {
       assert.ok(rendered.includes(`show="‹${label}›"`));

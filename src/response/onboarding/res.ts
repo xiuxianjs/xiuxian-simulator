@@ -6,6 +6,8 @@ import { showOnboarding, showOnboardingRecovery } from './context';
 import { canonicalOnboardingCommand, onboardingButtonVersion } from './policy';
 
 import type { GameEvent } from '@src/types/event';
+import { menuPagePattern, onboardingMenuPage } from './menu-pages';
+import { isGameEventEnabled } from '@src/utils/eventPolicy';
 
 export async function handleOnboardingResponse(event: GameEvent, next: Next): Promise<void> {
   if (/^[!！]/.test((event.MessageText ?? '').trimStart())) {
@@ -14,6 +16,24 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
     return;
   }
   const command = canonicalOnboardingCommand(event.MessageText ?? '');
+  const pageRequest = (event.MessageText ?? '').match(menuPagePattern);
+
+  if (pageRequest) {
+    if (!isGameEventEnabled(event)) {
+      next();
+
+      return;
+    }
+    const page = onboardingMenuPage(pageRequest[1], Number(pageRequest[2]), event);
+
+    if (page) {
+      await showOnboarding(event, page.view, undefined, page);
+    } else {
+      await showOnboardingRecovery(event, new Error('目录已失效或不属于当前会话，请发送 /继续引导 重新查看。'));
+    }
+
+    return;
+  }
   const buttonVersion = onboardingButtonVersion(event);
   const control = command === '继续引导' || command === '退出引导';
 

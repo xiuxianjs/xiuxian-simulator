@@ -7,9 +7,8 @@ import { getAppConfig } from '../utils/appConfig';
 import { isGameEventEnabled } from '../utils/eventPolicy';
 
 /** 可选白名单限制框架识别的调用插件；不是模型参数或玩家 UID 授权。 */
-export function authorizedEvent(context: ExposeCallContext) {
+export function authorizedCaller(context: ExposeCallContext) {
   const config = getAppConfig().expose;
-  const event = getCurrentEvent();
   const allowed = config?.allowed_callers;
 
   if (
@@ -17,12 +16,17 @@ export function authorizedEvent(context: ExposeCallContext) {
     (config?.enabled !== undefined && config.enabled !== true) ||
     (allowed !== undefined && (!Array.isArray(allowed) || !allowed.every(item => typeof item === 'string' && item.length > 0 && item.trim() === item))) ||
     !context.callerApp ||
-    (allowed !== undefined && context.callerApp !== 'xiuxian-game' && !allowed.includes(context.callerApp)) ||
-    !event ||
-    !['message.create', 'private.message.create'].includes(event.name) ||
-    event.Platform !== 'qq-bot' ||
-    !isGameEventEnabled(event)
+    (allowed !== undefined && context.callerApp !== 'xiuxian-game' && !allowed.includes(context.callerApp))
   ) {
+    throw new ExposeError('FORBIDDEN', '当前调用方未获修仙查询授权');
+  }
+}
+
+export function authorizedEvent(context: ExposeCallContext) {
+  authorizedCaller(context);
+  const event = getCurrentEvent();
+
+  if (!event || !['message.create', 'private.message.create'].includes(event.name) || event.Platform !== 'qq-bot' || !isGameEventEnabled(event)) {
     throw new ExposeError('FORBIDDEN', '当前调用方或消息事件未获修仙查询授权');
   }
   try {

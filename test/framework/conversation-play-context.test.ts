@@ -11,6 +11,21 @@ import { rememberGameplay, guidanceSession, rememberDeliveredDialogue, gameConve
 after(() => shutdownLogger());
 const config = { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'fixture' } } };
 
+for (const [text, expected] of [
+  ['带我修行', 'matched'], ['带我继续修行', 'matched'], ['带我接着修行', 'matched'],
+  ['/带我继续修行', 'unmatched'], ['翻译带我继续修行', 'unmatched']
+]) test(`manual-to-dialogue handoff without a prior session: ${text}`, async t => {
+  const app = createTestApp({ config });
+  t.after(() => app.dispose());
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  t.mock.method(axios, 'create', () => { throw new Error('Routing must not query or advance the game'); });
+  const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'manual-handoff', text }),
+    () => Expose.create().call('xiuxian.player.v1', 'xiuxian-game', 'route_conversation', { active: false }), 'alemonjs-agent-link');
+  assert.equal(result.value.ok, true);
+  assert.equal((result.value as any).data.decision, expected);
+  assert.deepEqual(result.messages, []);
+});
+
 test('real registry supplies play directory, exact effects and explicit observation policy without backend access', async t => {
   const app = createTestApp({ config });
   t.after(() => app.dispose());

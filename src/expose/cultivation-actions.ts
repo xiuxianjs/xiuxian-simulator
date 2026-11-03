@@ -4,7 +4,7 @@ import { boolean, fields, integer, list, number, object, text } from './schema';
 import { parseMeditationBoostOptions, parseMeditationEnd, parseMeditationStart } from '../api/bot/meditation';
 import { parseMeridianPulse } from '../api/bot/meridian';
 import { parseRealmBreakthrough } from '../api/bot/realm-breakthrough';
-import { query } from './query';
+import { observationQuery } from './query';
 import { requestBackend } from '../api/bot/client';
 
 const empty = object({});
@@ -74,7 +74,7 @@ export const cultivationActions = {
     input => validateIntentId(input.intentId),
     { intentId: input => input.intentId, taskInput: input => input.taskInput }
   ),
-  get_meditation_progress: query(
+  get_meditation_progress: observationQuery(
     '查询闭关进度和服务端收益预估；不会启动或结算，预估不代表实际入账。reason 区分未开始和进行中。',
     object({ ...startFields, reason: { type: 'string', enum: ['not_started', 'active'] } }, ['bonusLines', 'boost', 'button', 'buttonText']),
     async ({ bid, uid, request }) => {

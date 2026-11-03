@@ -62,9 +62,14 @@ test('所有 Expose 模块动作不发生同名覆盖，注册目录与源码一
   assert.ok(lifecycle);
   const lifecycleActions = lifecycle.properties.find(entry => ts.isPropertyAssignment(entry) && ts.isIdentifier(entry.name) && entry.name.text === 'actions');
   assert.ok(lifecycleActions && ts.isPropertyAssignment(lifecycleActions) && ts.isObjectLiteralExpression(lifecycleActions.initializer));
+  const scheduled = findObject(source('scheduled-harvest.ts'), 'scheduledHarvest');
+  assert.ok(scheduled);
+  const scheduledActions = scheduled.properties.find(entry => ts.isPropertyAssignment(entry) && ts.isIdentifier(entry.name) && entry.name.text === 'actions');
+  assert.ok(scheduledActions && ts.isPropertyAssignment(scheduledActions) && ts.isObjectLiteralExpression(scheduledActions.initializer));
   const expected = new Map([
     [GAME_EXPOSE_PROTOCOL, auditActions(actionObject, 'index.ts')],
-    ['agent.conversation.v1', auditActions(lifecycleActions.initializer, '../agent-play/lifecycle.ts')]
+    ['agent.conversation.v1', auditActions(lifecycleActions.initializer, '../agent-play/lifecycle.ts')],
+    ['agent.scheduled-action.v1', auditActions(scheduledActions.initializer, 'scheduled-harvest.ts')]
   ]);
   const configs = gameExpose.getConfigs();
   assert.deepEqual(configs.map(config => config.name).sort(), [...expected.keys()].sort());

@@ -1,3 +1,4 @@
+import { playGoal, playPlanning } from './play-planning';
 import { Expose } from 'alemonjs';
 import { isFreshObservation } from '../expose/execution-policy';
 import { guidanceSession } from './guidance-session';
@@ -40,7 +41,9 @@ export function playTopic(text: string): string | undefined {
     return undefined;
   }
 
-  return topics.find(topic => topic.words.test(text))?.id;
+  return (
+    playGoal(text)?.topic ?? topics.find(topic => topic.words.test(text) && (topic.id !== 'cultivation' || !/功法|装备|宝物|灵田|誓约|丹炉/u.test(text)))?.id
+  );
 }
 export const isPlayDirectoryRequest = (text: string): boolean => /^(?:玩法目录|返回玩法目录|换个玩法|查看玩法目录)$/u.test(text.trim());
 
@@ -78,6 +81,7 @@ export function playContext(request: string, requestedTopic?: string) {
     protocol: 'xiuxian.play-context.v1',
     topic: selected?.topic.id ?? '',
     topicLabel: selected?.topic.label ?? '',
+    planning: playPlanning(request, new Set(actions.map(([name]) => name))),
     directory: available.map(item => ({ id: item.topic.id, label: item.topic.label, capabilityCount: item.entries.length })),
     current: {
       lastActionTopic: session?.play?.topic ?? '',
@@ -97,11 +101,12 @@ export function playContext(request: string, requestedTopic?: string) {
       required: meta.inputSchema?.type === 'object' ? (meta.inputSchema.required ?? []) : []
     })),
     rules: [
+      'planning是本次目标的步骤建议，不是执行授权。actions只列当前已注册能力，missingActions不可调用。先读get_tianshu了解服务端当前设计，再核对实时状态；没有预约执行回执不能承诺定时操作。',
       '目录说明插件已公开哪些能力，不代表当前角色已解锁。先查询对应玩法实时状态；按实际effect选择工具，名字带get或prepare也可能改变状态。',
       '先理解本次目标，再查状态和对象。缺少对象、数量或分支时每次问一个必要问题；名字重复或“第二个”不能唯一对应最近已展示对象时先澄清。',
       '已投递普通选项只用于理解上下文，不构成消费凭据。下一步必须使用真实查询结果中的对象和参数；重要写入仍走原预览与确认。',
       'current与recentReceipts是历史资料，不能据此声称当前库存、价格或操作已成功。结果不明时先核对原结果，不换编号重做。',
-      '正常游玩用自然语言与无前缀选项；返回玩法目录只导航，退出AI游玩只退出对话。注册和序章按插件状态进行，不因打开玩法而自动跳过或推进。',
+      '正常游玩用自然语言与无前缀选项；返回玩法目录只导航，暂离只退出对话。注册和序章按插件状态进行，不因打开玩法而自动跳过或推进。',
       'capabilities只是当前主题的有限索引；需要其他动作时按真实目录继续发现，不能臆造接口。完成一个玩家选择后讲清实际结果，再提供少量相关下一步，不自动连续消费。'
     ]
   };
@@ -113,6 +118,6 @@ export function playDirectoryText(): string {
   return (
     '想先玩哪一项？这里是当前插件提供的玩法入口，是否开放以你的角色状态为准。\n' +
     context.directory.map(item => `[[${item.label}]]`).join('\n') +
-    '\n[[继续新手引导]] [[退出AI游玩]]'
+    '\n[[继续新手引导]] [[暂离]]'
   );
 }

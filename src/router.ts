@@ -54,7 +54,10 @@ app.res(
 );
 
 app.res(
-  { events: commandEvents, regular: /^\s*[/#＃]?\s*(?:继续引导(?:\s+[1-9]\d{0,15}\s+[a-z][a-z0-9-]{0,63})?|退出引导)\s*$/ },
+  {
+    events: commandEvents,
+    regular: /^\s*[/#＃]?\s*(?:继续引导(?:\s+[1-9]\d{0,15}\s+[a-z][a-z0-9-]{0,63})?|退出引导|引导目录分页\s+[a-f0-9]{12}\s+[1-9]\d{0,2})\s*$/
+  },
   () => import('@src/response/onboarding/res')
 );
 

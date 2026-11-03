@@ -99,7 +99,11 @@ test('月卡领取回执保留全部到账数量和未来进度，一次请求�
   const view = inspectMessage(result.messages[0].nodes);
   for (const text of ['已领取 2 天奖励', '灵晶 ×100', '精力丹 ×4', '元力丹 ×6', '累计已发 22 天', '后续待发 8 天']) assert.ok(view.text.includes(text));
   assert.doesNotMatch(view.text, /奖励进度|领取成功|未到期/);
-  assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), ['/我的权益', '/我的权益 月卡日历']);
+  assert.deepEqual(view.commands.filter(command => !['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'].includes(command)), ['/我的权益 月卡日历', '/我的权益']);
+  const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+  const receiptIndex = nodes.findIndex(node => node.type === 'MD.blockquote');
+  const returnIndex = nodes.findIndex(node => node.type === 'MD.button' && node.options?.data === '/我的权益');
+  assert.ok(receiptIndex >= 0 && returnIndex > receiptIndex, 'Return belongs after the original reward receipt');
   assert.equal(requests.length, 1); assert.ok(requests[0].idempotencyKey);
 });
 

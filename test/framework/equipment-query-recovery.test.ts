@@ -62,7 +62,7 @@ for (const capabilities of [[], [{ kind: 'viewDetail' }]]) for (const isPrivate 
     const result = await app.runHandler(bag, event);
     const view = inspectMessage(result.messages[0].nodes);
     assert.equal(requests.length, 1);
-    for (const text of ['原剑', '一品', '物攻:12', '【101】']) assert.ok(view.text.includes(text), view.text);
+    for (const text of ['原剑 #101', '品级：一品', '类型：武器', '物攻:12']) assert.ok(view.text.includes(text), view.text);
     assert.equal(view.text.includes('当前没有可用操作'), capabilities.length === 0);
     assert.equal(view.commands.includes('/物品详情 装备 5'), capabilities.length > 0);
     for (const command of ['/装备 101', '/解锁 装备 101', '/分解装备 101']) assert.ok(!view.commands.includes(command));

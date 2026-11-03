@@ -29,7 +29,7 @@ const samples=[];
 function capture(name,fn){state.sent=[];fn();assert.equal(state.sent.length,1);const p=state.sent[0];samples.push({name,p});return p;}
 const plots=[{plotIndex:1,plotState:'cultivated',title:'聚灵草',detail:'缺水，尚余1小时\n升级至2阶需消耗【灵土】x10。',actions:[{label:'浇灌',command:'/浇灌 1'},{label:'加速',command:'/灵田加速 1'},{label:'升级',command:'/升级灵田 1'}]},{plotIndex:2,plotState:'cultivated',title:'空闲灵田',detail:'可播种',actions:[{label:'播种',command:'/播种 2'}]},{plotIndex:3,plotState:'unlockable',title:'未开垦灵田',detail:'灵锄×1、灵土×5',actions:[{label:'开垦',command:'/开垦 3'}]},{plotIndex:4,plotState:'locked',title:'未解锁灵田',detail:'',actions:[]}];
 const options={bid:'fixture',isPrivate:true,title:'洞府灵田',plots,message:{send:m=>state.sent.push(m.format.value)}};
-test('daily home exposes new land, local care and batch planting without advanced action clutter',()=>{const p=capture('洞府灵田',()=>sendSelfCavePlotPage(options));const c=commands(p);for(const cmd of ['/开垦所有','/开垦 3','/浇灌 1','/一键浇灌','/播种','/我的职业 灵药师','/我的灵田 经营'])assert.ok(c.includes(cmd));assert.ok(!c.includes('/灵田加速 1'));assert.ok(!c.includes('/升级灵田 1'));assert.match(render(nodes(p)),/待照料1块 · 空闲1块 · 可开垦1块/);assert.doesNotMatch(render(nodes(p)),/未解锁灵田/);});
+test('daily home preserves server-provided care and acceleration while upgrades stay in detail',()=>{const p=capture('洞府灵田',()=>sendSelfCavePlotPage(options));const c=commands(p);for(const cmd of ['/开垦所有','/开垦 3','/浇灌 1','/一键浇灌','/播种','/我的职业 灵药师','/我的灵田 经营'])assert.ok(c.includes(cmd));assert.ok(c.includes('/灵田加速 1'));assert.ok(!c.includes('/升级灵田 1'));assert.match(render(nodes(p)),/待照料1块 · 空闲1块/);assert.match(render(nodes(p)),/已开垦2块 · 当前可开垦1块（需备齐材料）/);assert.doesNotMatch(render(nodes(p)),/未解锁灵田/);});
 test('plot detail retains exact server actions and cost text; management retains history and formations',()=>{const p=capture('地块详情',()=>sendSelfCavePlotPage({...options,selectedPlotIndex:1}));assert.ok(commands(p).includes('/升级灵田 1'));assert.match(render(nodes(p)),/升级至2阶需消耗【灵土】x10。/);assert.ok(commands(p).includes('/灵田加速 1'));const m=capture('药圃经营',()=>sendSelfCavePlotPage({...options,showManagement:true}));for(const cmd of ['/洞府阵法','/附近灵田','/灵田记录','/我的灵田 操作'])assert.ok(commands(m).includes(cmd));});
 test('seed selection is focused, carries exact target, and offers inventory recovery when empty',()=>{const p=capture('播种灵种',()=>sendPlantSeedPromptPage({...options,targetLabel:'全部空闲灵田',remainingPlots:2,commandPrefix:'/播种',options:[{seedName:'聚灵草种',cropName:'聚灵草',quantity:3,matureHours:12}]}));assert.ok(commands(p).includes('/播种 聚灵草种'));assert.doesNotMatch(render(nodes(p)),/指令：|缺水/);const empty=capture('无灵种',()=>sendPlantSeedPromptPage({...options,targetLabel:'第2块灵田',remainingPlots:1,commandPrefix:'/播种 2',options:[]}));assert.ok(commands(empty).includes('/储物袋'));assert.ok(commands(empty).includes('/我的灵田 页 1'));});
 test('acceleration preview offers exact bounded quantities and never advertises unavailable items',async()=>{state.sent=[];const e={name:'message.create',UserId:'fixture',uid:1,isPrivate:true,MessageText:'/灵田加速 1'};await framework.run(action, e, ()=>{});const p=state.sent[0];samples.push({name:'灵田加速',p});assert.ok(commands(p).includes('/灵田加速 1 小绿瓶 1'));assert.ok(commands(p).includes('/灵田加速 1 小绿瓶 2'));assert.ok(!commands(p).some(c=>c.includes(' 灵肥')));});
@@ -57,8 +57,8 @@ test('batch cultivate appears on operations only while server supplies cultivate
 test('daily overview omits repeated upgrade instructions but detail keeps costs and every other state',()=>{
  const extra={...plots[0],detail:plots[0].detail+'\n灵气充盈'};
  const home=capture('首页精简',()=>sendSelfCavePlotPage({...options,plots:[extra]}));
- assert.doesNotMatch(render(nodes(home)),/升级至|可收获0块|空闲0块|可开垦0块/);
- assert.match(render(nodes(home)),/缺水，尚余1小时/);assert.match(render(nodes(home)),/灵气充盈/);
+ assert.doesNotMatch(render(nodes(home)),/升级至|可收获0块|空闲0块/);
+ assert.match(render(nodes(home)),/已开垦1块 · 当前可开垦0块（需备齐材料）/);assert.match(render(nodes(home)),/缺水，尚余1小时/);assert.match(render(nodes(home)),/灵气充盈/);
  const detail=capture('完整消耗',()=>sendSelfCavePlotPage({...options,plots:[extra],selectedPlotIndex:1}));
  assert.match(render(nodes(detail)),/升级至2阶需消耗【灵土】x10/);assert.ok(commands(detail).includes('/升级灵田 1'));
  const operations=capture('操作页',()=>sendSelfCavePlotPage({...options,showOperations:true}));
@@ -98,7 +98,7 @@ const manySeeds = Array.from({length:12},(_,i)=>({seedName:`灵种${i+1}`,quanti
 const visitOverview={ownerUid:987,ownerName:'道友',relationLabel:'好友',auraText:'充盈',stolenStatusText:'无人光顾',canViewPlots:true,plots:manyPlots,recentLogs:[]};
 test('field pagination keeps original plot targets, total count, full-scope batch actions and detail return page',()=>{
  const p=capture('灵田第2页',()=>sendSelfCavePlotPage({...options,plots:manyPlots,page:2}));
- assert.match(render(nodes(p)),/第2\/3页，共12条/);
+ assert.match(render(nodes(p)),/第2\/3页 · 共12条/);
  assert.deepEqual(commands(p).filter(c=>/^\/浇灌 /.test(c)),manyPlots.slice(5,10).map(p=>`/浇灌 ${p.plotIndex}`));
  for(const c of ['/我的灵田 页 1','/我的灵田 页 3','/一键浇灌'])assert.ok(commands(p).includes(c));
  const last=capture('灵田末页',()=>sendSelfCavePlotPage({...options,plots:manyPlots,page:99}));
@@ -111,7 +111,7 @@ test('field pagination keeps original plot targets, total count, full-scope batc
 });
 test('visiting paginates visible cultivated plots only and never leaks hidden page counts',()=>{
  const p=capture('访友第2页',()=>sendVisitedCavePlotPage({...options,overview:{...visitOverview,plots:[plots[3],...manyPlots,plots[2]]},page:2}));
- assert.match(render(nodes(p)),/第2\/3页，共12条/);assert.ok(commands(p).includes('/查看灵田 987 页 3'));
+ assert.match(render(nodes(p)),/第2\/3页 · 共12条/);assert.ok(commands(p).includes('/查看灵田 987 页 3'));
  const hidden=capture('隐藏灵田',()=>sendVisitedCavePlotPage({...options,overview:{...visitOverview,canViewPlots:false,summary:'未开放'},page:2}));
  assert.doesNotMatch(render(nodes(hidden)),/第.*页|灵草|共12条/);assert.ok(!commands(hidden).some(c=>c.includes(' 页 ')));
 });
@@ -140,7 +140,7 @@ test('page requests make exactly one read or selection request with no seed or U
   assert.deepEqual(await resolveRobotTarget(parseCavePage('/查看灵田 页 2').text,{findOne:async()=>({count:1,data:{UserId:'friend-bid'}})}),{bid:'friend-bid'});
   state.calls=[];state.sent=[];state.response={players:Array.from({length:12},(_,i)=>({ownerId:i+20,ownerName:`道友${i}`,relationLabel:'好友',auraText:'充盈',stolenStatusText:'无人光顾',canSteal:false}))};
   e={...e,MessageText:'/附近灵田 页 2'};await framework.run(nearby, e, ()=>{});
-  assert.deepEqual(state.calls,[{op:'cave.nearby',args:{}}]);assert.match(render(nodes(state.sent[0])),/第2\/3页，共12条/);
+  assert.deepEqual(state.calls,[{op:'cave.nearby',args:{}}]);assert.match(render(nodes(state.sent[0])),/第2\/3页 · 共12条/);
   assert.deepEqual(commands(state.sent[0]).filter(c=>c.startsWith('/查看灵田 ')),[25,26,27,28,29].map(id=>`/查看灵田 ${id}`));
  } finally {delete state.calls;delete state.response;}
 });
