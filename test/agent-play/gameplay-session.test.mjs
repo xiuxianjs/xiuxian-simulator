@@ -246,7 +246,7 @@ for (const scenario of ['preparation', 'confirmation', 'unrelated', 'unavailable
       assert.equal(guidanceSession(), undefined, 'static recovery does not start a gameplay session');
     }, event, 'alemonjs-agent-link');
     assert.deepEqual(result.errors, []);
-    assert.equal(reads, 1);
+    assert.equal(reads, ['preparation', 'confirmation'].includes(scenario) ? 2 : 1, 'read-only matching and selected routing may each read the static contract');
     assert.equal(writes, 0);
     if (scenario === 'preparation' || scenario === 'confirmation') {
       assert.equal(result.messages.length, 1);

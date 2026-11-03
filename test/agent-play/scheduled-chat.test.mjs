@@ -102,7 +102,7 @@ test('full chat schedules game harvest and settles through real Go service', { s
  const store = new ScheduledActionStore(root);
  const jobs = await store.list(owner);
  const reply = run.messages.map(message => message.text).join('\n');
- console.log('HARVEST_CHAT_PREPARE=' + JSON.stringify({ modelCalls, toolNames: modelTrace.flatMap(round => round.calls ?? []).map(call => call.name), jobs: jobs.length, reply }));
+ console.log('HARVEST_CHAT_PREPARE=' + JSON.stringify({ modelCalls, toolNames: modelTrace.flatMap(round => round.calls ?? []).map(call => call.name), toolTargets: modelTrace.flatMap(round => round.calls ?? []).map(call => { try { const args = JSON.parse(call.arguments); return { name: call.name, provider: args.provider, action: args.action }; } catch { return { name: call.name }; } }), jobs: jobs.length, reply }));
  assert.equal(jobs.length, 1, reply);
  assert.match(reply, /预约|安排|约好|十分钟后|10分钟后/u);
  if (failAfterSave || failRender) {
@@ -112,7 +112,7 @@ test('full chat schedules game harvest and settles through real Go service', { s
   const nodes = run.messages.flatMap(message => message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []));
   if (failRender) {
    assert.equal(renderAttempts, 1);
-   assert.doesNotMatch(reply, /后续说明暂时未完成|部分操作可能已执行|后续模型请求/u);
+   assert.doesNotMatch(reply, /后续说明暂时未完成|本次结果说明暂未完成|部分操作可能已执行|后续模型请求/u);
    assert.doesNotMatch(reply, /fixture-private-render-failure/u);
    assert.equal(nodes.filter(node => node.type === 'MD.button').length, 0, 'Do not fabricate choices after rendering fails');
   } else assert.equal(nodes.filter(node => node.type === 'MD.button').length, 0, 'a saved task does not need a gameplay footer');

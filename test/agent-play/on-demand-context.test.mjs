@@ -29,6 +29,12 @@ for (const scenario of ['question', 'prologue-choice', 'lesson-choice']) test(`r
       assert.ok(receipt.length && receipt.every(item => item.code === 2000));
       rememberDeliveredDialogue(`[[${input}]]`);
     }
+    const snapshot = JSON.stringify(guidanceSession());
+    const matched = await Expose.create().call('agent.conversation.v1', 'xiuxian-game', 'match', {});
+    assert.equal(matched.ok, true, JSON.stringify(matched));
+    assert.equal(matched.data.match, scenario === 'prologue-choice' ? 'context' : 'explicit');
+    assert.equal(JSON.stringify(guidanceSession()), snapshot, 'matching cannot change pending choices or progress');
+    assert.deepEqual(calls, []);
     const start = await Expose.create().call('agent.conversation.v1', 'xiuxian-game', 'start', {});
     assert.equal(start.ok, true, JSON.stringify(start));
     assert.deepEqual(calls, [], 'opening an AI turn cannot query the world or advance a choice');
