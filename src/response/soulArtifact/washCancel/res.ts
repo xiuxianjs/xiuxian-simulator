@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { soulWashFeedback } from '@src/response/soulArtifact/washFeedback';
 import { useMessage } from '@src/utils/useMessage';
@@ -51,9 +52,9 @@ export default onResponse(selects, async e => {
   md.addText(result.message);
 
   md.addText(' ');
-  md.addButton(markdownButtonLabel('本命物信息'), { data: '/本命物信息' });
+  md.addButton(markdownButtonLabel('本命物信息'), { data: commandText('本命物信息') });
   md.addText(' ');
-  md.addButton(markdownButtonLabel('重新洗涤'), { data: '/本命物洗涤' });
+  md.addButton(markdownButtonLabel('重新洗涤'), { data: commandText('本命物洗涤') });
 
   void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
 });

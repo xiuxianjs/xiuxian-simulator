@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { appendAINarration, guideText } from './onboarding/aiNarration';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GameEvent } from '@src/types/event';
@@ -49,7 +50,7 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
     if (index === 0) {
       md.addNewline();
     }
-    md.addButton(markdownButtonLabel(advice.command), { data: advice.command });
+    md.addButton(markdownButtonLabel(commandText(advice.command)), { data: commandText(advice.command) });
     md.addText(`：${advice.description}`);
     md.addNewline();
   }

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GuildHomeQueryData } from '@src/api/schemas/guild-home-query';
 import { createQuoteMarkdown } from '@src/utils/messageHelper';
@@ -185,10 +186,10 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
   }
   md.addBold(`【${guildName}】 ${guild.level}级(ID:${membership.guildId})`);
   if (permissions.upgrade) {
-    md.addText(' ').addButton(markdownButtonLabel('升级'), { data: '/提升宗门等级' });
+    md.addText(' ').addButton(markdownButtonLabel('升级'), { data: commandText('提升宗门等级') });
   }
   if (permissions.leader) {
-    md.addText(' ').addButton(markdownButtonLabel('改名'), { data: '/宗门改名' });
+    md.addText(' ').addButton(markdownButtonLabel('改名'), { data: commandText('宗门改名') });
   }
   md.addNewline();
   quote([

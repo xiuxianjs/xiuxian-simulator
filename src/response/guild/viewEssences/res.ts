@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { formatGameDate } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
@@ -61,9 +62,9 @@ function handleEssenceDisplay(result: any, message: any, bid: string | undefined
 
       md.addBold(`【${result.guildName}】宗门精华`);
       md.addNewline();
-      md.addButton(markdownButtonLabel('返回'), { data: '/我的宗门' });
+      md.addButton(markdownButtonLabel('返回'), { data: commandText('我的宗门') });
       md.addText(' ');
-      md.addButton(markdownButtonLabel('添加'), { data: '/添加精华' });
+      md.addButton(markdownButtonLabel('添加'), { data: commandText('添加精华') });
       md.addNewline();
       md.addText('暂无精华内容');
 

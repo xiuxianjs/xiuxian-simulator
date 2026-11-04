@@ -89,7 +89,7 @@ test('秘宝商人沿用商店商品引用布局，仅展示一条藏宝图且�
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, merchant()));
   const command = '/上古遗珍 秘宝商人';
 
-  assert.ok(matchesGameCommand({ name: 'private.message.create', MessageText: command }));
+  assert.ok(app.run(() => matchesGameCommand({ name: 'private.message.create', MessageText: command })));
   const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
   const view = delivered(result, command);
 

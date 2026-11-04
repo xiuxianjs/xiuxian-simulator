@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { useMessage } from '@src/utils/useMessage';
@@ -30,7 +31,7 @@ const appendSources = (quote: ReturnType<typeof Format.createMarkdown>, label: s
     const limit = source.realmLimit.includes('配置缺失') ? '境界待确认' : source.realmLimit;
 
     quote.addNewline().addText(`${label}：${source.name} · ${limit}`);
-    quote.addText(' ').addButton(markdownButtonLabel('查看'), { data: `/秘境详情 ${source.name}` });
+    quote.addText(' ').addButton(markdownButtonLabel('查看'), { data: commandText(`秘境详情 ${source.name}`) });
   }
 };
 

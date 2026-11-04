@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { getBackendConfig } from '@src/api/bot/config';
 import { createHash, randomUUID } from 'crypto';
@@ -74,7 +75,7 @@ export function buildCommunityBatch(batch: CommunityBatch) {
   } else {
     quote.addText(`收到 ${count} 条加群申请事件，请管理员在 QQ 群管理中核实与处理。`).addNewline();
     quote.addText('事件记录不代表申请仍待审核；不会自动审批。').addNewline();
-    quote.addButton(markdownButtonLabel('申请记录'), { data: '/加群申请记录' });
+    quote.addButton(markdownButtonLabel('申请记录'), { data: commandText('加群申请记录') });
   }
 
   return FormatGui({

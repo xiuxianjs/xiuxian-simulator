@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { notificationTextLayout } from '@src/notification/presentation';
@@ -60,7 +61,7 @@ export default onResponse(selects, async e => {
       if (mail) {
         const quote = flyMailQuote(mail, e.uid);
 
-        quote.addText(' ').addButton(markdownButtonLabel('查看飞信'), { data: flyMailViewCommand(mail.scope, mail.conversationId) });
+        quote.addText(' ').addButton(markdownButtonLabel('查看飞信'), { data: commandText(flyMailViewCommand(mail.scope, mail.conversationId)) });
         md.addBlockquote(quote);
         continue;
       }

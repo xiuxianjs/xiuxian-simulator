@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { useMessage } from '@src/utils/useMessage';
@@ -29,14 +30,14 @@ export default onResponse(selects, async e => {
     const actionMd = Format.createMarkdown();
 
     if (canContinue) {
-      actionMd.addText('继续升级： ').addButton(markdownButtonLabel('再升×1'), { data: '/本命物升级' });
-      actionMd.addText(' ').addButton(markdownButtonLabel('再升×5'), { data: '/本命物升级 5' });
-      actionMd.addText(' ').addButton(markdownButtonLabel('再升×36'), { data: '/本命物升级 36' });
+      actionMd.addText('继续升级： ').addButton(markdownButtonLabel('再升×1'), { data: commandText('本命物升级') });
+      actionMd.addText(' ').addButton(markdownButtonLabel('再升×5'), { data: commandText('本命物升级 5') });
+      actionMd.addText(' ').addButton(markdownButtonLabel('再升×36'), { data: commandText('本命物升级 36') });
     } else {
       actionMd.addText('本次未完成全部请求等级，请先核对本命物等级与筑灵石。').addNewline();
-      actionMd.addButton(markdownButtonLabel('查看材料'), { data: '/储物袋 材料 其它' });
+      actionMd.addButton(markdownButtonLabel('查看材料'), { data: commandText('储物袋 材料 其它') });
     }
-    actionMd.addText(' ').addButton(markdownButtonLabel('我的本命物'), { data: '/本命物信息' });
+    actionMd.addText(' ').addButton(markdownButtonLabel('我的本命物'), { data: commandText('本命物信息') });
     md.addBlockquote(actionMd);
     await message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
   };

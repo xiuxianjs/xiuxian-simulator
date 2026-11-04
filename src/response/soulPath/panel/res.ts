@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -58,9 +59,9 @@ export default onResponse(selects, async e => {
   md.addBlockquote(
     Format.createMarkdown()
       .addText(`补给方向：${panel.dailyMaterialDirectionName} `)
-      .addButton(markdownButtonLabel('调整补给'), { data: '/神魂补给' })
+      .addButton(markdownButtonLabel('调整补给'), { data: commandText('神魂补给') })
       .addText(' ')
-      .addButton(markdownButtonLabel('材料来源与温养规则'), { data: '/神魂材料来源' })
+      .addButton(markdownButtonLabel('材料来源与温养规则'), { data: commandText('神魂材料来源') })
   );
   md.addNewline();
 
@@ -73,7 +74,7 @@ export default onResponse(selects, async e => {
       md.addBold(`下一步 · ${nextNode.name}`);
       if (nextNode.canAdvance) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('道途突破'), { data: '/道途突破' });
+        md.addButton(markdownButtonLabel('道途突破'), { data: commandText('道途突破') });
       }
       md.addNewline();
       addSoulQuote(md, nextNode.requirementText);
@@ -94,7 +95,7 @@ export default onResponse(selects, async e => {
     for (const option of panel.nurtureOptions) {
       const quote = Format.createMarkdown()
         .addText(`${option.costText} `)
-        .addButton(markdownButtonLabel(`${option.name}`), { data: `/神魂温养 ${option.name}` });
+        .addButton(markdownButtonLabel(`${option.name}`), { data: commandText(`神魂温养 ${option.name}`) });
 
       if (option.reserveWarning) {
         quote.addNewline().addText(option.reserveWarning);

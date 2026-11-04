@@ -1,3 +1,4 @@
+import { hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness, finishRobotBusiness } from '@src/response/robotBusiness';
@@ -16,7 +17,12 @@ import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { parseTreasureEffects } from '@src/api/bot/treasure-effects';
 
 const routeChoice = (text: string): string | null => {
-  const command = text.trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
+  if (!hasCommandPrefix(text)) {
+    return null;
+  }
+  const command = internalCommandText(text)
+    .trim()
+    .replace(/^\/\s*/, '');
 
   return (
     ({ 普攻: 'normal', 普通攻击: 'normal', 战技: 'battle', 神通: 'divine', 自动: '自动', 切换自动: '自动', 逃跑: '逃跑' } as Record<string, string>)[command] ??
@@ -60,8 +66,12 @@ export default onResponse(selects, async e => {
       const won = state.winner === 'A';
       const stageLabel = typeof settlement.stageLabel === 'string' ? settlement.stageLabel : '';
       const stars = typeof settlement.stars === 'number' ? settlement.stars : 0;
-      const exp = typeof settlement.normalExperienceGained === 'number'
-        ? settlement.normalExperienceGained : typeof settlement.experienceGained === 'number' ? settlement.experienceGained : 0;
+      const exp =
+        typeof settlement.normalExperienceGained === 'number'
+          ? settlement.normalExperienceGained
+          : typeof settlement.experienceGained === 'number'
+            ? settlement.experienceGained
+            : 0;
       const expBonusText = settlement.normalExperienceGained === undefined && typeof settlement.expBonusText === 'string' ? settlement.expBonusText : '';
       const stones = typeof settlement.spiritStoneGained === 'number' ? settlement.spiritStoneGained : 0;
       const spiritCost = typeof settlement.spiritCostPaid === 'number' ? settlement.spiritCostPaid : 0;

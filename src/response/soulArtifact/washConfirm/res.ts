@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { soulWashFeedback } from '@src/response/soulArtifact/washFeedback';
 import { useMessage } from '@src/utils/useMessage';
@@ -49,7 +50,11 @@ export default onResponse(selects, async e => {
     md.addNewline();
   }
 
-  md.addBlockquote(Format.createMarkdown().addText('查看面板： ').addButton(markdownButtonLabel('本命物信息'), { data: '/本命物信息' }));
+  md.addBlockquote(
+    Format.createMarkdown()
+      .addText('查看面板： ')
+      .addButton(markdownButtonLabel('本命物信息'), { data: commandText('本命物信息') })
+  );
 
   void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
 });

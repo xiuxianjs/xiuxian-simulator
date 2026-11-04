@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
@@ -112,8 +113,12 @@ export default onResponse(selects, async e => {
     Format.createMarkdown().addText(`消耗元力：${result.data.hpCost}`).addNewline().addText(`今日次数：${result.data.newCount}/${result.data.dailyMax}`)
   );
 
-  const experienceText = result.data.normalExperienceGained !== undefined
-    ? String(result.data.normalExperienceGained) : batch ? String(result.data.experience) : `${result.data.expGain}${result.data.expBonusText}`;
+  const experienceText =
+    result.data.normalExperienceGained !== undefined
+      ? String(result.data.normalExperienceGained)
+      : batch
+        ? String(result.data.experience)
+        : `${result.data.expGain}${result.data.expBonusText}`;
 
   md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${experienceText}`));
 
@@ -126,7 +131,7 @@ export default onResponse(selects, async e => {
     md.addText(`📖 比试参悟，获得 ${result.data.proficiencyResult.points} 点熟练点`);
 
     md.addText(' ');
-    md.addButton(markdownButtonLabel('功法'), { data: '/我的功法' });
+    md.addButton(markdownButtonLabel('功法'), { data: commandText('我的功法') });
 
     md.addNewline();
   }

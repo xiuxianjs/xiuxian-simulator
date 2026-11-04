@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { displayCurrencyText } from '@src/constants/currency';
 import { useMessage } from '@src/utils/useMessage';
@@ -77,7 +78,7 @@ export default onResponse(selects, async e => {
 
         md.addBold('🌍 全服充值进度');
 
-        md.addButton(markdownButtonLabel('充值'), { data: '/充值' });
+        md.addButton(markdownButtonLabel('充值'), { data: commandText('充值') });
 
         md.addNewline();
         md.addBlockquote(Format.createMarkdown().addText(`当前充值人数：${result.worldCountText} `));
@@ -96,7 +97,7 @@ export default onResponse(selects, async e => {
         md.addBold('🎁 里程碑奖励');
 
         if (result.unclaimedCount > 0) {
-          md.addButton(markdownButtonLabel('领取全部'), { data: '/里程碑 领取' });
+          md.addButton(markdownButtonLabel('领取全部'), { data: commandText('里程碑 领取') });
         } else {
           md.addText(' · 当前无可领取奖励');
         }

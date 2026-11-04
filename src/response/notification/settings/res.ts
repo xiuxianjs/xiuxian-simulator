@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
@@ -39,7 +40,7 @@ export default onResponse(selects, async e => {
       const action = item.enabled ? '关闭' : '开启';
       const quote = Format.createMarkdown().addText(`${item.label} · ${item.enabled ? '已开启' : '已关闭'} `);
 
-      quote.addButton(markdownButtonLabel(`${action}`), { data: `/通知设置 ${item.id} ${action}` });
+      quote.addButton(markdownButtonLabel(`${action}`), { data: commandText(`通知设置 ${item.id} ${action}`) });
       md.addBlockquote(quote);
     }
   } catch (error) {

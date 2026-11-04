@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
@@ -43,10 +44,10 @@ export default onResponse(selects, async e => {
         quote.addText(`申请时间：${formatGameTime(request.appliedAt)}`).addNewline();
       }
       if (page > 1) {
-        quote.addButton(markdownButtonLabel('上一页'), { data: `/加群申请记录 ${page - 1}` });
+        quote.addButton(markdownButtonLabel('上一页'), { data: commandText(`加群申请记录 ${page - 1}`) });
       }
       if (result.hasNext) {
-        quote.addText(' ').addButton(markdownButtonLabel('下一页'), { data: `/加群申请记录 ${page + 1}` });
+        quote.addText(' ').addButton(markdownButtonLabel('下一页'), { data: commandText(`加群申请记录 ${page + 1}`) });
       }
     } else {
       const settings = await readCommunitySettings(target);
@@ -75,14 +76,16 @@ export default onResponse(selects, async e => {
         quote.addText(`有 ${settings.failedBatches} 批提醒多次失败，已停止重试；请核对权限和平台限制。`).addNewline();
       }
       quote
-        .addButton(markdownButtonLabel(settings.welcomeEnabled ? '关闭欢迎' : '开启欢迎'), { data: `/配置群欢迎 ${settings.welcomeEnabled ? '关闭' : '开启'}` })
+        .addButton(markdownButtonLabel(settings.welcomeEnabled ? '关闭欢迎' : '开启欢迎'), {
+          data: commandText(`配置群欢迎 ${settings.welcomeEnabled ? '关闭' : '开启'}`)
+        })
         .addText(' ');
       quote
         .addButton(markdownButtonLabel(settings.requestReminders ? '关闭提醒' : '开启提醒'), {
-          data: `/配置加群提醒 ${settings.requestReminders ? '关闭' : '开启'}`
+          data: commandText(`配置加群提醒 ${settings.requestReminders ? '关闭' : '开启'}`)
         })
         .addNewline();
-      quote.addButton(markdownButtonLabel('申请记录'), { data: '/加群申请记录' });
+      quote.addButton(markdownButtonLabel('申请记录'), { data: commandText('加群申请记录') });
     }
   } catch (error) {
     logger.warn('群通知管理操作未完成', error instanceof Error ? error.message : '未知错误');

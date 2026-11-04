@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -114,7 +115,10 @@ export default onResponse(selects, async e => {
     noFriendMd.addText('当前没有可结缘的好友');
     noFriendMd.addNewline();
     noFriendMd.addBlockquote(
-      Format.createMarkdown().addText('需要先 ').addButton(markdownButtonLabel('结交好友'), { data: '/结交 ' }).addText('，双方成为好友后方可结缘')
+      Format.createMarkdown()
+        .addText('需要先 ')
+        .addButton(markdownButtonLabel('结交好友'), { data: commandText('结交 ') })
+        .addText('，双方成为好友后方可结缘')
     );
 
     void message.send(FormatGui({ isPrivate, bid, title: '', content: noFriendMd }));

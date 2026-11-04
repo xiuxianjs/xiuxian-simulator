@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { consumeInputProblem } from '@src/response/consumeArguments';
@@ -86,7 +87,7 @@ const response = onResponse(selects, async e => {
 
       md.addText(displayMsg);
       md.addText(' ');
-      md.addButton(markdownButtonLabel('本命物信息'), { data: '/本命物信息' });
+      md.addButton(markdownButtonLabel('本命物信息'), { data: commandText('本命物信息') });
 
       void message.send(
         FormatGui({

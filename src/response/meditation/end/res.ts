@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
@@ -82,7 +83,7 @@ export default onResponse(selects, async e => {
   if (await sendOnboardingFollowup(e, business, '闭关结束', md)) {
     return;
   }
-  md.addNewline().addButton(markdownButtonLabel('继续闭关'), { data: '/闭关' });
+  md.addNewline().addButton(markdownButtonLabel('继续闭关'), { data: commandText('闭关') });
 
   await message.send(FormatGui({ isPrivate, bid, title: '闭关结束', content: md }));
 });

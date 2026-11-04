@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -67,7 +68,7 @@ export default onResponse(selects, async e => {
       md.addText(`**【${i + 1}】${app.leaderName}的队伍**`);
       md.addNewline();
       md.addText(`申请编号：${app.id}`);
-      md.addButton(markdownButtonLabel('取消此申请'), { data: `/取消队伍申请 ${app.id}` });
+      md.addButton(markdownButtonLabel('取消此申请'), { data: commandText(`取消队伍申请 ${app.id}`) });
       md.addNewline();
 
       if (i < result.data.applications.length - 1) {
@@ -122,7 +123,7 @@ export default onResponse(selects, async e => {
     md.addText('');
     md.addNewline();
     md.addText('使用 ');
-    md.addButton(markdownButtonLabel('查看我的申请'), { data: '/我的队伍申请' });
+    md.addButton(markdownButtonLabel('查看我的申请'), { data: commandText('我的队伍申请') });
     md.addText(' 查看您的申请列表');
 
     void message.send(FormatGui({ isPrivate, bid, title: '取消失败', content: md }));

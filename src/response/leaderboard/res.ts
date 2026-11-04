@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { activeFeatureText, mentionsRetiredFeature } from '@src/response/retiredFeatures';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -58,7 +59,7 @@ export default onResponse(selects, async e => {
     md.addBold(group);
     md.addNewline();
     for (const item of items) {
-      md.addButton(markdownButtonLabel(`${item.label}`), { data: item.command });
+      md.addButton(markdownButtonLabel(`${item.label}`), { data: commandText(item.command) });
       md.addText(` — ${item.description}`);
       md.addNewline();
     }

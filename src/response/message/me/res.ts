@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { getRobotHomeOverview } from '@src/api/bot/robot-business';
 import type { HomeNotificationItem, HomeNotificationType } from '@src/api/schemas/home-notification-query';
 import App from '@src/response-apps/message/me/app';
@@ -32,7 +33,7 @@ const appendButtons = (md: ReturnType<typeof Format.createMarkdown>, buttons: Ar
     if (index > 0) {
       md.addText(' ');
     }
-    md.addButton(markdownButtonLabel(`${button.label}`), { data: button.command });
+    md.addButton(markdownButtonLabel(`${button.label}`), { data: commandText(button.command) });
   });
 };
 

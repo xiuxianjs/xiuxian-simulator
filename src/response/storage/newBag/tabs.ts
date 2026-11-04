@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 /**
  * 储物袋通用 tab 导航组件
@@ -39,7 +40,7 @@ export function createPrimaryTabsBar(selected?: string): GuiButton[][] {
  */
 export function renderSubTabs(md: FormatMarkDown, tabs: Array<{ label: string; command: string }>, selected?: string) {
   for (const tab of tabs) {
-    md.addButton(markdownButtonLabel(tab.label, tab.label === selected), { data: tab.command });
+    md.addButton(markdownButtonLabel(tab.label, tab.label === selected), { data: commandText(tab.command) });
     md.addText(' ');
   }
   md.addNewline();

@@ -3,7 +3,7 @@ import { after, test } from 'node:test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { Router, ResultCode, shutdownLogger } from 'alemonjs';
-import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
+import { createTestApp, inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import handler from '../../src/response/treasures/res';
 import weeklyHandler from '../../src/response/activityPoints/weekly/res';
 import claimWeeklyHandler from '../../src/response/activityPoints/claimWeekly/res';
@@ -195,7 +195,7 @@ test('项目正式路由可到达宝物/上古遗珍/租契和确认入口', asy
   const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, r.path.endsWith('/treasures.overview') ? overview : r.path.endsWith('/ancient-relics.overview') ? relics : r.path.endsWith('/spirit-vein.overview') ? lease : receipt()));
   await app.mount({ responseRouter });
   for (const text of ['/宝物', '/上古遗珍', '/灵脉租契', `/确认宝物 ${confirmationRef}`]) {
-    assert.ok(matchesGameCommand({ name: 'message.create', MessageText: text }));
+    assert.ok(app.run(() => matchesGameCommand({ name: 'message.create', MessageText: text })));
     const execution = app.dispatch(app.events.groupMessage({ text, platform: 'qq-bot' }));
     const view = facts(await (text.includes('确认') ? completeExploration(app, execution) : execution), text.includes('确认') ? 2 : 1);
     assert.ok(view.text.includes(text.includes('确认') ? '上古遗珍探索完成' : text.slice(1)));
@@ -484,7 +484,9 @@ for (const error of ['确认引用不属于当前玩家', '预览已过期，请
     assert.equal(requests.length, 1);
   });
 }
-test('支付成功回执展示本订单租契快照，旧订单保持兼容', () => {
+test('支付成功回执展示本订单租契快照，旧订单保持兼容', t => {
+  const app = createTestApp();
+  t.after(() => app.dispose());
   const data = {
     orderNo: 'N-test',
     packageRewards: { spiritMilk: 300, spiritStone: 0, spiritCrystal: 0, items: [], equipments: [], skills: [] },
@@ -496,7 +498,7 @@ test('支付成功回执展示本订单租契快照，旧订单保持兼容', ()
   };
   assert.equal(parseBackendNormalPaymentSettlement(data).spiritVein, undefined);
   const parsed = parseBackendNormalPaymentSettlement({ ...data, spiritVein: { days: 30, dailyCrystal: 2000, startDate: '2026-10-27', endDate: '2026-11-25' } });
-  const view = inspectMessage([{ type: 'Markdown', value: buildRechargeSuccessContent(parsed).value.value }]);
+  const view = inspectMessage([{ type: 'Markdown', value: app.run(()=>buildRechargeSuccessContent(parsed)).value.value }]);
   assert.match(view.text, /道晶 \+300/);
   assert.match(view.text, /延长 30收益日，每日 2000灵晶/);
   assert.ok(view.commands.includes('/我的权益 灵脉租契'));
@@ -562,9 +564,10 @@ test('200回执串单时确认结果继续保留原引用，旧手动合成按�
  assert.match(view.text,/结果尚未获完整确认/);assert.ok(view.commands.includes(`/确认宝物 ${confirmationRef}`));
  const auto=facts(await app.runHandler(handler,app.events.privateMessage({text:'/宝物 合成 604',platform:'qq-bot'})));assert.match(auto.text,/满10枚自动合成/);assert.equal(requests.length,1);
 });
-test('每日礼包成功回执不把固定货币与特殊赠片重复展示',()=>{
+test('每日礼包成功回执不把固定货币与特殊赠片重复展示',t=>{
+ const app=createTestApp();t.after(()=>app.dispose());
  const parsed=parseBackendNormalPaymentSettlement({orderNo:'N-pack',packageRewards:{spiritMilk:10,spiritStone:0,spiritCrystal:1500,items:[],equipments:[],skills:[]},bonusSpiritMilk:0,vipUpgrade:null,newcomerDayGranted:null,monthCardExtended:false,seclusionPassActivated:false,dailyTreasurePack:{sku:'small',businessDate:'2026-10-27',treasureMaps:0,fragments:[{treasureId:401,name:'采薇竹篮',rarity:4,quantity:2}]}});
- const view=inspectMessage([{type:'Markdown',value:buildRechargeSuccessContent(parsed).value.value}]);assert.equal(view.text.match(/道晶 \+10/g)?.length,1);assert.equal(view.text.match(/灵晶 \+1500/g)?.length,1);assert.match(view.text,/采薇竹篮碎片 ×2/);
+ const view=inspectMessage([{type:'Markdown',value:app.run(()=>buildRechargeSuccessContent(parsed)).value.value}]);assert.equal(view.text.match(/道晶 \+10/g)?.length,1);assert.equal(view.text.match(/灵晶 \+1500/g)?.length,1);assert.match(view.text,/采薇竹篮碎片 ×2/);
 });
 test('碎片9+2自动合成1余1并激活，回执不冒充直接完整出货',async t=>{
  const result=receipt('explore',{source:'free',count:1});result.result.rewards=[{treasureId:603,name:'乾坤鼎',rarity:6,kind:'fragment',quantity:2,newlyOwned:true,pullIndex:1,autoSynthesized:1,fragmentsRemaining:1} as typeof result.result.rewards[number]];

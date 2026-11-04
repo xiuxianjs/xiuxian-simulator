@@ -1,3 +1,4 @@
+import { getCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { appendAINarration, guideText } from './aiNarration';
 import { isGameEventEnabled } from '@src/utils/eventPolicy';
 import { createContext, configureContext, Format, logger, ResultCode } from 'alemonjs';
@@ -48,8 +49,8 @@ const onboarding = createContext({
 
         return;
       }
-      const command = canonical(text);
-      const buttonVersion = onboardingButtonVersion(gameEvent);
+      const command = canonical(text, getCommandPrefix());
+      const buttonVersion = onboardingButtonVersion(gameEvent, getCommandPrefix());
 
       if (isOnboardingResolution(command, state.view) && buttonVersion === undefined) {
         action.close();
@@ -73,6 +74,7 @@ const onboarding = createContext({
           return;
         }
       }
+      gameEvent.MessageText = internalCommandText(text);
       try {
         // AI or another conversation can advance the UID-owned cursor without
         // updating this local Context. A plain gameplay entry must not be
@@ -99,7 +101,7 @@ const onboarding = createContext({
         const result = await requestRobotBusiness(
           gameEvent,
           execute ? 'onboarding.action' : 'onboarding.view',
-          execute ? { version: buttonVersion ?? state.view.version, command: choice?.command ?? text.trim() } : {},
+          execute ? { version: buttonVersion ?? state.view.version, command: choice?.command ?? internalCommandText(text).trim() } : {},
           parseOnboarding
         );
 

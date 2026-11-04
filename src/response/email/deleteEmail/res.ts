@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -41,7 +42,7 @@ export default onResponse(selects, async e => {
       Format.createMarkdown()
         .addText(`删除邮件 ${id} · ${result.expiresInSeconds}秒内有效 `)
         .addButton(markdownButtonLabel('确认删除'), {
-          data: `/删除邮件 ${id}`
+          data: commandText(`删除邮件 ${id}`)
         })
     );
 

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -38,8 +39,8 @@ export default onResponse(selects, async e => {
       for (const item of active) {
         const quote = Format.createMarkdown().addText(`【${item.categoryLabel}】${item.formationName}`);
 
-        quote.addText(' ').addButton(markdownButtonLabel('替换'), { data: `${layoutCommand} 洞府阵法` });
-        quote.addText(' ').addButton(markdownButtonLabel('移除'), { data: `/移除阵法 ${item.formationName}` });
+        quote.addText(' ').addButton(markdownButtonLabel('替换'), { data: commandText(`${layoutCommand} 洞府阵法`) });
+        quote.addText(' ').addButton(markdownButtonLabel('移除'), { data: commandText(`移除阵法 ${item.formationName}`) });
         quote.addNewline().addText(` 剩余 ${item.remainingText} `).addNewline().addText(` ${item.effectText} `);
         md.addBlockquote(quote);
       }

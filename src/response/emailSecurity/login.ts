@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { parseBackendLoginWindow, type BackendLoginWindow } from '@src/api/bot/account';
 import { createOnlineUrl } from '@src/utils/onlineUrl';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -40,7 +41,7 @@ export function createLoginReply(result: LoginWindowResult, isPrivate: boolean, 
   } else if (result.code === 'PASSWORD_NOT_SET') {
     const buttons = Format.createButtonGroup();
 
-    buttons.addButton('设置密码', '/设置密码 ', { type: 'command' });
+    buttons.addButton('设置密码', commandText('设置密码 '), { type: 'command' });
     reply.format.addButtonGroup(buttons);
   }
 

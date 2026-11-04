@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { dungeonDetailArguments, parseRobotDungeonDetail } from '@src/api/bot/dungeon-robot-query';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { selects } from '@src/response/config';
@@ -126,11 +127,11 @@ export default onResponse(selects, async e => {
   const actionMd = Format.createMarkdown();
 
   if (d.hasCleared && !d.inTeam) {
-    actionMd.addText(' ').addButton(markdownButtonLabel('扫荡'), { data: `/扫荡秘境 ${d.name}` });
-    actionMd.addText(' ').addButton(markdownButtonLabel('×10'), { data: `/扫荡秘境 ${d.name} 10` });
-    actionMd.addText(' ').addButton(markdownButtonLabel('探索'), { data: `/探索秘境 ${d.name}` });
+    actionMd.addText(' ').addButton(markdownButtonLabel('扫荡'), { data: commandText(`扫荡秘境 ${d.name}`) });
+    actionMd.addText(' ').addButton(markdownButtonLabel('×10'), { data: commandText(`扫荡秘境 ${d.name} 10`) });
+    actionMd.addText(' ').addButton(markdownButtonLabel('探索'), { data: commandText(`探索秘境 ${d.name}`) });
   } else {
-    actionMd.addText(' ').addButton(markdownButtonLabel('挑战'), { data: `/秘境挑战 ${d.name}` });
+    actionMd.addText(' ').addButton(markdownButtonLabel('挑战'), { data: commandText(`秘境挑战 ${d.name}`) });
   }
   contentMd.addBlockquote(actionMd);
 

@@ -165,18 +165,22 @@ test('prologue handoff preserves native middleware instructions and its silent r
   assert.equal(state.sent.length,0);
 });
 
-test('bare current choices are taught, and recognized bare game commands cannot fall through to legacy writes',async()=>{
+test('teaching requires prefixed choices and leaves bare commands untouched',async()=>{
  const router=Router.create();
- router.group({events:['message.create'],routeText:{prefixes:['/','#','＃'],stripPrefix:true,allowBare:true}}).use('灵田收获',async()=>{throw new Error('matching must not execute a gameplay importer')});
+ router.group({events:['message.create'],routeText:{prefixes:['/'],stripPrefix:true,allowBare:false}}).use('灵田收获',async()=>{throw new Error('matching must not execute a gameplay importer')});
  configureOnboardingCommandMatcher(e=>router.match(e).matched);
  state.respond=async(_e,operation)=>operation==='onboarding.view'?view():view('panel',2);
  await open(event('/继续引导'),view());
- assert.deepEqual(await deliver(event('灵田收获')),{claimed:true,next:0});
+ assert.deepEqual(await deliver(event('/灵田收获')),{claimed:true,next:0});
  assert.equal(state.calls[0].operation,'onboarding.view');
  state.calls=[];
- assert.deepEqual(await deliver(event('我')),{claimed:true,next:0});
+ assert.deepEqual(await deliver(event('/我')),{claimed:true,next:0});
  assert.equal(state.calls[0].operation,'onboarding.action');
- assert.deepEqual(await deliver(event('普通聊天')),{claimed:true,next:1});
+ state.calls=[];
+ for(const text of ['我','灵田收获','继续引导','退出引导','普通聊天']) {
+  assert.deepEqual(await deliver(event(text)),{claimed:true,next:1});
+ }
+ assert.equal(state.calls.length,0);
 });
 test('legacy exclamation commands pass unchanged for every actual framework event kind',async()=>{
  for(const name of ['message.create','private.message.create','interaction.create','private.interaction.create']){
@@ -187,13 +191,16 @@ test('legacy exclamation commands pass unchanged for every actual framework even
  }
 });
 
-test('production router matcher recognizes real bare commands without running any lazy handlers',async()=>{
- for(const command of ['我','突破','主线挑战 1-1','收割'])assert.equal(actualMatch(event(command)),true,command);
- assert.equal(actualMatch(event('普通聊天，不是在发游戏指令')),false);
+test('production router matcher requires the configured prefix without running lazy handlers',async()=>{
+ for(const command of ['我','突破','主线挑战 1-1','收割']) {
+  assert.equal(app.run(()=>actualMatch(event(command))),false,command);
+  assert.equal(app.run(()=>actualMatch(event('/'+command))),true,command);
+ }
+ assert.equal(app.run(()=>actualMatch(event('普通聊天，不是在发游戏指令'))),false);
  configureOnboardingCommandMatcher(actualMatch);
  state.respond=async()=>view();
  await open(event('/继续引导'),view());
- for(const command of ['突破','收割']){
+ for(const command of ['/突破','/收割']){
   state.calls=[];
   assert.deepEqual(await deliver(event(command)),{claimed:true,next:0});
   assert.equal(state.calls[0].operation,'onboarding.view');
@@ -218,20 +225,20 @@ test('a cross-client graduated account receives optional guidance and keeps ordi
 
 
 test('production control routes accept the whitespace already accepted by Context', () => {
-  const route = actualRoutes.current.find(route => route.regular?.test('/继续引导'));
+  const route = app.run(()=>actualRoutes.current.find(route => route.regular?.test('/继续引导')));
   assert.ok(route, 'production onboarding route missing');
-  for (const text of ['/继续引导', '  /继续引导  ', '/ 继续引导', '# 退出引导 ', '＃退出引导', ' 继续引导 ']) {
+  for (const text of ['/继续引导', '  /继续引导  ', '/ 继续引导']) {
     assert.equal(route.regular.test(text), true, text);
   }
-  for (const text of ['!继续引导', '！退出引导', '/继续引导 突破', '/退出引导abc', '/继续 引导', '//继续引导']) {
+  for (const text of ['继续引导', ' 继续引导 ', '# 退出引导 ', '＃退出引导', '!继续引导', '！退出引导', '/继续引导 突破', '/退出引导abc', '/继续 引导', '//继续引导']) {
     assert.equal(route.regular.test(text), false, text);
   }
 });
 
 test('spaced control commands pass Context and reach the registered control route', async () => {
   await open(event('/继续引导'), view());
-  const route = actualRoutes.current.find(route => route.regular?.test('/继续引导'));
-  for (const text of ['  /继续引导  ', '/ 继续引导', '# 退出引导 ', ' 退出引导 ']) {
+  const route = app.run(()=>actualRoutes.current.find(route => route.regular?.test('/继续引导')));
+  for (const text of ['  /继续引导  ', '/ 继续引导']) {
     assert.deepEqual(await deliver(event(text)), { claimed: true, next: 1 });
     assert.equal(route.regular.test(text), true, text);
   }
@@ -387,7 +394,7 @@ test('expired Context callbacks use the original button version and unrelated ca
   assert.equal(passed,0);
   assert.ok(!JSON.stringify(state.sent[0].value.format.value).includes('ob7.0'));
   const unrelated=event('/普攻',{name:'interaction.create',InteractionData:'{"button_id":"ordinary","button_data":"/普攻"}'});
-  await handleOnboardingResponse(unrelated,async()=>{passed++});
+  await scoped(unrelated,()=>handleOnboardingResponse(unrelated,async()=>{passed++}));
   assert.equal(passed,1);
   assert.equal(state.calls.length,1);
 });

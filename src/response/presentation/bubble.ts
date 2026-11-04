@@ -1,3 +1,4 @@
+import { commandCharacterLength } from '@src/utils/commandPrefix';
 import { BUBBLE_LIMITS, STATUS_SYMBOL, type BubbleStatus } from './tokens';
 import { section, type BubbleAction, type BubbleSection } from './sections';
 import { FormatGui, type GuiButton, type GuiFooter } from '@src/utils/messageHelper';
@@ -35,7 +36,7 @@ export type BubbleIssue = {
   message: string;
 };
 
-const commandCharacters = (command: string): number => [...command].length;
+const commandCharacters = commandCharacterLength;
 
 /** 页脚按钮拍平为二维数组，便于统一检查行宽与总数。 */
 const footerRows = (footer?: GuiFooter): GuiButton[][] => {

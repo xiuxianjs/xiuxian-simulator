@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { Format } from 'alemonjs';
 import type { OnboardingView } from '@src/api/bot/onboarding';
 
@@ -9,7 +10,7 @@ export function onboardingKeyboard(buttons: { label: string; command: string }[]
   const group = Format.createButtonGroup();
 
   buttons.flat().forEach(button => {
-    group.addRow().addButton(button.label, button.command, {
+    group.addRow().addButton(button.label, commandText(button.command), {
       type: 'command',
       autoEnter: false
     });

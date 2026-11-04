@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
@@ -32,10 +33,14 @@ export function soulWashFeedback(event: GameEvent, mode: 'preview' | 'confirm' |
 
     appendMiddlewareBlocks(md, duplicate ? blocks?.filter(block => block.quoted || block.inlineButtons?.length) : blocks);
     if (mode === 'confirm') {
-      md.addBlockquote(Format.createMarkdown().addText('查看面板： ').addButton(markdownButtonLabel('本命物信息'), { data: '/本命物信息' }));
+      md.addBlockquote(
+        Format.createMarkdown()
+          .addText('查看面板： ')
+          .addButton(markdownButtonLabel('本命物信息'), { data: commandText('本命物信息') })
+      );
     }
     if (mode === 'cancel') {
-      md.addText(' ').addButton(markdownButtonLabel('本命物信息'), { data: '/本命物信息' });
+      md.addText(' ').addButton(markdownButtonLabel('本命物信息'), { data: commandText('本命物信息') });
     }
     const advice = [...reply.advice];
 

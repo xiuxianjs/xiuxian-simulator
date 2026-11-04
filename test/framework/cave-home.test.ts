@@ -32,7 +32,7 @@ function professionData(state: 'joined' | 'guide' | 'unjoined'): ProfessionDashb
 }
 
 for (const isPrivate of [false, true]) {
-  for (const command of ['/我的洞府', '#洞府', '＃我的洞府', '洞府']) {
+  for (const command of ['/我的洞府', '/洞府']) {
     for (const state of ['joined', 'guide', 'unjoined'] as const) {
       test(`洞府融合职业并保留真实交互 ${command} ${state} private=${isPrivate}`, async t => {
         const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, professionData(state)));

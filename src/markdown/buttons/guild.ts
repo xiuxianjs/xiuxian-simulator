@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 /**
  * 宗门相关按钮组
@@ -13,9 +14,9 @@ export const createGuildShopButtons = () => {
 
   bt.addNewline();
   bt.addNewline();
-  bt.addButton(markdownButtonLabel('返回宗门'), { data: '/我的宗门' });
+  bt.addButton(markdownButtonLabel('返回宗门'), { data: commandText('我的宗门') });
   bt.addText(' ');
-  bt.addButton(markdownButtonLabel('刷新'), { data: '/宗门商店 刷新' });
+  bt.addButton(markdownButtonLabel('刷新'), { data: commandText('宗门商店 刷新') });
 
   return bt;
 };

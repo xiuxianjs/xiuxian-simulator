@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
@@ -62,7 +63,9 @@ const response = onResponse(selects, async e => {
   if (!skillBookIdStr || skillBookIdStr === EMPTY_STRING) {
     const md = Format.createMarkdown();
 
-    md.addText('请选择要参悟的功法。').addNewline().addButton(markdownButtonLabel('选择功法'), { data: '/服用 明悟丹 1' });
+    md.addText('请选择要参悟的功法。')
+      .addNewline()
+      .addButton(markdownButtonLabel('选择功法'), { data: commandText('服用 明悟丹 1') });
 
     appendMiddlewareAdvice(md, withBusinessRecovery('mingwu.confirm', { title: '', heading: '', text: '参数错误', buttons: [], advice: [] }).advice);
     void message.send(FormatGui({ isPrivate, bid, title: '明悟丹参悟', content: md }));

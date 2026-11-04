@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { useMessage } from '@src/utils/useMessage';
@@ -117,7 +118,7 @@ export default onResponse(selects, async e => {
 
   md.addText(displayMsg);
   md.addNewline();
-  md.addButton(markdownButtonLabel('储物袋 · 本命'), { data: '/储物袋 本命' });
+  md.addButton(markdownButtonLabel('储物袋 · 本命'), { data: commandText('储物袋 本命') });
 
   void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
 });

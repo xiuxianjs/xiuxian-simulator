@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -58,9 +59,9 @@ export default onResponse(selects, async e => {
 
     md.addText(result.data.message);
     md.addNewline();
-    md.addButton(markdownButtonLabel('积分商店'), { data: '/商店 积分' });
+    md.addButton(markdownButtonLabel('积分商店'), { data: commandText('商店 积分') });
     md.addText(' ');
-    md.addButton(markdownButtonLabel('珍宝楼'), { data: '/珍宝楼' });
+    md.addButton(markdownButtonLabel('珍宝楼'), { data: commandText('珍宝楼') });
 
     await message.send(
       FormatGui({
@@ -132,7 +133,9 @@ export default onResponse(selects, async e => {
     contentMd.addText(result.data.message);
     contentMd.addNewline();
     contentMd.addBlockquote(
-      Format.createMarkdown().addText('可在储物袋中选择本命物进行炼化 ').addButton(markdownButtonLabel('储物袋 · 本命'), { data: '/储物袋 本命' })
+      Format.createMarkdown()
+        .addText('可在储物袋中选择本命物进行炼化 ')
+        .addButton(markdownButtonLabel('储物袋 · 本命'), { data: commandText('储物袋 本命') })
     );
   }
 

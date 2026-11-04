@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -38,7 +39,7 @@ export default onResponse(selects, async e => {
       if (t.isActive) {
         themeMd.addText('使用中');
       } else {
-        themeMd.addButton(markdownButtonLabel('切换'), { data: `/切换主题 ${t.id}` });
+        themeMd.addButton(markdownButtonLabel('切换'), { data: commandText(`切换主题 ${t.id}`) });
       }
       md.addBlockquote(themeMd);
     }

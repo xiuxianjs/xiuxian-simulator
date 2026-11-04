@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, type Next } from 'alemonjs';
 import type { GameEvent } from '@src/types/event';
@@ -76,7 +77,11 @@ async function renderFinalRefusal(event: GameEvent, operation: RobotBusinessOper
   } else if (operation === 'meditation.start' && reply.quote) {
     const inline = reply.buttons[0];
 
-    md.addBlockquote(Format.createMarkdown().addText(reply.quote).addButton(markdownButtonLabel(inline.label), { data: inline.command }));
+    md.addBlockquote(
+      Format.createMarkdown()
+        .addText(reply.quote)
+        .addButton(markdownButtonLabel(inline.label), { data: commandText(inline.command) })
+    );
     footer = reply.buttons.slice(1);
   } else {
     md.addText(reply.text);

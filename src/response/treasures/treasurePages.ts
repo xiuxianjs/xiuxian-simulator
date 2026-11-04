@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { treasureAttributeNames, type OwnedTreasure, type TreasureOverview } from '@src/api/bot/treasures';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { createQuoteMarkdown } from '@src/utils/messageHelper';
@@ -15,7 +16,7 @@ function addButtons(content: FormatMarkDown, buttons: PageButton[]) {
     if (index > 0) {
       content.addText(' ');
     }
-    content.addButton(markdownButtonLabel(button.label, button.selected), { data: button.command, autoEnter: false });
+    content.addButton(markdownButtonLabel(button.label, button.selected), { data: commandText(button.command), autoEnter: false });
   }
   content.addNewline();
 }
@@ -58,7 +59,9 @@ export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity
   const page = Math.min(pages, Math.max(1, Number.isSafeInteger(options.page) ? (options.page as number) : 1));
 
   if (!items.length) {
-    content.addBlockquote(createQuoteMarkdown([owned.length ? `尚未拥有${rarityNames[selectedRarity - 1] ?? '该品质'}宝物。` : '尚未拥有宝物，前往上古遗珍探索后可在此培养。']));
+    content.addBlockquote(
+      createQuoteMarkdown([owned.length ? `尚未拥有${rarityNames[selectedRarity - 1] ?? '该品质'}宝物。` : '尚未拥有宝物，前往上古遗珍探索后可在此培养。'])
+    );
     if (owned.length) {
       addCultivation(content);
     }
@@ -68,9 +71,10 @@ export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity
   for (const item of items.slice((page - 1) * pageSize, page * pageSize)) {
     content.addText(item.definition.name).addNewline();
     content.addBlockquote(
-      createQuoteMarkdown([`${gradeName(item.gradeName)} · Lv.${item.level}`], [
-        { label: '详情与培养', command: `/宝物 详情 ${item.definition.id}`, autoEnter: false }
-      ])
+      createQuoteMarkdown(
+        [`${gradeName(item.gradeName)} · Lv.${item.level}`],
+        [{ label: '详情与培养', command: `/宝物 详情 ${item.definition.id}`, autoEnter: false }]
+      )
     );
   }
   if (pages > 1) {
@@ -92,13 +96,16 @@ export function buildOwnedTreasurePage(data: TreasureOverview, options: { rarity
 function catalogEffectDescription(description: string): string {
   const percentages = /[＋+－-]?(?:\d+(?:\.\d+)?|[xX])\s*[%％](?:\s*[／/、]\s*[＋+－-]?(?:\d+(?:\.\d+)?|[xX])\s*[%％])*/g;
 
-  return description.replace(percentages, (value, offset: number) => description.slice(offset + value.length).trimStart().startsWith('概率') ? '一定' : '相应比例');
+  return description.replace(percentages, (value, offset: number) => description
+      .slice(offset + value.length)
+      .trimStart()
+      .startsWith('概率')
+      ? '一定'
+      : '相应比例'
+  );
 }
 
-export function buildTreasureCatalogPage(
-  items: OwnedTreasure['definition'][],
-  options: { rarity?: number; page?: number } | number = {}
-): FormatMarkDown {
+export function buildTreasureCatalogPage(items: OwnedTreasure['definition'][], options: { rarity?: number; page?: number } | number = {}): FormatMarkDown {
   const content = Format.createMarkdown();
   const sorted = [...items].sort((a, b) => a.id - b.id);
   let selectedRarity: number;
@@ -124,12 +131,17 @@ export function buildTreasureCatalogPage(
     { label: '上古遗珍', command: '/上古遗珍' },
     { label: '宝物图鉴', command: '/上古遗珍 图鉴', selected: true }
   ]);
-  content.addBlockquote(createQuoteMarkdown([`共 ${sorted.length} 件宝物 · ${rarityNames[selectedRarity - 1]} ${selectedItems.length} 件 · 第 ${page}/${pages} 页`]));
-  addButtons(content, rarityNames.map((label, index) => ({
-    label,
-    command: `/上古遗珍 图鉴 品质 ${index + 1}`,
-    selected: index + 1 === selectedRarity
-  })));
+  content.addBlockquote(
+    createQuoteMarkdown([`共 ${sorted.length} 件宝物 · ${rarityNames[selectedRarity - 1]} ${selectedItems.length} 件 · 第 ${page}/${pages} 页`])
+  );
+  addButtons(
+    content,
+    rarityNames.map((label, index) => ({
+      label,
+      command: `/上古遗珍 图鉴 品质 ${index + 1}`,
+      selected: index + 1 === selectedRarity
+    }))
+  );
   if (!sorted.length) {
     content.addBlockquote(createQuoteMarkdown(['暂无宝物图鉴资料。']));
 
@@ -139,10 +151,12 @@ export function buildTreasureCatalogPage(
     const stats = battleAttributes({ attributes: item.baseAttributes, percentAttributes: item.basePercentAttributes });
 
     content.addText(`【${item.rarityName}】${item.name}`).addNewline();
-    content.addBlockquote(createQuoteMarkdown([
-      `基础属性：${stats.length ? stats.join(' · ') : '暂无基础属性。'}`,
-      catalogEffectDescription(item.effectDescription) || '暂无特殊效果。'
-    ]));
+    content.addBlockquote(
+      createQuoteMarkdown([
+        `基础属性：${stats.length ? stats.join(' · ') : '暂无基础属性。'}`,
+        catalogEffectDescription(item.effectDescription) || '暂无特殊效果。'
+      ])
+    );
   }
   if (!selectedItems.length) {
     content.addBlockquote(createQuoteMarkdown(['该稀有度暂无宝物资料。']));
@@ -166,15 +180,17 @@ export function buildTreasureDecompositionPage(data: TreasureOverview, options: 
   const page = Math.min(pages, Math.max(1, Number.isSafeInteger(options.page) ? (options.page as number) : 1));
 
   addNavigation(content, 'decomposition');
-  content.addBlockquote(createQuoteMarkdown([
-    `仙蕴 ${number(data.xianYun)} · 1份等于1碎片，1件重复本体折合10份。`,
-    '本体仅计重复库存，已激活主宝物保留；确认分解后不能撤销。'
-  ]));
-  addButtons(content, rarityNames.map((label, index) => ({
-    label,
-    command: `/宝物 分解 品质 ${index + 1}`,
-    selected: index + 1 === selectedRarity
-  })));
+  content.addBlockquote(
+    createQuoteMarkdown([`仙蕴 ${number(data.xianYun)} · 1份等于1碎片，1件重复本体折合10份。`, '本体仅计重复库存，已激活主宝物保留；确认分解后不能撤销。'])
+  );
+  addButtons(
+    content,
+    rarityNames.map((label, index) => ({
+      label,
+      command: `/宝物 分解 品质 ${index + 1}`,
+      selected: index + 1 === selectedRarity
+    }))
+  );
   for (const item of items.slice((page - 1) * pageSize, page * pageSize)) {
     const rate = data.decompositionValues.find(value => value.rarity === item.definition.rarity);
     const portions = item.duplicates * 10 + item.fragments;
@@ -182,12 +198,17 @@ export function buildTreasureDecompositionPage(data: TreasureOverview, options: 
     const maxed = item.owned && item.grade === item.definition.maxGrade;
 
     content.addText(`${item.definition.name}${maxed ? ' · 已满品' : ''}`).addNewline();
-    content.addBlockquote(createQuoteMarkdown([
-      `本体${number(item.duplicates)} · 碎片${number(item.fragments)}`,
-      Number.isSafeInteger(portions)
-        ? `可分解${number(portions)}份，${rate ? `每份${number(rate.fragmentXianYun)}仙蕴` : '分解价值暂未同步'}`
-        : '库存份数暂不可用，请核对后重试。'
-    ], available ? [{ label: '输入份数预览', command: `/宝物 分解 份数 ${item.definition.id} 1`, autoEnter: false }] : []));
+    content.addBlockquote(
+      createQuoteMarkdown(
+        [
+          `本体${number(item.duplicates)} · 碎片${number(item.fragments)}`,
+          Number.isSafeInteger(portions)
+            ? `可分解${number(portions)}份，${rate ? `每份${number(rate.fragmentXianYun)}仙蕴` : '分解价值暂未同步'}`
+            : '库存份数暂不可用，请核对后重试。'
+        ],
+        available ? [{ label: '输入份数预览', command: `/宝物 分解 份数 ${item.definition.id} 1`, autoEnter: false }] : []
+      )
+    );
   }
   if (!items.length) {
     content.addBlockquote(createQuoteMarkdown(['该稀有度暂无宝物资料。']));
@@ -310,9 +331,10 @@ function specialAttribute(item: OwnedTreasure): string {
   if (!item.currentEffect) {
     return '暂无特殊属性。';
   }
-  const effect = /^[^\p{Script=Han}]+$/u.test(item.currentEffect) && item.definition.effectDescription
-    ? `${item.definition.effectDescription}（${item.currentEffect}）`
-    : item.currentEffect;
+  const effect =
+    /^[^\p{Script=Han}]+$/u.test(item.currentEffect) && item.definition.effectDescription
+      ? `${item.definition.effectDescription}（${item.currentEffect}）`
+      : item.currentEffect;
   const probability = /^(.*)（(\d+(?:\.\d+)?)%）$/.exec(effect);
 
   if (probability && probability[1].includes('命中') && !probability[1].includes('修为')) {

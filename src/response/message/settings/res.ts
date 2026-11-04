@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { describeNotificationGroup } from '@src/notification/channel';
 import type { NotificationTarget } from '@src/types/notification';
@@ -57,7 +58,7 @@ export default onResponse(selects, async e => {
       const row = Format.createMarkdown().addText(`${label}：${state}`);
 
       for (const button of buttons) {
-        row.addText(' ').addButton(markdownButtonLabel(`${button.label}`), { data: button.command });
+        row.addText(' ').addButton(markdownButtonLabel(`${button.label}`), { data: commandText(button.command) });
       }
       row.addNewline().addText(description);
       md.addBlockquote(row);
@@ -128,14 +129,14 @@ export default onResponse(selects, async e => {
 
       if (!subscription) {
         notificationMd.addText('🔴 未开启 ');
-        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: '/开启群订阅' });
+        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: commandText('开启群订阅') });
       } else if (subscription.isEnabled) {
         notificationMd.addText(isCurrentGroup ? '🟢 已在本群开启 ' : '🟡 已在其他群开启 ');
         if (!isCurrentGroup) {
-          notificationMd.addButton(markdownButtonLabel('切换至本群'), { data: '/开启群订阅' });
+          notificationMd.addButton(markdownButtonLabel('切换至本群'), { data: commandText('开启群订阅') });
           notificationMd.addText(' ');
         }
-        notificationMd.addButton(markdownButtonLabel('关闭'), { data: '/关闭群订阅' });
+        notificationMd.addButton(markdownButtonLabel('关闭'), { data: commandText('关闭群订阅') });
         notificationMd.addNewline();
         const state = subscription.channelState;
 
@@ -154,12 +155,12 @@ export default onResponse(selects, async e => {
         }
       } else if (subscription.lastError) {
         notificationMd.addText('🔴 订阅已关闭 ');
-        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: '/开启群订阅' });
+        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: commandText('开启群订阅') });
         notificationMd.addNewline();
         notificationMd.addText(`失败原因：${subscription.lastError}`);
       } else {
         notificationMd.addText('🔴 已关闭 ');
-        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: '/开启群订阅' });
+        notificationMd.addButton(markdownButtonLabel('开启本群订阅'), { data: commandText('开启群订阅') });
       }
 
       notificationMd.addNewline();
@@ -179,8 +180,8 @@ export default onResponse(selects, async e => {
     }
 
     notificationMd.addNewline();
-    notificationMd.addButton(markdownButtonLabel('通知设置'), { data: '/通知设置' }).addText(' ');
-    notificationMd.addButton(markdownButtonLabel('通知记录'), { data: '/我的通知' });
+    notificationMd.addButton(markdownButtonLabel('通知设置'), { data: commandText('通知设置') }).addText(' ');
+    notificationMd.addButton(markdownButtonLabel('通知记录'), { data: commandText('我的通知') });
     md.addBlockquote(notificationMd);
 
     void message.send(

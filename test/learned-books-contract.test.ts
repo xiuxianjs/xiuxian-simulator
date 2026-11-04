@@ -24,4 +24,14 @@ test('original learned-books SDK keeps fixed visibility, page size, safe numbers
   const header=(name:string)=>Object.entries(calls[0].headers).find(([key])=>key.toLowerCase()===name.toLowerCase())?.[1];
   assert.equal(header('Authorization'),'Bearer local-test');assert.equal(header('X-Bid'),'player');assert.equal(header('X-Repeat-Command'),undefined);assert.equal(header('Idempotency-Key'),undefined);
  }
+ // Decimal catalog attributes must survive the complete JSON/SDK adapter path.
+ row = structuredClone(rows.find(r => r.status === 200 && r.result.success && r.v1.data.items.length > 0));
+ assert.ok(row);
+ const decimalFields = ['physicalAttackPercent', 'magicAttackPercent', 'physicalDefensePercent', 'magicDefensePercent', 'hpPercent', 'critRate', 'critDamage', 'maxPhysicalAttackPercent', 'maxMagicAttackPercent', 'maxPhysicalDefensePercent', 'maxMagicDefensePercent', 'maxHpPercent', 'maxCritRate', 'maxCritDamage'] as const;
+ for (const [index, key] of decimalFields.entries()) row.v1.data.items[0][key] = 0.25 + index;
+ const parsed = await getBackendLearnedBooks('player', 1, 1, 'visible');
+ for (const key of decimalFields) assert.equal(parsed.items[0][key], row.v1.data.items[0][key]);
+ row.v1.data.items[0].upgradeCount = 1.5;
+ await assert.rejects(() => getBackendLearnedBooks('player', 1, 1, 'visible'), /已学功法接口缺少数值字段/);
+
 });

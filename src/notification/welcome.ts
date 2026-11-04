@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { acquirePlatformDeliveryLease, readPlatformAvailability, storePlatformDeliveryReceipt } from '@src/api/bot/notification-cache';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { FormatGui } from '@src/utils/messageHelper';
@@ -61,12 +62,12 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
     quote.addText('欢迎来到修仙世界。').addNewline();
     quote.addText('初来乍到可踏入仙途，已有角色可查看主页。').addNewline();
     quote
-      .addButton(markdownButtonLabel('踏入仙途'), { data: '/踏入仙途' })
+      .addButton(markdownButtonLabel('踏入仙途'), { data: commandText('踏入仙途') })
       .addText(' ')
-      .addButton(markdownButtonLabel('我的主页'), { data: '/我' })
+      .addButton(markdownButtonLabel('我的主页'), { data: commandText('我') })
       .addText(' ')
-      .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
-      .addButton(markdownButtonLabel('登录'), { data: '/登录' });
+      .addButton(markdownButtonLabel('帮助'), { data: commandText('修仙帮助') })
+      .addButton(markdownButtonLabel('登录'), { data: commandText('登录') });
   } else if (joined) {
     quote.addText('道友们好，接下来由我来陪大家一起修行、闯秘境、争夺机缘！').addNewline().addNewline();
     quote.addText('请群主点击机器人头像，在设置中开启：').addNewline();
@@ -74,21 +75,21 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
     quote.addText('② 允许群内主动发言').addNewline();
     quote.addText('虾仁夺宝（打劫）是游戏主要的修为获取方式之一！推荐开启接收全部消息，获得完整体验。').addNewline();
     quote
-      .addButton(markdownButtonLabel('帮助'), { data: '/修仙帮助' })
+      .addButton(markdownButtonLabel('帮助'), { data: commandText('修仙帮助') })
       .addText(' ')
-      .addButton(markdownButtonLabel('踏入仙途'), { data: '/踏入仙途' })
+      .addButton(markdownButtonLabel('踏入仙途'), { data: commandText('踏入仙途') })
       .addText(' ')
-      .addButton(markdownButtonLabel('我的设置'), { data: '/我的设置' })
+      .addButton(markdownButtonLabel('我的设置'), { data: commandText('我的设置') })
       .addText(' ')
-      .addButton(markdownButtonLabel('登录'), { data: '/登录' });
+      .addButton(markdownButtonLabel('登录'), { data: commandText('登录') });
   } else {
     quote.addText(target?.scope === 'group' ? '本群已允许接收机器人主动消息。' : '本次私聊已允许接收机器人主动消息。').addNewline();
     quote.addText('后续通知将按现有设置投递。').addNewline();
     quote
-      .addButton(markdownButtonLabel('我的设置'), { data: '/我的设置' })
+      .addButton(markdownButtonLabel('我的设置'), { data: commandText('我的设置') })
       .addText(' ')
-      .addButton(markdownButtonLabel('我的通知'), { data: '/我的通知' })
-      .addButton(markdownButtonLabel('登录'), { data: '/登录' });
+      .addButton(markdownButtonLabel('我的通知'), { data: commandText('我的通知') })
+      .addButton(markdownButtonLabel('登录'), { data: commandText('登录') });
   }
   const content = Format.createMarkdown().addBlockquote(quote);
 

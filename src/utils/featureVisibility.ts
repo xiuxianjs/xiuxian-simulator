@@ -1,3 +1,4 @@
+import { internalCommandText } from './commandPrefix';
 import { getQQBotAppIds } from './qqBotIdentity';
 import { Format, logger, type DataEnums, type OutgoingMessage } from 'alemonjs';
 import { getBackendConfig } from '../api/bot/config';
@@ -15,9 +16,9 @@ const runtimeKey = () => {
 
   return { config, key: JSON.stringify([config.url, config.robotAuthToken]) };
 };
-const canonical = (value: string) => value
+const canonical = (value: string) => internalCommandText(value.replace(/^notAutoConfirmation:/, ''))
     .trim()
-    .replace(/^[!！/#＃]/, '')
+    .replace(/^\//, '')
     .trim()
     .replace(/\s+/g, ' ');
 

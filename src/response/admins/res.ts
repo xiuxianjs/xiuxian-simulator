@@ -1,3 +1,5 @@
+import { commandText } from '@src/utils/commandPrefix';
+import { prefixCommandFormat } from '@src/utils/commandPrefix';
 import { platform } from '@alemonjs/qq-bot';
 import { Format, getAppConfigValue, useEvent, useMe, useMessage } from 'alemonjs';
 
@@ -75,7 +77,7 @@ export default async () => {
       md.addNewline();
       md.addText('💡 @修仙模拟器 /设置 「群号」');
       md.addNewline();
-      bt.addButton('点击输入群号', '/设置 「群号」');
+      bt.addButton('点击输入群号', commandText('设置 「群号」'));
     }
 
     const format = Format.create();
@@ -83,7 +85,7 @@ export default async () => {
     format.addMarkdown(md);
     format.addButtonGroup(bt);
 
-    void message.send({ format });
+    void message.send({ format: prefixCommandFormat(format) });
   } else {
     next();
   }

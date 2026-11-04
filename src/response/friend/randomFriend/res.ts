@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { parseBackendRandomFriend } from '@src/api/bot/random-friend-queries';
 import { sendFifthLayerLockedPage } from '@src/response/access/fifthLayer';
 import { selects } from '@src/response/config';
@@ -51,11 +52,11 @@ export default onResponse(selects, async e => {
       const md = Format.createMarkdown();
 
       md.addText(`UID: ${targetUid} `);
-      md.addButton(markdownButtonLabel('结交'), { data: `/结交 ${targetUid}` });
+      md.addButton(markdownButtonLabel('结交'), { data: commandText(`结交 ${targetUid}`) });
       md.addText(' ');
-      md.addButton(markdownButtonLabel('查看'), { data: `/查看信息 ${targetUid}` });
+      md.addButton(markdownButtonLabel('查看'), { data: commandText(`查看信息 ${targetUid}`) });
       md.addText(' ');
-      md.addButton(markdownButtonLabel('比试'), { data: `/比试 ${targetUid}` });
+      md.addButton(markdownButtonLabel('比试'), { data: commandText(`比试 ${targetUid}`) });
       md.addNewline();
       md.addText(`道号：${name}`);
       md.addNewline();

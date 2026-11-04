@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { configureDailyFortune, dailyFortuneTarget, parseDailyFortune } from '@src/api/bot/daily-fortune';
@@ -15,7 +16,7 @@ export default onResponse(selects, async event => {
     const quote = Format.createMarkdown().addText(text);
 
     if (canDraw) {
-      quote.addNewline().addButton(markdownButtonLabel('抽取今日机缘'), { data: '/每日机缘' });
+      quote.addNewline().addButton(markdownButtonLabel('抽取今日机缘'), { data: commandText('每日机缘') });
     }
     await message.send(
       FormatGui({ bid: event.UserId, isPrivate: event.isPrivate ?? false, title: '每日机缘', content: Format.createMarkdown().addBlockquote(quote) })

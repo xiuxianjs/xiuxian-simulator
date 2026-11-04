@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 import { formatFeedbackInfo, parseFeedbackId } from '@src/api/bot/feedback-robot';
@@ -23,7 +24,7 @@ export default onResponse(selects, async e => {
 
     for (const button of reply.buttons) {
       content.addText(' ');
-      content.addButton(markdownButtonLabel(button.label), { data: button.command });
+      content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command) });
     }
     if (reply.buttons.length) {
       content.addNewline();

@@ -37,9 +37,9 @@ for (const privateChat of [false, true]) {
     const { app, requests } = await gameFixture(t, request => catalog(request.bid === 'advanced' ? 9 : 0));
     await activate(app);
     const makeEvent = (userId: string) => privateChat ? app.events.privateMessage({ userId, platform: 'qq-bot' }) : app.events.groupMessage({ userId, platform: 'qq-bot' });
-    const quote = createQuoteMarkdown(['本人资产仍可查看'], [{ label: '好友', command: '/我的好友' }, { label: '解除', command: '/飞信解除 2' }]);
+    const quote = app.run(() => createQuoteMarkdown(['本人资产仍可查看'], [{ label: '好友', command: '/我的好友' }, { label: '解除', command: '/飞信解除 2' }]));
     const md = Format.createMarkdown().addBlockquote(quote).addText('入口：/加入炼丹师').addNewline().addText('帮助链接：https://example.com/help');
-    const bubble = FormatGui({ content: md, footer: [{ label: '好友', command: '/我的好友' }], keyboard: [[{ label: '加入', command: '/加入炼丹师' }, { label: '商店积分', command: '/商店 积分' }]], bar: false });
+    const bubble = app.run(() => FormatGui({ content: md, footer: [{ label: '好友', command: '/我的好友' }], keyboard: [[{ label: '加入', command: '/加入炼丹师' }, { label: '商店积分', command: '/商店 积分' }]], bar: false }));
     const original = JSON.stringify(bubble.format.value);
     const low = await app.invoke(makeEvent('new'), async () => {
       await useMessage()[0].send(bubble);
@@ -81,7 +81,7 @@ test('突破写请求后，同一事件的下一条气泡立即刷新开放状�
   const event = app.events.privateMessage({ userId: 'new', platform: 'qq-bot', text: '/突破' });
   activeEvent = event;
   const result = await app.invoke(event, async () => {
-    const bubble = FormatGui({ footer: [{ label: '好友', command: '/我的好友' }], content: Format.createMarkdown().addText('成长状态'), bar: false });
+    const bubble = app.run(() => FormatGui({ footer: [{ label: '好友', command: '/我的好友' }], content: Format.createMarkdown().addText('成长状态'), bar: false }));
     await useMessage()[0].send(bubble);
     await requestRobotBusiness(event as GameEvent, 'realm.breakthrough', {}, () => ({}));
     await useMessage()[0].send(bubble);
@@ -199,9 +199,9 @@ test('活动大厅隐藏未开放玩法的整行介绍，保留已开放的成�
 test('主动通知按收件人隐藏未开放按钮，保留归属与数据正文', async t => {
   const { app } = await gameFixture(t, request => catalog(request.bid === 'owner' ? 0 : 9));
   await activate(app);
-  const content = Format.createMarkdown().addBlockquote(createQuoteMarkdown(['本人已有记录'], [
+  const content = app.run(() => Format.createMarkdown().addBlockquote(createQuoteMarkdown(['本人已有记录'], [
     { label: '好友', command: '/我的好友' }, { label: '清理', command: '/飞信解除 2' }
-  ]));
+  ])));
   const result = await app.invoke(app.events.privateMessage({ userId: 'sender', platform: 'qq-bot' }), async () => {
     const delivery = await deliverNotification({ recipientBid: 'owner', privateTarget: { platform: 'qq-bot', scope: 'c2c', targetId: 'owner' }, enabled: true, data: Format.create().addMarkdown(content).value }, {
       read: async () => null,

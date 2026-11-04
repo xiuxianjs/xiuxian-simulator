@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -26,7 +27,7 @@ export default onResponse(selects, async e => {
     }
 
     md.addNewline();
-    md.addButton(markdownButtonLabel('返回邮件列表'), { data: '/我的邮件' });
+    md.addButton(markdownButtonLabel('返回邮件列表'), { data: commandText('我的邮件') });
 
     await message.send(
       FormatGui({

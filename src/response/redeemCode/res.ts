@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
@@ -37,7 +38,7 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addButton(markdownButtonLabel('领取邀请奖励'), { data: '/领取邀请奖励' });
+  md.addButton(markdownButtonLabel('领取邀请奖励'), { data: commandText('领取邀请奖励') });
   md.addText(' ——— 领取邀请好友累积奖励');
   md.addNewline();
   md.addText('公测预约');
