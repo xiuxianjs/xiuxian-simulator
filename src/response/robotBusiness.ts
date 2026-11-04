@@ -24,7 +24,8 @@ export async function runRobotBusiness<T>(
   decode: (data: unknown, uid: number) => T,
   parentNext: Next,
   renderFeedback?: BusinessFeedbackRenderer,
-  request?: BackendRequestContext
+  request?: BackendRequestContext,
+  handleRequestError?: (error: unknown) => Promise<boolean>
 ): Promise<{ handled: true } | ({ handled: false; data: T } & RobotBusinessFollowup)> {
   const publicEntry = isRobotPublicEntry(operation) || operation === 'tasks.continue';
 
@@ -41,6 +42,9 @@ export async function runRobotBusiness<T>(
   try {
     result = await requestRobotBusiness(event, operation, args, decode, request);
   } catch (error) {
+    if (handleRequestError && await handleRequestError(error)) {
+      return { handled: true };
+    }
     const text = getCommandBusinessErrorMessage(error);
 
     if (text === undefined) {

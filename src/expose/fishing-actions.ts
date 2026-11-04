@@ -25,12 +25,13 @@ const viewSchema = object(
     sections: list(object({ title: text, id: text, suffix: text, lines: list(text), actions: list(action) })),
     footer: list(action),
     navRows: list(list(action)),
+    emphasisNames: list(text),
     nav: object({ page: integer, totalPages: integer, total: integer, command: text }),
     confirmationRef: text,
     operationId: text,
     expiresAt: text
   },
-  ['nav', 'navRows', 'confirmationRef', 'operationId', 'expiresAt']
+  ['nav', 'navRows', 'emphasisNames', 'confirmationRef', 'operationId', 'expiresAt']
 );
 const identifier = { type: 'string' as const, minLength: 1, maxLength: 64 };
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -53,7 +54,7 @@ const previewFields = {
   ...queryFields,
   sku: identifier,
   waterLevel: { type: 'integer' as const, minimum: 0, maximum: 9 },
-  hours: { type: 'integer' as const, minimum: 1, maximum: 24 },
+  hours: { type: 'integer' as const, minimum: 1, maximum: 12 },
   baitType: { type: 'string' as const, enum: Object.values(fishingBaits) },
   baitCount: { type: 'integer' as const, minimum: 1, maximum: 1000000 },
   chumType: { type: 'string' as const, enum: ['none', ...Object.values(fishingChums)] },
@@ -64,7 +65,7 @@ const previewFields = {
   lock: boolean,
   minWeightG: { type: 'integer' as const, minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
   maxWeightG: { type: 'integer' as const, minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
-  settings: object({ pushRareFish: boolean, pushFishKing: boolean, autoChum: boolean, chumType: { type: 'string' as const, enum: ['none', ...Object.values(fishingChums)] }, chumTier: { type: 'integer' as const, minimum: 0, maximum: 0 }, autoBaitSwitch: boolean, baitOrder: { type: 'array' as const, minItems: 0, maxItems: 5, items: { type: 'string' as const, enum: Object.values(fishingBaits) } } }, ['pushRareFish', 'pushFishKing', 'autoChum', 'chumType', 'chumTier', 'autoBaitSwitch', 'baitOrder']),
+  settings: object({ primaryBaitType: { type: 'string' as const, enum: Object.values(fishingBaits) }, pushRareFish: boolean, pushFishKing: boolean, autoChum: boolean, chumType: { type: 'string' as const, enum: ['none', ...Object.values(fishingChums)] }, chumTier: { type: 'integer' as const, minimum: 0, maximum: 0 }, autoBaitSwitch: boolean, baitOrder: { type: 'array' as const, minItems: 0, maxItems: 5, items: { type: 'string' as const, enum: Object.values(fishingBaits) } } }, ['primaryBaitType', 'pushRareFish', 'pushFishKing', 'autoChum', 'chumType', 'chumTier', 'autoBaitSwitch', 'baitOrder']),
   fishIds: { type: 'array' as const, minItems: 1, maxItems: 100, items: identifier }
 };
 
@@ -107,7 +108,7 @@ export const fishingActions = {
   preview_fishing_action: observation<FishingInput>(
     '预览本人垂钓动作的原资产、费用与配置；仅取得5分钟原引用，未确认不扣款。开钓预留已有有限饵窝，不自动购买。',
     'fishing.preview',
-    object({ kind: { type: 'string', enum: [...fishingKinds] }, ...previewFields }, Object.keys(previewFields)),
+    object({ kind: { type: 'string', enum: fishingKinds.filter(kind => !['start-current', 'stop-current'].includes(kind)) }, ...previewFields }, Object.keys(previewFields)),
     viewSchema,
     () => '/垂钓',
     (data, _input, uid) => {
@@ -122,6 +123,8 @@ export const fishingActions = {
     input => input,
     input => {
       validateIdentifiers(input);
+      if (input.kind === 'start-current') { throw new ExposeError('INVALID_INPUT', '直接开钓请手动发送 /垂钓 开钓'); }
+      if (input.kind === 'stop-current') { throw new ExposeError('INVALID_INPUT', '直接收杆请手动发送 /垂钓 收杆'); }
       if (input.kind === 'settings') {
         if (!input.settings || Object.keys(input.settings).length === 0) { throw new ExposeError('INVALID_INPUT', '请选择至少一项垂钓设置'); }
         if (input.settings.baitOrder && new Set(input.settings.baitOrder).size !== input.settings.baitOrder.length) { throw new ExposeError('INVALID_INPUT', '鱼饵顺序不能重复'); }
@@ -130,7 +133,7 @@ export const fishingActions = {
         input.kind === 'start' &&
         (!input.waterLevel ||
           !input.hours ||
-          ![1, 4, 6, 8, 12, 24].includes(input.hours) ||
+          ![1, 4, 6, 8, 12].includes(input.hours) ||
           !input.rodId ||
           !input.baitType ||
           !input.baitCount)

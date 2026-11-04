@@ -1,0 +1,483 @@
+{
+  "cases": {
+    "settingsReceipt": {
+      "emphasisNames": [
+        "聚灵饵"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "receipt",
+      "title": "垂钓设置已保存",
+      "sections": [
+        {
+          "lines": [
+            "主饵：聚灵饵",
+            "备用鱼饵：无",
+            "修改直接生效，换饵从下一竿开始。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        },
+        {
+          "label": "渔获",
+          "command": "/垂钓 渔获 1"
+        },
+        {
+          "label": "渔市",
+          "command": "/垂钓 渔市 灵鳞钱 1"
+        }
+      ],
+      "operationId": "fo_cfg_753beebfcbec952ad86b53611ad6db3e"
+    },
+    "primary": {
+      "emphasisNames": [
+        "唤王饵",
+        "定鳞饵",
+        "引珍饵",
+        "素灵饵",
+        "聚灵饵"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "settings",
+      "title": "垂钓 · 选择主饵",
+      "sections": [
+        {
+          "title": "素灵饵",
+          "lines": [
+            "可用：1000份",
+            "当前主饵"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 素灵饵"
+            }
+          ]
+        },
+        {
+          "title": "定鳞饵",
+          "lines": [
+            "可用：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 定鳞饵"
+            }
+          ]
+        },
+        {
+          "title": "聚灵饵",
+          "lines": [
+            "可用：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 聚灵饵"
+            }
+          ]
+        },
+        {
+          "title": "引珍饵",
+          "lines": [
+            "可用：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 引珍饵"
+            }
+          ]
+        },
+        {
+          "title": "唤王饵",
+          "lines": [
+            "可用：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 唤王饵"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回设置",
+          "command": "/垂钓 设置"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    },
+    "chum": {
+      "emphasisNames": [
+        "催鳞散",
+        "升灵散",
+        "唤王散",
+        "引灵散",
+        "引珍散",
+        "聚鳞散"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "chum",
+      "title": "垂钓 · 当前打窝",
+      "sections": [
+        {
+          "lines": [
+            "当前窝效：无",
+            "所有鱼塘每份固定6小时。",
+            "同种打窝累加时长；选择异种直接替换，原剩余窝效失去。",
+            "选择份数后发送，直接打窝。"
+          ],
+          "actions": []
+        },
+        {
+          "title": "聚鳞散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.9；生效期间鱼90%、杂获10%。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 聚鳞散 1"
+            }
+          ]
+        },
+        {
+          "title": "催鳞散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.85；生效期间鱼90%、杂获10%。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 催鳞散 1"
+            }
+          ]
+        },
+        {
+          "title": "引珍散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.9；生效期间鱼90%、杂获10%。",
+            "珍稀权重×1.5；鱼王权重×1.5。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 引珍散 1"
+            }
+          ]
+        },
+        {
+          "title": "唤王散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.9；生效期间鱼90%、杂获10%。",
+            "珍稀权重×1；鱼王权重×3。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 唤王散 1"
+            }
+          ]
+        },
+        {
+          "title": "引灵散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.9；生效期间鱼90%、杂获10%。",
+            "当前境鱼权重×3。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 引灵散 1"
+            }
+          ]
+        },
+        {
+          "title": "升灵散",
+          "lines": [
+            "可用：1000份",
+            "每份时长：6小时",
+            "周期×0.9；生效期间鱼90%、杂获10%。",
+            "当前境鱼权重×5。"
+          ],
+          "actions": [
+            {
+              "label": "打窝1份",
+              "command": "/垂钓 打窝 升灵散 1"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "设置",
+          "command": "/垂钓 设置"
+        },
+        {
+          "label": "渔市",
+          "command": "/垂钓 渔市 灵鳞钱 1"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    },
+    "backup": {
+      "emphasisNames": [
+        "唤王饵",
+        "定鳞饵",
+        "引珍饵",
+        "素灵饵",
+        "聚灵饵"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "settings",
+      "title": "垂钓 · 备用鱼饵",
+      "sections": [
+        {
+          "title": "当前顺序",
+          "lines": [
+            "引珍饵 → 唤王饵"
+          ],
+          "actions": [
+            {
+              "label": "修改顺序",
+              "command": "/垂钓 设置 饵序 引珍饵 唤王饵"
+            },
+            {
+              "label": "清空备用",
+              "command": "/垂钓 设置 饵序 清空"
+            }
+          ]
+        },
+        {
+          "title": "可选鱼饵",
+          "lines": [
+            "素灵饵",
+            "定鳞饵",
+            "聚灵饵",
+            "引珍饵",
+            "唤王饵"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回设置",
+          "command": "/垂钓 设置"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    },
+    "chumReceipt": {
+      "emphasisNames": [
+        "唤王散"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "receipt",
+      "title": "打窝完成",
+      "sections": [
+        {
+          "lines": [
+            "已使用唤王散×1，增加6小时0分0秒窝效。",
+            "当前窝料到期：11-03 15:01:00",
+            "当前垂钓已按新窝料重新计算后续进度，原结束时间、鱼竿和鱼饵保持原样。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        },
+        {
+          "label": "渔获",
+          "command": "/垂钓 渔获 1"
+        },
+        {
+          "label": "渔市",
+          "command": "/垂钓 渔市 灵鳞钱 1"
+        }
+      ],
+      "operationId": "fo_cfg_2d3b23107f4e208bc509bd529af0d219"
+    },
+    "bait": {
+      "emphasisNames": [
+        "唤王饵",
+        "定鳞饵",
+        "引珍饵",
+        "素灵饵",
+        "聚灵饵"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "start",
+      "title": "垂钓 · 鱼饵",
+      "sections": [
+        {
+          "lines": [
+            "选择后直接保存主饵，换饵从下一竿开始。",
+            "已预留、锁定或挂牌的份数不计入可用库存。"
+          ],
+          "actions": []
+        },
+        {
+          "title": "素灵饵",
+          "lines": [
+            "持有：1000份",
+            "当前主饵"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 素灵饵"
+            }
+          ]
+        },
+        {
+          "title": "定鳞饵",
+          "lines": [
+            "持有：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 定鳞饵"
+            }
+          ]
+        },
+        {
+          "title": "聚灵饵",
+          "lines": [
+            "持有：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 聚灵饵"
+            }
+          ]
+        },
+        {
+          "title": "引珍饵",
+          "lines": [
+            "持有：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 引珍饵"
+            }
+          ]
+        },
+        {
+          "title": "唤王饵",
+          "lines": [
+            "持有：1000份"
+          ],
+          "actions": [
+            {
+              "label": "设为主饵",
+              "command": "/垂钓 设置 主饵 唤王饵"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "渔市",
+          "command": "/垂钓 渔市 灵鳞钱 1"
+        },
+        {
+          "label": "返回设置",
+          "command": "/垂钓 设置"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    },
+    "settings": {
+      "emphasisNames": [
+        "唤王饵",
+        "引珍饵"
+      ],
+      "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+      "view": "settings",
+      "title": "垂钓 · 设置",
+      "sections": [
+        {
+          "title": "备用鱼饵",
+          "lines": [
+            "顺序：引珍饵 → 唤王饵"
+          ],
+          "actions": [
+            {
+              "label": "修改顺序",
+              "command": "/垂钓 设置 饵序"
+            }
+          ]
+        },
+        {
+          "title": "稀有鱼推送",
+          "lines": [
+            "状态：关闭"
+          ],
+          "actions": [
+            {
+              "label": "切换开关",
+              "command": "/垂钓 设置 稀有通知 开"
+            }
+          ]
+        },
+        {
+          "title": "鱼王推送",
+          "lines": [
+            "状态：关闭",
+            "修改直接生效，换饵从下一竿开始。"
+          ],
+          "actions": [
+            {
+              "label": "切换开关",
+              "command": "/垂钓 设置 鱼王通知 开"
+            }
+          ]
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    }
+  },
+  "source": "Final actual FishingService.Query and ApplyImmediate after SDK13.6; isolated server tests, synthetic inventory/preferences; cases are independent"
+}

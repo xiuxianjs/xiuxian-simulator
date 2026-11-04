@@ -20,6 +20,10 @@ export type RobotBusinessResult<T = unknown> =
 export type RobotBusinessOperation =
   | 'fishing.query'
   | 'fishing.preview'
+  | 'fishing.purchase'
+  | 'fishing.start-current'
+  | 'fishing.stop-current'
+  | 'fishing.configure'
   | 'fishing.confirm'
   | 'fishing.pack-checkout'
   | 'base.forge-recipes'

@@ -22,7 +22,7 @@ export const fishingViews = [
   'help',
   'operation'
 ] as const;
-export const fishingKinds = ['sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
+export const fishingKinds = ['sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
 export const fishingCurrencies = ['coin', 'stone', 'crystal', 'dao'] as const;
 export const fishingShopCategories = ['all', 'fish', 'bait', 'chum', 'rod', 'net', 'material'] as const;
 export const fishingBaits = { 素灵饵: 'plain', 定鳞饵: 'steady', 聚灵饵: 'realm', 引珍饵: 'rare', 唤王饵: 'king' } as const;
@@ -32,6 +32,7 @@ export type FishingViewKind = (typeof fishingViews)[number];
 export type FishingPreviewKind = (typeof fishingKinds)[number];
 export type FishingCurrency = (typeof fishingCurrencies)[number];
 export type FishingSettingsInput={
+  primaryBaitType?:string;
   pushRareFish?:boolean;pushFishKing?:boolean;
   autoChum?:boolean;chumType?:string;chumTier?:number;autoBaitSwitch?:boolean;baitOrder?:string[];
 };
@@ -75,6 +76,7 @@ export type FishingView = {
   nav?: { page: number; totalPages: number; total: number; command: string };
   footer: FishingAction[];
   navRows?: FishingAction[][];
+  emphasisNames?: string[];
   confirmationRef?: string;
   operationId?: string;
   expiresAt?: string;
@@ -159,10 +161,17 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
   }
   const result: FishingView = { rulesVersion, view, title, sections, footer, status: absent(data.status) ? '' : text(data.status) };
 
+  if (!absent(data.emphasisNames)) {
+    result.emphasisNames = array(data.emphasisNames, text);
+  }
+
   if (!absent(data.navRows)) {
     const rows = array(data.navRows, value => array(value, action));
 
-    if (rows.length > 2 || rows.some(row => row.length > 6)) { return invalid(); }
+    const maxRows = view === 'blessing' ? 3 : 2;
+    const maxColumns = view === 'blessing' ? 4 : 6;
+
+    if (rows.length > maxRows || rows.some(row => row.length > maxColumns)) { return invalid(); }
     result.navRows = rows;
   }
 

@@ -165,7 +165,7 @@ export default function PayQrCode({ data }: PayQrCodeProps) {
           background: 'linear-gradient(180deg, rgba(200,185,155,0.10) 0%, rgba(215,200,170,0.22) 100%)'
         }}
       >
-        <span style={{ fontSize: '12px', color: T.inkLight }}>若二维码失效，请重新发起充值指令生成新订单</span>
+        <span style={{ fontSize: '12px', color: T.inkLight }}>若二维码失效，请查询原订单或从我的订单恢复支付页面</span>
       </div>
     </PanelShell>
   );

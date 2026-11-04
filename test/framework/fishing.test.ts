@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, test } from 'node:test';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { after, before, mock, test } from 'node:test';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
@@ -10,6 +10,11 @@ import { parseFishingView, validFishingReference, type FishingView } from '../..
 import { matchesGameCommand } from '../../src/router';
 import { parseBackendNormalPaymentSettlement } from '../../src/api/bot/sponsor-payment';
 import { businessEnvelope, gameFixture } from './fixture';
+import { ImageCache } from '../../src/utils/imageCdn';
+
+const immediateViews = JSON.parse(readFileSync(new URL('../fixtures/fishing-immediate-views-actual.json', import.meta.url), 'utf8'));
+
+before(() => mock.timers.enable({ apis: ['setInterval', 'setTimeout'] }));
 
 const ref = 'r1_1_y_mh9of000_0123456789abcdef01234567';
 const captures: unknown[] = [];
@@ -45,6 +50,7 @@ function delivered(result: TestRunResult, command: string, messages = 1) {
 }
 
 after(async () => {
+  mock.timers.reset();
   if (process.env.FISHING_PREVIEW_OUTPUT) {
     mkdirSync(dirname(process.env.FISHING_PREVIEW_OUTPUT), { recursive: true });
     writeFileSync(process.env.FISHING_PREVIEW_OUTPUT, JSON.stringify({ note: '真实处理器与Format离线节点；后端及平台由夹具模拟。', captures }, null, 2));
@@ -66,8 +72,8 @@ test('鱼种聚合与单种实例独立分页，详情带原返回层级', async
   const { app, requests } = await gameFixture(t, request => {
     const input = request.body.arguments as { view: string };
     if (input.view === 'species') return businessEnvelope(request.bid, base({ view: 'species', title: '储物袋 · 渔获鱼种', sections: [{ title: '金须鲤', id: 'fishing_r2_b', suffix: '', lines: ['境界：筑基', '数量：8尾'], actions: [{ label: '查看该种', command: '/垂钓 鱼种 fishing_r2_b 1 2' }] }], nav: { page: 2, totalPages: 3, total: 12, command: '/垂钓 渔获 {page}' } }));
-    if (input.view === 'instances') return businessEnvelope(request.bid, base({ view: 'instances', title: '金须鲤 · 筑基', sections: [{ title: '金须鲤', id: 'F0186', suffix: '', lines: ['数量：1.840 kg', '状态：可出售'], actions: [{ label: '详情', command: '/垂钓 鱼 F0186 3 2' }] }], nav: { page: 3, totalPages: 3, total: 12, command: '/垂钓 鱼种 fishing_r2_b {page} 2' }, footer: [{ label: '返回鱼种', command: '/垂钓 渔获 2' }] }));
-    return businessEnvelope(request.bid, base({ view: 'fish', title: '金须鲤', sections: [{ title: '金须鲤', id: 'F0186', suffix: '', lines: ['数量：1.840 kg', '状态：可出售'], actions: [] }], footer: [{ label: '返回该种', command: '/垂钓 鱼种 fishing_r2_b 3 2' }] }));
+    if (input.view === 'instances') return businessEnvelope(request.bid, base({ view: 'instances', title: '金须鲤 · 筑基', sections: [{ title: '金须鲤', id: 'F0186', suffix: '', lines: ['重量：1.840 kg', '状态：可出售'], actions: [{ label: '详情', command: '/垂钓 鱼 F0186 3 2' }] }], nav: { page: 3, totalPages: 3, total: 12, command: '/垂钓 鱼种 fishing_r2_b {page} 2' }, footer: [{ label: '返回鱼种', command: '/垂钓 渔获 2' }] }));
+    return businessEnvelope(request.bid, base({ view: 'fish', title: '金须鲤', sections: [{ title: '金须鲤', id: 'F0186', suffix: '', lines: ['重量：1.840 kg', '状态：可出售'], actions: [] }], footer: [{ label: '返回该种', command: '/垂钓 鱼种 fishing_r2_b 3 2' }] }));
   });
   const first = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 渔获 2', platform: 'qq-bot' })), '/垂钓 渔获 2');
   assert.match(first.text, /第2\/3页/);
@@ -105,9 +111,9 @@ test('真实预览按钮可完整往返原r1_y，重复确认只请求原引用'
 
 test('开钓只提交有限已有饵窝配置，不自动购买或增加预留', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, base({ view: 'preview', confirmationRef: ref, operationId: 'start-original', expiresAt: '2026-11-03T22:00:00Z' })));
-  const command = '/垂钓 开钓 2 24 R186 素灵饵 160 聚鳞散 4';
+  const command = '/垂钓 开钓 2 12 R186 素灵饵 80 聚鳞散 2';
   delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
-  assert.deepEqual(requests[0].body.arguments, { kind: 'start', waterLevel: 2, hours: 24, rodId: 'R186', baitType: 'plain', baitCount: 160, chumType: 'basic', chumCount: 4, chumTier: 0 });
+  assert.deepEqual(requests[0].body.arguments, { kind: 'start', waterLevel: 2, hours: 12, rodId: 'R186', baitType: 'plain', baitCount: 80, chumType: 'basic', chumCount: 2, chumTier: 0 });
   assert.equal(requests.length, 1);
 });
 
@@ -121,7 +127,7 @@ test('同一查询消息重投取得新观察，不沿用旧页面幂等回放',
 for (const command of [
   '/垂钓 确认 '+ref.slice(0, -1), '/垂钓 确认 '+ref.replace('_y_', '_f_'), '/垂钓 确认 '+ref+' extra',
   '/垂钓 鱼种 fishing_r2_b 0', '/垂钓 鱼 F0186 -1', '/垂钓 渔获 9007199254740992',
-  '/垂钓 开钓 2 2 R1 素灵饵 10', '/垂钓 开钓 2 6 R1 素灵饵 40 聚鳞散 1001',
+  '/垂钓 开钓 2 2 R1 素灵饵 10', '/垂钓 开钓 2 24 R1 素灵饵 288', '/垂钓 开钓 2 6 R1 素灵饵 40 聚鳞散 1001',
   '/垂钓 购买 coin bait_plain 1.5', '/垂钓 兑换 道晶 1', '/垂钓 升塘 extra', '/垂钓 建塘 extra'
 ]) test(`无效垂钓指令零后端请求：${command}`, async t => {
   const { app, requests } = await gameFixture(t, () => { throw new Error('invalid input must not request'); });
@@ -225,8 +231,11 @@ test('渔市旧事实兼容时仅显示五分类导航且100晶仍走原兑换�
 });
 
 test('礼包支付只私聊并复用原收银台订单，不在群聊建立订单',async t=>{
+  t.mock.method(ImageCache.prototype, 'getOrCreate', async () => 'https://offline.example.test/fishing-pay.png');
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,{order:{orderNo:'FP20261104test',payAmount:600,status:'PENDING'},packageName:'稳如老狗',payUrl:'https://pay.example.test/fishing-original'}));
-  const view=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 礼包购买 initial_steady',platform:'qq-bot'})),'礼包支付');
+  const result=await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 礼包购买 initial_steady',platform:'qq-bot'}));
+  delivered(result,'礼包支付',2);
+  const view=inspectMessage(result.messages[0].nodes);
   assert.match(view.text,/FP20261104test/);
   assert.ok(view.commands.includes('/查询充值订单 FP20261104test'));
   assert.equal(requests[0].path,'/api/v2/robot/business/fishing.pack-checkout');
@@ -260,27 +269,20 @@ test('垂钓礼包到账仅使用原回执，保留精确原竿和专属奖励',
   assert.throws(()=>parseBackendNormalPaymentSettlement({...raw,fishingPack:{...raw.fishingPack,orderNo:'other'}}));
 });
 
-test('设置四组展示与partial原预览确认，运行中保存仅下次生效',async t=>{
+test('设置仅备用和双推送，partial直接保存不先取得确认预览',async t=>{
   const section=(title:string,lines:string[],actions:{label:string;command:string}[]=[])=>({title,id:'',suffix:'',lines,actions});
-  const settings=base({view:'settings',title:'垂钓 · 设置',sections:[
-    section('持续打窝',['状态：开启','种类：聚鳞散','所有鱼塘每份窝料固定6小时'],[{label:'改为关闭',command:'/垂钓 设置 持续打窝 关'},{label:'选择窝料',command:'/垂钓 设置 窝料'}]),
-    section('饵尽切换',['状态：开启','主饵：聚灵饵','备用顺序：素灵饵 → 唤王饵'],[{label:'改为关闭',command:'/垂钓 设置 换饵 关'},{label:'选择主饵',command:'/垂钓 设置 主饵'},{label:'调整顺序',command:'/垂钓 设置 饵序'}]),
-    section('消息推送',['稀有鱼：关闭（胜败均通知）','鱼王：关闭（胜败均通知）','默认关闭；确认保存后即时生效，仅影响通知。'],[{label:'稀有鱼开启',command:'/垂钓 设置 稀有通知 开'},{label:'鱼王开启',command:'/垂钓 设置 鱼王通知 开'},{label:'通知设置',command:'/通知设置'}]),
-    section('生效范围',['正在垂钓：竿与饵序保持原配置，当前窝料可手动打窝。','通知设置即时生效；其他物资偏好下次生效。','常规会话只预留已有物资，最多4个6小时窝料批次、288份饵，不自动购买。'],[{label:'开钓配置',command:'/垂钓 开钓'},{label:'当前打窝',command:'/垂钓 打窝'}])
-  ],footer:[{label:'返回垂钓',command:'/垂钓'}]});
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'设置预览',sections:[section('持续打窝：开启 → 关闭',['主饵仍为聚灵饵，备用顺序素灵饵→唤王饵。','仅下次开钓生效，不扣饵窝。'])],confirmationRef:ref,operationId:'settings-original',expiresAt:'2026-11-04T14:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'垂钓设置已保存',sections:[section('',['仅下次开钓生效；当前会话未改变。'])]}):settings));
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.configure')?base({view:'receipt',title:'垂钓设置已保存',sections:[section('',['备用顺序已清空。'])]}):immediateViews.cases.settings));
   const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置',platform:'qq-bot'})),'垂钓设置');
-  assert.match(page.text,/饵尽切换/);
-  assert.match(page.text,/主饵：聚灵饵/);
+  assert.match(page.text,/备用鱼饵/);
+  assert.match(page.text,/引珍饵 → 唤王饵/);
+  assert.ok(!/自动换饵|持续打窝|打窝设置|时长/.test(page.text));
   assert.deepEqual(requests[0].body.arguments,{view:'settings'});
-  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 持续打窝 关',platform:'qq-bot'})),'设置保存预览');
-  assert.deepEqual(requests[1].body.arguments,{kind:'settings',settings:{autoChum:false}});
-  const command=preview.commands.find(command=>command.startsWith('/垂钓 确认 '))!;
-  delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),command);
-  assert.deepEqual(requests[2].body.arguments,{ref});
-  assert.equal(requests.length,3);
-  assert.deepEqual(parseFishingCommand('/垂钓 设置 窝料 聚鳞散 自动'),{operation:'fishing.preview',input:{kind:'settings',settings:{chumType:'basic',chumTier:0}}});
-  assert.deepEqual(parseFishingCommand('/垂钓 设置 饵序 聚灵饵 素灵饵 唤王饵'),{operation:'fishing.preview',input:{kind:'settings',settings:{baitOrder:['realm','plain','king']}}});
+  const saved=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 饵序 清空',platform:'qq-bot'})),'备用直接保存');
+  assert.deepEqual(requests[1].body.arguments,{kind:'settings',settings:{baitOrder:[]}});
+  assert.ok(!saved.commands.some(command=>command.startsWith('/垂钓 确认 ')));
+  assert.equal(requests.length,2);assert.ok(requests[1].path.endsWith('fishing.configure'));
+  assert.deepEqual(parseFishingCommand('/垂钓 设置 窝料 聚鳞散 自动'),{operation:'fishing.configure',input:{kind:'settings',settings:{chumType:'basic',chumTier:0}}});
+  assert.deepEqual(parseFishingCommand('/垂钓 设置 饵序 聚灵饵 素灵饵 唤王饵'),{operation:'fishing.configure',input:{kind:'settings',settings:{baitOrder:['realm','plain','king']}}});
   assert.deepEqual(parseFishingCommand('/垂钓 开钓 2 6 fr_owned 聚灵饵 72'),{operation:'fishing.preview',input:{kind:'start',waterLevel:2,hours:6,rodId:'fr_owned',baitType:'realm',baitCount:72}});
 });
 
@@ -293,13 +295,14 @@ for(const command of ['/垂钓 设置 饵序 素灵饵 素灵饵','/垂钓 设�
 }
 
 test('本次自动预算窝料及显式无窝保留零，空偏好交服务端合并校验',async t=>{
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'confirmation',title:'开钓预览',confirmationRef:ref,operationId:'automatic-chum-original',expiresAt:'2026-11-04T16:00:00Z'})));
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.configure')?base({view:'receipt',title:'垂钓设置已保存'}):base({view:'confirmation',title:'开钓预览',confirmationRef:ref,operationId:'automatic-chum-original',expiresAt:'2026-11-04T16:00:00Z'})));
   for(const command of ['/垂钓 开钓 2 6 fr_owned 素灵饵 40 聚鳞散 0','/垂钓 开钓 2 6 fr_owned 素灵饵 40 无窝 0','/垂钓 设置 饵序 清空']){
     delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),command);
   }
   assert.deepEqual(requests[0].body.arguments,{kind:'start',waterLevel:2,hours:6,rodId:'fr_owned',baitType:'plain',baitCount:40,chumType:'basic',chumCount:0,chumTier:0});
   assert.deepEqual(requests[1].body.arguments,{kind:'start',waterLevel:2,hours:6,rodId:'fr_owned',baitType:'plain',baitCount:40,chumType:'none',chumCount:0,chumTier:0});
   assert.deepEqual(requests[2].body.arguments,{kind:'settings',settings:{baitOrder:[]}});
+  assert.ok(requests[2].path.endsWith('fishing.configure'));
 });
 
 test('捕灵网仅预览默认或指定水域，原引用确认不重查新配置',async t=>{
@@ -319,11 +322,11 @@ test('捕灵网仅预览默认或指定水域，原引用确认不重查新配�
 });
 
 test('稀有鱼与鱼王推送独立patch即时设置，默认关闭不自动发送通知',async t=>{
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'confirmation',title:'消息推送设置预览',sections:[{title:'消息推送',id:'',suffix:'',lines:['稀有鱼：开启（胜败均通知）','鱼王：关闭','确认后即时生效，仅影响推送；当前垂钓配置保持不变。'],actions:[]}],confirmationRef:ref,operationId:'notify-original',expiresAt:'2026-11-04T19:00:00Z'})));
-  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 稀有通知 开',platform:'qq-bot'})),'稀有鱼推送预览');
-  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 鱼王通知 关',platform:'qq-bot'})),'鱼王推送预览');
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'receipt',title:'消息推送设置已保存',sections:[{title:'消息推送',id:'',suffix:'',lines:['稀有鱼：开启（胜败均通知）','鱼王：关闭','即时生效，仅影响推送。'],actions:[]}]})));
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 稀有通知 开',platform:'qq-bot'})),'稀有鱼推送保存');
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 设置 鱼王通知 关',platform:'qq-bot'})),'鱼王推送保存');
   assert.deepEqual(requests.map(r=>r.body.arguments),[{kind:'settings',settings:{pushRareFish:true}},{kind:'settings',settings:{pushFishKing:false}}]);
-  assert.ok(requests.every(r=>r.path.endsWith('fishing.preview')));
+  assert.ok(requests.every(r=>r.path.endsWith('fishing.configure')));
 });
 
 test('通知战报完整编号进单次原结果，数字仍是历史页码',async t=>{
@@ -344,23 +347,23 @@ test('晶道页不接受直接购饵，钱石购买与礼包入口不受影响',
     delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 购买 ${currency} bait:plain 1`,platform:'qq-bot'})),`禁售饵·${currency}`);
   }
   assert.equal(requests.length,0);
-  assert.deepEqual(parseFishingCommand('/垂钓 购买 灵石 bait:steady 1'),{operation:'fishing.preview',input:{kind:'purchase',sku:'bait:steady',quantity:1,currency:'stone'}});
+  assert.deepEqual(parseFishingCommand('/垂钓 购买 灵石 bait:steady 1'),{operation:'fishing.purchase',input:{kind:'purchase',sku:'bait:steady',quantity:1,currency:'stone'}});
 });
 
-test('当前打窝无等级按原始份数预览，同种加时异种替换仍须原引用确认',async t=>{
+test('当前打窝按原始份数直接执行，同种加时异种替换不经用户确认',async t=>{
   const section=(title:string,lines:string[],actions:{label:string;command:string}[]=[])=>({title,id:'',suffix:'',lines,actions});
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'手动打窝预览',sections:[section('当前窝效',['聚鳞散 · 剩余2小时','换用引珍散，旧剩余2小时效果将作废，不能混合。']),section('本次打窝',['消耗：引珍散7份','新增时长：42小时','预计到期：11-06 11:00'])],confirmationRef:ref,operationId:'manual-chum-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'打窝完成'}):base({view:'chum',title:'垂钓 · 当前打窝',sections:[section('',['当前窝效：聚鳞散 · 剩余2小时','所有鱼塘每份固定6小时；窝料不分等级。','同种加时，异种先预览确认替换。']),section('引珍散',['可用：12份','7份为42小时','生效期间鱼90%、杂获10%'],[{label:'打窝预览·7份',command:'/垂钓 打窝 引珍散 7'}])],footer:[{label:'持续策略',command:'/垂钓 设置'},{label:'返回垂钓',command:'/垂钓'}]})));
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.configure')?base({view:'receipt',title:'打窝完成',sections:[section('本次打窝',['消耗：引珍散7份','新增时长：42小时','旧剩余2小时效果已替换。'])]}):base({view:'chum',title:'垂钓 · 当前打窝',sections:[section('',['当前窝效：聚鳞散 · 剩余2小时','所有鱼塘每份固定6小时；窝料不分等级。','同种加时，异种直接替换旧效果。']),section('引珍散',['可用：12份','7份为42小时','生效期间鱼90%、杂获10%'],[{label:'打窝·7份',command:'/垂钓 打窝 引珍散 7'}])],footer:[{label:'持续策略',command:'/垂钓 设置'},{label:'返回垂钓',command:'/垂钓'}]})));
   const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 打窝',platform:'qq-bot'})),'当前打窝');
   assert.match(page.text,/每份固定6小时/);
   assert.deepEqual(requests[0].body.arguments,{view:'chum'});
-  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 打窝 引珍散 7',platform:'qq-bot'})),'手动打窝预览');
-  assert.match(preview.text,/旧剩余2小时效果将作废/);
-  assert.match(preview.text,/新增时长：42小时/);
+  const result=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 打窝 引珍散 7',platform:'qq-bot'})),'直接打窝');
+  assert.match(result.text,/旧剩余2小时效果已替换/);
+  assert.match(result.text,/新增时长：42小时/);
   assert.deepEqual(requests[1].body.arguments,{kind:'use-chum',chumType:'attract',quantity:7});
-  const command=preview.commands.find(value=>value.startsWith('/垂钓 确认 '))!;
-  delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),command);
-  assert.deepEqual(requests[2].body.arguments,{ref});
-  assert.deepEqual(parseFishingCommand('/垂钓 购买 coin chum:basic 1'),{operation:'fishing.preview',input:{kind:'purchase',sku:'chum:basic',quantity:1,currency:'coin'}});
+  assert.ok(requests[1].path.endsWith('fishing.configure'));
+  assert.ok(!result.commands.some(value=>value.startsWith('/垂钓 确认 ')));
+  assert.equal(requests.length,2);
+  assert.deepEqual(parseFishingCommand('/垂钓 购买 coin chum:basic 1'),{operation:'fishing.purchase',input:{kind:'purchase',sku:'chum:basic',quantity:1,currency:'coin'}});
   assert.ok('error' in parseFishingCommand('/垂钓 购买 coin chum:basic:4 1')!);
   assert.ok('error' in parseFishingCommand('/垂钓 设置 窝料 聚鳞散 4')!);
 });

@@ -1,0 +1,103 @@
+{
+  "cases": {
+    "link_failure": {
+      "error": {
+        "code": "SERVICE_UNAVAILABLE",
+        "message": "原订单FPcaaf024d956d12e91e9aa500d9b49044已保留，支付入口暂未取得；请查询或继续原订单，勿重复下单",
+        "details": {
+          "orderNo": "FPcaaf024d956d12e91e9aa500d9b49044",
+          "recoverable": true,
+          "status": "PENDING"
+        }
+      }
+    },
+    "pending": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": true,
+            "resourcesSettled": true
+          }
+        },
+        "data": {
+          "order": {
+            "id": 4294967295,
+            "createdAt": "2026-11-04T23:23:08.7458644+08:00",
+            "updatedAt": "2026-11-04T23:23:08.7458644+08:00",
+            "deletedAt": null,
+            "orderType": "fishing_pack",
+            "uid": 1,
+            "packageId": 0,
+            "orderNo": "FP01c279143345fecdb589d0309c5c4a45",
+            "payAmount": 600,
+            "grantSpiritStone": 0,
+            "grantSpiritCrystal": 0,
+            "grantSpiritMilk": 0,
+            "grantItemsJson": "[]",
+            "grantSkillsJson": "[]",
+            "status": "PENDING",
+            "payTime": null,
+            "refundTime": null
+          },
+          "payUrl": "https://pay.example.test/FP01c279143345fecdb589d0309c5c4a45?amount=600",
+          "packageName": "稳如老狗"
+        }
+      }
+    },
+    "timeout": {
+      "error": {
+        "code": "CONFLICT",
+        "message": "原礼包订单已不处于待支付状态，请查询原订单；权益未重复释放（原订单：FP01c279143345fecdb589d0309c5c4a45）",
+        "details": {
+          "orderNo": "FP01c279143345fecdb589d0309c5c4a45",
+          "recoverable": true,
+          "status": "TIMEOUT"
+        }
+      }
+    }
+  },
+  "source": "TestFishingCheckoutActualRobotWireShape; real robot route and isolated SQLite; test payment provider only"
+}

@@ -1,0 +1,112 @@
+{
+  "emphasisNames": [
+    "乌鳞大鲤",
+    "凝气果",
+    "河鲤",
+    "矿石精华",
+    "花鳜",
+    "草鲫",
+    "赤尾鲂",
+    "青鲂"
+  ],
+  "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+  "view": "net-receipt",
+  "title": "捕获清单",
+  "sections": [
+    {
+      "title": "赤尾鲂",
+      "lines": [
+        "重量：2.009千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "花鳜",
+      "lines": [
+        "重量：2.374千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "河鲤",
+      "lines": [
+        "重量：1.304千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "河鲤",
+      "lines": [
+        "重量：1.259千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "河鲤",
+      "lines": [
+        "重量：1.231千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "河鲤",
+      "lines": [
+        "重量：1.017千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "青鲂",
+      "lines": [
+        "重量：1.022千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "草鲫",
+      "lines": [
+        "重量：0.316千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "草鲫",
+      "lines": [
+        "重量：0.266千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "乌鳞大鲤",
+      "lines": [
+        "重量：5.780千克"
+      ],
+      "actions": []
+    },
+    {
+      "title": "矿石精华",
+      "lines": [
+        "×1"
+      ],
+      "actions": []
+    },
+    {
+      "title": "凝气果",
+      "lines": [
+        "×1"
+      ],
+      "actions": []
+    }
+  ],
+  "footer": [
+    {
+      "label": "查看渔获",
+      "command": "/垂钓 渔获 1"
+    },
+    {
+      "label": "返回垂钓",
+      "command": "/垂钓"
+    }
+  ],
+  "operationId": "fo_41be648ce324c58e7d486983ec4a4ceb"
+}

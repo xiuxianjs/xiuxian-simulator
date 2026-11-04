@@ -58,10 +58,10 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
   }
 
   if (fishingPack) {
-    successMd.addText(fishingPack.name).addNewline();
+    successMd.addBold(fishingPack.name).addNewline();
     for (const rodId of fishingPack.rodIds) { successMd.addText(`原竿：${rodId}`).addNewline(); }
     if (fishingPack.coinGrant > 0) { successMd.addText(`灵鳞钱 +${fishingPack.coinGrant}`).addNewline(); }
-    for (const item of fishingPack.items) { successMd.addText(`${item.name} ×${item.quantity}`).addNewline(); }
+    for (const item of fishingPack.items) { successMd.addBold(item.name).addText(` ×${item.quantity}`).addNewline(); }
     successMd.addButton(markdownButtonLabel('查看钓具'), { data: '/垂钓 钓具 1', autoEnter: false }).addNewline();
   }
 

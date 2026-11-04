@@ -13,7 +13,7 @@ const range = { minPrice: 50, maxPrice: 114, referencePrice: 63, source: 'fish_w
 const fish = { userItemId: 0, templateId: 0, catchId, weightG: 1840, category: 'fish', name: '金须鲤', quantity: 1, gradeId: null, grade: '', realm: '筑基', currentLowestPrice: null, priceRange: range };
 const confirmation = (preview: boolean) => ({
   rulesVersion: 'fishing-v0.13', view: preview ? 'confirmation' : 'receipt', title: preview ? '鱼挂牌预览' : '鱼挂牌原回执',
-  sections: [{ title: '金须鲤', id: catchId, lines: ['数量：1.840 kg', '上架价：63灵晶 · 手续费按原市场规则'], actions: [] }],
+  sections: [{ title: '金须鲤', id: catchId, lines: ['重量：1.840 kg', '上架价：63灵晶 · 手续费按原市场规则'], actions: [] }],
   footer: [{ label: '取消', command: '/交易上架 鱼类' }], operationId: 'fish-market-original',
   ...(preview ? { confirmationRef: reference, expiresAt: '2026-11-03T22:00:00Z' } : {})
 });
@@ -39,7 +39,7 @@ function delivered(result: TestRunResult) {
 test('原市场鱼类上架页逐尾保留字符串编号及精确克重', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'list', items: [fish], total: 1, totalPages: 1, currentPage: 1, pageSize: 5 }));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/交易上架 鱼类', platform: 'qq-bot' })));
-  assert.match(view.text, /1.840 kg/);
+  assert.match(view.text, /重量：1.840 kg/);
   assert.ok(view.commands.includes(`/交易上架 鱼类 ${catchId}`));
   assert.deepEqual(requests[0].body.arguments, { mode: 'list', category: 'fish', subtype: '', page: '1' });
 });
@@ -54,7 +54,7 @@ for (const row of [
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'start', range: quotedRange, catchId, weightG: row.weightG, itemName: '金须鲤' }));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: `/交易上架 鱼类 ${catchId}`, platform: 'qq-bot' })));
   assert.ok(view.text.includes(catchId));
-  assert.ok(view.text.includes(`${row.kg} kg`));
+  assert.ok(view.text.includes(`重量：${row.kg} kg`));
   assert.ok(view.text.includes(`整尾${row.minimum}～${row.maximum}灵晶`));
   assert.ok(view.text.includes(`参考${row.anchor}晶`));
   for (const price of [row.minimum, row.maximum, row.anchor]) assert.ok(view.commands.includes(`/交易上架 鱼类 ${catchId} ${price}`));

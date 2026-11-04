@@ -1,0 +1,164 @@
+{
+  "all_50": {
+    "emphasisNames": [
+      "催鳞散",
+      "升灵散",
+      "唤王散",
+      "唤王饵",
+      "定鳞饵",
+      "引灵散",
+      "引珍散",
+      "引珍饵",
+      "流云逐浪竿",
+      "照渊寻珍竿",
+      "玄磐定波竿",
+      "素灵饵",
+      "聚灵饵",
+      "聚鳞散"
+    ],
+    "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+    "view": "packages",
+    "title": "垂钓礼包",
+    "sections": [
+      {
+        "title": "我全都要",
+        "lines": [
+          "价格：50元",
+          "本礼包终身限购1次",
+          "说明：合购价50元 · 已购抵扣0元，仅发放未购礼包。",
+          "玄磐定波竿 · 一阶×1",
+          "流云逐浪竿 · 一阶×1",
+          "照渊寻珍竿 · 一阶×1",
+          "素灵饵×900",
+          "定鳞饵×300",
+          "聚灵饵×300",
+          "引珍饵×300",
+          "唤王饵×300",
+          "聚鳞散×9份",
+          "催鳞散×9份",
+          "引珍散×9份",
+          "唤王散×9份",
+          "引灵散×9份",
+          "升灵散×9份",
+          "每份窝料固定持续6小时"
+        ],
+        "actions": [
+          {
+            "label": "查看支付",
+            "command": "/垂钓 礼包购买 all_50"
+          }
+        ]
+      }
+    ],
+    "footer": [
+      {
+        "label": "我的订单",
+        "command": "/我的订单"
+      },
+      {
+        "label": "返回垂钓",
+        "command": "/垂钓"
+      }
+    ],
+    "navRows": [
+      [
+        {
+          "label": "稳如老狗",
+          "command": "/垂钓 礼包 steady_6"
+        },
+        {
+          "label": "乘风逐浪",
+          "command": "/垂钓 礼包 swift_18"
+        },
+        {
+          "label": "潜渊寻珍",
+          "command": "/垂钓 礼包 treasure_30"
+        },
+        {
+          "label": "我全都要",
+          "command": "/垂钓 礼包 all_50"
+        }
+      ]
+    ],
+    "status": "all_50"
+  },
+  "source": "Final actual FishingService.Query export after SDK13.6 and authoritative emphasisNames; isolated backend fixture",
+  "steady_6": {
+    "emphasisNames": [
+      "催鳞散",
+      "升灵散",
+      "唤王散",
+      "唤王饵",
+      "定鳞饵",
+      "引灵散",
+      "引珍散",
+      "引珍饵",
+      "玄磐定波竿",
+      "素灵饵",
+      "聚灵饵",
+      "聚鳞散"
+    ],
+    "rulesVersion": "fishing-v1-82434f6543ea9ad0",
+    "view": "packages",
+    "title": "垂钓礼包",
+    "sections": [
+      {
+        "title": "稳如老狗",
+        "lines": [
+          "价格：6元",
+          "本礼包终身限购1次",
+          "玄磐定波竿 · 一阶×1",
+          "素灵饵×100",
+          "定鳞饵×50",
+          "聚灵饵×50",
+          "引珍饵×50",
+          "唤王饵×50",
+          "聚鳞散×1份",
+          "催鳞散×1份",
+          "引珍散×1份",
+          "唤王散×1份",
+          "引灵散×1份",
+          "升灵散×1份",
+          "每份窝料固定持续6小时"
+        ],
+        "actions": [
+          {
+            "label": "查看支付",
+            "command": "/垂钓 礼包购买 steady_6"
+          }
+        ]
+      }
+    ],
+    "footer": [
+      {
+        "label": "我的订单",
+        "command": "/我的订单"
+      },
+      {
+        "label": "返回垂钓",
+        "command": "/垂钓"
+      }
+    ],
+    "navRows": [
+      [
+        {
+          "label": "稳如老狗",
+          "command": "/垂钓 礼包 steady_6"
+        },
+        {
+          "label": "乘风逐浪",
+          "command": "/垂钓 礼包 swift_18"
+        },
+        {
+          "label": "潜渊寻珍",
+          "command": "/垂钓 礼包 treasure_30"
+        },
+        {
+          "label": "我全都要",
+          "command": "/垂钓 礼包 all_50"
+        }
+      ]
+    ],
+    "status": "steady_6"
+  }
+}

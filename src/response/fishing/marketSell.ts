@@ -103,7 +103,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
             ? data.page.items.map(item => ({
                 title: item.name,
                 id: item.catchId,
-                lines: [`境界：${item.realm}`, `数量：${kg(item.weightG!)}`, '说明：整尾灵晶报价，数量固定1。'],
+                lines: [`境界：${item.realm}`, `重量：${kg(item.weightG!)}`, '说明：整尾灵晶报价，数量固定1。'],
                 actions: [manual('上架报价', `/交易上架 鱼类 ${item.catchId}`)]
               }))
             : [{ lines: ['状态：当前页没有可上架的本人鱼实例。'] }],
@@ -137,7 +137,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
             title: data.itemName ?? '原渔获',
             id: catchId,
             lines: [
-              ...(data.weightG === undefined ? [] : [`数量：${kg(data.weightG)}`]),
+              ...(data.weightG === undefined ? [] : [`重量：${kg(data.weightG)}`]),
               `每份：整尾${range.minPrice}～${range.maxPrice}灵晶 · 数量固定1`,
               `说明：重量回收价值参考${range.referencePrice}晶，不是稀缺成交保证。`,
               ...(data.message ? [data.message] : ['说明：选择或输入整尾单价后手动发送，按原市场规则上架。']),
