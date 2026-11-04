@@ -1,0 +1,327 @@
+{
+  "source": "TestFishingBossQQViewsUseRealServiceFactsAndPrivateInputsStayHidden; isolated SQLite and Redis; two synthetic legal players; synthetic one-HP Boss ONLY validates interface/settlement, not final nine-realm difficulty; actual BossQuery/BossPreview/BossConfirm and native battle results",
+  "cases": {
+    "active": {
+      "emphasisNames": [
+        "上古龙鲤",
+        "合成垂钓测试者",
+        "合成垂钓测试者",
+        "合成队员"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss",
+      "title": "垂钓奇遇 · 上古龙鲤",
+      "sections": [
+        {
+          "quote": false,
+          "lines": [
+            "境界：炼气 · 大圆满",
+            "队长：合成垂钓测试者 · 事件触发者，不可更换"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "title": "挑战队伍",
+          "lines": [
+            "人数：2 / 6人",
+            "合成垂钓测试者 · 筑基 · 队长",
+            "合成队员 · 筑基 · 队员"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "title": "奖励归属",
+          "lines": [
+            "触发者获得完整掉落，队员各获额外钱物。"
+          ],
+          "actions": [
+            {
+              "label": "掉落说明",
+              "command": "/垂钓 奇遇掉落 fb_379f09d0b27f4effe831165c05fb3fb8"
+            }
+          ]
+        },
+        {
+          "quote": false,
+          "lines": [
+            "剩余挑战：3 / 3次",
+            "剩余时间：24小时00分",
+            "最多结算一次胜利奖励。",
+            "触发者必须参加；队伍重组不刷新次数或期限。",
+            "助战不占每日自触发名额。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "预览挑战",
+          "command": "/垂钓 挑战 fb_379f09d0b27f4effe831165c05fb3fb8"
+        },
+        {
+          "label": "我的队伍",
+          "command": "/我的队伍"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ],
+      "status": "active"
+    },
+    "battle": {
+      "emphasisNames": [
+        "上古龙鲤",
+        "合成垂钓测试者",
+        "合成队员"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss-battle",
+      "title": "上古龙鲤 · 原战报",
+      "sections": [
+        {
+          "quote": true,
+          "title": "第1次挑战 · 胜利 · 1回合",
+          "lines": [
+            "## 战斗过程",
+            "",
+            "结果：我方胜利，共 1 回合",
+            "",
+            "第1回合：合成垂钓测试者 使用 快照战技；上古龙鲤 受到1伤害（击败）"
+          ],
+          "actions": []
+        }
+      ],
+      "nav": {
+        "page": 1,
+        "totalPages": 1,
+        "total": 5,
+        "command": "/垂钓 奇遇战报 fba_d606231b5f0b102f7269c779a4a0f2e3 {page}"
+      },
+      "footer": [
+        {
+          "label": "原奖励",
+          "command": "/垂钓 奇遇奖励 fb_379f09d0b27f4effe831165c05fb3fb8"
+        },
+        {
+          "label": "返回奇遇",
+          "command": "/垂钓 奇遇 fb_379f09d0b27f4effe831165c05fb3fb8"
+        }
+      ],
+      "status": "finished"
+    },
+    "drops": {
+      "emphasisNames": [
+        "上古龙鲤"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss-drops",
+      "title": "上古龙鲤 · 掉落说明",
+      "sections": [
+        {
+          "quote": false,
+          "lines": [
+            "境界：炼气 · 大圆满",
+            "以下为触发者奖励。"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "lines": [
+            "灵鳞钱：必得1,000～2,000钱",
+            "道具材料：必得12～13件",
+            "宝物碎片：90%获得2～6片",
+            "史诗／神话碎片：获得概率81.9%"
+          ],
+          "actions": []
+        },
+        {
+          "quote": false,
+          "lines": [
+            "队员另获约10%钱物。",
+            "全员钓技经验＋100，不均分；满级封顶。",
+            "本页为原奖励池范围，不是本次已抽到的结果。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "返回奇遇",
+          "command": "/垂钓 奇遇 fb_379f09d0b27f4effe831165c05fb3fb8"
+        }
+      ]
+    },
+    "preview": {
+      "emphasisNames": [
+        "上古龙鲤",
+        "合成垂钓测试者",
+        "合成队员"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss-preview",
+      "title": "上古龙鲤 · 挑战预览",
+      "sections": [
+        {
+          "quote": false,
+          "lines": [
+            "境界：炼气 · 大圆满",
+            "事件队长：合成垂钓测试者（固定）",
+            "站位1 · 合成垂钓测试者",
+            "站位2 · 合成队员",
+            "本次为第1次挑战，最多3次。"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "lines": [
+            "每位参战者钓技经验＋100，不均分；满级封顶。",
+            "触发者获得完整掉落，队员各获额外钱物。"
+          ],
+          "actions": []
+        },
+        {
+          "quote": false,
+          "lines": [
+            "开战受理时校验原名单与配置；变化须重新预览。",
+            "本次胜利即结算一次，剩余机会失效。",
+            "战败或20回合内未胜消耗1次机会；不发人物修为。",
+            "预览有效5分钟。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "确认挑战",
+          "command": "/垂钓 确认 r1_1_y_mvzzdls0_651e489d6f9cdedcf4376993"
+        },
+        {
+          "label": "取消",
+          "command": "/垂钓 奇遇 fb_379f09d0b27f4effe831165c05fb3fb8"
+        }
+      ],
+      "confirmationRef": "r1_1_y_mvzzdls0_651e489d6f9cdedcf4376993",
+      "operationId": "fo_e5ec59f3f7eb7acc56a8a8acb20d8278",
+      "expiresAt": "2026-11-03T01:05:00Z"
+    },
+    "result": {
+      "emphasisNames": [
+        "上古龙鲤",
+        "矿精",
+        "稀有测试碎片",
+        "上古龙鲤"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss-result",
+      "title": "上古龙鲤 · 挑战结果",
+      "sections": [
+        {
+          "quote": false,
+          "lines": [
+            "境界：炼气 · 大圆满",
+            "队长：合成垂钓测试者（固定）",
+            "战斗胜利",
+            "第1次挑战 · 1回合 · 本事件已结束，剩余挑战机会失效",
+            "未消耗普通垂钓饵窝，未改人物气血灵力；不发人物修为。"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "title": "合成垂钓测试者 · 触发者奖励",
+          "lines": [
+            "灵鳞钱＋1,500",
+            "矿精×2",
+            "稀有测试碎片×2",
+            "钓技经验＋100"
+          ],
+          "actions": null
+        },
+        {
+          "quote": true,
+          "title": "合成队员 · 额外助战奖励",
+          "lines": [
+            "灵鳞钱＋150",
+            "钓技经验＋100"
+          ],
+          "actions": null
+        }
+      ],
+      "footer": [
+        {
+          "label": "战报",
+          "command": "/垂钓 奇遇战报 fba_d606231b5f0b102f7269c779a4a0f2e3"
+        },
+        {
+          "label": "奖励",
+          "command": "/垂钓 奇遇奖励 fb_379f09d0b27f4effe831165c05fb3fb8"
+        },
+        {
+          "label": "返回奇遇",
+          "command": "/垂钓 奇遇 fb_379f09d0b27f4effe831165c05fb3fb8"
+        }
+      ],
+      "operationId": "fo_e5ec59f3f7eb7acc56a8a8acb20d8278",
+      "status": "won"
+    },
+    "rewards": {
+      "emphasisNames": [
+        "上古龙鲤",
+        "矿精",
+        "稀有测试碎片",
+        "上古龙鲤"
+      ],
+      "rulesVersion": "fishing-v1-a49c803b70f57956",
+      "view": "boss-rewards",
+      "title": "上古龙鲤 · 原奖励",
+      "sections": [
+        {
+          "quote": true,
+          "title": "合成垂钓测试者 · 触发者奖励",
+          "lines": [
+            "灵鳞钱＋1,500",
+            "矿精×2",
+            "稀有测试碎片×2",
+            "钓技经验＋100"
+          ],
+          "actions": []
+        },
+        {
+          "quote": true,
+          "title": "合成队员 · 额外助战奖励",
+          "lines": [
+            "灵鳞钱＋150",
+            "钓技经验＋100"
+          ],
+          "actions": []
+        },
+        {
+          "quote": false,
+          "lines": [
+            "本次奖励已结算，重复查看不再发放；待入袋只恢复原物品。"
+          ],
+          "actions": []
+        }
+      ],
+      "footer": [
+        {
+          "label": "我的渔获",
+          "command": "/垂钓 渔获 1"
+        },
+        {
+          "label": "查看钓具",
+          "command": "/垂钓 钓具 1"
+        },
+        {
+          "label": "返回垂钓",
+          "command": "/垂钓"
+        }
+      ]
+    }
+  }
+}

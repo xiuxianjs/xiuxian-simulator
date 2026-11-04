@@ -19,6 +19,7 @@ export type RobotBusinessResult<T = unknown> =
 
 export type RobotBusinessOperation =
   | 'fishing.query'
+  | 'fishing.contest-claim'
   | 'fishing.preview'
   | 'fishing.purchase'
   | 'fishing.start-current'

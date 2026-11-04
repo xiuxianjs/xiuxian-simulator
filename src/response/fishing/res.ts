@@ -140,7 +140,9 @@ export default onResponse(selects, async event => {
         title: '垂钓 · 结果待核对',
         reason: original
           ? '说明：原确认结果尚未核实，请重试同一引用或核对原操作；不要重新购买或重复扣料。'
-          : parsed.operation === 'fishing.start-current'
+            : parsed.operation === 'fishing.contest-claim'
+              ? '说明：周赛领奖结果尚未核实，请查看该周原奖励状态，不要重新计算或重复领取。'
+            : parsed.operation === 'fishing.start-current'
             ? '说明：开钓结果尚未核实，请先查看当前垂钓状态，不要重复开始。'
             : parsed.operation === 'fishing.stop-current'
               ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'

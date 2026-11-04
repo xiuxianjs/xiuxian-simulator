@@ -1,6 +1,7 @@
 // Shared v1/v2 server registry, synchronized with Go OpenAPI.
 const robotBusinessOperations = [
   'fishing.query',
+  'fishing.contest-claim',
   'fishing.preview',
   'fishing.purchase',
   'fishing.start-current',

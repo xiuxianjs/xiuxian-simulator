@@ -8,7 +8,7 @@ import type { GameEvent } from '@src/types/event';
 
 const manual = (actions: FishingAction[]) => actions.map(action => ({ ...action, autoEnter: false as const }));
 const footerRows = (data: FishingView, actions: FishingAction[]): GuiFooter => {
-  const width = data.view === 'overview' ? 3 : 4;
+  const width = data.view === 'overview' || data.view.startsWith('contest') ? 3 : 4;
 
   return actions.length > width ? [manual(actions.slice(0, width)), manual(actions.slice(width))] : manual(actions);
 };
@@ -56,6 +56,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     });
   };
   const block = (section: FishingSection, quote: boolean, inline = false, titleActions = false, terminal = false, number?: number) => {
+    quote = section.quote ?? quote;
     const target = Format.createMarkdown();
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
     const showID = !['gear', 'history', 'cast', 'species', 'catalog'].includes(data.view) &&
@@ -131,6 +132,16 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     }
     if (data.navRows?.length) { md.addNewline(); }
     data.sections.forEach(section => block(section, Boolean(section.title || section.id)));
+  } else if (['boss', 'boss-drops', 'boss-battle', 'boss-rewards', 'contest', 'contest-species', 'contest-ranking', 'contest-rewards', 'contest-history'].includes(data.view)) {
+    const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
+
+    if (intro) { block(intro, false); }
+    for (const row of data.navRows ?? []) {
+      buttons(md, row);
+      md.addNewline();
+    }
+    if (data.navRows?.length) { md.addNewline(); }
+    data.sections.slice(intro ? 1 : 0).forEach(section => block(section, Boolean(section.title || section.id)));
   } else if (data.view === 'net-receipt') {
     const result = Format.createMarkdown();
 

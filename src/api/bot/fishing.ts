@@ -1,6 +1,15 @@
 import { BackendAPIError } from './client';
 
 export const fishingViews = [
+  'boss',
+  'boss-drops',
+  'boss-battle',
+  'boss-rewards',
+  'contest',
+  'contest-species',
+  'contest-ranking',
+  'contest-rewards',
+  'contest-history',
   'sell-range',
   'materials',
   'chum',
@@ -22,7 +31,7 @@ export const fishingViews = [
   'help',
   'operation'
 ] as const;
-export const fishingKinds = ['sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
+export const fishingKinds = ['boss-challenge', 'sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
 export const fishingCurrencies = ['coin', 'stone', 'crystal', 'dao'] as const;
 export const fishingShopCategories = ['all', 'fish', 'bait', 'chum', 'rod', 'net', 'material'] as const;
 export const fishingBaits = { 素灵饵: 'plain', 定鳞饵: 'steady', 聚灵饵: 'realm', 引珍饵: 'rare', 唤王饵: 'king' } as const;
@@ -40,6 +49,9 @@ export type FishingInput = {
   settings?:FishingSettingsInput;
   view?: FishingViewKind;
   kind?: FishingPreviewKind;
+  eventId?: string;
+  battleId?: string;
+  week?: string;
   speciesId?: string;
   catchId?: string;
   castId?:string;
@@ -67,7 +79,7 @@ export type FishingInput = {
   fishIds?: string[];
 };
 export type FishingAction = { label: string; command: string };
-export type FishingSection = { title: string; id: string; suffix: string; lines: string[]; actions: FishingAction[] };
+export type FishingSection = { title: string; id: string; suffix: string; lines: string[]; actions: FishingAction[]; quote?: boolean };
 export type FishingView = {
   rulesVersion: string;
   view: string;
@@ -99,6 +111,18 @@ const array = <T>(value: unknown, decode: (value: unknown) => T): T[] => (Array.
 
 export function validFishingReference(ref: string): boolean {
   return ref.length <= 64 && /^r1_[1-9a-z][0-9a-z]*_y_[1-9a-z][0-9a-z]*_[0-9a-f]{24}$/.test(ref);
+}
+
+export function validFishingEventID(value: string): boolean {
+  return /^[A-Za-z0-9_.:-]{1,40}$/.test(value);
+}
+
+/** Absolute Shanghai week key; never reinterpret a previous week's claim. */
+export function validFishingWeek(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { return false; }
+  const date = new Date(value + 'T00:00:00.000Z');
+
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && date.getUTCDay() === 1;
 }
 
 function referenceOwner(ref: string): bigint {
@@ -147,7 +171,8 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
       id: absent(section.id) ? '' : text(section.id),
       suffix: absent(section.suffix) ? '' : text(section.suffix),
       lines: array(section.lines, text),
-      actions
+      actions,
+      ...(absent(section.quote) ? {} : { quote: typeof section.quote === 'boolean' ? section.quote : invalid() })
     };
   });
 

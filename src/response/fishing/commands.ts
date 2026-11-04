@@ -1,6 +1,6 @@
-import { fishingBaits, fishingChums, validFishingReference, type FishingInput, type FishingCurrency } from '@src/api/bot/fishing';
+import { fishingBaits, fishingChums, validFishingReference, validFishingEventID, validFishingWeek, type FishingInput, type FishingCurrency } from '@src/api/bot/fishing';
 
-type FishingRequest = { operation: 'fishing.query' | 'fishing.preview' | 'fishing.purchase' | 'fishing.start-current' | 'fishing.stop-current' | 'fishing.configure'; input: FishingInput } | { operation: 'fishing.confirm'; input: { ref: string } } | { operation: 'fishing.pack-checkout'; input: { sku: string } };
+type FishingRequest = { operation: 'fishing.query' | 'fishing.preview' | 'fishing.purchase' | 'fishing.start-current' | 'fishing.stop-current' | 'fishing.configure' | 'fishing.contest-claim'; input: FishingInput } | { operation: 'fishing.confirm'; input: { ref: string } } | { operation: 'fishing.pack-checkout'; input: { sku: string } };
 export type FishingCommand = FishingRequest | { error: string };
 const currencies: Record<string, FishingCurrency> = {
   灵鳞钱: 'coin',
@@ -55,6 +55,49 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   }
   const [verb, ...values] = args;
   const query = (view: FishingInput['view'], input: FishingInput = {}): FishingRequest => ({ operation: 'fishing.query', input: { view, ...input } });
+
+  if (verb === '奇遇' || verb === '奇遇掉落') {
+    return values.length === 0 ? query(verb === '奇遇' ? 'boss' : 'boss-drops') : values.length === 1 && validFishingEventID(values[0])
+      ? query(verb === '奇遇' ? 'boss' : 'boss-drops', { eventId: values[0] }) : error(`/垂钓 ${verb} [奇遇编号]`);
+  }
+  if (verb === '奇遇奖励') {
+    return values.length === 1 && validFishingEventID(values[0]) ? query('boss-rewards', { eventId: values[0] }) : error('/垂钓 奇遇奖励 <奇遇编号>');
+  }
+  if (verb === '奇遇战报') {
+    const page = values[1] === undefined ? 1 : n(values[1]);
+
+    return values.length >= 1 && values.length <= 2 && validFishingEventID(values[0]) && page
+      ? query('boss-battle', { battleId: values[0], page }) : error('/垂钓 奇遇战报 <战斗编号> [页码]');
+  }
+  if (verb === '挑战') {
+    return values.length === 1 && validFishingEventID(values[0])
+      ? { operation: 'fishing.preview', input: { kind: 'boss-challenge', eventId: values[0] } } : error('/垂钓 挑战 <奇遇编号>');
+  }
+  if (verb === '大赛' || verb === '赛奖') {
+    const view = verb === '大赛' ? 'contest' : 'contest-rewards';
+
+    return values.length === 0 ? query(view) : values.length === 1 && validFishingWeek(values[0])
+      ? query(view, { week: values[0] }) : error(`/垂钓 ${verb} [周一日期YYYY-MM-DD]`);
+  }
+  if (verb === '鱼榜' || verb === '积分榜') {
+    const species = verb === '鱼榜';
+    const offset = species ? 1 : 0;
+    const page = values[offset] === undefined ? 1 : n(values[offset]);
+    const week = values[offset + 1];
+
+    return values.length >= offset && values.length <= offset + 2 && (!species || id(values[0])) && page && (week === undefined || validFishingWeek(week))
+      ? query(species ? 'contest-species' : 'contest-ranking', { ...(species ? { speciesId: values[0] } : {}), page, ...(week ? { week } : {}) })
+      : error(`/垂钓 ${verb} ${species ? '<鱼种编号> ' : ''}[页码] [周一日期YYYY-MM-DD]`);
+  }
+  if (verb === '赛史') {
+    const page = values[0] === undefined ? 1 : n(values[0]);
+
+    return values.length <= 1 && page ? query('contest-history', { page }) : error('/垂钓 赛史 [页码]');
+  }
+  if (verb === '赛领奖') {
+    return values.length === 1 && validFishingWeek(values[0])
+      ? { operation: 'fishing.contest-claim', input: { week: values[0] } } : error('/垂钓 赛领奖 <周一日期YYYY-MM-DD>');
+  }
   const preview = (kind: FishingInput['kind'], input: FishingInput = {}): FishingRequest => ({
     operation: kind === 'settings' || kind === 'use-chum' ? 'fishing.configure' : 'fishing.preview', input: { kind, ...input }
   });

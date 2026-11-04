@@ -8,6 +8,8 @@ import {
   fishingChums,
   parseFishingView,
   validFishingReference,
+  validFishingEventID,
+  validFishingWeek,
   type FishingInput
 } from '../api/bot/fishing';
 import { mutation, observation } from './mutation';
@@ -22,7 +24,7 @@ const viewSchema = object(
     view: text,
     title: text,
     status: text,
-    sections: list(object({ title: text, id: text, suffix: text, lines: list(text), actions: list(action) })),
+    sections: list(object({ title: text, id: text, suffix: text, lines: list(text), actions: list(action), quote: boolean }, ['quote'])),
     footer: list(action),
     navRows: list(list(action)),
     emphasisNames: list(text),
@@ -36,6 +38,9 @@ const viewSchema = object(
 const identifier = { type: 'string' as const, minLength: 1, maxLength: 64 };
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
 const queryFields = {
+  eventId: { ...identifier, maxLength: 40 },
+  battleId: { ...identifier, maxLength: 40 },
+  week: { type: 'string' as const, minLength: 10, maxLength: 10 },
   waterLevel: { type: 'integer' as const, minimum: 0, maximum: 9 },
   blessingRealm: { type: 'integer' as const, minimum: 0, maximum: 9 },
   sku: identifier,
@@ -72,12 +77,17 @@ const previewFields = {
 function validateIdentifiers(input: {
   speciesId?: string; catchId?: string; castId?: string; rodId?: string;
   operationId?: string; sku?: string; fishIds?: readonly string[];
+  eventId?: string; battleId?: string; week?: string;
 }) {
   for (const value of [input.speciesId, input.catchId, input.castId, input.rodId, input.operationId, input.sku, ...(input.fishIds ?? [])]) {
     if (value !== undefined && !/^[A-Za-z0-9_.:-]{1,64}$/.test(value)) {
       throw new ExposeError('INVALID_INPUT', '垂钓编号格式无效');
     }
   }
+  for (const value of [input.eventId, input.battleId]) {
+    if (value !== undefined && !validFishingEventID(value)) { throw new ExposeError('INVALID_INPUT', '奇遇或战斗编号格式无效'); }
+  }
+  if (input.week !== undefined && !validFishingWeek(input.week)) { throw new ExposeError('INVALID_INPUT', '周次须为北京时间周一日期YYYY-MM-DD'); }
 }
 
 export const fishingActions = {
@@ -96,7 +106,7 @@ export const fishingActions = {
     validateIdentifiers
   ),
   get_fishing: observation<FishingInput>(
-    '查询本人垂钓状态、鱼种聚合/实例/详情、钓具或买卖渔市；页码各层独立，不推测他人资产。',
+    '查询本人垂钓、奇遇、钓仙会榜单与原奖励状态；页码各层独立，历史周用绝对周一日期，不推测他人资产或奖励。',
     'fishing.query',
     object({ view: { type: 'string', enum: [...fishingViews] }, ...queryFields }, ['view', ...Object.keys(queryFields)]),
     viewSchema,
@@ -123,6 +133,7 @@ export const fishingActions = {
     input => input,
     input => {
       validateIdentifiers(input);
+      if (input.kind === 'boss-challenge' && !input.eventId) { throw new ExposeError('INVALID_INPUT', '挑战需要原奇遇编号'); }
       if (input.kind === 'start-current') { throw new ExposeError('INVALID_INPUT', '直接开钓请手动发送 /垂钓 开钓'); }
       if (input.kind === 'stop-current') { throw new ExposeError('INVALID_INPUT', '直接收杆请手动发送 /垂钓 收杆'); }
       if (input.kind === 'settings') {
@@ -163,6 +174,16 @@ export const fishingActions = {
         throw new ExposeError('INVALID_INPUT', '仅允许灵鳞钱兑出灵晶或灵石');
       }
     }
+  ),
+  claim_fishing_contest: mutation<{ week: string }>(
+    '领取已封榜周赛的本人原奖励；周次为绝对周一日期，重复请求只查原回执，不重算或跨赛区再领。',
+    'fishing.contest-claim',
+    object({ week: { type: 'string', minLength: 10, maxLength: 10 } }),
+    viewSchema,
+    input => `/垂钓 赛领奖 ${input.week}`,
+    (data, _input, uid) => parseFishingView(data, uid),
+    input => ({ week: input.week }),
+    validateIdentifiers
   ),
   confirm_fishing_action: mutation<{ ref: string }>(
     '确认本人原r1_y预览；结果不明或重复请求重试同一引用，不重建新配置、订单或扣款。',
