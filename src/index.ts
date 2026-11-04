@@ -1,10 +1,9 @@
-import { startCustomerSupportPolling, stopCustomerSupportPolling } from './api/bot/customer-support';
-import { onWatchConfigValue } from 'alemonjs';
-import { getQQBotAppIds } from './utils/qqBotIdentity';
 import { platform } from '@alemonjs/qq-bot';
-import { gameExpose } from './expose';
+import { onWatchConfigValue } from 'alemonjs';
 import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
+import { startCustomerSupportPolling, stopCustomerSupportPolling } from './api/bot/customer-support';
 import { normalizeRobotBid } from './api/bot/robot-bid';
+import { gameExpose } from './expose';
 import { observePlayerGroupActivity } from './notification/activity';
 import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
 import { startNotificationStream, stopNotificationStream } from './notification/stream';
@@ -15,6 +14,7 @@ import router, { matchesGameCommand } from './router';
 import { isGameEventEnabled } from './utils/eventPolicy';
 import { startFeatureVisibility } from './utils/featureVisibility';
 import { normalizePrivateEvent } from './utils/privateEvent';
+import { getQQBotAppIds } from './utils/qqBotIdentity';
 import { startTransportEvent, transportCheckpoint } from './utils/transportTiming';
 
 configureOnboardingCommandMatcher(matchesGameCommand);
