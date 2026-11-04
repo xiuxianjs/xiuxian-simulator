@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 /**
  * 功法辅助工具函数
@@ -198,16 +199,16 @@ export const appendSkillBookCombatSections = (
     md.addText(`熟练${options.proficiencyText}`);
     if (options.proficiencyButtonData) {
       md.addText(' ');
-      md.addButton(markdownButtonLabel('＋'), { data: options.proficiencyButtonData });
+      md.addButton(markdownButtonLabel('＋'), { data: commandText(options.proficiencyButtonData) });
     }
     if (options.proficiencyAllButtonData) {
       md.addText(' ');
-      md.addButton(markdownButtonLabel('全部'), { data: options.proficiencyAllButtonData });
+      md.addButton(markdownButtonLabel('全部'), { data: commandText(options.proficiencyAllButtonData) });
     }
     // 明悟丹可将熟练度提升至60%（MINGWUDAN_PROFICIENCY_CAP），与参悟按钮同行展示
     if ((skillBook.proficiency ?? 0) < 60) {
       md.addText(' ');
-      md.addButton(markdownButtonLabel('明悟丹'), { data: '/服用 明悟丹 1' });
+      md.addButton(markdownButtonLabel('明悟丹'), { data: commandText('服用 明悟丹 1') });
     }
     md.addNewline();
   }
@@ -287,9 +288,9 @@ export const formatSkillBookDetail = (skillBook: LearnedSkillBookData, displayId
   const md = Format.createMarkdown();
 
   md.addText(view.titleText);
-  md.addButton(markdownButtonLabel('升级'), { data: `/升级功法 ${displayId}` });
+  md.addButton(markdownButtonLabel('升级'), { data: commandText(`升级功法 ${displayId}`) });
   md.addText(' ');
-  md.addButton(markdownButtonLabel('换词'), { data: `/换词 ${displayId}` });
+  md.addButton(markdownButtonLabel('换词'), { data: commandText(`换词 ${displayId}`) });
   md.addNewline();
   md.addNewline();
   md.addText(`功法ID: ${displayId}`);
@@ -307,13 +308,13 @@ export const formatSkillBookDetail = (skillBook: LearnedSkillBookData, displayId
   md.addText(`熟练度: ${view.proficiencyText}`);
   if (view.canComprehend) {
     md.addText(' ');
-    md.addButton(markdownButtonLabel('＋'), { data: `/参悟 ${displayId} 1` });
+    md.addButton(markdownButtonLabel('＋'), { data: commandText(`参悟 ${displayId} 1`) });
     md.addText(' ');
-    md.addButton(markdownButtonLabel('全部'), { data: `/参悟 ${displayId} 全部` });
+    md.addButton(markdownButtonLabel('全部'), { data: commandText(`参悟 ${displayId} 全部`) });
   }
   if (view.canUseMingwudan) {
     md.addText(' ');
-    md.addButton(markdownButtonLabel('明悟丹'), { data: '/服用 明悟丹 1' });
+    md.addButton(markdownButtonLabel('明悟丹'), { data: commandText('服用 明悟丹 1') });
   }
   md.addNewline();
   md.addText(view.cooldownLine);

@@ -1,3 +1,4 @@
+import { prefixCommandFormat, prefixOutgoingCommands } from './commandPrefix';
 import { Format, getCurrentEvent, useMessage as useFrameworkMessage, type DataEnums } from 'alemonjs';
 import { compactButtonSpacing } from './compactButtonSpacing';
 import { manualCommandLinks } from './manualCommandLinks';
@@ -16,13 +17,13 @@ export function timedMessageClient(message: MessageClient, traceEvent: Parameter
         : await presentationCommandFilter(traceEvent);
       const filter = (value: Format | DataEnums[]) => {
         if (value instanceof Format) {
-          return manualCommandLinks(compactButtonSpacing(filterFeatureFormat(value, allowed)));
+          return manualCommandLinks(prefixCommandFormat(compactButtonSpacing(filterFeatureFormat(value, allowed))));
         }
         const format = Format.create();
 
         format.value.push(...value);
 
-        return manualCommandLinks(compactButtonSpacing(filterFeatureFormat(format, allowed))).value;
+        return manualCommandLinks(prefixCommandFormat(compactButtonSpacing(filterFeatureFormat(format, allowed)))).value;
       };
       const filtered = Array.isArray(params)
         ? (filter(params) as DataEnums[])
@@ -30,7 +31,7 @@ export function timedMessageClient(message: MessageClient, traceEvent: Parameter
           ? {
               ...params,
               ...(params.format ? { format: filter(params.format) } : {}),
-              ...(params.content ? { content: filterOutgoingFeatures(params.content, allowed) } : {})
+              ...(params.content ? { content: prefixOutgoingCommands(filterOutgoingFeatures(params.content, allowed)) } : {})
             }
           : params;
 

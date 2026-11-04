@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test as nodeTest, after } from 'node:test';
+import { createTestApp } from 'alemonjs/testing';
+const app = createTestApp();
+after(() => app.dispose());
+const test = (name: string, run: () => void) => nodeTest(name, () => app.run(run));
 import { errorTitle, operationActionName } from '../../src/response/presentation/action-names';
 import { buildBubble, bubbleIssues } from '../../src/response/presentation/bubble';
 import { confirmBubble } from '../../src/response/presentation/presets';

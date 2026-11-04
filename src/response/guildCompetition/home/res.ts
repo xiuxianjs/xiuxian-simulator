@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
@@ -114,12 +115,12 @@ export default onResponse(selects, async e => {
 
       if (roster.canAdd) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('添加'), { data: '/添加宗门大比成员' });
+        md.addButton(markdownButtonLabel('添加'), { data: commandText('添加宗门大比成员') });
       }
 
       if (roster.canClear) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('清空'), { data: '/清空宗门大比队伍' });
+        md.addButton(markdownButtonLabel('清空'), { data: commandText('清空宗门大比队伍') });
       }
 
       md.addNewline();

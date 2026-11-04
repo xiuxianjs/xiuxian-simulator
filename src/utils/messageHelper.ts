@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { compactButtonSpacing } from './compactButtonSpacing';
 import { isPrivateEvent } from './privateEvent';
@@ -19,7 +20,7 @@ export const addOptions = (
 ) => {
   for (const btn of buttons) {
     md.addText(' ');
-    md.addButton(markdownButtonLabel(`${btn.label}`), { data: btn.command, ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
+    md.addButton(markdownButtonLabel(`${btn.label}`), { data: commandText(btn.command), ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
   }
   md.addNewline();
 
@@ -133,9 +134,9 @@ export interface GuiNav {
 export const guiNavigation = (nav: GuiNav) => ({
   text: `${nav.total === undefined ? `第${nav.current}页` : `第${nav.current}/${nav.total}页`}${nav.count !== undefined ? ` · 共${nav.count}条` : ''}`,
   actions: [
-    ...(nav.current > 1 ? [{ label: '上一页', command: nav.command.replace('{page}', String(nav.current - 1)) }] : []),
+    ...(nav.current > 1 ? [{ label: '上一页', command: commandText(nav.command.replace('{page}', String(nav.current - 1))) }] : []),
     ...((nav.total === undefined ? nav.hasNext === true : nav.current < nav.total)
-      ? [{ label: '下一页', command: nav.command.replace('{page}', String(nav.current + 1)) }]
+      ? [{ label: '下一页', command: commandText(nav.command.replace('{page}', String(nav.current + 1))) }]
       : [])
   ]
 });
@@ -225,7 +226,10 @@ export const FormatGui = (params: {
       if (!btn.command) {
         md.addText(btn.selected ? markdownButtonLabel(btn.label, true) : btn.label);
       } else {
-        md.addButton(markdownButtonLabel(btn.label, btn.selected), { data: btn.command, ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
+        md.addButton(markdownButtonLabel(btn.label, btn.selected), {
+          data: commandText(btn.command),
+          ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter })
+        });
       }
     });
     md.addNewline();
@@ -252,7 +256,7 @@ export const FormatGui = (params: {
         md.addText(' ');
       }
       md.addButton(markdownButtonLabel(button.label), {
-        data: button.command,
+        data: commandText(button.command),
         ...(nav.autoEnter === undefined ? {} : { autoEnter: nav.autoEnter })
       });
     }
@@ -273,7 +277,7 @@ export const FormatGui = (params: {
           md.addText(btn.selected ? markdownButtonLabel(btn.label, true) : btn.label);
         } else {
           md.addButton(markdownButtonLabel(btn.label, btn.selected), {
-            data: btn.command,
+            data: commandText(btn.command),
             ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter })
           });
         }
@@ -290,18 +294,18 @@ export const FormatGui = (params: {
   keyboardRows.forEach(row => {
     bt.addRow();
     row.forEach(btn => {
-      bt.addButton(btn.label, btn.command ?? '', { type: btn.type ?? 'command' });
+      bt.addButton(btn.label, (btn.type ?? 'command') === 'link' ? (btn.command ?? '') : commandText(btn.command ?? ''), { type: btn.type ?? 'command' });
     });
   });
   const bottomBar =
     bar === false
       ? []
       : (bar ?? [
-          { label: '我', command: '/我' },
-          { label: '战', command: '/属性面板' },
-          { label: '本', command: '/查看主线' },
-          { label: '动', command: '/我的活动' },
-          { label: '店', command: '/商店' }
+          { label: '我', command: '我' },
+          { label: '战', command: '属性面板' },
+          { label: '本', command: '查看主线' },
+          { label: '动', command: '我的活动' },
+          { label: '店', command: '商店' }
         ]);
 
   if (bottomBar.length > 0) {
@@ -310,7 +314,7 @@ export const FormatGui = (params: {
       if (btn.type === 'link') {
         bt.addButton(markdownButtonLabel(btn.label), btn.command ?? '', { type: 'link' });
       } else {
-        bt.addButton(btn.label, btn.command ?? '');
+        bt.addButton(btn.label, commandText(btn.command ?? ''));
       }
     });
   }

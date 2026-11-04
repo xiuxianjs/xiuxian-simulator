@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { Format } from 'alemonjs';
 import type { parseRechargePeriodicPacks } from '@src/api/bot/recharge-periodic-packs';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
@@ -25,7 +26,7 @@ export function buildPeriodicPackFeedback(reply: RobotMiddlewareReply) {
     } else {
       content.addText(block.text).addNewline();
       for (const button of block.inlineButtons ?? []) {
-        content.addButton(markdownButtonLabel(button.label), { data: button.command, autoEnter: false });
+        content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
       }
     }
   }
@@ -56,7 +57,7 @@ export function buildPeriodicPackProductPage(data: ReturnType<typeof parseRechar
 
   for (const product of data.products) {
     content.addButton(markdownButtonLabel(shortLabels[tierLabel(product)] ?? tierLabel(product), product === selected), {
-      data: `/充值 ${category} ${tierLabel(product)}`,
+      data: commandText(`充值 ${category} ${tierLabel(product)}`),
       autoEnter: false
     });
   }

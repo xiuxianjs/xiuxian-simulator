@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import {
   parseRelicsOverview,
   parseSpiritVein,
@@ -239,7 +240,7 @@ export default onResponse(selects, async event => {
         for (const r of data.result.rewards) {
           content
             .addText(`${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''} `)
-            .addButton(markdownButtonLabel('查看'), { data: `/宝物 详情 ${r.treasureId}`, autoEnter: false })
+            .addButton(markdownButtonLabel('查看'), { data: commandText(`宝物 详情 ${r.treasureId}`), autoEnter: false })
             .addNewline();
           if (r.autoSynthesized) {
             content.addText(`➥ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`).addNewline();
@@ -456,10 +457,7 @@ export default onResponse(selects, async event => {
         const pageArgument = filtered ? args[3] : args[1];
         const validPage = pageArgument === undefined || /^p[1-9]\d{0,8}$/.test(pageArgument);
 
-        if (
-          !validPage ||
-          (filtered ? args.length < 3 || args.length > 4 || !/^[1-6]$/.test(args[2]) : args.length > 2)
-        ) {
+        if (!validPage || (filtered ? args.length < 3 || args.length > 4 || !/^[1-6]$/.test(args[2]) : args.length > 2)) {
           quote(['参数错误：/上古遗珍 图鉴，或 /上古遗珍 图鉴 品质 <1-6> [pN]。']);
           await send();
 
@@ -469,9 +467,10 @@ export default onResponse(selects, async event => {
 
         if (data) {
           title = '宝物图鉴';
-          content = buildTreasureCatalogPage(data, filtered
-            ? { rarity: Number(args[2]), page: Number(pageArgument?.slice(1) ?? 1) }
-            : pageArgument === undefined ? {} : Number(pageArgument.slice(1)));
+          content = buildTreasureCatalogPage(
+            data,
+            filtered ? { rarity: Number(args[2]), page: Number(pageArgument?.slice(1) ?? 1) } : pageArgument === undefined ? {} : Number(pageArgument.slice(1))
+          );
           await send(navigation.slice(0, 2));
         }
 
@@ -537,10 +536,7 @@ export default onResponse(selects, async event => {
         return;
       }
       if (args.length && args[0] !== '概率') {
-        quote([
-          `本轮 ${data.milestoneProgress}/300`,
-          `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`
-        ]);
+        quote([`本轮 ${data.milestoneProgress}/300`, `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`]);
       }
       if (args[0] === '概率') {
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
@@ -581,12 +577,8 @@ export default onResponse(selects, async event => {
         } else {
           content.addNewline();
           content.addText('综合概率').addNewline();
-          content
-            .addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`)
-            .addNewline();
-          content
-            .addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品')
-            .addNewline();
+          content.addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`).addNewline();
+          content.addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品').addNewline();
           if (data.poolVersion === 'treasure-36-maxed-v3') {
             content.addText('已满品宝物的抽取概率大幅降低').addNewline();
           }
@@ -657,7 +649,7 @@ export default onResponse(selects, async event => {
           ]
         ]) {
           for (const button of row) {
-            content.addButton(markdownButtonLabel(button.label), { data: button.command, autoEnter: false });
+            content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
           }
           content.addNewline().addNewline();
         }
@@ -666,7 +658,7 @@ export default onResponse(selects, async event => {
           quote([`神话自选待领取 ${data.pendingSelections}份`], [{ label: '选择神话', command: '/上古遗珍 自选' }]);
         }
         if (data.freeAvailable) {
-          content.addButton(markdownButtonLabel('每日免费探索'), { data: '/上古遗珍 免费探索', autoEnter: false });
+          content.addButton(markdownButtonLabel('每日免费探索'), { data: commandText('上古遗珍 免费探索'), autoEnter: false });
         } else {
           content.addText('每日免费探索：已使用');
         }
@@ -713,7 +705,7 @@ export default onResponse(selects, async event => {
               block.addText(group.unavailableReason ?? '十连报价暂未取得，请刷新后再试。');
               continue;
             }
-            block.addButton(markdownButtonLabel(option.label), { data: `/上古遗珍 ${option.command} ${group.name}`, autoEnter: false });
+            block.addButton(markdownButtonLabel(option.label), { data: commandText(`上古遗珍 ${option.command} ${group.name}`), autoEnter: false });
             block.addText(` 消耗${option.cost}${group.name}`);
           }
           content.addBlockquote(block).addNewline();

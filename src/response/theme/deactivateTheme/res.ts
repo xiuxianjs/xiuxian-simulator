@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -26,7 +27,7 @@ export default onResponse(selects, async e => {
 
   md.addText('已关闭当前主题，恢复默认外观。');
   md.addNewline();
-  md.addButton(markdownButtonLabel('我的主题'), { data: '/我的主题' });
+  md.addButton(markdownButtonLabel('我的主题'), { data: commandText('我的主题') });
 
   void message.send(FormatGui({ isPrivate, bid, title: '关闭主题', content: md }));
 });

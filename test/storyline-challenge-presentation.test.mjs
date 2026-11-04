@@ -98,7 +98,7 @@ async function runChoice(kind,row,isPrivate){
  await run(kind,{text:'/主线挑战 1-1',status:200,v1:{data:initial},result:{success:true,branch:'business',data:initial}},isPrivate);
  const callback=state.subscriptions.at(-1)[0];
  Object.assign(state,{row,calls:[],sent:[],legacyCalls:0,next:0,transport:row.transport??false});
- const e={name:'message.create',UserId:'player',MessageId:'choice-message',MessageText:row.text,isPrivate};
+ const e={name:'message.create',UserId:'player',MessageId:'choice-message',MessageText:kind==='current'?'/'+row.text.trim().replace(/^[!！/#＃]\s*/,''):row.text,isPrivate};
  const nextArgs=[];
  const originalTimeout=globalThis.setTimeout;globalThis.setTimeout=(callback,delay)=>{if(delay===5000)return originalTimeout(callback,delay);state.timers.push({callback,delay});return 1};
  try{await framework.invoke(e, ()=>callback(e), (...args)=>{state.next++;nextArgs.push(args)});await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));}
@@ -165,7 +165,7 @@ test('in-flight state response cannot overtake a choice; later polling uses the 
  state.row=stateRows.find(r=>r.state==='muted');state.finishes=[];state.calls=[];state.sent=[];
  await fireTimer(timer);assert.equal(state.calls.length,1);assert.equal(state.finishes.length,0);
  const choice=choiceRows.find(r=>r.state==='pending'&&r.choice==='normal');state.row=choice;
- const e={name:'message.create',UserId:'player',MessageId:'new-choice',MessageText:choice.text,isPrivate:false};const nextArgs=[];
+ const e={name:'message.create',UserId:'player',MessageId:'new-choice',MessageText:'/'+choice.text.trim().replace(/^[!！/#＃]\s*/,''),isPrivate:false};const nextArgs=[];
  const originalTimeout=globalThis.setTimeout;globalThis.setTimeout=(callback,delay)=>{if(delay===5000)return originalTimeout(callback,delay);state.timers.push({callback,delay});return 1};
  try{await framework.invoke(e, ()=>callback(e), (...args)=>nextArgs.push(args));}finally{globalThis.setTimeout=originalTimeout;}
  release();state.readGate=undefined;await new Promise(resolve=>setImmediate(resolve));

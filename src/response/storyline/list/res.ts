@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseStorylineListArgs } from '@src/api/bot/catalog-query-reuse';
 import { projectStorylineCatalog } from '@src/api/bot/storyline-catalog-queries';
@@ -189,19 +190,19 @@ export default onResponse(selects, async e => {
 
         // 如果有多个可领取的宝箱，显示一键领取
         if (result.data.canClaimChestCount > 1 && !false) {
-          detailMd.addButton(markdownButtonLabel('一键领取'), { data: `/领取宝箱 ${chapter.chapterNumber}` });
+          detailMd.addButton(markdownButtonLabel('一键领取'), { data: commandText(`领取宝箱 ${chapter.chapterNumber}`) });
           detailMd.addText(' ');
         }
       }
 
       // 翻章导航
       if (result.data.showPrevChapter && !false) {
-        detailMd.addButton(markdownButtonLabel('上一章'), { data: `/查看主线 ${chapter.chapterNumber - 1}` });
+        detailMd.addButton(markdownButtonLabel('上一章'), { data: commandText(`查看主线 ${chapter.chapterNumber - 1}`) });
         detailMd.addText('  ');
       }
 
       if (result.data.showNextChapter && !false) {
-        detailMd.addButton(markdownButtonLabel('下一章'), { data: `/查看主线 ${chapter.chapterNumber + 1}` });
+        detailMd.addButton(markdownButtonLabel('下一章'), { data: commandText(`查看主线 ${chapter.chapterNumber + 1}`) });
         detailMd.addText('  ');
       }
 

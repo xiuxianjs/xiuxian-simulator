@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { Format, type FormatMarkDown } from 'alemonjs';
 import type { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
@@ -93,7 +94,7 @@ export function buildRechargeProductCard(options: {
       if (index > 0) {
         content.addText(' ');
       }
-      content.addButton(markdownButtonLabel(button.label), { data: button.command ?? '', autoEnter: false });
+      content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command ?? ''), autoEnter: false });
     }
   }
   content.addNewline().addNewline();
@@ -131,7 +132,7 @@ export function buildDailyPackProductPage(data: ReturnType<typeof parseTreasureD
   const content = Format.createMarkdown();
 
   for (const sku of Object.keys(skuLabels) as DailyPackSku[]) {
-    content.addButton(markdownButtonLabel(skuLabels[sku], sku === selected), { data: `/充值 日礼包 ${skuLabels[sku]}`, autoEnter: false });
+    content.addButton(markdownButtonLabel(skuLabels[sku], sku === selected), { data: commandText(`充值 日礼包 ${skuLabels[sku]}`), autoEnter: false });
   }
   content.addNewline().addNewline();
   if (selected === undefined) {

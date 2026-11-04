@@ -30,7 +30,7 @@ for (const teaching of [false, true]) {
       }));
     }
     for (const name of ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] as const) {
-      for (const text of ['聊天内容', '/其他插件', '#其他插件', '!图鉴', '！其他插件', '/图鉴插件']) {
+      for (const text of ['聊天内容', '我', '继续引导', '退出引导', '修仙帮助', '/其他插件', '#其他插件', '!图鉴', '！其他插件', '/图鉴插件']) {
         const event = app.events.event(name, { Platform: 'qq-bot', MessageText: text, InteractionData: JSON.stringify({ button_id: 'other.1', button_data: text }) });
         const result = await app.dispatch(event);
         assert.deepEqual(result.errors, [], `${name}: ${text}`);

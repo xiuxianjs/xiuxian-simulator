@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseShopListArgs } from '@src/api/bot/catalog-query-reuse';
 import { toCurrencyName } from '@src/constants';
@@ -114,7 +115,7 @@ export function buildShopBrowseCommand(selection: ShopSelection, patch: Partial<
 
 export function appendShopSearch(md: ReturnType<typeof Format.createMarkdown>, selection: ShopSelection) {
   md.addButton(markdownButtonLabel('搜索'), {
-    data: buildShopBrowseCommand(selection, { filters: { ...selection.filters, keyword: undefined } }).replace(/ 1$/, ' 搜索 '),
+    data: commandText(buildShopBrowseCommand(selection, { filters: { ...selection.filters, keyword: undefined } }).replace(/ 1$/, ' 搜索 ')),
     autoEnter: false
   });
   if (selection.filters.keyword) {

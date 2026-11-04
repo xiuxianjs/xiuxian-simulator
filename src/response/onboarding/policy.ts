@@ -1,7 +1,8 @@
+import { getCommandPrefix, hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import type { OnboardingView } from '@src/api/bot/onboarding';
 import { mentionsRetiredFeature } from '../retiredFeatures';
 
-export const canonicalOnboardingCommand = (value: string): string => value
+export const canonicalOnboardingCommand = (value: string, prefix = '/'): string => internalCommandText(value, prefix)
     .trim()
     .replace(/^[/#＃!！]\s*/, '')
     .split(/\s+/)
@@ -45,8 +46,8 @@ export const onboardingButtonId = (version: number, index: number): string => `o
 // undefined: unrelated/legacy input; null: our button with invalid metadata.
 // QQ preserves resolved button_id/data in InteractionData without changing
 // MessageText, so visible and manually typed commands remain real commands.
-export function onboardingButtonVersion(event: { name?: string; MessageText?: string; InteractionData?: string }): number | null | undefined {
-  const inline = /^继续引导 ([1-9]\d{0,15}) ([a-z][a-z0-9-]{0,63})$/.exec(canonicalOnboardingCommand(event.MessageText ?? ''));
+export function onboardingButtonVersion(event: { name?: string; MessageText?: string; InteractionData?: string }, prefix = '/'): number | null | undefined {
+  const inline = /^继续引导 ([1-9]\d{0,15}) ([a-z][a-z0-9-]{0,63})$/.exec(canonicalOnboardingCommand(event.MessageText ?? '', prefix));
 
   if (inline) {
     const version = Number(inline[1]);
@@ -76,7 +77,7 @@ export function onboardingButtonVersion(event: { name?: string; MessageText?: st
     version < 1 ||
     onboardingButtonId(version, Number(match[2])) !== data.button_id ||
     typeof data.button_data !== 'string' ||
-    canonicalOnboardingCommand(data.button_data) !== canonicalOnboardingCommand(event.MessageText ?? '')
+    canonicalOnboardingCommand(data.button_data, prefix) !== canonicalOnboardingCommand(event.MessageText ?? '', prefix)
   ) {
     return null;
   }
@@ -95,15 +96,15 @@ export function configureOnboardingCommandMatcher(matcher?: (event: OnboardingIn
 export function isOnboardingAddressed(event: OnboardingInput, view: OnboardingView): boolean {
   const text = String(event.MessageText ?? '').trimStart();
 
-  // The root router reserves ! for legacy code, including private interactions.
-  if (/^[!！]/.test(text)) {
+  // Context 与路由保持一致：裸指令不能接管教学会话。
+  if (!hasCommandPrefix(text)) {
     return false;
   }
   // 仅教学自己的回调可直接接管；私聊、命令前缀和其他插件按钮都不是归属凭据。
-  if (onboardingButtonVersion(event) !== undefined) {
+  if (onboardingButtonVersion(event, getCommandPrefix()) !== undefined) {
     return true;
   }
-  const command = canonicalOnboardingCommand(text);
+  const command = canonicalOnboardingCommand(text, getCommandPrefix());
 
   return (
     command === '继续引导' ||

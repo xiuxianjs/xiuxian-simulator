@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -100,12 +101,12 @@ export default onResponse(selects, async e => {
 
   if (result.canClaim) {
     md.addText(' ');
-    md.addButton(markdownButtonLabel('领取'), { data: `/领取邮件 ${result.emailId}` });
+    md.addButton(markdownButtonLabel('领取'), { data: commandText(`领取邮件 ${result.emailId}`) });
   }
 
   if (result.canDelete) {
     md.addText(' ');
-    md.addButton(markdownButtonLabel('删除'), { data: `/删除邮件 ${result.emailId}` });
+    md.addButton(markdownButtonLabel('删除'), { data: commandText(`删除邮件 ${result.emailId}`) });
   }
 
   void message.send(

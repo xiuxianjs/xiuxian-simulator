@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { masterRecoveryTips } from '@src/response/masterRecovery';
@@ -39,7 +40,7 @@ export default onResponse(selects, async e => {
     md.addNewline();
     if (result.received.length === 0) {
       md.addText('暂无待处理的出师申请');
-      md.addNewline().addButton(markdownButtonLabel('查看我的师门'), { data: '/我的师门' });
+      md.addNewline().addButton(markdownButtonLabel('查看我的师门'), { data: commandText('我的师门') });
     } else {
       md.addText('待处理的出师申请：');
       md.addNewline();

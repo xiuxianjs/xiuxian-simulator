@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { Format, onResponse, useEvent } from 'alemonjs';
@@ -71,7 +72,7 @@ export default onResponse(selects, async e => {
     md.addNewline().addBlockquote(
       Format.createMarkdown()
         .addText(`赏金待领取：${data.rewardAmount} 灵晶 `)
-        .addButton(markdownButtonLabel('领赏'), { data: `/领赏 ${bountyId}` })
+        .addButton(markdownButtonLabel('领赏'), { data: commandText(`领赏 ${bountyId}`) })
     );
   } else if (data.won) {
     md.addNewline().addText('本次未返回有效赏金金额，请先核对待领记录与原战斗回执。');

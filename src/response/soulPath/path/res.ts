@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -60,7 +61,7 @@ export default onResponse(selects, async e => {
   }));
 
   for (const tab of pathTabs) {
-    md.addButton(markdownButtonLabel(tab.label, tab.selected), { data: tab.command });
+    md.addButton(markdownButtonLabel(tab.label, tab.selected), { data: commandText(tab.command ?? '') });
     md.addText(' ');
   }
   md.addNewline();
@@ -87,7 +88,7 @@ export default onResponse(selects, async e => {
     md.addBold(`${path.name} · ${path.stage}${path.active ? '（当前）' : ''}`);
     if (!path.active) {
       md.addText(' ');
-      md.addButton(markdownButtonLabel('转修'), { data: `/切换道途 ${path.name.replace('道', '')}` });
+      md.addButton(markdownButtonLabel('转修'), { data: commandText(`切换道途 ${path.name.replace('道', '')}`) });
     }
     md.addNewline();
     md.addText(`熟练 ${path.proficiency}`);
@@ -97,7 +98,7 @@ export default onResponse(selects, async e => {
       md.addBold(`${node.unlocked ? '✓' : '○'} ${node.name}`);
       if (node.canAdvance && node.key === next?.key) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('道途突破'), { data: '/道途突破' });
+        md.addButton(markdownButtonLabel('道途突破'), { data: commandText('道途突破') });
       }
       md.addNewline();
       addSoulQuote(md, node.description);

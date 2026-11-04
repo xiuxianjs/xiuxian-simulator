@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { sendTaskPanelSubscriptionReminder } from './subscriptionReminder';
 import { measureTransportStage } from '@src/utils/transportTiming';
@@ -48,10 +49,10 @@ const buildQQContent = (tabName: string, items: TaskPanelItemView[]): ReturnType
 
     if (item.command) {
       itemMd.addNewline();
-      itemMd.addButton(markdownButtonLabel(item.actionLabel ?? item.label), { data: item.command });
+      itemMd.addButton(markdownButtonLabel(item.actionLabel ?? item.label), { data: commandText(item.command) });
       for (const option of item.options ?? []) {
         itemMd.addText(' ');
-        itemMd.addButton(markdownButtonLabel(option.label), { data: option.command });
+        itemMd.addButton(markdownButtonLabel(option.label), { data: commandText(option.command) });
       }
     }
     md.addBlockquote(itemMd);

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -31,7 +32,7 @@ export default onResponse(selects, async e => {
   if (!mode) {
     md.addText('指令格式：/切换墨色模式 宣纸水墨 或 /切换墨色模式 深底暗黑');
     md.addNewline();
-    md.addButton(markdownButtonLabel('我的主题'), { data: '/我的主题' });
+    md.addButton(markdownButtonLabel('我的主题'), { data: commandText('我的主题') });
   } else {
     const response = await runRobotBusiness(e, 'themes.ink-mode', { mode }, data => validateBackendInkMode(data, mode), next);
 
@@ -49,7 +50,7 @@ export default onResponse(selects, async e => {
     }
 
     md.addNewline();
-    md.addButton(markdownButtonLabel('我的主题'), { data: '/我的主题' });
+    md.addButton(markdownButtonLabel('我的主题'), { data: commandText('我的主题') });
   }
 
   void message.send(FormatGui({ isPrivate, bid, title: '切换墨色模式', content: md }));

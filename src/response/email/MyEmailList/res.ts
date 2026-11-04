@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { emailListArguments, parseRobotEmailList } from '@src/api/bot/email-robot-query';
 import type { EmailDisplayGood } from '@src/api/schemas/queries';
 import { selects } from '@src/response/config';
@@ -130,7 +131,7 @@ export default onResponse(selects, async e => {
     const batchMd = Format.createMarkdown();
 
     if (result.hasClaimable) {
-      batchMd.addButton(markdownButtonLabel('一键领取'), { data: '/一键领取邮件' });
+      batchMd.addButton(markdownButtonLabel('一键领取'), { data: commandText('一键领取邮件') });
     }
 
     if (result.hasDeletable) {
@@ -138,7 +139,7 @@ export default onResponse(selects, async e => {
       if (result.hasClaimable) {
         batchMd.addText(' ');
       }
-      batchMd.addButton(markdownButtonLabel('一键删除'), { data: '/一键删除邮件' });
+      batchMd.addButton(markdownButtonLabel('一键删除'), { data: commandText('一键删除邮件') });
     }
     contentMd.addBlockquote(batchMd);
   }

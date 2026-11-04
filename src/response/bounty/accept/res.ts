@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -58,7 +59,7 @@ export default onResponse(selects, async e => {
     if (reply?.buttons.length) {
       md.addNewline();
       for (const button of reply.buttons) {
-        md.addButton(markdownButtonLabel(button.label), { data: button.command });
+        md.addButton(markdownButtonLabel(button.label), { data: commandText(button.command) });
       }
     }
     await message.send(FormatGui({ isPrivate, bid, title: '接赏', content: md, header: bountyHeader, footer: bountyFooter }));

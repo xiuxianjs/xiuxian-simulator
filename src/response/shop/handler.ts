@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
 import { useEvent } from 'alemonjs';
@@ -422,7 +423,7 @@ export const shopBuyHandler = onResponse(selects, async e => {
     const content = Format.createMarkdown();
 
     if (meta?.listCmd) {
-      content.addButton(markdownButtonLabel('返回'), { data: `/${meta.listCmd}` });
+      content.addButton(markdownButtonLabel('返回'), { data: commandText(`${meta.listCmd}`) });
       content.addNewline();
     }
     content.addText(`购买成功：${result.name}，支付${displayCurrencyText(result.paid)}，获得×${result.granted}`);

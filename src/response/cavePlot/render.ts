@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveRecoveryTips } from '@src/response/caveRecovery';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
@@ -105,7 +106,7 @@ function appendPlotBlock(md: ReturnType<typeof Format.createMarkdown>, plot: Cav
   const quote = Format.createMarkdown().addText(`【${plot.plotIndex}】${plot.title}`);
 
   for (const button of Array.isArray(action) ? action : action ? [action] : []) {
-    quote.addText(' ').addButton(markdownButtonLabel(`${button.label}`), { data: button.command });
+    quote.addText(' ').addButton(markdownButtonLabel(`${button.label}`), { data: commandText(button.command) });
   }
 
   if (plot.detail) {
@@ -181,9 +182,9 @@ function buildSelfCavePlotContent(
       const quote = Format.createMarkdown().addText(`【${plot.plotIndex}】${plot.title}`).addNewline().addText(detail);
 
       for (const action of dailyActions) {
-        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: action.command });
+        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: commandText(action.command) });
       }
-      quote.addText(' ').addButton(markdownButtonLabel('详情'), { data: `/我的灵田 地块 ${plot.plotIndex}` });
+      quote.addText(' ').addButton(markdownButtonLabel('详情'), { data: commandText(`我的灵田 地块 ${plot.plotIndex}`) });
       md.addBlockquote(quote);
       if (index < pagination.items.length - 1) {
         md.addNewline();
@@ -229,7 +230,7 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
         const quote = Format.createMarkdown().addText(`【${selected.plotIndex}】${selected.title}`).addNewline().addText(selected.detail);
 
         for (const action of selected.actions ?? []) {
-          quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: action.command });
+          quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: commandText(action.command) });
         }
         md.addBlockquote(quote);
       } else {
@@ -245,7 +246,7 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
         RECORD_BUTTON,
         { label: '全部操作', command: '/我的灵田 操作' }
       ]) {
-        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: action.command });
+        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: commandText(action.command) });
       }
       md.addBlockquote(quote);
     }
@@ -287,7 +288,7 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
       const quote = Format.createMarkdown().addText(`【${plot.plotIndex}】${plot.title}`);
 
       for (const action of plot.actions ?? []) {
-        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: action.command });
+        quote.addText(' ').addButton(markdownButtonLabel(`${action.label}`), { data: commandText(action.command) });
       }
       quote.addNewline().addText(plot.detail);
       md.addBlockquote(quote);
@@ -400,7 +401,7 @@ export function sendPlantSeedPromptPage(options: SendPlantSeedPromptPageOptions)
       const seedMd = Format.createMarkdown().addText(`${seed.seedName} · 库存${seed.quantity}颗 · ${seed.matureHours}小时成熟`);
 
       seedMd.addText(' ');
-      seedMd.addButton(markdownButtonLabel('播种'), { data: `${commandPrefix} ${seed.seedName}` });
+      seedMd.addButton(markdownButtonLabel('播种'), { data: commandText(`${commandPrefix} ${seed.seedName}`) });
       md.addBlockquote(seedMd);
 
       if (index < pagination.items.length - 1) {

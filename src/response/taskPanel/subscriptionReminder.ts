@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { requestBackend } from '@src/api/bot/client';
 import { validateGroupSubscription } from '@src/api/bot/group-subscription-queries';
@@ -30,7 +31,9 @@ export async function sendTaskPanelSubscriptionReminder(event: GameEvent): Promi
     const canEnableHere = !isPrivateEvent(event) && !!event.ChannelId;
     const quote = Format.createMarkdown().addText(canEnableHere ? '尚未开启群通知。' : '尚未开启群通知，可在常用群开启订阅。');
 
-    quote.addText(' ').addButton(markdownButtonLabel(canEnableHere ? '开启群通知' : '我的设置'), { data: canEnableHere ? '/开启群订阅' : '/我的设置' });
+    quote
+      .addText(' ')
+      .addButton(markdownButtonLabel(canEnableHere ? '开启群通知' : '我的设置'), { data: commandText(canEnableHere ? '/开启群订阅' : '/我的设置') });
     await message.send(
       FormatGui({ isPrivate: isPrivateEvent(event), bid: event.UserId, title: '修行提醒', content: Format.createMarkdown().addBlockquote(quote) })
     );

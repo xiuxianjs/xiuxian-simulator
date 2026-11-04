@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format } from 'alemonjs';
 import type { parseBackendNormalPaymentSettlement } from '@src/api/bot/sponsor-payment';
@@ -94,7 +95,7 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     successMd.addText(`本订单权益期间：${payResult.spiritVein.startDate} 至 ${payResult.spiritVein.endDate}`);
     successMd.addNewline();
     successMd.addText('当前新旧租契尚未领取的收益统一按每日3000灵晶结算；已领取历史保持原记录。').addNewline();
-    successMd.addButton(markdownButtonLabel('领取灵脉租契'), { data: '/我的权益 灵脉租契', autoEnter: false });
+    successMd.addButton(markdownButtonLabel('领取灵脉租契'), { data: commandText('我的权益 灵脉租契'), autoEnter: false });
     successMd.addNewline();
   }
   if (payResult.dailyTreasurePack) {
@@ -109,7 +110,7 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     for (const fragment of pack.fragments) {
       successMd.addText(`${fragment.name}碎片 ×${fragment.quantity}`).addNewline();
     }
-    successMd.addButton(markdownButtonLabel('查看每日礼包'), { data: '/充值 日礼包', autoEnter: false }).addNewline();
+    successMd.addButton(markdownButtonLabel('查看每日礼包'), { data: commandText('充值 日礼包'), autoEnter: false }).addNewline();
   }
   if (payResult.periodicPack) {
     const pack = payResult.periodicPack;
@@ -122,7 +123,7 @@ export const buildRechargeSuccessContent = (payResult?: Awaited<ReturnType<typeo
     for (const item of pack.items) {
       successMd.addText(`${item.name} ×${item.quantity}`).addNewline();
     }
-    successMd.addButton(markdownButtonLabel(`查看${category}`), { data: `/充值 ${category}`, autoEnter: false }).addNewline();
+    successMd.addButton(markdownButtonLabel(`查看${category}`), { data: commandText(`充值 ${category}`), autoEnter: false }).addNewline();
   }
 
   if (payResult.seclusionPassActivated) {

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { RobotBusinessOperation } from '@src/api/bot/robot-business';
 import { SDKError } from '@src/api/core/error';
@@ -73,7 +74,7 @@ export function createBlackBoxContext(e: GameEvent, overviewCommand: '/黑盒拍
 
     for (const button of buttons) {
       block.addText(' ').addButton(markdownButtonLabel(`${button.label}`), {
-        data: button.command,
+        data: commandText(button.command),
         ...(button.autoEnter === undefined ? {} : { autoEnter: button.autoEnter })
       });
     }

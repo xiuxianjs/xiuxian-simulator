@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -89,7 +90,7 @@ export default onResponse(selects, async e => {
         appendMiddlewareAdvice(md, bountyRecoveryTips('bounty.claim', '暂无待领取'));
         md.addNewline();
 
-        md.addButton(markdownButtonLabel('悬赏榜'), { data: '/悬赏榜' });
+        md.addButton(markdownButtonLabel('悬赏榜'), { data: commandText('悬赏榜') });
       } else {
         for (const p of pending) {
           md.addBlockquote(

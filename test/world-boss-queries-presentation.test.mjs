@@ -104,3 +104,24 @@ test('unsafe integer HP and damage render with Chinese units without altering co
  assert.ok(textOf(rankNodes).includes('922.34亿亿'));
  assert.ok(commands(rankNodes).includes('/凶兽'));
 });
+
+
+test('fractional reward baseline renders while currency remains an exact integer', async () => {
+  const raw = structuredClone(receipts.find(r => r.op === 'world-boss.rewards' && r.result.success).result.data);
+  raw.config.baseDamage = 100 / 9;
+  const nodes = await render('rewards', '/凶兽奖励', raw);
+  assert.ok(textOf(nodes).includes(`基准伤害：${100 / 9}`));
+  assert.ok(textOf(nodes).includes('参与（参与即可）'));
+  assert.ok(commands(nodes).includes('/凶兽'));
+  assert.equal(commands(nodes).includes('/领取凶兽奖励'), raw.claimableRewardCount > 0);
+  for (const invalid of [-1, NaN, Infinity, '11.1', Number.MAX_SAFE_INTEGER + 1]) {
+    raw.config.baseDamage = invalid;
+    assert.ok(textOf(await render('rewards', '/凶兽奖励', raw)).includes('响应整数无效或已丢失精度'));
+  }
+  raw.config.baseDamage = 100 / 9;
+  raw.tiers[0].spiritStone = 1.5;
+  assert.ok(textOf(await render('rewards', '/凶兽奖励', raw)).includes('响应整数无效或已丢失精度'));
+  raw.tiers[0].spiritStone = 9223372036854775807n;
+  raw.config.baseDamage = 9223372036854775807n;
+  assert.ok(textOf(await render('rewards', '/凶兽奖励', raw)).includes('922.34亿亿'));
+});

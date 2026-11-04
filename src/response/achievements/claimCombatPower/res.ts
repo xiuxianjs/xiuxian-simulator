@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { achievementRecoveryTips } from '@src/response/achievementRecovery';
@@ -68,7 +69,7 @@ export default onResponse(selects, async e => {
       }
     }
 
-    md.addButton(markdownButtonLabel('战力成就'), { data: '/成就 战力' });
+    md.addButton(markdownButtonLabel('战力成就'), { data: commandText('成就 战力') });
 
     void message.send(FormatGui({ isPrivate, bid, title: '战力成就', content: md }));
   } catch (error) {

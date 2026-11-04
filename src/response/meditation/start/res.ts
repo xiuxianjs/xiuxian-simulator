@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { getCommandErrorMessage } from '@src/utils/commandError';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
@@ -52,7 +53,9 @@ export default onResponse(selects, async e => {
     }
     quote
       .addNewline()
-      .addButton(markdownButtonLabel(data.autoEnabled ? '关闭加速' : '开启加速'), { data: `/配置闭关自动加速 ${data.autoEnabled ? '关闭' : '开启'}` });
+      .addButton(markdownButtonLabel(data.autoEnabled ? '关闭加速' : '开启加速'), {
+        data: commandText(`配置闭关自动加速 ${data.autoEnabled ? '关闭' : '开启'}`)
+      });
     await message.send(
       FormatGui({
         isPrivate,
@@ -114,7 +117,11 @@ export default onResponse(selects, async e => {
     const md = Format.createMarkdown();
 
     if (data.button && data.buttonText) {
-      md.addBlockquote(Format.createMarkdown().addText(`❌ ${repeatMsg} `).addButton(markdownButtonLabel(data.buttonText), { data: data.button }));
+      md.addBlockquote(
+        Format.createMarkdown()
+          .addText(`❌ ${repeatMsg} `)
+          .addButton(markdownButtonLabel(data.buttonText), { data: commandText(data.button) })
+      );
     } else {
       md.addText(`❌ ${repeatMsg}`);
     }
@@ -157,7 +164,7 @@ export default onResponse(selects, async e => {
       .addNewline()
       .addText(`本次加速费用：${data.boost.estimatedCharge ?? 0}灵石`);
   }
-  quote.addNewline().addButton(markdownButtonLabel('出关领取'), { data: '/出关' });
+  quote.addNewline().addButton(markdownButtonLabel('出关领取'), { data: commandText('出关') });
 
   await message.send(
     FormatGui({

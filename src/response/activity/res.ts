@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseRobotActivityHub } from '@src/api/bot/activity-hub';
 import { selects } from '@src/response/config';
@@ -67,7 +68,7 @@ export default onResponse(selects, async e => {
 
   for (const entry of entries) {
     const row = Format.createMarkdown()
-      .addButton(markdownButtonLabel(`${entry.label}`), { data: entry.command, autoEnter: false })
+      .addButton(markdownButtonLabel(`${entry.label}`), { data: commandText(entry.command), autoEnter: false })
       .addText(` — ${entry.introduction}`);
 
     if (entry.command === '/灵脉攻防战') {

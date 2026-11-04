@@ -1,3 +1,4 @@
+import { getCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { onResponse, useEvent, type Next } from 'alemonjs';
 import { selects } from '../config';
 import { runRobotBusiness } from '../robotBusiness';
@@ -15,7 +16,7 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
 
     return;
   }
-  const command = canonicalOnboardingCommand(event.MessageText ?? '');
+  const command = canonicalOnboardingCommand(event.MessageText ?? '', getCommandPrefix());
   const pageRequest = (event.MessageText ?? '').match(menuPagePattern);
 
   if (pageRequest) {
@@ -34,7 +35,7 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
 
     return;
   }
-  const buttonVersion = onboardingButtonVersion(event);
+  const buttonVersion = onboardingButtonVersion(event, getCommandPrefix());
   const control = command === '继续引导' || command === '退出引导';
 
   if (!control && buttonVersion === undefined) {
@@ -43,6 +44,7 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
     return;
   }
 
+  event.MessageText = internalCommandText(event.MessageText ?? '');
   try {
     const action = !control && typeof buttonVersion === 'number';
     const result = await runRobotBusiness(

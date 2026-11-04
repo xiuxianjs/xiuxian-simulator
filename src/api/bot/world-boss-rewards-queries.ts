@@ -9,6 +9,14 @@ function integer(value: unknown): number {
 
   return value;
 }
+// The server divides HP by expected attacks; this display value may be fractional.
+function baseDamage(value: unknown): number | bigint {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= Number.MAX_SAFE_INTEGER) {
+    return value;
+  }
+
+  return exactInteger(value);
+}
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('凶兽奖励接口格式不完整');
@@ -55,7 +63,7 @@ export function parseWorldBossRewards(value: unknown): WorldBossRewardsPreviewDa
         : {
             bossName: text(config.bossName),
             bossTitle: text(config.bossTitle),
-            baseDamage: exactInteger(config.baseDamage)
+            baseDamage: baseDamage(config.baseDamage)
           },
     tiers: data.tiers.map((value: unknown) => {
       const row = record(value);

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 import { parseBattleTemplateSave } from '@src/api/bot/battle-template-save';
@@ -41,7 +42,7 @@ const buildListMarkdown = (data: BattleTemplatesQueryData) => {
 
     if (!item) {
       md.addText(`【${slot}】空`);
-      md.addButton(markdownButtonLabel('保存'), { data: `/保存战斗模板 ${slot}` });
+      md.addButton(markdownButtonLabel('保存'), { data: commandText(`保存战斗模板 ${slot}`) });
       md.addNewline();
       continue;
     }
@@ -60,11 +61,11 @@ const buildListMarkdown = (data: BattleTemplatesQueryData) => {
       quoteMd.addText(line);
     });
     quoteMd.addText(' ');
-    quoteMd.addButton(markdownButtonLabel(`应用${slot}`), { data: `/应用战斗模板 ${slot}` });
+    quoteMd.addButton(markdownButtonLabel(`应用${slot}`), { data: commandText(`应用战斗模板 ${slot}`) });
     quoteMd.addText(' ');
-    quoteMd.addButton(markdownButtonLabel(`覆盖${slot}`), { data: `/保存战斗模板 ${slot}` });
+    quoteMd.addButton(markdownButtonLabel(`覆盖${slot}`), { data: commandText(`保存战斗模板 ${slot}`) });
     quoteMd.addText(' ');
-    quoteMd.addButton(markdownButtonLabel(`删除${slot}`), { data: `/删除战斗模板 ${slot}` });
+    quoteMd.addButton(markdownButtonLabel(`删除${slot}`), { data: commandText(`删除战斗模板 ${slot}`) });
     md.addBlockquote(quoteMd);
     md.addNewline();
   }
@@ -139,7 +140,7 @@ export default onResponse(selects, async e => {
       md.addText(formatSkillSummary(result.skillNames));
       md.addNewline();
       md.addNewline();
-      md.addButton(markdownButtonLabel('查看模板'), { data: '/战斗模板' });
+      md.addButton(markdownButtonLabel('查看模板'), { data: commandText('战斗模板') });
 
       void message.send(FormatGui({ isPrivate, bid, title: '战斗模板', content: md }));
 
@@ -170,7 +171,7 @@ export default onResponse(selects, async e => {
       md.addText(formatSkillSummary(result.skillNames));
       md.addNewline();
       md.addNewline();
-      md.addButton(markdownButtonLabel('查看模板'), { data: '/战斗模板' });
+      md.addButton(markdownButtonLabel('查看模板'), { data: commandText('战斗模板') });
 
       void message.send(FormatGui({ isPrivate, bid, title: '战斗模板', content: md }));
 
@@ -197,7 +198,7 @@ export default onResponse(selects, async e => {
       md.addText(deleted ? `✅ 已删除模板槽位【${slot}】` : `❌ 模板槽位【${slot}】为空`);
       md.addNewline();
       md.addNewline();
-      md.addButton(markdownButtonLabel('查看模板'), { data: '/战斗模板' });
+      md.addButton(markdownButtonLabel('查看模板'), { data: commandText('战斗模板') });
 
       void message.send(FormatGui({ isPrivate, bid, title: '战斗模板', content: md }));
     }

@@ -1,6 +1,9 @@
 import { createPresentationHarness } from './helpers/framework-presentation.mjs';
 import assert from 'node:assert/strict';
-import {test} from 'node:test';
+import {test,after} from 'node:test';
+import {createTestApp} from 'alemonjs/testing';
+const renderApp=createTestApp();
+after(()=>renderApp.dispose());
 
 import {build} from 'esbuild';
 import {resolve} from 'node:path';
@@ -26,7 +29,7 @@ const flatten=n=>n.flatMap(x=>x.type==='MD.blockquote'?flatten(x.value):[x]);
 const commands=p=>flatten(nodes(p)).filter(n=>n.type==='MD.button').map(n=>n.options.data);
 const render=n=>joinMarkdownParts(n,n.map(x=>x.type==='MD.blockquote'?renderMarkdownBlockquote(x.value,render):x.type==='MD.newline'?'\n':x.type==='MD.bold'?`**${x.value}**`:String(x.value??'')));
 const samples=[];
-function capture(name,fn){state.sent=[];fn();assert.equal(state.sent.length,1);const p=state.sent[0];samples.push({name,p});return p;}
+function capture(name,fn){state.sent=[];renderApp.run(fn);assert.equal(state.sent.length,1);const p=state.sent[0];samples.push({name,p});return p;}
 const plots=[{plotIndex:1,plotState:'cultivated',title:'聚灵草',detail:'缺水，尚余1小时\n升级至2阶需消耗【灵土】x10。',actions:[{label:'浇灌',command:'/浇灌 1'},{label:'加速',command:'/灵田加速 1'},{label:'升级',command:'/升级灵田 1'}]},{plotIndex:2,plotState:'cultivated',title:'空闲灵田',detail:'可播种',actions:[{label:'播种',command:'/播种 2'}]},{plotIndex:3,plotState:'unlockable',title:'未开垦灵田',detail:'灵锄×1、灵土×5',actions:[{label:'开垦',command:'/开垦 3'}]},{plotIndex:4,plotState:'locked',title:'未解锁灵田',detail:'',actions:[]}];
 const options={bid:'fixture',isPrivate:true,title:'洞府灵田',plots,message:{send:m=>state.sent.push(m.format.value)}};
 test('daily home preserves server-provided care and acceleration while upgrades stay in detail',()=>{const p=capture('洞府灵田',()=>sendSelfCavePlotPage(options));const c=commands(p);for(const cmd of ['/开垦所有','/开垦 3','/浇灌 1','/一键浇灌','/播种','/我的职业 灵药师','/我的灵田 经营'])assert.ok(c.includes(cmd));assert.ok(c.includes('/灵田加速 1'));assert.ok(!c.includes('/升级灵田 1'));assert.match(render(nodes(p)),/待照料1块 · 空闲1块/);assert.match(render(nodes(p)),/已开垦2块 · 当前可开垦1块（需备齐材料）/);assert.doesNotMatch(render(nodes(p)),/未解锁灵田/);});

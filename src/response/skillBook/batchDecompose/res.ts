@@ -1,3 +1,4 @@
+import { commandText, hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { parseRobotSkillBookBatchQuery, parseBackendSkillBookBatchDecompose } from '@src/api/bot/skill-book-batch-decompose';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import type { GameEvent } from '@src/types/event';
@@ -122,7 +123,7 @@ const response = onResponse(selects, async e => {
       { label: '取消', command: '取消' }
     ] satisfies GuiButton[];
 
-    previewMd.addNewline().addBlockquote(createQuoteMarkdown(['请在60秒内回复【确认分解】或【取消】。'], confirmFooter));
+    previewMd.addNewline().addBlockquote(createQuoteMarkdown([`请在60秒内回复【${commandText('确认分解')}】或【${commandText('取消')}】。`], confirmFooter));
 
     void message.send(FormatGui({ isPrivate, bid, title: '', content: previewMd, keyboard: [confirmFooter] }));
 
@@ -130,7 +131,13 @@ const response = onResponse(selects, async e => {
     const sub = subscribe.mount(
       async (event, next) => {
         const [msg] = useMessage();
-        const choice = event.MessageText.trim();
+
+        if (!hasCommandPrefix(event.MessageText)) {
+          next();
+
+          return;
+        }
+        const choice = internalCommandText(event.MessageText).trim().replace(/^\//, '');
 
         if (choice === '确认分解') {
           clearTimeout(timeout);
@@ -222,7 +229,7 @@ const response = onResponse(selects, async e => {
           { label: '取消', command: '取消' }
         ];
 
-        hintMd.addText('请回复【确认分解】或【取消】');
+        hintMd.addText(`请回复【${commandText('确认分解')}】或【${commandText('取消')}】`);
 
         void msg.send(FormatGui({ isPrivate, bid, title: '', content: hintMd, footer: [hintFooter] }));
 

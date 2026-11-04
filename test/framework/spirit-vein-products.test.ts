@@ -125,7 +125,7 @@ test('0元余权益优先领取，即available=false也不走充值下单；确�
   const repeats = requests.filter(request => request.path.endsWith('daily-pack-free-confirm'));
   assert.equal(repeats.length, 2);
   assert.ok(repeats.every(request => JSON.stringify(request.body.arguments) === JSON.stringify({ confirmationRef: reference })));
-  assert.ok(matchesGameCommand({ name: 'private.message.create', MessageText: `/确认礼包 ${reference}` }));
+  assert.ok(app.run(() => matchesGameCommand({ name: 'private.message.create', MessageText: `/确认礼包 ${reference}` })));
   previews.set('0元剩余礼包（领取而非创建订单）', product.text);
   previews.set('0元剩余礼包确认（随机内容不预告）', confirmation.text);
 });

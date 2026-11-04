@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveAccelerationReceiptTips } from '@src/response/caveRecovery';
 import { ownCaveInputError } from '../input';
@@ -85,10 +86,14 @@ export default onResponse(selects, async e => {
           if ((preview.maxSpiritStone ?? 0) > 0) {
             const hours = ((preview.stoneSecondsPerUse ?? 7200) / 3600).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
 
-            quote.addNewline().addButton(markdownButtonLabel(`加速最多${hours}小时 · ${preview.stoneCost}灵石`), { data: `/灵田加速 ${preview.plotIndex} 灵石 1` });
+            quote.addNewline().addButton(markdownButtonLabel(`加速最多${hours}小时 · ${preview.stoneCost}灵石`), {
+              data: commandText(`灵田加速 ${preview.plotIndex} 灵石 1`)
+            });
           }
           if (preview.canRipen) {
-            quote.addNewline().addButton(markdownButtonLabel(`立即催熟 · ${preview.ripenCost}灵石`), { data: `/灵田加速 ${preview.plotIndex} 催熟 1` });
+            quote
+              .addNewline()
+              .addButton(markdownButtonLabel(`立即催熟 · ${preview.ripenCost}灵石`), { data: commandText(`灵田加速 ${preview.plotIndex} 催熟 1`) });
           }
           if (preview.ripenNextAt) {
             quote.addNewline().addText(`下次催熟：${formatGameTime(preview.ripenNextAt)}`);
@@ -99,9 +104,11 @@ export default onResponse(selects, async e => {
           ['小绿瓶', preview.maxGreenBottle ?? 0]
         ] as const) {
           if (maxCount > 0) {
-            quote.addNewline().addButton(markdownButtonLabel(`使用${item}×1`), { data: `/灵田加速 ${preview.plotIndex} ${item} 1` });
+            quote.addNewline().addButton(markdownButtonLabel(`使用${item}×1`), { data: commandText(`灵田加速 ${preview.plotIndex} ${item} 1`) });
             if (maxCount > 1) {
-              quote.addText(' ').addButton(markdownButtonLabel(`使用${item}×${maxCount}`), { data: `/灵田加速 ${preview.plotIndex} ${item} ${maxCount}` });
+              quote
+                .addText(' ')
+                .addButton(markdownButtonLabel(`使用${item}×${maxCount}`), { data: commandText(`灵田加速 ${preview.plotIndex} ${item} ${maxCount}`) });
             }
           }
         }

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 import type { GameEvent } from '@src/types/event';
@@ -47,20 +48,20 @@ export function renderOverview(
     {
       if (!slotData.alias || slotData.steps.length === 0) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('设置'), { data: `/任务设置 ${slot}` });
+        md.addButton(markdownButtonLabel('设置'), { data: commandText(`任务设置 ${slot}`) });
       }
       if (slotData.steps.length > 0) {
         md.addText(' ');
-        md.addButton(markdownButtonLabel('执行'), { data: `/任务执行 ${slot}` });
+        md.addButton(markdownButtonLabel('执行'), { data: commandText(`任务执行 ${slot}`) });
       }
     }
     md.addNewline();
   });
 
   md.addNewline();
-  md.addButton(markdownButtonLabel('任务设置'), { data: '/任务设置' });
+  md.addButton(markdownButtonLabel('任务设置'), { data: commandText('任务设置') });
   md.addText(' ');
-  md.addButton(markdownButtonLabel('任务别名'), { data: '/任务别名' });
+  md.addButton(markdownButtonLabel('任务别名'), { data: commandText('任务别名') });
 
   sendPage(e, '任务设置', md);
 }
@@ -126,7 +127,7 @@ export function renderSlot(e: GameEvent, slot: number, steps: string[], maxSteps
   if (steps.length < maxSteps) {
     md.addNewline();
     md.addNewline();
-    md.addButton(markdownButtonLabel(`填写第${nextStep}步`), { data: `/任务设置 ${slot} ${nextStep} ` });
+    md.addButton(markdownButtonLabel(`填写第${nextStep}步`), { data: commandText(`任务设置 ${slot} ${nextStep} `) });
   }
 
   sendPage(e, `任务设置 ${slot}`, md);
@@ -146,9 +147,9 @@ export function sendShortcut(_e: GameEvent, command: string, leadText = '请点�
 
     md.addNewline();
     buttonGroup.addRow();
-    buttonGroup.addButton('取消', '/任务取消');
-    buttonGroup.addButton('跳过', skipCommand);
-    buttonGroup.addButton(command, taskCommand);
+    buttonGroup.addButton('取消', commandText('任务取消'));
+    buttonGroup.addButton('跳过', commandText(skipCommand));
+    buttonGroup.addButton(command, commandText(taskCommand));
     format.addMarkdown(md);
     format.addButtonGroup(buttonGroup);
     void message.send({ format });

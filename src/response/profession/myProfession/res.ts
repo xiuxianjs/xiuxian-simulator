@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { parseProfessionDashboard } from '@src/api/bot/profession-dashboard-query';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -154,9 +155,9 @@ export default onResponse(selects, async e => {
         }
         const alchemyActions = Format.createMarkdown();
 
-        alchemyActions.addButton(markdownButtonLabel('我的丹方'), { data: '/炼丹 丹方' });
+        alchemyActions.addButton(markdownButtonLabel('我的丹方'), { data: commandText('炼丹 丹方') });
         if (result.data.alchemy.canAdvance) {
-          alchemyActions.addText(' ').addButton(markdownButtonLabel('进阶'), { data: '/炼丹 进阶' });
+          alchemyActions.addText(' ').addButton(markdownButtonLabel('进阶'), { data: commandText('炼丹 进阶') });
         }
         addSection(alchemyActions);
       } else {

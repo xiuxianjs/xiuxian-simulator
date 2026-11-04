@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice, sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -64,16 +65,16 @@ export default onResponse(selects, async e => {
 
   rewardsMd.addText('邀请规则与奖励');
   rewardsMd.addNewline();
-  rewardsMd.addButton(markdownButtonLabel('我邀请的道友'), { data: '/我的邀请' });
+  rewardsMd.addButton(markdownButtonLabel('我邀请的道友'), { data: commandText('我的邀请') });
   rewardsMd.addNewline();
-  rewardsMd.addButton(markdownButtonLabel('人数奖励'), { data: '/邀请人数奖励' });
+  rewardsMd.addButton(markdownButtonLabel('人数奖励'), { data: commandText('邀请人数奖励') });
   rewardsMd.addText(' ');
-  rewardsMd.addButton(markdownButtonLabel('VIP奖励'), { data: '/邀请VIP奖励' });
+  rewardsMd.addButton(markdownButtonLabel('VIP奖励'), { data: commandText('邀请VIP奖励') });
   rewardsMd.addText(' ');
-  rewardsMd.addButton(markdownButtonLabel('境界奖励'), { data: '/邀请境界奖励' });
+  rewardsMd.addButton(markdownButtonLabel('境界奖励'), { data: commandText('邀请境界奖励') });
   if (result.pendingRewards > 0) {
     rewardsMd.addNewline();
-    rewardsMd.addButton(markdownButtonLabel('领取奖励'), { data: '/领取邀请奖励' });
+    rewardsMd.addButton(markdownButtonLabel('领取奖励'), { data: commandText('领取邀请奖励') });
   }
   md.addBlockquote(rewardsMd);
 

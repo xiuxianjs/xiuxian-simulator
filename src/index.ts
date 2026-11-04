@@ -1,3 +1,4 @@
+import { startCustomerSupportPolling, stopCustomerSupportPolling } from './api/bot/customer-support';
 import { onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from './utils/qqBotIdentity';
 import { platform } from '@alemonjs/qq-bot';
@@ -39,6 +40,7 @@ async function startReadyServices(): Promise<void> {
   stopWaitingForAppId?.();
   stopWaitingForAppId = undefined;
   servicesStarted = true;
+  startCustomerSupportPolling();
   await resetChatContactObserver();
   try {
     await startFeatureVisibility();
@@ -88,6 +90,7 @@ export default defineChildren({
     stopWaitingForAppId?.();
     stopWaitingForAppId = undefined;
     stopNotificationStream();
+    await stopCustomerSupportPolling();
     await stopChatContactObserver();
   },
   // 注册路由

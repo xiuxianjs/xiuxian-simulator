@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotGlossaryView } from '@src/api/bot/glossary-robot-query';
@@ -45,7 +46,7 @@ export default onResponse(selects, async e => {
     md.addNewline();
 
     for (const cat of policy.categories) {
-      md.addButton(markdownButtonLabel(`${cat}`), { data: `/词典分类 ${cat}` });
+      md.addButton(markdownButtonLabel(`${cat}`), { data: commandText(`词典分类 ${cat}`) });
       md.addText(' ');
     }
 
@@ -80,7 +81,7 @@ export default onResponse(selects, async e => {
     md.addNewline();
 
     for (const cat of policy.categories) {
-      md.addButton(markdownButtonLabel(`${cat}`), { data: `/词典分类 ${cat}` });
+      md.addButton(markdownButtonLabel(`${cat}`), { data: commandText(`词典分类 ${cat}`) });
       md.addText(' ');
     }
 
@@ -135,7 +136,7 @@ export default onResponse(selects, async e => {
     if (cat === category) {
       md.addText(`[${cat}] `);
     } else {
-      md.addButton(markdownButtonLabel(`${cat}`), { data: `/词典分类 ${cat}` });
+      md.addButton(markdownButtonLabel(`${cat}`), { data: commandText(`词典分类 ${cat}`) });
       md.addText(' ');
     }
   }

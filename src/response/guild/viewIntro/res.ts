@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -31,7 +32,7 @@ export default onResponse(selects, async e => {
     md.addBold(`【${result.data.guildName}】宗门简介`);
     md.addNewline();
 
-    md.addButton(markdownButtonLabel('返回'), { data: '/我的宗门' });
+    md.addButton(markdownButtonLabel('返回'), { data: commandText('我的宗门') });
     md.addNewline();
 
     md.addText(result.data.intro ?? '暂无简介');

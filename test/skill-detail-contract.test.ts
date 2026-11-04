@@ -23,4 +23,15 @@ test('skill detail original SDK preserves fixed instance route, effect validatio
   assert.equal(header('Authorization'),'Bearer local-test');assert.equal(header('X-Bid'),'player');assert.equal(header('Idempotency-Key'),undefined);assert.equal(header('X-Repeat-Command'),undefined);
  }
  calls.length=0;await assert.rejects(()=>getBackendSkillDetail('player',1,9007199254740992),/Invalid parameter bookId/);assert.equal(calls.length,0);
+ // Skill multipliers are decimals; effect enums and counts retain integer validation.
+ row = structuredClone(rows.find(r => r.status === 200 && r.result.success && r.v1.data.book));
+ assert.ok(row);
+ row.v1.data.book.multiplier = 1.25;
+ row.v1.data.book.defenseIgnorePercent = 12.5;
+ const parsed = await getBackendSkillDetail('player', 1, row.bookId);
+ assert.equal(parsed.book?.multiplier, 1.25);
+ assert.equal(parsed.book?.defenseIgnorePercent, 12.5);
+ row.v1.data.book.cooldown = 1.5;
+ await assert.rejects(() => getBackendSkillDetail('player', 1, row.bookId), /功法详情接口缺少数值字段/);
+
 });

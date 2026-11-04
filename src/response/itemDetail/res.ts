@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { detailRecoveryTips } from '@src/response/detailRecovery';
@@ -50,7 +51,7 @@ export default onResponse(selects, async e => {
 
     md.addText('请输入物品名称');
     md.addNewline();
-    md.addButton(markdownButtonLabel('储物袋'), { data: '/储物袋' });
+    md.addButton(markdownButtonLabel('储物袋'), { data: commandText('储物袋') });
     appendMiddlewareAdvice(md, detailRecoveryTips('items.detail', '缺少参数'));
 
     void message.send(

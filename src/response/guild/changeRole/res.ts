@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -58,7 +59,7 @@ export default onResponse(selects, async e => {
 
       // 可执行的任命选项由服务端按权限和席位裁决。
       for (const role of member.appointableRoles) {
-        quote.addText(' ').addButton(markdownButtonLabel(`${role.name}`), { data: `/设置身份为 ${role.name} ${member.userId}` });
+        quote.addText(' ').addButton(markdownButtonLabel(`${role.name}`), { data: commandText(`设置身份为 ${role.name} ${member.userId}`) });
       }
       md.addBlockquote(quote);
     }

@@ -1,3 +1,4 @@
+import { commandText } from '@src/utils/commandPrefix';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { detailRecoveryTips } from '@src/response/detailRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -145,9 +146,9 @@ export default onResponse(selects, async e => {
   const actionMd = Format.createMarkdown();
 
   for (const action of soulArtifactActions(artifact.capabilities)) {
-    actionMd.addText(' ').addButton(markdownButtonLabel(action.label), { data: action.command });
+    actionMd.addText(' ').addButton(markdownButtonLabel(action.label), { data: commandText(action.command) });
   }
-  actionMd.addText(' ').addButton(markdownButtonLabel('储物袋 · 本命'), { data: '/储物袋 本命' });
+  actionMd.addText(' ').addButton(markdownButtonLabel('储物袋 · 本命'), { data: commandText('储物袋 本命') });
   contentMd.addBlockquote(actionMd);
 
   appendMiddlewareAdvice(contentMd, soulArtifactBlockedAdvice(artifact.capabilities));
