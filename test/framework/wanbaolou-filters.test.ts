@@ -5,6 +5,7 @@ import { inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/shop/hub/res';
 import { buildShopBrowseCommand, parseShopBrowseCommand } from '../../src/response/shop/filters';
 import { catalogRequestFromMessage } from '../../src/api/bot/catalog-query-reuse';
+import { MARKET_FILTER_PRIMARY_LABELS, MARKET_SELL_PRIMARY_LABELS } from '../../src/response/market/categories';
 import { businessEnvelope, gameFixture } from './fixture';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
@@ -40,6 +41,7 @@ for (const privateChat of [true, false]) {
     assert.match(view.text, /第1\/2页/);
     assert.ok(view.commands.includes('/购买 301'));
     assert.ok(view.commands.includes('/物品详情 物品 38'));
+    assert.ok(!view.commands.some(command => /筛选 鱼类(?:\s|$)/.test(command)));
     const pageCommand = command.replace(/ 1$/, ' 2');
     assert.ok(view.commands.includes(pageCommand));
     const material = view.commands.find(c => c.includes('筛选 材料 ')); assert.ok(material);
@@ -70,6 +72,9 @@ test('空结果和缺参页保留搜索与七个分类按钮', async t => {
     assert.doesNotMatch(view.text, /‹兑换›|‹重置›|‹全币种›|‹仅看可购›|‹默认排序›|‹草药›|‹价格[↑↓]›/);
   }
   assert.equal(requests.length, 2);
+  assert.equal(parseShopBrowseCommand('/商店 万宝楼 筛选 鱼类 1').error, '未找到这个商品分类');
+  assert.ok(MARKET_FILTER_PRIMARY_LABELS.includes('鱼类'));
+  assert.ok(MARKET_SELL_PRIMARY_LABELS.includes('鱼类'));
 });
 
 test('关键词不误识别币种或页码，组合命令往返一致且不复用未筛选目录', () => {

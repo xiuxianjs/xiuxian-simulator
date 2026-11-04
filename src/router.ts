@@ -17,7 +17,7 @@ export function createGameRouter() {
   const commandPattern = (pattern: RegExp): RegExp => {
     const source = pattern.source.replace('\\/?', '');
 
-    return new RegExp('^\\s*' + escape(prefix) + '\\s*' + source.slice(1), pattern.flags);
+    return new RegExp('^\\s*' + (customPrefix ? escape(prefix) + '\\s*' : '(?:/\\s*)?') + source.slice(1), pattern.flags);
   };
   // 根路由不限制事件；各入口和游戏分组声明自己的事件范围。
   const app = Router.create();
@@ -104,7 +104,7 @@ export function createGameRouter() {
         routeText: {
           prefixes: ['notAutoConfirmation:' + prefix, prefix],
           stripPrefix: true,
-          allowBare: false
+          allowBare: !customPrefix
         }
       },
       ...(customPrefix
@@ -1339,14 +1339,14 @@ export function createGameRouter() {
   const matchesGameCommand = (event: { name?: string; MessageText?: string }): boolean => {
     const text = event.MessageText ?? '';
 
-    if (!hasCommandPrefix(text, prefix)) {
+    if (!hasCommandPrefix(text, prefix) && (customPrefix || !/^\s*[\p{L}\p{N}]/u.test(text))) {
       return false;
     }
 
     return app.match({ ...event, MessageText: customPrefix ? internalCommandText(text, prefix) : text }).matched;
   };
 
-  // 只接管使用当前前缀的命令；未匹配事件继续传给其他包。
+  // 默认 / 兼容已注册裸指令；自定义前缀仍专属匹配，未知聊天继续传给其他包。
   const router = defineRouter(
     [{ selects: ['private.message.create'], regular: undefined, handler: supportPlainHandler }, ...app.values].map(entry => ({
       ...entry,
@@ -1357,17 +1357,21 @@ export function createGameRouter() {
         const guard = (event: GameEvent, next: Next) => {
           if (
             !isGameEventEnabled(event) ||
-            (!allowSupportPlain && commandEvents.some(name => name === event.name) && !hasCommandPrefix(event.MessageText ?? '', prefix))
+            (!allowSupportPlain && commandEvents.some(name => name === event.name) && !matchesGameCommand(event))
           ) {
             next();
 
             return;
           }
 
-          if (customPrefix && event.MessageText) {
+          const registeredBare = !customPrefix && !hasCommandPrefix(event.MessageText ?? '', prefix) && matchesGameCommand(event);
+
+          if (event.MessageText && (customPrefix || registeredBare)) {
             const original = event.MessageText;
 
-            if (entry.regular) {
+            if (registeredBare) {
+              event.MessageText = '/' + original.trimStart();
+            } else if (entry.regular) {
               event.MessageText = internalCommandText(original, prefix);
             }
             originals.set(event, original);
@@ -1381,9 +1385,10 @@ export function createGameRouter() {
           if (original !== undefined) {
             // 任务入口会有意重写指令，继续交给本包路由时使用配置前缀。
             const current = event.MessageText;
+            const normalized = customPrefix ? internalCommandText(original, prefix) : '/' + original.trimStart();
 
             event.MessageText =
-              current && current !== original && current !== internalCommandText(original, prefix) ? prefix + current.replace(/^\//, '') : original;
+              current && current !== original && current !== normalized ? prefix + current.replace(/^\//, '') : original;
             originals.delete(event);
           }
           next();

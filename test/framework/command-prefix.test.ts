@@ -44,7 +44,7 @@ for (const prefix of ['/', '**', '++', '修仙']) {
       assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: `${prefix}任务 abc` }), true);
       assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: `${prefix}不存在的插件命令` }), false);
       if (prefix === '/') {
-        assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: '商店' }), false);
+        assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: '商店' }), true);
         for (const text of ['#商店', '＃商店', '!商店', '！商店']) {
           assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: text }), false);
         }
@@ -96,7 +96,7 @@ for (const prefix of ['/', '**']) {
 }
 
 for (const prefix of ['/', '**']) {
-test(`严格前缀 ${prefix} 未匹配时，下游插件收到完整原文`, async t => {
+test(`前缀 ${prefix} 未匹配时，下游插件收到完整原文`, async t => {
   const app = createTestApp({ config: { 'xiuxian-game': { commandPrefix: prefix }, processor: { repeated_user_time: 0 } } });
   t.after(() => app.dispose());
   await app.mount({ responseRouter: app.run(createGameRouter).router });
@@ -106,7 +106,7 @@ test(`严格前缀 ${prefix} 未匹配时，下游插件收到完整原文`, asy
     await message.send({ format: Format.create().addText(event.MessageText ?? '') });
   }));
   await app.mount({ responseRouter: downstream.define }, undefined, 'other-plugin');
-  for (const text of ['商店', '替换 2', '任务 abc', '任务面板', '继续引导', `${prefix}/商店`, '聊天内容', ...(prefix === '/' ? [] : ['/商店']), `${prefix}其他插件 原参数`, '/其他插件']) {
+  for (const text of [...(prefix === '/' ? [] : ['商店', '替换 2', '任务 abc', '任务面板', '继续引导', '/商店']), `${prefix}/商店`, '聊天内容', `${prefix}其他插件 原参数`, '/其他插件']) {
     const result = await app.dispatch(app.events.groupMessage({ text }));
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
