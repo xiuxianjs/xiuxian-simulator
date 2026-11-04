@@ -229,7 +229,7 @@ test('打窝物品名加粗，当前状态普通行保持原样', async t => {
 
 test('赐福鱼名加粗，星级加成与放生按钮同行保持原位置', async t => {
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, view({ view: 'blessing', title: '锦鲤赐福 · 筑基',
-    sections: [section('', ['放归生灵，获取修为赐福。']), section('铁鳞鲫', ['⭐⭐→⭐⭐⭐', '主线修为 +2% → 3%'], [action('放生10条', '/垂钓 赐福预览 fishing_r2_a')])] })));
+    sections: [section('', ['放归生灵，获取修为赐福。']), section('铁鳞鲫', ['⭐⭐→⭐⭐⭐', '闭关修为 +2% → 3%'], [action('放生30条', '/垂钓 赐福预览 fishing_r2_a')])] })));
   const result = await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 赐福 筑基', platform: 'qq-bot' }));
   const [page] = sent(result);
   const markdown = result.messages[0].nodes.find(node => node.type === 'Markdown');
@@ -239,7 +239,7 @@ test('赐福鱼名加粗，星级加成与放生按钮同行保持原位置', as
   assert.equal(quote.value[0].type, 'MD.bold'); assert.equal(quote.value[0].value, '铁鳞鲫');
   assert.equal(quote.value[2].type, 'MD.button');
   assert.ok(page.commands.includes('/垂钓 赐福预览 fishing_r2_a'));
-  assert.ok(page.text.includes('⭐⭐→⭐⭐⭐')); assert.ok(page.text.includes('主线修为 +2% → 3%'));
+  assert.ok(page.text.includes('⭐⭐→⭐⭐⭐')); assert.ok(page.text.includes('闭关修为 +2% → 3%')); assert.ok(page.text.includes('放生30条'));
 });
 
 test('真实捕灵网回执直接展示鱼名重量与合并物品数量，不展示计算过程', async t => {
@@ -281,10 +281,16 @@ test('真实赐福总览显示后端合计，先总览后已解锁境界，仙�
     for (const section of actualBlessings.cases[realm].sections) {
       for (const line of section.lines) { assert.ok(page.text.includes(line)); }
     }
+    const channelPositions = ['闭关修为：', '主线修为：', '秘境修为：', '比试修为：', '打劫修为：'].map(label => page.text.indexOf(label));
+    assert.ok(channelPositions.every((position, index) => position >= 0 && (index === 0 || position > channelPositions[index - 1])));
+    assert.ok(page.text.includes('秘境增益包含挑战、扫荡与探索。'));
+    assert.ok(page.text.includes('丹药等其他修为来源适用此通用增益。'));
+    assert.ok(!page.text.includes('丹药修为：'));
     if (realm === '仙') {
       assert.equal(actualBlessings.cases[realm].navRows.length, 3);
       assert.ok(page.text.includes('150 / 150')); assert.ok(page.text.includes('全部修为：+30%'));
-      assert.ok(page.text.includes('主线修为：+60%（专属30%＋通用30%）')); assert.ok(page.commands.includes('/垂钓 赐福 9'));
+      for (const channel of ['闭关', '主线', '秘境']) { assert.ok(page.text.includes(`${channel}修为：+60%（专属30%＋通用30%）`)); }
+      assert.ok(page.commands.includes('/垂钓 赐福 9'));
     } else {
       assert.ok(!page.commands.includes('/垂钓 赐福 ' + (realm === '筑基' ? '3' : '1')));
     }

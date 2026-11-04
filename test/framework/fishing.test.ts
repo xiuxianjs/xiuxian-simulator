@@ -247,10 +247,12 @@ test('礼包支付只私聊并复用原收银台订单，不在群聊建立订�
 test('锦鲤赐福页面保留分类和星级，默认预览仅传鱼种不自动献鱼',async t=>{
   const labels=['凡物','炼气','筑基'];
   const tabs=[0].map(from=>({title:'',id:'',suffix:'',lines:[],actions:labels.slice(from,from+4).map((label,i)=>({label,command:`/垂钓 赐福 ${from+i}`}))}));
-  const fish=[['铁鳞鲫','fishing_r2_a','⭐⭐→⭐⭐⭐','主线修为 +2% → 3%','放生10条'],['金须鲤','fishing_r2_b','⭐→⭐⭐','秘境修为 +1% → 2%','放生5条'],['灵纹鳟','fishing_r2_c','未解锁→⭐','丹药修为 +0% → 1%','放生1条'],['寒玉鲈','fishing_r2_d','⭐→⭐⭐','比试、打劫修为 +1% → 2%','放生3条'],['玄甲鱼王','fishing_r2_e','⭐⭐⭐ · 已满星','全部修为 +3%','']].map(([name,id,stars,bonus,label])=>({title:name,id:'',suffix:'',lines:[stars,bonus],actions:label?[{label,command:`/垂钓 赐福预览 ${id}`}]:[]}));
+  const fish=[['铁鳞鲫','fishing_r2_a','⭐⭐→⭐⭐⭐','闭关修为 +2% → 3%','放生30条'],['金须鲤','fishing_r2_b','⭐→⭐⭐','主线修为 +1% → 2%','放生15条'],['灵纹鳟','fishing_r2_c','未解锁→⭐','秘境修为 +0% → 1%','放生3条'],['寒玉鲈','fishing_r2_d','⭐→⭐⭐','比试、打劫修为 +1% → 2%','放生9条'],['玄甲鱼王','fishing_r2_e','⭐⭐⭐ · 已满星','全部修为 +3%','']].map(([name,id,stars,bonus,label])=>({title:name,id:'',suffix:'',lines:[stars,bonus],actions:label?[{label,command:`/垂钓 赐福预览 ${id}`}]:[]}));
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'blessing',title:'锦鲤赐福 · 筑基',sections:[{title:'',id:'',suffix:'',lines:['放归生灵，获取修为赐福。'],actions:[]},...tabs,...fish],footer:[{label:'查看渔获',command:'/垂钓 渔获 1'},{label:'返回垂钓',command:'/垂钓'}]})));
   const view=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 赐福',platform:'qq-bot'})),'锦鲤赐福');
   assert.match(view.text,/⭐⭐→⭐⭐⭐/);
+  for(const expected of ['闭关修为 +2% → 3%','主线修为 +1% → 2%','秘境修为 +0% → 1%','放生30条','放生15条','放生3条','放生9条'])assert.ok(view.text.includes(expected));
+  assert.doesNotMatch(view.text,/丹药修为/);
   assert.ok(view.commands.includes('/垂钓 赐福 0'));
   assert.ok(view.commands.includes('/垂钓 赐福 2'));
   assert.ok(!view.commands.includes('/垂钓 赐福 3'));
@@ -448,14 +450,19 @@ for(const mode of ['buy','sell'] as const)test(`渔市余额先于买卖切换�
   assert.ok(positions.every((value,index)=>value>=0&&(index===0||value>positions[index-1])),JSON.stringify({mode,positions,text:result.text}));
 });
 
-test('放生原预览显示最轻十尾的完整编号逐条重量和总重，确认不再选鱼',async t=>{
-  const selected=Array.from({length:10},(_,index)=>({id:`ff_${(index+512).toString(16).padStart(32,'0')}`,weightG:450+100*index}));
-  const lines=['铁鳞鲫：⭐⭐ → ⭐⭐⭐','主线修为 +2% → 3%','本次选择10条鱼，合重9.000千克','默认优先选择最轻的鱼，同重按编号排序；下列原编号和重量已固定。',...selected.map(fish=>`${fish.id} · 铁鳞鲫 · ${(fish.weightG/1000).toFixed(3)}千克`)];
+test('放生原预览显示筑基三十尾总重及前十二尾编号，其余十八尾仍由原引用确认',async t=>{
+  const selected=Array.from({length:30},(_,index)=>({id:`ff_${(index+512).toString(16).padStart(32,'0')}`,weightG:450+100*index}));
+  const totalWeightG=selected.reduce((total,fish)=>total+fish.weightG,0);
+  assert.equal(totalWeightG,57000);
+  const lines=['铁鳞鲫：⭐⭐ → ⭐⭐⭐','闭关修为 +2% → 3%','本次选择30条鱼，重量：57.000千克','默认优先选择最轻的鱼，同重按编号排序；下列原编号和重量已固定。',...selected.slice(0,12).map(fish=>`${fish.id} · 铁鳞鲫 · 重量：${(fish.weightG/1000).toFixed(3)}千克`),'其余18条也已按原编号选定。'];
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'放生升星完成',operationId:'release-original'}):base({view:'confirmation',title:'放生预览',sections:[{title:'本次放生',id:'',suffix:'',lines,actions:[]}],confirmationRef:ref,operationId:'release-original',expiresAt:'2026-11-04T23:00:00+08:00',footer:[{label:'确认放生',command:`/垂钓 确认 ${ref}`},{label:'取消',command:'/垂钓 赐福'}]})));
   const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 赐福预览 fishing_r2_a',platform:'qq-bot'})),'放生原预览');
   assert.deepEqual(requests[0].body.arguments,{kind:'blessing-unlock',speciesId:'fishing_r2_a'});
-  assert.match(preview.text,/合重9\.000千克/);
-  for(const fish of selected){assert.ok(preview.text.includes(fish.id));assert.ok(preview.text.includes(`${(fish.weightG/1000).toFixed(3)}千克`));}
+  assert.match(preview.text,/本次选择30条鱼，重量：57\.000千克/);
+  assert.match(preview.text,/闭关修为 \+2% → 3%/);
+  for(const fish of selected.slice(0,12)){assert.ok(preview.text.includes(fish.id));assert.ok(preview.text.includes(`${(fish.weightG/1000).toFixed(3)}千克`));}
+  for(const fish of selected.slice(12))assert.ok(!preview.text.includes(fish.id));
+  assert.match(preview.text,/其余18条也已按原编号选定。/);
   const command=preview.commands.find(command=>command.startsWith('/垂钓 确认 '))!;
   for(let i=0;i<2;i++)delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),'放生原确认');
   assert.deepEqual(requests.slice(1).map(request=>request.body.arguments),[{ref},{ref}]);
