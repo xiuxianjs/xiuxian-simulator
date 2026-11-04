@@ -13,6 +13,9 @@ import {
   MARKET_SECONDARY_CATEGORY_LABELS
 } from '@src/response/market/categories';
 
+// Fish are player-owned instances traded in the market, not shop products.
+const SHOP_FILTER_PRIMARY_LABELS = MARKET_FILTER_PRIMARY_LABELS.filter(label => label !== '鱼类');
+
 export interface ShopFilters {
   category?: string;
   subtype?: string;
@@ -51,7 +54,7 @@ export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
     if (primary === '兑换') {
       filters.category = 'currency';
       categoryLabel = primary;
-    } else if (isMarketFilterPrimaryLabel(primary)) {
+    } else if (isMarketFilterPrimaryLabel(primary) && primary !== '鱼类') {
       filters.category = MARKET_PRIMARY_CATEGORY_KEYS[primary]?.type;
       categoryLabel = primary;
       const secondary = tokens[categoryIndex + 2];
@@ -125,7 +128,7 @@ export function appendShopSearch(md: ReturnType<typeof Format.createMarkdown>, s
 }
 
 export function createShopCategoryFooter(selection: ShopSelection) {
-  return MARKET_FILTER_PRIMARY_LABELS.map(label => ({
+  return SHOP_FILTER_PRIMARY_LABELS.map(label => ({
     label,
     selected: selection.categoryLabel === label,
     command: buildShopBrowseCommand(selection, { categoryLabel: label, secondaryLabel: undefined })
