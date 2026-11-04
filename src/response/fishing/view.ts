@@ -75,12 +75,22 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   } else if (data.view === 'blessing') {
     data.sections.forEach(section => block(section, Boolean(section.title), false, Boolean(section.title)));
   } else if (data.view === 'shop') {
+    const modeActions = data.navRows?.flat().filter(action => ['转为出售', '转为购买'].includes(action.label)) ?? [];
+
     if (data.sections[0]) {
       block(data.sections[0], false);
     }
+    if (modeActions.length) {
+      buttons(md, modeActions);
+      md.addNewline().addNewline();
+    }
     const tabs = footer.filter(action => ['灵鳞钱', '灵石', '灵晶', '道晶'].includes(action.label));
 
-    buttons(md, tabs);
+    const categories = ['饵料', '窝料', '钓具', '渔具', '素材', '鱼类'];
+    const serverCategories = data.navRows?.flat().filter(action => categories.includes(action.label)) ?? [];
+    const typeActions = serverCategories.length ? serverCategories : categories.slice(0, 5).map((label, index) => ({ label, command: `/垂钓 渔市 ${['bait', 'chum', 'rod', 'net', 'material'][index]} 1` }));
+
+    buttons(md, typeActions);
     md.addNewline().addNewline();
     data.sections.slice(1).forEach(section => block(section, true));
     footer = footer.filter(action => !tabs.includes(action));

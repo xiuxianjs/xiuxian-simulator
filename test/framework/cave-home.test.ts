@@ -3,7 +3,8 @@ import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import type { ProfessionDashboardQueryData } from '../../src/api/schemas/profession-dashboard-query';
-import router from '../../src/router';
+import router, { createGameRouter } from '../../src/router';
+import { getAppConfig } from '../../src/utils/appConfig';
 import { businessEnvelope, gameFixture } from './fixture';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
@@ -59,6 +60,10 @@ for (const isPrivate of [false, true]) {
         }
         assert.doesNotMatch(view.text, /在此打理|查看锻造职业、图纸与委托|查看阵法与当前效果/);
         for (const entry of ['/我', '/属性面板', '/查看主线', '/我的活动', '/商店']) assert.ok(view.commands.includes(entry), entry);
+        assert.ok(view.commands.includes('/垂钓'));
+        const fishingButtons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.button' && child.options?.data === '/垂钓') : []);
+        assert.equal(fishingButtons.length, 1);
+        assert.ok(fishingButtons.every(button => button.type === 'MD.button' && button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
 
         if (state === 'joined') {
           for (const text of ['37 / 200', '炼制次数：11', '测试丹炉', '已开垦：2块', '当前可开垦：1块', '每块开垦消耗：测试材料']) assert.ok(view.text.includes(text), text);
@@ -161,3 +166,20 @@ for (const isPrivate of [false, true]) {
     });
   }
 }
+
+test('洞府垂钓入口沿用已配置前缀且不增加RPC查询', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, professionData('joined')));
+  const config = app.run(getAppConfig);
+  app.configure({ processor: { repeated_user_time: 0 }, 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { ...config, commandPrefix: '**' } });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const result = await app.dispatch(app.events.privateMessage({ text: '**洞府', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].path, '/api/v2/robot/business/profession.dashboard');
+  const message = result.messages[0];
+  const view = inspectMessage(message.nodes);
+  assert.ok(view.commands.includes('**垂钓'));
+  const buttons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.button' && child.options?.data === '**垂钓') : []);
+  assert.equal(buttons.length, 1);
+  assert.ok(buttons.every(button => button.type === 'MD.button' && button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
+});

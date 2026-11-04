@@ -5,7 +5,7 @@ import { dirname } from 'node:path';
 import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import handler from '../../src/response/fishing/res';
-import { parseFishingCommand } from '../../src/response/fishing/commands';
+import { fishingWeightGrams, parseFishingCommand } from '../../src/response/fishing/commands';
 import { parseFishingView, validFishingReference, type FishingView } from '../../src/api/bot/fishing';
 import { matchesGameCommand } from '../../src/router';
 import { parseBackendNormalPaymentSettlement } from '../../src/api/bot/sponsor-payment';
@@ -53,8 +53,8 @@ after(async () => {
 });
 
 test('垂钓四入口注册，首页真实组件发送且全部蓝链只填手发', async t => {
-  for (const command of ['/垂钓', '/渔获', '/钓具', '/渔市']) assert.ok(matchesGameCommand({ name: 'private.message.create', MessageText: command }));
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, base()));
+  for (const command of ['/垂钓', '/渔获', '/钓具', '/渔市']) assert.ok(app.run(()=>matchesGameCommand({ name: 'private.message.create', MessageText: command })));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })), '/垂钓');
   assert.match(view.text, /洞府垂钓/);
   assert.match(view.text, /钓技二级 \/ 九级/);
@@ -207,14 +207,21 @@ test('升竿真实三组布局保留原编号与资源持有且确认按钮不�
   assert.equal(view.commands.filter(cmd=>cmd===`/垂钓 确认 ${ref}`).length,1);
 });
 
-test('渔市四币标签在余额后且100晶购买仍走原兑换预览',async t=>{
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'shop',title:'渔市 · 灵鳞钱',sections:[{title:'',id:'',suffix:'',lines:['余额：8,640钱'],actions:[]},{title:'',id:'',suffix:'',lines:['灵晶 ×100 · 1000钱','日限购 2 / 2'],actions:[{label:'购买',command:'/垂钓 兑换 灵晶 100'}]},{title:'',id:'',suffix:'',lines:['聚鳞散 ×1 · 3钱','周期×0.90，当前鱼塘2份为6小时','生效期间鱼90%、杂获10%'],actions:[{label:'购买',command:'/垂钓 购买 coin chum:basic 1'}]}],footer:[...['灵鳞钱','灵石','灵晶','道晶'].map(label=>({label,command:`/垂钓 渔市 ${label} 1`})),{label:'礼包',command:'/垂钓 礼包'},{label:'返回垂钓',command:'/垂钓'}]})));
+test('渔市旧事实兼容时仅显示五分类导航且100晶仍走原兑换预览',async t=>{
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'shop',title:'渔市 · 灵鳞钱',sections:[{title:'',id:'',suffix:'',lines:['余额：8,640钱'],actions:[]},{title:'',id:'',suffix:'',lines:['灵晶 ×100 · 1000钱','日限购 2 / 2'],actions:[{label:'购买',command:'/垂钓 兑换 灵晶 100'}]},{title:'',id:'',suffix:'',lines:['聚鳞散 ×1 · 1000钱','本周限购 1 / 1','周期×0.90，每份持续6小时','生效期间鱼90%、杂获10%'],actions:[{label:'购买',command:'/垂钓 购买 coin chum:basic 1'}]}],footer:[...['灵鳞钱','灵石','灵晶','道晶'].map(label=>({label,command:`/垂钓 渔市 ${label} 1`})),{label:'礼包',command:'/垂钓 礼包'},{label:'返回垂钓',command:'/垂钓'}]})));
   const view=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 渔市',platform:'qq-bot'})),'渔市·用户指定版');
   assert.match(view.text,/日限购 2 \/ 2/);
+  assert.match(view.text,/聚鳞散 ×1 · 1000钱/);
+  assert.match(view.text,/本周限购 1 \/ 1/);
+  assert.doesNotMatch(view.text,/聚鳞散 ×1 · 3钱/);
+  assert.ok(view.commands.includes('/垂钓 购买 coin chum:basic 1'));
   assert.ok(view.text.indexOf('余额：')<view.text.indexOf('灵晶 ×100'));
   assert.ok(view.commands.includes('/垂钓 兑换 灵晶 100'));
+  assert.ok(view.commands.includes('/垂钓 渔市 bait 1'));
+  assert.ok(view.commands.includes('/垂钓 渔市 material 1'));
+  assert.ok(!view.commands.includes('/垂钓 渔市 灵鳞钱 1'));
   assert.deepEqual(parseFishingCommand('/垂钓 兑换 灵晶 100'),{operation:'fishing.preview',input:{kind:'cashout',currency:'crystal',quantity:100}});
-  assert.deepEqual(requests[0].body.arguments,{view:'shop',currency:'coin',page:1});
+  assert.deepEqual(requests[0].body.arguments,{view:'shop',shopCategory:'bait',page:1});
 });
 
 test('礼包支付只私聊并复用原收银台订单，不在群聊建立订单',async t=>{
@@ -256,7 +263,7 @@ test('垂钓礼包到账仅使用原回执，保留精确原竿和专属奖励',
 test('设置四组展示与partial原预览确认，运行中保存仅下次生效',async t=>{
   const section=(title:string,lines:string[],actions:{label:string;command:string}[]=[])=>({title,id:'',suffix:'',lines,actions});
   const settings=base({view:'settings',title:'垂钓 · 设置',sections:[
-    section('持续打窝',['状态：开启','种类：聚鳞散','当前鱼塘每6小时需2份'],[{label:'改为关闭',command:'/垂钓 设置 持续打窝 关'},{label:'选择窝料',command:'/垂钓 设置 窝料'}]),
+    section('持续打窝',['状态：开启','种类：聚鳞散','所有鱼塘每份窝料固定6小时'],[{label:'改为关闭',command:'/垂钓 设置 持续打窝 关'},{label:'选择窝料',command:'/垂钓 设置 窝料'}]),
     section('饵尽切换',['状态：开启','主饵：聚灵饵','备用顺序：素灵饵 → 唤王饵'],[{label:'改为关闭',command:'/垂钓 设置 换饵 关'},{label:'选择主饵',command:'/垂钓 设置 主饵'},{label:'调整顺序',command:'/垂钓 设置 饵序'}]),
     section('消息推送',['稀有鱼：关闭（胜败均通知）','鱼王：关闭（胜败均通知）','默认关闭；确认保存后即时生效，仅影响通知。'],[{label:'稀有鱼开启',command:'/垂钓 设置 稀有通知 开'},{label:'鱼王开启',command:'/垂钓 设置 鱼王通知 开'},{label:'通知设置',command:'/通知设置'}]),
     section('生效范围',['正在垂钓：竿与饵序保持原配置，当前窝料可手动打窝。','通知设置即时生效；其他物资偏好下次生效。','常规会话只预留已有物资，最多4个6小时窝料批次、288份饵，不自动购买。'],[{label:'开钓配置',command:'/垂钓 开钓'},{label:'当前打窝',command:'/垂钓 打窝'}])
@@ -296,10 +303,12 @@ test('本次自动预算窝料及显式无窝保留零，空偏好交服务端�
 });
 
 test('捕灵网仅预览默认或指定水域，原引用确认不重查新配置',async t=>{
-  const sections=[{title:'捕灵网',id:'',suffix:'',lines:['可用：2张','本次水域：筑基水域','每次消耗1张，直接获得两小时渔获；控鱼、战斗均必定成功。','不看鱼竿/鱼饵加成，不消耗鱼饵。','仅虚拟消耗两小时窝料时长，不提前普通收竿时间。'],actions:[{label:'使用预览',command:'/垂钓 用网'}]},{title:'',id:'',suffix:'',lines:[],actions:[{label:'炼气',command:'/垂钓 渔具 1'},{label:'筑基',command:'/垂钓 渔具 2'}]}];
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'捕灵网使用预览',sections:[{title:'捕灵网',id:'',suffix:'',lines:['水域：筑基','消耗：捕灵网1张','鱼类必得，不耗鱼饵','仅消耗两小时窝料时长，不提前普通收竿时间。'],actions:[]}],confirmationRef:ref,operationId:'net-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'捕灵网结算完成'}):base({view:'tools',title:'垂钓 · 使用渔具',sections})));
+  const sections=[{title:'捕灵网',id:'',suffix:'',lines:['可用：2张','本次水域：筑基水域','每次耗1张，直接获得两小时渔获，鱼类控鱼／战斗必成。','不看竿／饵加成，不消耗鱼饵。','仅虚拟消耗2小时窝效，不提前普通收杆时间。'],actions:[{label:'使用预览',command:'/垂钓 用网'}]}];
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'捕灵网使用预览',sections:[{title:'捕灵网',id:'',suffix:'',lines:['水域：筑基','消耗：捕灵网1张','鱼类必得，不耗鱼饵','仅消耗两小时窝料时长，不提前普通收竿时间。'],actions:[]}],confirmationRef:ref,operationId:'net-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'捕灵网结算完成'}):base({view:'tools',title:'垂钓 · 使用渔具',sections,footer:[{label:'渔市',command:'/垂钓 渔市 buy net 1'},{label:'返回垂钓',command:'/垂钓'}]})));
   const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 渔具',platform:'qq-bot'})),'使用渔具');
   assert.match(page.text,/可用：2张/);
+  assert.match(page.text,/每次耗1张，直接获得两小时渔获，鱼类控鱼／战斗必成。/);
+  assert.deepEqual(page.commands,['/垂钓 用网','/垂钓 渔市 buy net 1','/垂钓']);
   assert.deepEqual(requests[0].body.arguments,{view:'tools',waterLevel:0});
   const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 用网',platform:'qq-bot'})),'捕灵网预览');
   assert.deepEqual(requests[1].body.arguments,{kind:'use-net',waterLevel:0,quantity:1});
@@ -340,12 +349,13 @@ test('晶道页不接受直接购饵，钱石购买与礼包入口不受影响',
 
 test('当前打窝无等级按原始份数预览，同种加时异种替换仍须原引用确认',async t=>{
   const section=(title:string,lines:string[],actions:{label:string;command:string}[]=[])=>({title,id:'',suffix:'',lines,actions});
-  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'手动打窝预览',sections:[section('当前窝效',['聚鳞散 · 剩余2小时','换用引珍散，旧剩余2小时效果将作废，不能混合。']),section('本次打窝',['消耗：引珍散7份','新增时长：6小时','预计到期：今日23:00'])],confirmationRef:ref,operationId:'manual-chum-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'打窝完成'}):base({view:'chum',title:'垂钓 · 当前打窝',sections:[section('',['当前窝效：聚鳞散 · 剩余2小时','鱼塘Lv.4每6小时需7份；窝料不分等级。','同种加时，异种先预览确认替换。']),section('引珍散',['可用：12份','7份为6小时','生效期间鱼90%、杂获10%'],[{label:'打窝预览·7份',command:'/垂钓 打窝 引珍散 7'}])],footer:[{label:'持续策略',command:'/垂钓 设置'},{label:'返回垂钓',command:'/垂钓'}]})));
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'手动打窝预览',sections:[section('当前窝效',['聚鳞散 · 剩余2小时','换用引珍散，旧剩余2小时效果将作废，不能混合。']),section('本次打窝',['消耗：引珍散7份','新增时长：42小时','预计到期：11-06 11:00'])],confirmationRef:ref,operationId:'manual-chum-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'打窝完成'}):base({view:'chum',title:'垂钓 · 当前打窝',sections:[section('',['当前窝效：聚鳞散 · 剩余2小时','所有鱼塘每份固定6小时；窝料不分等级。','同种加时，异种先预览确认替换。']),section('引珍散',['可用：12份','7份为42小时','生效期间鱼90%、杂获10%'],[{label:'打窝预览·7份',command:'/垂钓 打窝 引珍散 7'}])],footer:[{label:'持续策略',command:'/垂钓 设置'},{label:'返回垂钓',command:'/垂钓'}]})));
   const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 打窝',platform:'qq-bot'})),'当前打窝');
-  assert.match(page.text,/每6小时需7份/);
+  assert.match(page.text,/每份固定6小时/);
   assert.deepEqual(requests[0].body.arguments,{view:'chum'});
   const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 打窝 引珍散 7',platform:'qq-bot'})),'手动打窝预览');
   assert.match(preview.text,/旧剩余2小时效果将作废/);
+  assert.match(preview.text,/新增时长：42小时/);
   assert.deepEqual(requests[1].body.arguments,{kind:'use-chum',chumType:'attract',quantity:7});
   const command=preview.commands.find(value=>value.startsWith('/垂钓 确认 '))!;
   delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),command);
@@ -353,4 +363,116 @@ test('当前打窝无等级按原始份数预览，同种加时异种替换仍�
   assert.deepEqual(parseFishingCommand('/垂钓 购买 coin chum:basic 1'),{operation:'fishing.preview',input:{kind:'purchase',sku:'chum:basic',quantity:1,currency:'coin'}});
   assert.ok('error' in parseFishingCommand('/垂钓 购买 coin chum:basic:4 1')!);
   assert.ok('error' in parseFishingCommand('/垂钓 设置 窝料 聚鳞散 4')!);
+});
+
+test('三专材查询与回收走原预览确认，矿石精华不能进入回收入口',async t=>{
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'材料回收预览',sections:[{title:'水灵砂',id:'',suffix:'',lines:['回收：10份 / 可用28份','单价：5灵鳞钱，不享VIP折扣','获得：50灵鳞钱'],actions:[]}],confirmationRef:ref,operationId:'material-original',expiresAt:'2026-11-04T19:00:00Z'}):r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'材料回收完成'}):base({view:'materials',title:'垂钓 · 专材回收',sections:[{title:'水灵砂',id:'',suffix:'',lines:['可用：28份','系统回收：5钱/份'],actions:[{label:'选择数量',command:'/垂钓 回收材料 水灵砂'}]}]})));
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 材料',platform:'qq-bot'})),'专材回收列表');
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 回收材料 水灵砂',platform:'qq-bot'})),'专材回收数量');
+  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 回收材料 水灵砂 10',platform:'qq-bot'})),'专材回收预览');
+  assert.match(preview.text,/获得：50灵鳞钱/);
+  assert.deepEqual(requests.slice(0,3).map(r=>r.body.arguments),[{view:'materials'},{view:'materials',sku:'material:water_sand'},{kind:'sell-material',sku:'material:water_sand',quantity:10}]);
+  const command=preview.commands.find(cmd=>cmd.startsWith('/垂钓 确认 '))!;
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),command);
+  assert.deepEqual(requests[3].body.arguments,{ref});
+  const before=requests.length;
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 回收材料 矿石精华 1',platform:'qq-bot'})),'矿石不可回收');
+  assert.equal(requests.length,before);
+  assert.deepEqual(parseFishingCommand('/垂钓 兑换 灵石 100'),{operation:'fishing.preview',input:{kind:'cashout',currency:'stone',quantity:100}});
+});
+
+test('渔市单排五分类合并多币按钮，分类分页及旧币页入口兼容',async t=>{
+  const navRows=[['bait','chum','rod','net','material'].map((category,i)=>({label:['饵料','窝料','钓具','渔具','素材'][i],command:`/垂钓 渔市 ${category} 1`}))];
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,base({view:'shop',title:'渔市 · 窝料',navRows,sections:[{title:'',id:'',suffix:'',lines:['余额：8,640灵鳞钱','灵石200,000 · 灵晶2,000 · 道晶20'],actions:[]},{title:'聚鳞散',id:'',suffix:'',lines:['每份固定6小时，生效期间鱼90%、杂获10%。','灵鳞钱：1000 / 1份 · 本周剩余1 / 1份','灵晶：200 / 1份 · 本周剩余1 / 1份','道晶：5 / 1份 · 不限量'],actions:[{label:'灵鳞钱购买',command:'/垂钓 购买 coin chum:basic 1'},{label:'灵晶购买',command:'/垂钓 购买 crystal chum:basic 1'},{label:'道晶购买',command:'/垂钓 购买 dao chum:basic 1'}]}],nav:{page:1,totalPages:2,total:6,command:'/垂钓 渔市 chum {page}'},footer:[{label:'礼包',command:'/垂钓 礼包'},{label:'返回垂钓',command:'/垂钓'}]})));
+  const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/渔市 窝料',platform:'qq-bot'})),'渔市单排五分类');
+  assert.deepEqual(requests[0].body.arguments,{view:'shop',shopCategory:'chum',page:1});
+  assert.match(page.text,/每份固定6小时/);
+  for(const category of ['bait','chum','rod','net','material'])assert.ok(page.commands.includes(`/垂钓 渔市 ${category} 1`));
+  for(const currency of ['coin','crystal','dao'])assert.ok(page.commands.includes(`/垂钓 购买 ${currency} chum:basic 1`));
+  assert.ok(page.commands.includes('/垂钓 渔市 chum 2'));
+  assert.ok(!page.commands.some(command=>/^\/垂钓 渔市 (coin|stone|crystal|dao|all)( |$)/.test(command)));
+  assert.deepEqual(parseFishingCommand('/渔市 素材 2'),{operation:'fishing.query',input:{view:'shop',shopCategory:'material',page:2}});
+  assert.deepEqual(parseFishingCommand('/渔市 灵石 素材 2'),{operation:'fishing.query',input:{view:'shop',currency:'stone',shopCategory:'material',page:2}});
+  assert.deepEqual(parseFishingCommand('/渔市 灵晶 2'),{operation:'fishing.query',input:{view:'shop',currency:'crystal',page:2}});
+});
+
+test('渔市买卖切换到本人鱼种详情，区间kg精确转克并复用原确认',async t=>{
+  const catchId='ff_'+'b'.repeat(32);
+  const speciesId='fishing_r2_b';
+  const section=(title:string,lines:string[],actions:{label:string;command:string}[]=[])=>({title,id:'',suffix:'',lines,actions});
+  const {app,requests}=await gameFixture(t,r=>{
+    const input=r.body.arguments as Record<string,unknown>;
+    if(r.path.endsWith('fishing.preview'))return businessEnvelope(r.bid,base({view:'confirmation',title:'重量区间出售预览',confirmationRef:ref,operationId:'range-original',expiresAt:'2026-11-04T23:00:00+08:00',sections:[section('已选渔获',[`${catchId} · 1.840kg`,'重量区间：0.000～2.123kg（含边界）','共1尾，锁定、上架和待入袋不参与。'])],footer:[{label:'确认出售',command:`/垂钓 确认 ${ref}`},{label:'取消',command:'/垂钓 渔市 sell fish 1'}]}));
+    if(r.path.endsWith('fishing.confirm'))return businessEnvelope(r.bid,base({view:'receipt',title:'鱼类出售完成',operationId:'range-original',sections:[section('已出售',[`${catchId} · 1.840kg`,'原操作已结算，不会重新选鱼。'])]}));
+    if(input.view==='instances')return businessEnvelope(r.bid,base({view:'instances',title:'金须鲤 · 筑基',sections:[section('金须鲤',[`${catchId} · 1.840kg`],[{label:'详情',command:`/垂钓 鱼 ${catchId} 1 1`}])]}));
+    if(input.view==='sell-range')return businessEnvelope(r.bid,base({view:'sell-range',title:'鱼类出售 · 重量区间',sections:[section('', ['请输入kg上下限，最多3位小数，包含两端。'],[{label:'填写重量区间',command:'/垂钓 区间售鱼 0.000 1.000'}])]}));
+    return businessEnvelope(r.bid,base({view:'shop',title:'渔市 · 出售鱼类',navRows:[[{label:'转为购买',command:'/垂钓 渔市 buy bait 1'}],[{label:'鱼类',command:'/垂钓 渔市 sell fish 1'},{label:'素材',command:'/垂钓 渔市 sell material 1'}]],sections:[section('', ['余额：8,640灵鳞钱','灵石20,000 · 灵晶2,000 · 道晶20']),section('', ['预览本次选中鱼种数量与总价。'],[{label:'按重量区间出售',command:'/垂钓 区间售鱼'}]),section('金须鲤',['境界：筑基','持有2尾'],[{label:'查看详情',command:`/垂钓 鱼种 ${speciesId} 1 1`}])],footer:[{label:'返回垂钓',command:'/垂钓'}]}));
+  });
+  const sell=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/渔市 出售 鱼类',platform:'qq-bot'})),'出售鱼类');
+  assert.deepEqual(requests[0].body.arguments,{view:'shop',shopMode:'sell',shopCategory:'fish',page:1});
+  assert.ok(sell.text.indexOf('道晶20')<sell.text.indexOf('转为购买'));
+  assert.ok(sell.commands.includes(`/垂钓 鱼种 ${speciesId} 1 1`));
+  assert.ok(!sell.commands.some(command=>command.startsWith('/垂钓 售鱼')));
+  const bag=delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 鱼种 ${speciesId} 1 1`,platform:'qq-bot'})),'背包鱼种');
+  assert.ok(bag.commands.includes(`/垂钓 鱼 ${catchId} 1 1`));
+  delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 区间售鱼',platform:'qq-bot'})),'区间引导');
+  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 区间售鱼 0.000 2.123 fishing_r2_b',platform:'qq-bot'})),'区间预览');
+  assert.deepEqual(requests.at(-1)?.body.arguments,{kind:'sell-fish-range',minWeightG:0,maxWeightG:2123,speciesId});
+  assert.match(preview.text,/ff_b{32}/);
+  for(let i=0;i<2;i++)delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 确认 ${ref}`,platform:'qq-bot'})),'原区间确认');
+  assert.deepEqual(requests.slice(-2).map(request=>request.body.arguments),[{ref},{ref}]);
+  assert.deepEqual(parseFishingCommand('/渔市 购买 素材'),{operation:'fishing.query',input:{view:'shop',shopMode:'buy',shopCategory:'material',page:1}});
+  assert.deepEqual(parseFishingCommand('/垂钓 区间售鱼 fishing_r2_b'),{operation:'fishing.query',input:{view:'sell-range',speciesId}});
+});
+
+test('重量区间拒绝舍入、科学计数、逆序和不安全克数',()=>{
+  assert.equal(fishingWeightGrams('0.000'),0);
+  assert.equal(fishingWeightGrams('1.001'),1001);
+  assert.equal(fishingWeightGrams('9007199254740.991'),Number.MAX_SAFE_INTEGER);
+  for(const value of ['1.0001','1e3','-1','NaN','.5','1.','01.2','9007199254740.992'])assert.equal(fishingWeightGrams(value),undefined,value);
+  for(const command of ['/垂钓 区间售鱼 2 1','/垂钓 区间售鱼 1.2345 2','/垂钓 区间售鱼 1e3 2','/垂钓 区间售鱼 -1 2'])assert.ok('error' in parseFishingCommand(command)!,command);
+});
+
+for(const mode of ['buy','sell'] as const)test(`渔市余额先于买卖切换与分类：${mode}`,async t=>{
+  const label=mode==='buy'?'饵料':'鱼类';
+  const toggle=mode==='buy'?'转为出售':'转为购买';
+  const command=mode==='buy'?'/垂钓 渔市 sell fish 1':'/垂钓 渔市 buy bait 1';
+  const category=mode==='buy'?'bait':'fish';
+  const dto=base({view:'shop',title:`渔市 · ${label}`,navRows:[[{label:toggle,command}],[{label,command:`/垂钓 渔市 ${mode} ${category} 1`}]],sections:[{title:'',id:'',suffix:'',lines:['余额：8,640灵鳞钱','灵石20,000 · 灵晶2,000 · 道晶20'],actions:[]},{title:'示例商品',id:'',suffix:'',lines:['原商品事实不变'],actions:[]}],footer:[{label:'返回垂钓',command:'/垂钓'}]});
+  const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,dto));
+  const result=delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 渔市 ${mode} ${category} 1`,platform:'qq-bot'})),'渔市精确顺序');
+  const positions=[result.text.indexOf(`渔市 · ${label}`),result.text.indexOf('余额：8,640灵鳞钱'),result.text.indexOf('灵石20,000'),result.text.indexOf('灵晶2,000'),result.text.indexOf('道晶20'),result.text.indexOf(toggle),result.text.lastIndexOf(label),result.text.indexOf('示例商品')];
+  assert.ok(positions.every((value,index)=>value>=0&&(index===0||value>positions[index-1])),JSON.stringify({mode,positions,text:result.text}));
+});
+
+test('放生原预览显示最轻十尾的完整编号逐条重量和总重，确认不再选鱼',async t=>{
+  const selected=Array.from({length:10},(_,index)=>({id:`ff_${(index+512).toString(16).padStart(32,'0')}`,weightG:450+100*index}));
+  const lines=['铁鳞鲫：⭐⭐ → ⭐⭐⭐','主线修为 +2% → 3%','本次选择10条鱼，合重9.000千克','默认优先选择最轻的鱼，同重按编号排序；下列原编号和重量已固定。',...selected.map(fish=>`${fish.id} · 铁鳞鲫 · ${(fish.weightG/1000).toFixed(3)}千克`)];
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.confirm')?base({view:'receipt',title:'放生升星完成',operationId:'release-original'}):base({view:'confirmation',title:'放生预览',sections:[{title:'本次放生',id:'',suffix:'',lines,actions:[]}],confirmationRef:ref,operationId:'release-original',expiresAt:'2026-11-04T23:00:00+08:00',footer:[{label:'确认放生',command:`/垂钓 确认 ${ref}`},{label:'取消',command:'/垂钓 赐福'}]})));
+  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 赐福预览 fishing_r2_a',platform:'qq-bot'})),'放生原预览');
+  assert.deepEqual(requests[0].body.arguments,{kind:'blessing-unlock',speciesId:'fishing_r2_a'});
+  assert.match(preview.text,/合重9\.000千克/);
+  for(const fish of selected){assert.ok(preview.text.includes(fish.id));assert.ok(preview.text.includes(`${(fish.weightG/1000).toFixed(3)}千克`));}
+  const command=preview.commands.find(command=>command.startsWith('/垂钓 确认 '))!;
+  for(let i=0;i<2;i++)delivered(await app.runHandler(handler,app.events.privateMessage({text:command,platform:'qq-bot'})),'放生原确认');
+  assert.deepEqual(requests.slice(1).map(request=>request.body.arguments),[{ref},{ref}]);
+  assert.equal(requests.length,3);
+  assert.ok(requests.slice(1).every(request=>request.path.endsWith('/fishing.confirm')));
+});
+
+test('首次壁后幽潭四段剧情使用通用气泡，只接原建塘预览且不自动发物',async t=>{
+  const story=['洞府深处，一缕幽光从石壁裂隙中透出。你将灵力探入，轻轻一震，积尘簌簌落下，石壁竟缓缓裂开。','','壁后别有天地。寒雾缭绕，一口幽潭静卧其中，水色如墨，深不见底。潭心偶尔掠过一道银鳞，转瞬便沉入幽暗。','','潭边，一具枯骨倚石而坐，身旁斜放着一根蒙尘竹竿，膝前压着一张泛黄舆图。你拂去浮尘，图上“渔市”二字依然清晰。','','潭畔阵纹残缺，淤塞的灵脉仍有微弱灵气流转。若将此处整修，便可辟作洞府中的垂钓水域。'];
+  const intro=base({view:'intro',title:'洞府奇遇 · 壁后幽潭',sections:[{title:'',id:'',suffix:'',lines:story,actions:[]},{title:'整修所需',id:'',suffix:'',lines:['需达到炼气九层及以上','灵石：10,000','整修后开放炼气水域，获得青竹灵竿×1。'],actions:[]}],footer:[{label:'整修幽潭',command:'/垂钓 建塘'},{label:'暂且离开',command:'/洞府'}]});
+  const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,r.path.endsWith('fishing.preview')?base({view:'confirmation',title:'开辟预览',sections:[{title:'费用',id:'',suffix:'',lines:['灵石：10,000','建塘成功后赠青竹灵竿1根'],actions:[]}],confirmationRef:ref,operationId:'intro-build-original',expiresAt:'2026-11-04T23:00:00+08:00'}):intro));
+  const page=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓',platform:'qq-bot'})),'首次洞府剧情');
+  assert.match(page.text,/洞府奇遇 · 壁后幽潭/);
+  for(const paragraph of story.filter(Boolean))assert.ok(page.text.includes(paragraph));
+  assert.deepEqual(page.commands,['/垂钓 建塘','/洞府']);
+  assert.deepEqual(requests[0].body.arguments,{view:'overview'});
+  assert.equal(requests.length,1);
+  assert.ok(app.run(()=>matchesGameCommand({name:'private.message.create',MessageText:'/洞府'})));
+  const preview=delivered(await app.runHandler(handler,app.events.privateMessage({text:page.commands[0],platform:'qq-bot'})),'原建塘预览');
+  assert.deepEqual(requests[1].body.arguments,{kind:'build'});
+  assert.ok(preview.commands.includes(`/垂钓 确认 ${ref}`));
+  assert.ok(requests.every(request=>!request.path.endsWith('fishing.confirm')));
 });

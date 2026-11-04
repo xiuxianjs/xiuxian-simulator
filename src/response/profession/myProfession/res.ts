@@ -252,10 +252,14 @@ export default onResponse(selects, async e => {
       const footerButtons = [showAlchemy ? alchemyFooter : null, showHerbalist ? lingzhiFooter : null].filter(Boolean) as Array<{
         label: string;
         command: string;
+        autoEnter?: boolean;
       }>;
 
       if (allowed('forge')) {
         footerButtons.push({ label: '锻造师', command: '/我的锻造' });
+      }
+      if (isCaveHome) {
+        footerButtons.push({ label: '垂钓', command: '/垂钓', autoEnter: false });
       }
       footerButtons.push(isCaveHome ? { label: '天书', command: '/天书' } : { label: '洞府', command: '/我的洞府' });
 

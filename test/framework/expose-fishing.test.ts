@@ -51,6 +51,8 @@ test('赐福显式凡物0与礼包第四操作完整传服务端，原订单不�
   const settings=await call('preview_fishing_action',{kind:'settings',settings:{autoChum:false,chumTier:0}});
   assert.equal(settings.value.ok,true,JSON.stringify(settings.value));
   for(const input of [
+    {kind:'sell-fish-range',minWeightG:0,maxWeightG:2123,speciesId:'fishing_r2_b'},
+    {kind:'sell-material',sku:'material:water_sand',quantity:10},
     {kind:'use-chum',chumType:'basic',quantity:7},
     {kind:'use-net',waterLevel:0,quantity:1},
     {kind:'settings',settings:{pushRareFish:false,pushFishKing:true}},
@@ -77,6 +79,11 @@ for (const [name, input] of [
   ['preview_fishing_action', { kind:'settings',settings:{} }],
   ['preview_fishing_action', { kind:'settings',settings:{baitOrder:['plain','plain']} }],
   ['preview_fishing_action', { kind:'settings',settings:{autoChum:true,uid:2} }],
+  ['preview_fishing_action', { kind:'sell-material',sku:'material:ore_essence',quantity:1 }],
+  ['preview_fishing_action', { kind:'sell-fish-range',minWeightG:0 }],
+  ['preview_fishing_action', { kind:'sell-fish-range',minWeightG:1001,maxWeightG:1000 }],
+  ['preview_fishing_action', { kind:'sell-fish-range',minWeightG:0,maxWeightG:1000,fishIds:['ff_other'] }],
+  ['preview_fishing_action', { kind:'sell-fish-range',minWeightG:0.1,maxWeightG:1000 }],
   ['confirm_fishing_action', { ref: ref.slice(0, -1) }],
   ['confirm_fishing_action', { ref: ref.replace('_y_', '_a_') }],
   ['confirm_fishing_action', { ref, ownerId: 2 }]

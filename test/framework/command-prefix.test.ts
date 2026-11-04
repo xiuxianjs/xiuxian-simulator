@@ -15,6 +15,25 @@ import { useMessage } from '../../src/utils/useMessage';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
+test('合并后的垂钓入口保留自定义前缀、原业务参数和手动蓝链', async t => {
+  const data = { rulesVersion: 'fishing-prefix-fixture', view: 'overview', title: '洞府垂钓', status: 'idle', sections: [{ title: '', id: '', suffix: '', lines: ['未垂钓'], actions: [{ label: '查看渔获', command: '/垂钓 渔获 1' }] }], footer: [{ label: '渔市', command: '/垂钓 渔市 buy bait 1' }] };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  const config = app.run(getAppConfig);
+  app.configure({ processor: { repeated_user_time: 0 }, 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { ...config, commandPrefix: '**' } });
+  const routes = app.run(createGameRouter);
+  await app.mount({ responseRouter: routes.router });
+  assert.equal(routes.matchesGameCommand({ name: 'private.message.create', MessageText: '**垂钓' }), true);
+  assert.equal(routes.matchesGameCommand({ name: 'private.message.create', MessageText: '/垂钓' }), false);
+  const result = await app.dispatch(app.events.privateMessage({ text: '**垂钓', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  assert.ok(requests.at(-1)?.path.endsWith('/fishing.query'));
+  assert.deepEqual(requests.at(-1)?.body.arguments, { view: 'overview' });
+  const page = inspectMessage(result.messages[0].nodes);
+  assert.ok(page.commands.length > 0 && page.commands.every(command => command.startsWith('**')));
+  const inspect = (nodes: unknown[]) => { for (const raw of nodes) { const node = raw as { type: string; value?: unknown; options?: Record<string, unknown> }; if (node.type === 'MD.button') { assert.equal(node.options?.autoEnter, false); assert.ok(!Object.hasOwn(node.options ?? {}, 'show')); assert.ok([...String(node.options?.data)].length <= 80); } if (Array.isArray(node.value)) { inspect(node.value); } } };
+  inspect(result.messages[0].nodes);
+});
 for (const prefix of ['/', '**', '++', '修仙']) {
   test(`前缀 ${prefix} 的真实发送树和路由匹配`, async t => {
     const app = createTestApp({ config: { 'xiuxian-game': { commandPrefix: prefix }, processor: { repeated_user_time: 0 } } });

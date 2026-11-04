@@ -1,6 +1,8 @@
 import { BackendAPIError } from './client';
 
 export const fishingViews = [
+  'sell-range',
+  'materials',
   'chum',
   'cast',
   'tools',
@@ -20,8 +22,9 @@ export const fishingViews = [
   'help',
   'operation'
 ] as const;
-export const fishingKinds = ['use-chum', 'use-net', 'settings', 'build', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
+export const fishingKinds = ['sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
 export const fishingCurrencies = ['coin', 'stone', 'crystal', 'dao'] as const;
+export const fishingShopCategories = ['all', 'fish', 'bait', 'chum', 'rod', 'net', 'material'] as const;
 export const fishingBaits = { 素灵饵: 'plain', 定鳞饵: 'steady', 聚灵饵: 'realm', 引珍饵: 'rare', 唤王饵: 'king' } as const;
 export const fishingChums = { 聚鳞散: 'basic', 催鳞散: 'advanced', 引珍散: 'attract', 唤王散: 'king', 引灵散: 'realm', 升灵散: 'deep_realm' } as const;
 
@@ -42,6 +45,10 @@ export type FishingInput = {
   rodId?: string;
   currency?: FishingCurrency;
   sku?: string;
+  shopCategory?: (typeof fishingShopCategories)[number];
+  shopMode?: 'buy' | 'sell';
+  minWeightG?: number;
+  maxWeightG?: number;
   operationId?: string;
   page?: number;
   returnPage?: number;
@@ -67,6 +74,7 @@ export type FishingView = {
   sections: FishingSection[];
   nav?: { page: number; totalPages: number; total: number; command: string };
   footer: FishingAction[];
+  navRows?: FishingAction[][];
   confirmationRef?: string;
   operationId?: string;
   expiresAt?: string;
@@ -150,6 +158,13 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
     return invalid();
   }
   const result: FishingView = { rulesVersion, view, title, sections, footer, status: absent(data.status) ? '' : text(data.status) };
+
+  if (!absent(data.navRows)) {
+    const rows = array(data.navRows, value => array(value, action));
+
+    if (rows.length > 2 || rows.some(row => row.length > 6)) { return invalid(); }
+    result.navRows = rows;
+  }
 
   if (!absent(data.nav)) {
     const nav = row(data.nav);

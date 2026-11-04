@@ -23,6 +23,16 @@ const n = (value: string | undefined, minimum = 1, maximum = 2147483647) => {
 };
 const error = (example = '/垂钓 帮助'): FishingCommand => ({ error: `参数错误，请使用 ${example}。` });
 
+/** Parse decimal kilograms without binary floating point or silent rounding. */
+export function fishingWeightGrams(value: string | undefined): number | undefined {
+  const match = /^(0|[1-9]\d*)(?:\.(\d{1,3}))?$/.exec(value ?? '');
+
+  if (!match) { return undefined; }
+  const grams = BigInt(match[1]) * 1000n + BigInt((match[2] ?? '').padEnd(3, '0'));
+
+  return grams <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(grams) : undefined;
+}
+
 /** Only our exact domain entry is terminal; other packages keep their event. */
 export function parseFishingCommand(message: string): FishingCommand | undefined {
   const match = /^\s*[/#＃]?(垂钓|渔获|钓具|渔市)(?:\s+(.*?))?\s*$/.exec(message);
@@ -52,6 +62,21 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   }
   if (verb === '状态') {
     return values.length === 0 ? query('overview') : error();
+  }
+  if (verb === '材料' || verb === '回收材料') {
+    if (values.length === 0) { return query('materials'); }
+    if (verb === '材料') {
+      const page = n(values[0]);
+
+      return values.length === 1 && page ? query('materials', { page }) : error('/垂钓 材料 [页码]');
+    }
+    const material = ({ 水灵砂: 'water_sand', 凝波晶: 'wave_crystal', 镇海髓: 'sea_marrow' } as Record<string, string>)[values[0]];
+    const sku = material ? `material:${material}` : /^material:(water_sand|wave_crystal|sea_marrow)$/.test(values[0]) ? values[0] : undefined;
+
+    if (sku && values.length === 1) { return query('materials', { sku }); }
+    const quantity = n(values[1], 1, Number.MAX_SAFE_INTEGER);
+
+    return sku && values.length === 2 && quantity ? preview('sell-material', { sku, quantity }) : error('/垂钓 回收材料 <水灵砂|凝波晶|镇海髓> [份数]');
   }
   if (verb === '战报' && values.length === 1 && /^fc_[0-9a-f]{32}$/.test(values[0])) { return query('cast', { castId: values[0] }); }
   if (verb === '渔具' || verb === '用网') {
@@ -98,10 +123,35 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
     return values.length === 1 && id(values[0]) ? query('gear', { rodId: values[0] }) : error('/垂钓 钓竿 <原竿编号>');
   }
   if (verb === '渔市') {
-    const currency = values[0] === undefined ? 'coin' : currencies[values[0]];
-    const page = values[1] === undefined ? 1 : n(values[1]);
+    const types = { 鱼类: 'fish', 饵料: 'bait', 窝料: 'chum', 钓具: 'rod', 渔具: 'net', 素材: 'material', fish: 'fish', bait: 'bait', chum: 'chum', rod: 'rod', net: 'net', material: 'material', 全部: 'all', all: 'all' } as const;
+    const modes = { 购买: 'buy', 出售: 'sell', buy: 'buy', sell: 'sell' } as const;
+    const mode = modes[values[0] as keyof typeof modes];
 
-    return values.length <= 2 && currency && page ? query('shop', { currency, page }) : error('/垂钓 渔市 <灵鳞钱|灵石|灵晶|道晶> [页码]');
+    if (mode) {
+      const category = values[1] === undefined ? mode === 'sell' ? 'fish' : 'bait' : types[values[1] as keyof typeof types];
+      const page = values[2] === undefined ? 1 : n(values[2]);
+      const allowed = mode === 'sell' ? ['fish', 'material'] : ['bait', 'chum', 'rod', 'net', 'material'];
+
+      return values.length <= 3 && category && allowed.includes(category) && page
+        ? query('shop', { shopMode: mode, shopCategory: category, page }) : error('/渔市 <购买|出售> <类别> [页码]');
+    }
+
+    if (values.length === 0) { return query('shop', { shopCategory: 'bait', page: 1 }); }
+    const category = types[values[0] as '饵料'];
+
+    if (category) {
+      const page = values[1] === undefined ? 1 : n(values[1]);
+
+      return values.length <= 2 && page ? query('shop', { shopCategory: category, page }) : error('/渔市 <饵料|窝料|钓具|渔具|素材> [页码]');
+    }
+    // Old currency links are read-only selectors. New purchases always keep currency explicit.
+    const currency = currencies[values[0]];
+    const legacyCategory = types[values[1] as '饵料'];
+    const page = legacyCategory ? values[2] === undefined ? 1 : n(values[2]) : values[1] === undefined ? 1 : n(values[1]);
+
+    return currency && page && values.length <= (legacyCategory ? 3 : 2)
+      ? query('shop', { currency, page, ...(legacyCategory ? { shopCategory: legacyCategory } : {}) })
+      : error('/渔市 <饵料|窝料|钓具|渔具|素材> [页码]');
   }
   if (verb === '礼包') {
     return values.length === 0 ? query('packages') : error();
@@ -178,10 +228,22 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   }
   if (verb === '售鱼') {
     if (values.length === 0) {
-      return preview('sell-fish', { preserveUpgrade: true });
+      return preview('sell-fish');
     }
 
     return values.every(id) && values.length <= 10 ? preview('sell-fish', { fishIds: values, preserveUpgrade: false }) : error('/垂钓 售鱼 [完整鱼编号]');
+  }
+  if (verb === '区间售鱼') {
+    if (values.length === 0) { return query('sell-range'); }
+    if (values.length === 1 && id(values[0])) { return query('sell-range', { speciesId: values[0] }); }
+    const minWeightG = fishingWeightGrams(values[0]);
+    const maxWeightG = fishingWeightGrams(values[1]);
+    const speciesId = values[2];
+
+    return values.length >= 2 && values.length <= 3 && minWeightG !== undefined && maxWeightG !== undefined && minWeightG <= maxWeightG &&
+      (speciesId === undefined || id(speciesId))
+      ? preview('sell-fish-range', { minWeightG, maxWeightG, ...(speciesId ? { speciesId } : {}) })
+      : error('/垂钓 区间售鱼 <最低kg> <最高kg> [鱼种编号]（最多3位小数，闭区间）');
   }
   if (verb === '锁鱼' || verb === '解锁鱼') {
     return values.length === 1 && id(values[0]) ? preview('fish-lock', { catchId: values[0], lock: verb === '锁鱼' }) : error(`/垂钓 ${verb} <完整鱼编号>`);

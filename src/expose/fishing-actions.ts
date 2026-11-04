@@ -3,6 +3,7 @@ import {
   fishingViews,
   fishingKinds,
   fishingCurrencies,
+  fishingShopCategories,
   fishingBaits,
   fishingChums,
   parseFishingView,
@@ -23,12 +24,13 @@ const viewSchema = object(
     status: text,
     sections: list(object({ title: text, id: text, suffix: text, lines: list(text), actions: list(action) })),
     footer: list(action),
+    navRows: list(list(action)),
     nav: object({ page: integer, totalPages: integer, total: integer, command: text }),
     confirmationRef: text,
     operationId: text,
     expiresAt: text
   },
-  ['nav', 'confirmationRef', 'operationId', 'expiresAt']
+  ['nav', 'navRows', 'confirmationRef', 'operationId', 'expiresAt']
 );
 const identifier = { type: 'string' as const, minLength: 1, maxLength: 64 };
 const positive = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
@@ -36,6 +38,8 @@ const queryFields = {
   waterLevel: { type: 'integer' as const, minimum: 0, maximum: 9 },
   blessingRealm: { type: 'integer' as const, minimum: 0, maximum: 9 },
   sku: identifier,
+  shopCategory: { type: 'string' as const, enum: [...fishingShopCategories] },
+  shopMode: { type: 'string' as const, enum: ['buy', 'sell'] },
   speciesId: identifier,
   catchId: identifier,
   castId: identifier,
@@ -58,6 +62,8 @@ const previewFields = {
   quantity: positive,
   preserveUpgrade: boolean,
   lock: boolean,
+  minWeightG: { type: 'integer' as const, minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
+  maxWeightG: { type: 'integer' as const, minimum: 0, maximum: Number.MAX_SAFE_INTEGER },
   settings: object({ pushRareFish: boolean, pushFishKing: boolean, autoChum: boolean, chumType: { type: 'string' as const, enum: ['none', ...Object.values(fishingChums)] }, chumTier: { type: 'integer' as const, minimum: 0, maximum: 0 }, autoBaitSwitch: boolean, baitOrder: { type: 'array' as const, minItems: 0, maxItems: 5, items: { type: 'string' as const, enum: Object.values(fishingBaits) } } }, ['pushRareFish', 'pushFishKing', 'autoChum', 'chumType', 'chumTier', 'autoBaitSwitch', 'baitOrder']),
   fishIds: { type: 'array' as const, minItems: 1, maxItems: 100, items: identifier }
 };
@@ -89,7 +95,7 @@ export const fishingActions = {
     validateIdentifiers
   ),
   get_fishing: observation<FishingInput>(
-    '查询本人垂钓状态、鱼种聚合/实例/详情、钓具或四币渔市；页码各层独立，不推测他人资产。',
+    '查询本人垂钓状态、鱼种聚合/实例/详情、钓具或买卖渔市；页码各层独立，不推测他人资产。',
     'fishing.query',
     object({ view: { type: 'string', enum: [...fishingViews] }, ...queryFields }, ['view', ...Object.keys(queryFields)]),
     viewSchema,
@@ -135,6 +141,12 @@ export const fishingActions = {
         throw new ExposeError('INVALID_INPUT', '升阶需要本人原竿编号');
       }
       if (input.kind === 'use-net' && input.quantity !== undefined && input.quantity !== 1) { throw new ExposeError('INVALID_INPUT', '每次仅使用一张捕灵网'); }
+      if (input.kind === 'sell-material' && (!input.quantity || !/^material:(water_sand|wave_crystal|sea_marrow)$/.test(input.sku ?? ''))) {
+        throw new ExposeError('INVALID_INPUT', '回收仅支持三种垂钓专材及正整数份数');
+      }
+      if (input.kind === 'sell-fish-range' && (input.minWeightG === undefined || input.maxWeightG === undefined || input.catchId !== undefined || input.fishIds !== undefined || input.minWeightG > input.maxWeightG)) {
+        throw new ExposeError('INVALID_INPUT', '请指定有效重量区间，不混用鱼编号');
+      }
       if (input.kind === 'fish-lock' && (!input.catchId || typeof input.lock !== 'boolean')) {
         throw new ExposeError('INVALID_INPUT', '锁定需要完整鱼编号与目标状态');
       }
