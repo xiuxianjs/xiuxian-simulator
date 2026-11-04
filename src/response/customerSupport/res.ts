@@ -61,7 +61,7 @@ export default onResponse(selects, async event => {
 
     if (input.action === 'pending') {
       await send(
-        (result.conversations ?? []).map(item => `#${item.id} ${item.status === 'waiting' ? '待接待' : '接待中'}`).join('\n') ||
+        (result.conversations ?? []).map(item => `#${item.id} ${item.status === 'invited' ? '待你确认' : '接待中'}`).join('\n') ||
           '当前没有待接待或由你接待的会话。'
       );
     } else {

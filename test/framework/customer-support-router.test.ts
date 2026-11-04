@@ -21,7 +21,7 @@ test('real router forwards active-session private text and passes unrelated priv
  await app.mount({responseRouter:app.run(createGameRouter).router});
  const downstream=Router.create();downstream.res({events:['private.message.create']},()=>Promise.resolve(async()=>{const [message]=useMessage();await message.send({format:Format.create().addText('下游插件收到')});}));
  await app.mount({responseRouter:downstream.define},undefined,'other-plugin');
- const event=(text:string,id:string)=>({name:'private.message.create' as const,Platform:'qq-bot',BotId:'123',UserId:'player',MessageId:id,MessageText:text,isPrivate:true,Target:{BotId:'123',scope:'c2c' as const,targetId:'native-player'}});
+ const event=(text:string,id:string)=>app.events.privateMessage({text, platform:'qq-bot'}, {BotId:'123',UserId:'player',MessageId:id,Target:{BotId:'123',scope:'c2c',targetId:'native-player'}});
  let result=await app.dispatch(event('直接输入问题','raw-active'));assert.deepEqual(result.errors,[]);assert.equal(calls.length,1);assert.equal(calls[0].action,'message');assert.equal(result.messages.length,0);
  handled=false;result=await app.dispatch(event('其他插件消息','raw-idle'));assert.deepEqual(result.errors,[]);assert.equal(result.messages.length,1);assert.equal(result.messages[0].text,'下游插件收到');
  assert.equal(app.run(createGameRouter).matchesGameCommand(event('/不存在的命令','unknown')),false);

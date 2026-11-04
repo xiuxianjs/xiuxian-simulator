@@ -51,3 +51,27 @@ test('missing private target stays pending and ambiguous receipts stay unknown',
     assert.equal(state.posts.find(post => post.body.action === 'ack').body.deliveryStatus, status);
   }
 });
+test('HTTP polling proactively sends without a player event and stops cleanly', async t => {
+  state.posts = []; state.target = true;
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const app = createTestApp();
+  let delivered = 0;
+  app.actions.on('message.send.target', () => { delivered++; return [createResult(ResultCode.Ok, 'Delivered', { id: 'poll-receipt' })]; });
+  try {
+    await app.run(async () => {
+      h.startCustomerSupportPolling();
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(state.posts.filter(post => post.body.action === 'poll').length, 1);
+      t.mock.timers.tick(2000);
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(state.posts.filter(post => post.body.action === 'poll').length, 2);
+      await h.stopCustomerSupportPolling();
+      t.mock.timers.tick(2000);
+      await new Promise(resolve => setImmediate(resolve));
+      assert.equal(state.posts.filter(post => post.body.action === 'poll').length, 2);
+    });
+    assert.equal(delivered, 2);
+    assert.ok(state.posts.filter(post => post.body.action === 'poll').every(post => post.body.userId === 'support-poller'));
+    assert.equal(state.posts.filter(post => post.body.action === 'ack' && post.body.deliveryStatus === 'sent').length, 2);
+  } finally { await h.stopCustomerSupportPolling(); await app.dispose(); t.mock.timers.reset(); }
+});
