@@ -11,7 +11,7 @@ after(() => shutdownLogger());
 
 for (const teaching of [false, true]) {
   test(`未命中明确指令的事件继续运行后续包，教学=${teaching}`, async t => {
-    const app = createTestApp({ config: { processor: { repeated_user_time: 0 } } });
+    const app = createTestApp({ config: { processor: { repeated_user_time: 0 }, 'xiuxian-game': { routeText: { allowBare: false } } } });
     t.after(() => app.dispose());
     configureOnboardingCommandMatcher(matchesGameCommand);
     t.after(() => configureOnboardingCommandMatcher());
@@ -49,7 +49,7 @@ for (const teaching of [false, true]) {
 }
 
 test('禁用消息事件也跳过现有教学 Context 和明确指令，只启用私聊不会影响其他包', async t => {
-  const app = createTestApp({ config: { processor: { repeated_user_time: 0 } } });
+  const app = createTestApp({ config: { processor: { repeated_user_time: 0 }, 'xiuxian-game': { routeText: { allowBare: false } } } });
   t.after(() => app.dispose());
   await app.mount({ responseRouter: router, responseContent: onboardingContent });
   const downstream = Router.create();

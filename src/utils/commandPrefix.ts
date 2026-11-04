@@ -2,6 +2,7 @@ import { Format, getConfig, type DataEnums, type OutgoingMessage } from 'alemonj
 import { getAppConfig } from './appConfig';
 
 const prefixes = new WeakMap<object, string>();
+const bareCommands = new WeakMap<object, boolean>();
 
 /** 路由和消息出口共用；修改配置后重启机器人。 */
 export function getCommandPrefix(): string {
@@ -27,11 +28,32 @@ export function getCommandPrefix(): string {
   return prefix;
 }
 
+/** 使用框架 routeText.allowBare；未配置前缀时保留裸指令兼容。 */
+export function getCommandAllowBare(): boolean {
+  const config = getConfig();
+  const cached = bareCommands.get(config);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+  const settings = getAppConfig();
+  const allowBare: unknown = settings.routeText?.allowBare;
+
+  if (allowBare !== undefined && typeof allowBare !== 'boolean') {
+    throw new Error('xiuxian-game.routeText.allowBare 必须是布尔值');
+  }
+  const value = allowBare ?? settings.commandPrefix === undefined;
+
+  bareCommands.set(config, value);
+
+  return value;
+}
+
 /** 文本命令必须使用当前配置前缀；前缀后直接跟命令，不接受叠加 /。 */
-export function hasCommandPrefix(text: string, prefix = getCommandPrefix()): boolean {
+export function hasCommandPrefix(text: string, prefix = getCommandPrefix(), allowBare = getCommandAllowBare()): boolean {
   const value = text.trimStart().replace(/^notAutoConfirmation:/, '');
 
-  return value.startsWith(prefix) && /^[\p{L}\p{N}]/u.test(value.slice(prefix.length).trimStart());
+  return value.startsWith(prefix) ? /^[\p{L}\p{N}]/u.test(value.slice(prefix.length).trimStart()) : allowBare && /^[\p{L}\p{N}]/u.test(value);
 }
 
 /** 统一构造按钮、input 的完整命令；参数和凭据保持原文。 */
@@ -53,7 +75,7 @@ function formatCommandText(command: string, prefix: string): string {
 export function commandText(command: string, prefix = getCommandPrefix()): string {
   const result = formatCommandText(command, prefix);
 
-  if (prefix !== '/' && hasCommandPrefix(result, prefix) && [...result].length > 80) {
+  if (prefix !== '/' && hasCommandPrefix(result, prefix, false) && [...result].length > 80) {
     throw new Error('配置前缀后的按钮指令超过 80 字符，请缩短前缀或重新生成预览');
   }
 

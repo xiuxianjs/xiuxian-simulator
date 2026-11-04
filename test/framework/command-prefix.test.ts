@@ -181,3 +181,31 @@ for (const prefix of ['/', '**', '++']) {
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }
+
+for (const settings of [
+  { value: {}, bare: true, prefix: '/' },
+  { value: { routeText: { allowBare: false } }, bare: false, prefix: '/' },
+  { value: { commandPrefix: '**', routeText: { allowBare: true } }, bare: true, prefix: '**' },
+  { value: { commandPrefix: '**', routeText: { allowBare: false } }, bare: false, prefix: '**' }
+]) {
+  test(`框架 allowBare 配置 ${JSON.stringify(settings.value)}`, async t => {
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+      mode: 'replace', result: { toolId: 1, userToolId: 2, toolName: '测试丹炉', typeName: '丹炉', gradeName: '凡品', gradeLevel: 1, message: '已切换测试丹炉' }
+    }));
+    const config = app.run(getAppConfig);
+    app.configure({ processor: { repeated_user_time: 0 }, 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { ...config, ...settings.value } });
+    const routes = app.run(createGameRouter);
+    await app.mount({ responseRouter: routes.router });
+    app.run(() => {
+      assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: '替换 2' }), settings.bare);
+      assert.equal(routes.matchesGameCommand({ name: 'message.create', MessageText: `${settings.prefix}替换 2` }), true);
+    });
+    const run = await app.dispatch(app.events.groupMessage({ text: '替换 2', platform: 'qq-bot' }));
+    assert.deepEqual(run.errors, []);
+    assert.equal(requests.length, settings.bare ? 1 : 0);
+    if (settings.bare) {
+      assert.deepEqual(requests[0].body.arguments, { identifier: '2' });
+      assert.equal(run.actions[run.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    }
+  });
+}

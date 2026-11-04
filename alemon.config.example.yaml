@@ -1,7 +1,11 @@
 xiuxian-game:
-  # 指令前缀，支持多字符（如 '**'）；修改后重启。默认 '/'；该配置替换 '/'，不允许无前缀触发。
+  # 指令前缀，支持多字符（如 '**'）；修改后重启。默认 '/'；该配置替换 '/'。
   # 自定义时只接受该前缀；消息按钮及全局导航跟随配置。
-  commandPrefix: '/'
+  # commandPrefix: '/'
+  # 不配置前缀时默认允许裸指令；显式配置前缀时默认禁止。
+  # 使用框架原生 routeText.allowBare，可独立覆盖：
+  # routeText:
+  #   allowBare: true
   # 默认开启；仅在当前 QQ 消息内查询该消息玩家。enabled: false 可关闭。
   expose:
     enabled: true

@@ -5,7 +5,7 @@ import type { RobotCommandProfile } from './api/bot/command-entry';
 import { alchemyRoutes } from './response/alchemy/v2/commands';
 import { forgeReadEntries, forgeReadRoutes } from './response/profession/forge/commands';
 import type { GameEvent } from './types/event';
-import { getCommandPrefix, hasCommandPrefix, internalCommandText } from './utils/commandPrefix';
+import { getCommandAllowBare, getCommandPrefix, hasCommandPrefix, internalCommandText } from './utils/commandPrefix';
 import { isGameEventEnabled } from './utils/eventPolicy';
 import { measureTransportStage } from './utils/transportTiming';
 
@@ -13,11 +13,12 @@ import { measureTransportStage } from './utils/transportTiming';
 export function createGameRouter() {
   const prefix = getCommandPrefix();
   const customPrefix = prefix !== '/';
+  const allowBare = getCommandAllowBare();
   const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const commandPattern = (pattern: RegExp): RegExp => {
     const source = pattern.source.replace('\\/?', '');
 
-    return new RegExp('^\\s*' + escape(prefix) + '\\s*' + source.slice(1), pattern.flags);
+    return new RegExp('^\\s*' + (allowBare ? '(?:' + escape(prefix) + ')?' : escape(prefix)) + '\\s*' + source.slice(1), pattern.flags);
   };
   // 根路由不限制事件；各入口和游戏分组声明自己的事件范围。
   const app = Router.create();
@@ -104,7 +105,7 @@ export function createGameRouter() {
         routeText: {
           prefixes: ['notAutoConfirmation:' + prefix, prefix],
           stripPrefix: true,
-          allowBare: false
+          allowBare
         }
       },
       ...(customPrefix
@@ -1339,7 +1340,7 @@ export function createGameRouter() {
   const matchesGameCommand = (event: { name?: string; MessageText?: string }): boolean => {
     const text = event.MessageText ?? '';
 
-    if (!hasCommandPrefix(text, prefix)) {
+    if (!hasCommandPrefix(text, prefix, allowBare)) {
       return false;
     }
 
@@ -1357,7 +1358,7 @@ export function createGameRouter() {
         const guard = (event: GameEvent, next: Next) => {
           if (
             !isGameEventEnabled(event) ||
-            (!allowSupportPlain && commandEvents.some(name => name === event.name) && !hasCommandPrefix(event.MessageText ?? '', prefix))
+            (!allowSupportPlain && commandEvents.some(name => name === event.name) && !hasCommandPrefix(event.MessageText ?? '', prefix, allowBare))
           ) {
             next();
 
@@ -1407,12 +1408,12 @@ export function resolveCommandTransportProfile(_event: GameEvent): RobotCommandP
 const routers = new Map<string, ReturnType<typeof createGameRouter>>();
 
 function configuredRouter() {
-  const prefix = getCommandPrefix();
-  let router = routers.get(prefix);
+  const key = JSON.stringify([getCommandPrefix(), getCommandAllowBare()]);
+  let router = routers.get(key);
 
   if (!router) {
     router = createGameRouter();
-    routers.set(prefix, router);
+    routers.set(key, router);
   }
 
   return router;
