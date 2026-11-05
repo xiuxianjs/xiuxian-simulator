@@ -1,5 +1,5 @@
 import { getCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
-import { appendAINarration, guideText } from './aiNarration';
+import { guideText } from './aiNarration';
 import { isGameEventEnabled } from '@src/utils/eventPolicy';
 import { createContext, configureContext, Format, logger, ResultCode } from 'alemonjs';
 import { parseOnboarding, type OnboardingView } from '@src/api/bot/onboarding';
@@ -9,6 +9,7 @@ import { FormatGui, createQuoteMarkdown } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { useMessage } from '@src/utils/useMessage';
 import { sendMiddlewareReply } from '../middlewareReply';
+import { section } from '../presentation';
 
 import {
   canonicalOnboardingCommand as canonical,
@@ -64,6 +65,18 @@ const onboarding = createContext({
 
         return;
       }
+      // Direct optional-lesson entries use the existing router and its normal checks.
+      // Keep legacy versioned /继续引导 ... play callbacks on the original path.
+      if (
+        state.view.phase.startsWith('milestone.') &&
+        buttonVersion === undefined &&
+        state.view.entries?.some(entry => canonical(entry.command) === command && !canonical(entry.command).startsWith('继续引导 '))
+      ) {
+        action.close();
+        action.pass();
+
+        return;
+      }
       const choice = onboardingChoices(state.view).find(button => canonical(button.command) === command);
 
       if (!choice) {
@@ -106,11 +119,8 @@ const onboarding = createContext({
         );
 
         if (result.success && result.branch === 'business') {
-          if (execute && typeof buttonVersion === 'number') {
-            result.data.feedback.unshift(`你选择了：${text.trim()}`);
-          }
           if (!execute) {
-            result.data.feedback.push('先选择当前目标；也可以暂离教学后自由探索，进度会保留。');
+            result.data.feedback.push('请选择下方操作，或暂离引导后体验其他玩法。');
           }
           await showOnboarding(gameEvent, result.data);
         } else {
@@ -180,15 +190,16 @@ export async function showOnboarding(event: GameEvent, view: OnboardingView, int
   if (view.feedback.length) {
     md.addBlockquote(createQuoteMarkdown(view.feedback.flatMap(line => line.split('\n'))));
   }
-  for (const line of view.branchMenu ? [] : onboardingDisplayLines(view)) {
-    md.addText(line).addNewline();
+  const displayLines = view.branchMenu ? [] : onboardingDisplayLines(view);
+
+  if (displayLines.length) {
+    md.addBlockquote(section({ lines: displayLines, actions: view.entries?.map(entry => ({ ...entry, autoEnter: false })) }));
   }
   if (view.branchMenu) {
     appendOnboardingBranchMenu(md, view.branchMenu);
   }
-  appendOnboardingEntries(md, view.entries);
-  if (introduction || view.branchMenu) {
-    await appendAINarration(md, [view.title, ...view.feedback, ...view.lines, ...(view.branchMenu?.lines ?? [])].join('\n'));
+  if (!displayLines.length) {
+    appendOnboardingEntries(md, view.entries);
   }
   const active = view.status === 'active' || view.status === 'soft';
   const buttons = onboardingFooter(view);

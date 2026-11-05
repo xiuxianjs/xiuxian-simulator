@@ -365,7 +365,7 @@ test('an older same-command button keeps its own screen version across successiv
   await deliver(old());
   assert.deepEqual(state.calls.map(call=>call.args.version),[1,1]);
   assert.equal(advances,1,'old screen must not become another attack in the new turn');
-  assert.ok(JSON.stringify(state.sent.at(-1).value.format.value).includes('你选择了：/普攻'));
+  assert.ok(!JSON.stringify(state.sent.at(-1).value.format.value).includes('你选择了：/普攻'));
   await deliver(event('/普攻',{Platform:'qq-bot',name:'interaction.create',InteractionData:JSON.stringify({button_id:'ob2.0',button_data:'/普攻'})}));
   await deliver(event('/普攻',{Platform:'qq-bot'}));
   assert.deepEqual(state.calls.map(call=>call.args.version),[1,1,2,3]);

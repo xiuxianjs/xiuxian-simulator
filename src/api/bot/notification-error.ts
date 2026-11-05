@@ -1,10 +1,16 @@
 import axios from 'axios';
+import { randomUUID } from 'node:crypto';
 import { getBackendConfig } from './config';
 
 /** 只保留接口诊断字段，不把 Axios config、请求头、Token 或响应原文写入日志。 */
 type HTTPFailure = { response?: { data?: unknown; status?: number; headers?: Record<string, unknown> }; code?: string };
+type NotificationRequestContext = { requestId: string; timeoutMs: number; startedAt: number };
 
-export function notificationResponseError(path: string, error: HTTPFailure): Error {
+export function notificationRequestContext(timeoutMs: number): NotificationRequestContext {
+  return { requestId: randomUUID(), timeoutMs, startedAt: performance.now() };
+}
+
+export function notificationResponseError(path: string, error: HTTPFailure, context?: NotificationRequestContext): Error {
   const config = getBackendConfig();
   const redact = (value: unknown, limit = 300): string => {
     let text = typeof value === 'string' ? value.replace(/[\r\n\t]/g, ' ') : '';
@@ -29,26 +35,29 @@ export function notificationResponseError(path: string, error: HTTPFailure): Err
   const message = legacyChannelChat
     ? '聊天接口仍返回 Worker 鉴权格式，请核对渠道游戏 API 版本、GAME_MODE=channel 和 /chat/ 代理目标'
     : redact(detail.message ?? envelope.error);
-  const requestId = redact(detail.requestId ?? envelope.requestId ?? error.response?.headers?.['x-request-id'], 128);
+  const requestId = redact(detail.requestId ?? envelope.requestId ?? error.response?.headers?.['x-request-id'], 128) || redact(context?.requestId, 128);
+  const elapsedMs = context ? Math.max(0, Math.round(performance.now() - context.startedAt)) : undefined;
+  const timing = context ? ` elapsedMs=${elapsedMs} timeoutMs=${context.timeoutMs}` : '';
 
   return Object.assign(
     new Error(
-      `通知请求失败 path=${path} status=${status ?? '未响应'} code=${code || '未知'} message=${message || '未提供结构化错误'} requestId=${requestId || '未提供'}`
+      `通知请求失败 path=${path} status=${status ?? '未响应'} code=${code || '未知'} message=${message || '未提供结构化错误'} requestId=${requestId || '未提供'}${timing}`
     ),
     {
       name: 'NotificationRequestError',
       path,
       status,
       code,
-      requestId
+      requestId,
+      ...(context ? { elapsedMs, timeoutMs: context.timeoutMs } : {})
     }
   );
 }
 
-export function notificationRequestError(path: string, error: unknown): Error {
+export function notificationRequestError(path: string, error: unknown, context?: NotificationRequestContext): Error {
   if (!axios.isAxiosError(error)) {
     return new Error(`通知请求失败 path=${path}，未获得 HTTP 响应`);
   }
 
-  return notificationResponseError(path, error);
+  return notificationResponseError(path, error, context);
 }

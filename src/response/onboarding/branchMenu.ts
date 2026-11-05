@@ -1,8 +1,7 @@
-import { commandText } from '@src/utils/commandPrefix';
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
-import { Format, type FormatMarkDown } from 'alemonjs';
+import { type FormatMarkDown } from 'alemonjs';
 import type { OnboardingBranchMenu, OnboardingView } from '@src/api/bot/onboarding';
 import { mentionsRetiredFeature } from '../retiredFeatures';
+import { section } from '../presentation';
 
 // Markdown input links live beside their description; never a large keyboard.
 export function appendOnboardingBranchMenu(md: FormatMarkDown, menu: OnboardingBranchMenu): void {
@@ -13,15 +12,13 @@ export function appendOnboardingBranchMenu(md: FormatMarkDown, menu: OnboardingB
     if (mentionsRetiredFeature(item.name)) {
       continue;
     }
-    const quote = Format.createMarkdown();
-
-    quote
-      .addBold(item.name)
-      .addText(item.learned ? ' · 已读' : ' · 未读')
-      .addNewline();
-    quote.addText(item.description).addNewline();
-    quote.addButton(markdownButtonLabel(item.learned ? '再看本分支' : '学习本分支'), { data: commandText(item.command), autoEnter: false });
-    md.addBlockquote(quote).addNewline();
+    md.addBlockquote(
+      section({
+        title: item.name,
+        lines: [item.description],
+        actions: [{ label: item.learned ? '再次查看' : '了解玩法', command: item.command, autoEnter: false }]
+      })
+    ).addNewline();
   }
 }
 
@@ -29,10 +26,5 @@ export function appendOnboardingEntries(md: FormatMarkDown, entries: OnboardingV
   if (!entries?.length) {
     return;
   }
-  const quote = Format.createMarkdown().addText('可选入口：').addNewline();
-
-  for (const entry of entries) {
-    quote.addButton(markdownButtonLabel(entry.label), { data: commandText(entry.command), autoEnter: false }).addNewline();
-  }
-  md.addBlockquote(quote).addNewline();
+  md.addBlockquote(section({ lines: [], actions: entries.map(entry => ({ ...entry, autoEnter: false })) })).addNewline();
 }

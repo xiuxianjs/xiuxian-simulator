@@ -1,4 +1,4 @@
-import { appendAINarration, guideText } from './aiNarration';
+import { guideText } from './aiNarration';
 import { Format, markdownToPlainText, type FormatMarkDown } from 'alemonjs';
 import type { RobotBusinessFollowup } from '@src/api/bot/robot-business';
 import type { GameEvent } from '@src/types/event';
@@ -9,6 +9,7 @@ import { onboardingDisplayLines, onboardingFooter } from './policy';
 import { appendOnboardingBranchMenu, appendOnboardingEntries } from './branchMenu';
 import { hasBoundReturnChoices, onboardingKeyboard } from './keyboard';
 import { createOnboardingMenu, menuPageFallback } from './menu-pages';
+import { section } from '../presentation';
 
 // Optional guidance travels with the committed business response. This renderer
 // cannot request or settle gameplay. Active milestone views attach their
@@ -29,17 +30,14 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
     : onboardingFooter(view);
   const md = Format.createMarkdown().addBlockquote(receipt).addNewline();
 
-  for (const line of lines) {
-    md.addText(await guideText(line)).addNewline();
+  if (lines.length) {
+    md.addBlockquote(section({ lines: await Promise.all(lines.map(guideText)) }));
   }
   if (!pending && view.branchMenu) {
     appendOnboardingBranchMenu(md, view.branchMenu);
   }
   if (!pending) {
     appendOnboardingEntries(md, view.entries);
-  }
-  if (!pending && view.branchMenu) {
-    await appendAINarration(md, [view.title, ...view.feedback, ...view.lines, ...(view.branchMenu?.lines ?? [])].join('\n'));
   }
   const active = !pending && (view.status === 'active' || view.status === 'soft');
 
@@ -70,7 +68,7 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
     ...(!pending ? (view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`) : []),
     ...menuPageFallback(directory),
     '可选指令：',
-    ...buttons.flat().map(button => button.label)
+    ...buttons.flat().map(button => (button.label.includes(button.command) ? button.label : `${button.label} · ${button.command}`))
   ]);
 
   return true;

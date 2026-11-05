@@ -64,6 +64,36 @@ function membership(value: unknown): GuildHomeMembership | null {
   };
 }
 
+function parseUpgradeViews(value: unknown): NonNullable<GuildHomeGuild['upgrades']> {
+  if (!Array.isArray(value)) {
+    throw new Error('宗门升级条件不完整');
+  }
+
+  return value.map(item => {
+    const row = record(item);
+
+    if (
+      !['level', 'vein', 'shop'].includes(String(row.kind)) ||
+      !['ready', 'blocked', 'unavailable'].includes(String(row.status)) ||
+      typeof row.reason !== 'string'
+    ) {
+      throw new Error('宗门升级条件无效');
+    }
+
+    return {
+      kind: row.kind as 'level' | 'vein' | 'shop',
+      status: row.status as 'ready' | 'blocked' | 'unavailable',
+      reason: row.reason,
+      currentLevel: number(row.currentLevel),
+      targetLevel: number(row.targetLevel),
+      prestigeCost: number(row.prestigeCost),
+      spiritStoneCost: number(row.spiritStoneCost),
+      prestigeMissing: number(row.prestigeMissing),
+      spiritStoneMissing: number(row.spiritStoneMissing)
+    };
+  });
+}
+
 function guild(value: unknown): GuildHomeGuild | null {
   if (value === null) {
     return null;
@@ -77,6 +107,7 @@ function guild(value: unknown): GuildHomeGuild | null {
   }
 
   return {
+    upgrades: row.upgrades === undefined ? undefined : parseUpgradeViews(row.upgrades),
     level: number(row.level),
     leader: { userId: number(leader.userId), name: nullableText(leader.name) },
     spiritStone: number(row.spiritStone),

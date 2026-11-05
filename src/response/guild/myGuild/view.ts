@@ -4,6 +4,7 @@ import type { GuildHomeQueryData } from '@src/api/schemas/guild-home-query';
 import { createQuoteMarkdown } from '@src/utils/messageHelper';
 import { formatGuildShopAutoRefreshHours } from '@src/response-apps/guild/autoRefreshShop/view';
 import { Format } from 'alemonjs';
+import { section as bubbleSection } from '@src/response/presentation';
 
 export type GuildHomeSection = '活动' | '资料' | '管理';
 type Button = { label: string; command: string };
@@ -31,6 +32,33 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
     const contentLines = section && lines.length > 1 && /^【.+】$/.test(lines[0]) ? lines.slice(1) : lines;
 
     md.addBlockquote(createQuoteMarkdown(contentLines, buttons));
+  };
+  const upgrade = (kind: 'level' | 'vein' | 'shop') => {
+    const name = { level: '宗门', vein: '灵脉', shop: '商店' }[kind];
+    const command = { level: '/提升宗门等级', vein: '/提升宗门灵脉', shop: '/提升宗门商店' }[kind];
+    const cost = guild.upgrades?.find(item => item.kind === kind);
+    const lines =
+      !cost || cost.status === 'unavailable'
+        ? [`状态：${cost?.reason ?? '升级条件暂不可用，请稍后查看'}`]
+        : [
+            `等级：${cost.currentLevel} → ${cost.targetLevel}`,
+            `消耗：宗门声望${cost.prestigeCost} · 当前${guild.prestige}`,
+            `消耗：宗门灵石${cost.spiritStoneCost} · 当前${guild.spiritStone}`,
+            ...(cost.prestigeMissing || cost.spiritStoneMissing
+              ? [
+                  `还差：${[cost.prestigeMissing ? `声望${cost.prestigeMissing}` : '', cost.spiritStoneMissing ? `灵石${cost.spiritStoneMissing}` : ''].filter(Boolean).join('、')}`
+                ]
+              : []),
+            ...(cost.status === 'blocked' ? [`条件：${cost.reason}`] : [])
+          ];
+
+    md.addBlockquote(
+      bubbleSection({
+        title: `${name}升级`,
+        lines,
+        actions: permissions.upgrade && cost?.status === 'ready' ? [{ label: `升至${cost.targetLevel}级`, command }] : []
+      })
+    );
   };
   const currentCommand = section ? `/我的宗门 ${section}` : '/我的宗门';
   const header = [
@@ -90,22 +118,14 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
       );
     }
     if (permissions.upgrade) {
-      quote(
-        ['【宗门建设】', `宗门：${guild.level}级 · 灵石：${guild.spiritStone}/${guild.spiritStoneCap}`, `声望：${guild.prestige}/${guild.prestigeCap}`],
-        [
-          { label: '宗门升级', command: '/提升宗门等级' },
-          ...(guild.veinLevel !== null ? [{ label: '灵脉升级', command: '/提升宗门灵脉' }] : []),
-          ...(guild.shopLevel !== null ? [{ label: '商店升级', command: '/提升宗门商店' }] : []),
-          { label: '战备', command: '/宗门战备' }
-        ]
-      );
-      quote(
-        ['【宗门文告】', guild.notice ? `公告：${guild.notice}` : '公告：暂无'],
-        [
-          { label: '设置简介', command: '/设置宗门简介' },
-          { label: '设置公告', command: '/设置宗门公告' }
-        ]
-      );
+      upgrade('level');
+      if (guild.veinLevel !== null) {
+        upgrade('vein');
+      }
+      if (guild.shopLevel !== null) {
+        upgrade('shop');
+      }
+      quote([], [{ label: '战备', command: '/宗门战备' }]);
     }
     if (membership.isLeader && guild.shopLevel !== null) {
       quote(
@@ -186,7 +206,7 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
   }
   md.addBold(`【${guildName}】 ${guild.level}级(ID:${membership.guildId})`);
   if (permissions.upgrade) {
-    md.addText(' ').addButton(markdownButtonLabel('升级'), { data: commandText('提升宗门等级') });
+    md.addText(' ').addButton(markdownButtonLabel('升级条件'), { data: commandText('/我的宗门 管理') });
   }
   if (permissions.leader) {
     md.addText(' ').addButton(markdownButtonLabel('改名'), { data: commandText('宗门改名') });
@@ -205,7 +225,7 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
   quote([`声望：${guild.prestige}/${guild.prestigeCap}`]);
   quote(
     [`灵脉：${guild.veinLevel === null ? '未开放' : `${guild.veinLevel}级`}`],
-    permissions.upgrade && guild.veinLevel !== null ? [{ label: '升级', command: '/提升宗门灵脉' }] : []
+    permissions.upgrade && guild.veinLevel !== null ? [{ label: '升级条件', command: '/我的宗门 管理' }] : []
   );
   const shopText = guild.shopLevel === null ? (unlockLevels.shop ? `${unlockLevels.shop}级开放` : '未开放') : `${guild.shopLevel}级`;
   const refreshText = guild.shopAutoRefresh.enabled ? ` · 自动刷新：${formatGuildShopAutoRefreshHours(guild.shopAutoRefresh.hours)}` : '';
@@ -214,7 +234,7 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
     [`商店：${shopText}${refreshText}`],
     [
       ...(guild.shopLevel !== null ? [{ label: '商店', command: '/宗门商店' }] : []),
-      ...(permissions.upgrade && guild.shopLevel !== null ? [{ label: '升级', command: '/提升宗门商店' }] : []),
+      ...(permissions.upgrade && guild.shopLevel !== null ? [{ label: '升级条件', command: '/我的宗门 管理' }] : []),
       ...(membership.isLeader && guild.shopLevel !== null ? [{ label: '自动刷新', command: '/宗门商店自动刷新' }] : [])
     ]
   );

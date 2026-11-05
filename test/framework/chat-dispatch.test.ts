@@ -18,7 +18,7 @@ const receipt = (item: ChatClaim): ChatReceipt => ({ ...item, status: 'sent', me
 const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 
 test('超过 20 人继续领取；限流/跳过返回空 claim 不丢失续跑；结束不重复发送', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let calls = 0;
   const sent: number[] = [];
   const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => {
@@ -38,7 +38,7 @@ test('超过 20 人继续领取；限流/跳过返回空 claim 不丢失续跑�
 });
 
 test('领取失败自动恢复；回执失败只重试回执；停止时不发送刚领取到的消息', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let calls = 0, sends = 0, receipts = 0;
   const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => {
     if (++calls === 1) throw new Error('offline');
@@ -58,7 +58,7 @@ test('领取失败自动恢复；回执失败只重试回执；停止时不发�
 });
 
 test('忙时唤醒被保留，空队列也有恢复检查以应对丢失 SSE', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let release!: (result: { claim: null; pending: boolean }) => void;
   let calls = 0;
   const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => {
@@ -72,8 +72,35 @@ test('忙时唤醒被保留，空队列也有恢复检查以应对丢失 SSE', a
   t.mock.timers.tick(30000); await settle(); assert.equal(calls, 3);
 });
 
+test('10秒领取超时后完整等待5秒，忙时及冷却中的唤醒不能跳过退避', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1000 });
+  let calls = 0, sends = 0;
+  let rejectClaim!: (error: Error) => void;
+  const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => {
+    if (++calls === 1) return new Promise((_resolve, reject) => { rejectClaim = reject; });
+    return { claim: null, pending: false };
+  }, async item => { sends++; return receipt(item); });
+  t.after(() => dispatcher.stop());
+  const pending = dispatcher.dispatch();
+  await dispatcher.dispatch();
+  t.mock.timers.tick(10_000);
+  rejectClaim(new Error('claim timed out'));
+  await pending;
+  await dispatcher.dispatch();
+  t.mock.timers.tick(4999); await settle();
+  assert.equal(calls, 1);
+  await dispatcher.dispatch();
+  assert.equal(calls, 1);
+  t.mock.timers.tick(1); await settle();
+  assert.equal(calls, 2);
+  assert.equal(sends, 0);
+  dispatcher.stop();
+  t.mock.timers.tick(30_000); await settle();
+  assert.equal(calls, 2);
+});
+
 test('慢发送和慢回执不阻塞下一次领取，并发达到上限后停止领取', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let calls = 0;
   let finishes = 0;
   const releases: Array<() => void> = [];
@@ -98,7 +125,7 @@ test('慢发送和慢回执不阻塞下一次领取，并发达到上限后停�
 
 
 test('私聊持续积压且并发满载时群聊仍独立发送，停止后两类均停止领取', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   const calls = { c2c: 0, group: 0 };
   const sent = { c2c: 0, group: 0 };
   const releases: Array<() => void> = [];
@@ -122,7 +149,7 @@ test('私聊持续积压且并发满载时群聊仍独立发送，停止后两�
 });
 
 test('一个场景领取挂起或失败不阻塞另一场景的轮询', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   let release!: () => void;
   let groups = 0;
   let privateCalls = 0;

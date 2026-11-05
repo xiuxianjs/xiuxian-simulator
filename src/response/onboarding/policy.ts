@@ -123,10 +123,10 @@ export const onboardingChoices = (view: OnboardingView) => [
 
 export function onboardingFooter(view: OnboardingView): { label: string; command: string }[][] {
   if (view.branchMenu) {
-    return [[{ label: '暂离教学 · /退出引导', command: '/退出引导' }]];
+    return [[{ label: '暂离引导', command: '/退出引导' }]];
   }
   if (view.status === 'active' || view.status === 'soft') {
-    return [...view.actions.map(button => [button]), [{ label: '暂离教学 · /退出引导', command: '/退出引导' }]];
+    return [...(view.actions.length ? [view.actions] : []), [{ label: '暂离引导', command: '/退出引导' }]];
   }
   if (view.status === 'completed') {
     if (view.actions.length) {
@@ -136,7 +136,7 @@ export function onboardingFooter(view: OnboardingView): { label: string; command
     return [[{ label: '出关结算 · /出关', command: '/出关' }], [{ label: '任务面板 · /任务面板', command: '/任务面板' }]];
   }
   if (view.status === 'exited') {
-    return [[{ label: '恢复教学 · /继续引导', command: '/继续引导' }], [{ label: '自由探索 · /任务面板', command: '/任务面板' }]];
+    return [[{ label: '继续引导', command: '/继续引导' }], [{ label: '任务面板', command: '/任务面板' }]];
   }
 
   return [[{ label: '任务面板 · /任务面板', command: '/任务面板' }]];

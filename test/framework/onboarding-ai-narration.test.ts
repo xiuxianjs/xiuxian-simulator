@@ -8,7 +8,7 @@ import type { GameEvent } from '../../src/types/event';
 
 after(() => shutdownLogger());
 for (const failed of [false, true]) {
-  test(`游戏气泡自动调用AI呈现，失败保留原气泡：${failed}`, async t => {
+  test(`关键引导不等待附加旁白，提供者是否失败：${failed}`, async t => {
     const { app, requests } = await gameFixture(t, () => { throw new Error('Narration must not execute gameplay'); });
     let calls = 0;
     const provider = Expose.create().provide({ name: 'agent.presentation.v1', version: '1.0.0', description: 'test narration provider', actions: {
@@ -24,12 +24,12 @@ for (const failed of [false, true]) {
     const result = await app.invoke(event, () => showOnboarding(event as GameEvent, {
       status: 'active', phase: 'profile', version: 1, title: '系统', lines: ['尚未执行玩法'], feedback: [], actions: [{ label: '查看', command: '/我' }]
     }, '进入新阶段'), 'xiuxian-game');
-    assert.equal(calls, 1);
+    assert.equal(calls, 0);
     assert.equal(requests.length, 0);
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     assert.ok(result.messages[0].text.includes('尚未执行玩法'));
-    assert.equal(result.messages[0].text.includes('别急'), !failed);
+    assert.equal(result.messages[0].text.includes('别急'), false);
     assert.ok(JSON.stringify(result.messages[0].nodes).includes('/我'));
   });
 }

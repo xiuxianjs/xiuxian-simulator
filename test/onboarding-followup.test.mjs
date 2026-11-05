@@ -90,7 +90,7 @@ test('return guidance preserves explicit lines alongside the committed receipt',
  const message=result.messages[0];
  assert.equal(result.actions[message.actionIndex].results[0].code,2000);
  const md=message.nodes.find(node=>node.type==='Markdown').value;
- const facts=md.filter(node=>node.type==='MD.text').map(node=>node.value);
+ const facts=message.text.split('\n').map(line=>line.replace(/^>\s?/, '').trim());
  for(const line of ['境界：炼气二层','修为：128/300','精力：116','扫荡次数：7次','消耗精力：70','预计入账修为：175'])assert.ok(facts.includes(line),JSON.stringify(facts));
  assert.ok(JSON.stringify(md).includes('真实材料 ×2'));
  assert.deepEqual(message.commands,['/主线扫荡 1-1 7','/任务面板']);
