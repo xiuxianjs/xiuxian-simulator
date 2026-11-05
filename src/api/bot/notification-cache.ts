@@ -111,8 +111,8 @@ export async function queueCommunityNotification(target: NotificationTarget, kin
 export async function claimCommunityNotification(botId: string, consumer: string): Promise<CommunityBatch | null> {
   return await post('/community/claim', { botId, consumer });
 }
-export async function finishCommunityNotification(eventId: string, consumer: string, retry: boolean): Promise<void> {
-  await post('/community/finish', { eventId, consumer, retry });
+export async function finishCommunityNotification(eventId: string, consumer: string, retry: boolean, deferred = false): Promise<void> {
+  await post('/community/finish', { eventId, consumer, retry, deferred });
 }
 
 export type NotificationGroupSnapshot = {

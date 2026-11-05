@@ -15,7 +15,7 @@ import {
 } from '@src/api/bot/notification-cache';
 import { getAppConfig } from '@src/utils/appConfig';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
-import { notificationChannel, refreshNotificationPermission } from './channel';
+import { notificationChannel, NotificationProbeDeferredError, refreshNotificationPermission } from './channel';
 import { requireCommunityBotAdministrator } from './community';
 import type { LifecycleEvent } from './lifecycle';
 
@@ -95,7 +95,7 @@ async function deliverBatch(batch: CommunityBatch) {
   if ((await readPlatformAvailability(batch.target))?.available === false) {
     return false;
   }
-  const permission = await refreshNotificationPermission(batch.target);
+  const permission = await refreshNotificationPermission(batch.target, false, true);
 
   // 新接口未确认允许时不猜测主动发送能力；未知状态稍后重试。
   if (permission?.state === 'blocked') {
@@ -105,7 +105,7 @@ async function deliverBatch(batch: CommunityBatch) {
     throw new Error('群主动消息权限暂时无法确认');
   }
   if (permission.retryAt && permission.retryAt > Date.now()) {
-    throw new Error('群通知通道仍在失败冷却中');
+    throw new NotificationProbeDeferredError('群通知通道仍在失败冷却中');
   }
   let items = [...new Set(batch.items)];
 
@@ -151,30 +151,43 @@ export async function dispatchCommunityNotifications(): Promise<void> {
         throw new Error('渠道通知机器人未在 QQ 平台配置中启用');
       }
 
-      for (const botId of selectedBotIds) {
-        const consumer = `node.community:${randomUUID()}`;
-
-        while (true) {
-          const batch = await claimCommunityNotification(botId, consumer);
-
-          if (!batch) {
-            break;
-          }
+      await Promise.all(
+        selectedBotIds.map(async botId => {
           try {
-            if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
-              const sent = await deliverBatch(batch);
+            const consumer = `node.community:${randomUUID()}`;
 
-              if (sent) {
-                await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });
+            for (let processed = 0; processed < 10; processed++) {
+              const batch = await claimCommunityNotification(botId, consumer);
+
+              if (!batch) {
+                break;
+              }
+              try {
+                if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
+                  const sent = await deliverBatch(batch);
+
+                  if (sent) {
+                    await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });
+                  }
+                }
+                await finishCommunityNotification(batch.eventId, consumer, false);
+              } catch (error) {
+                const deferred = error instanceof NotificationProbeDeferredError;
+
+                if (!deferred) {
+                  logger.warn('群平台通知等待重试', error instanceof Error ? error.message : '未知错误');
+                }
+                await finishCommunityNotification(batch.eventId, consumer, true, deferred);
+              }
+              if (processed === 9) {
+                pending = true;
               }
             }
-            await finishCommunityNotification(batch.eventId, consumer, false);
           } catch (error) {
-            logger.warn('群平台通知等待重试', error instanceof Error ? error.message : '未知错误');
-            await finishCommunityNotification(batch.eventId, consumer, true);
+            logger.warn('机器人群通知调度失败', { botId, error });
           }
-        }
-      }
+        })
+      );
     }
   } finally {
     running = false;

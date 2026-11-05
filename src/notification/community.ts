@@ -1,8 +1,8 @@
-import { logger, Ok, useGuild, useMember, type Events } from 'alemonjs';
+import { logger, Ok, useMember, type Events } from 'alemonjs';
 import type { GameEvent } from '@src/types/event';
 import type { NotificationTarget } from '@src/types/notification';
 import { queueCommunityNotification, recordCommunityJoinRequest } from '@src/api/bot/notification-cache';
-import { withNotificationTimeout } from './channel';
+import { readNotificationBotRole, withNotificationTimeout } from './channel';
 
 export function communityTarget(event: Pick<GameEvent, 'Platform' | 'BotId' | 'Target'>): NotificationTarget {
   const target = event.Target;
@@ -40,10 +40,9 @@ export async function requireCommunityAdministrator(event: GameEvent): Promise<N
 }
 
 export async function requireCommunityBotAdministrator(target: NotificationTarget): Promise<void> {
-  const [guild] = useGuild({ Platform: target.platform, BotId: target.BotId, Target: target });
-  const result = await withNotificationTimeout(() => guild.botInfo(), 10_000);
+  const role = await readNotificationBotRole(target);
 
-  if (result.code !== Ok || !['admin', 'owner'].includes(result.data?.role ?? '')) {
+  if (!['admin', 'owner'].includes(role ?? '')) {
     throw new Error('机器人需具备本群管理权限；当前权限无法确认时不执行。');
   }
 }

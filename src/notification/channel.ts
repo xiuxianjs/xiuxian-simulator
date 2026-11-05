@@ -81,6 +81,8 @@ async function queryNotificationPermission(target: NotificationTarget): Promise<
   const key = notificationTargetKey(target);
   let state: PermissionState['state'] = 'unknown';
 
+  groupSnapshots.delete(key);
+
   try {
     const [guild] = useGuild({ Platform: target.platform, BotId: target.BotId, Target: target });
     const result = await withNotificationTimeout(() => guild.botInfo(), 10_000);
@@ -108,9 +110,23 @@ async function queryNotificationPermission(target: NotificationTarget): Promise<
   return state;
 }
 
-export async function refreshNotificationPermission(target: NotificationTarget): Promise<PermissionState | null> {
+export class NotificationProbeDeferredError extends Error {}
+
+export async function refreshNotificationPermission(
+  target: NotificationTarget,
+  afterFailure = false,
+  deferOnCooldown = false
+): Promise<PermissionState | null> {
   if (target.platform !== 'qq-bot' || target.scope !== 'group') {
     return await readNotificationChannel(target);
+  }
+  if (!target.BotId?.trim()) {
+    throw new Error('QQ 权限查询缺少机器人 BotId');
+  }
+  const cached = await readNotificationChannel(target);
+
+  if (!afterFailure && cached && cached.state !== 'unknown') {
+    return cached;
   }
   const key = notificationTargetKey(target);
   const existing = probes.get(key);
@@ -123,7 +139,13 @@ export async function refreshNotificationPermission(target: NotificationTarget):
     const { previous, acquired } = await acquirePlatformPermissionProbe(target);
 
     if (!acquired) {
-      return await readNotificationChannel(target);
+      const current = await readNotificationChannel(target);
+
+      if (deferOnCooldown && (!current || current.state === 'unknown' || afterFailure)) {
+        throw new NotificationProbeDeferredError('机器人权限查询冷却中');
+      }
+
+      return current;
     }
     const state = await queryNotificationPermission(target);
 
@@ -139,6 +161,20 @@ export async function refreshNotificationPermission(target: NotificationTarget):
   } finally {
     probes.delete(key);
   }
+}
+
+// 管理权限只能使用实际查询到的角色；冷却期间缺少快照时明确失败。
+export async function readNotificationBotRole(target: NotificationTarget): Promise<GuildBotState['role'] | undefined> {
+  const key = notificationTargetKey(target);
+  const cached = groupSnapshots.get(key);
+
+  if (cached && Date.now() - cached.updatedAt < PERMISSION_TTL_SECONDS * 1000) {
+    return cached.data.role;
+  }
+  await refreshNotificationPermission(target, true, true);
+  const snapshot = groupSnapshots.get(key);
+
+  return snapshot && Date.now() - snapshot.updatedAt < PERMISSION_TTL_SECONDS * 1000 ? snapshot.data.role : undefined;
 }
 
 export const notificationChannel: NotificationChannel = {
@@ -158,7 +194,7 @@ export const notificationChannel: NotificationChannel = {
       return { state: 'blocked', source: 'event', updatedAt: availability.updatedAt };
     }
 
-    return await refreshNotificationPermission(target);
+    return await refreshNotificationPermission(target, true);
   },
   async recordFailure(target) {
     await recordPlatformPermissionFailure(target);
