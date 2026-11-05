@@ -14,9 +14,21 @@ import { renderCachedImage } from '@src/utils/imageRender';
 import PayQrCode from '@src/img/views/PayQrCode';
 import { buildRechargeSuccessContent } from '../paymentView';
 
-const statusText = (status: string) => ({ PENDING: '待支付', PAID: '已支付，待发放', SUCCESS: '已完成', TIMEOUT: '已超时关闭', FAILED: '支付失败', CANCELLED: '已取消', REFUND: '已退款' })[
-    status
-  ] ?? `状态：${status}`;
+const statusText = (status: string) => ({
+    PENDING: '待支付',
+    PAID: '已支付，待发放',
+    SUCCESS: '已完成',
+    TIMEOUT: '支付入口已超时，关单及预留释放待确认',
+    FAILED: '支付失败',
+    CANCELLED: '已取消',
+    REFUND: '已退款'
+  })[status] ?? `状态：${status}`;
+
+const paymentEntryExpired = (order: { status: string; createdAt?: string }) => order.status === 'PENDING' &&
+  typeof order.createdAt === 'string' &&
+  Number.isFinite(Date.parse(order.createdAt)) &&
+  Date.now() - Date.parse(order.createdAt) >= 5 * 60 * 1000;
+const orderStatusText = (order: { status: string; createdAt?: string }) => paymentEntryExpired(order) ? '支付入口已过期，关单及预留释放待确认' : statusText(order.status);
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -57,10 +69,10 @@ export default onResponse(selects, async e => {
       const order = await getPaymentOrder(bid, uid, orderNo);
       const md = Format.createMarkdown().addBlockquote(
         createQuoteMarkdown(
-          [`订单号：${order.orderNo}`, `金额：¥${(order.payAmount / 100).toFixed(2)}`, statusText(order.status)],
+          [`订单号：${order.orderNo}`, `金额：¥${(order.payAmount / 100).toFixed(2)}`, orderStatusText(order)],
           [
             { label: '刷新结果', command: `/查询充值订单 ${orderNo}`, autoEnter: false },
-            ...(order.status === 'PENDING' ? [{ label: '继续支付', command: `/继续支付 ${orderNo}`, autoEnter: false }] : [])
+            ...(order.status === 'PENDING' && !paymentEntryExpired(order) ? [{ label: '继续支付', command: `/继续支付 ${orderNo}`, autoEnter: false }] : [])
           ]
         )
       );
@@ -72,7 +84,9 @@ export default onResponse(selects, async e => {
           md.addNewline().addText('订单已完成，到账明细暂未获取，请查看权益与储物袋，或保留订单号联系运营。');
         }
       }
-      await message.send(FormatGui({ isPrivate, bid, title: '订单详情', content: md, footer }));
+      if (match[1] !== '继续支付' || order.status !== 'PENDING' || !paymentEntryExpired(order)) {
+        await message.send(FormatGui({ isPrivate, bid, title: '订单详情', content: md, footer }));
+      }
       if (match[1] === '继续支付' && order.status === 'PENDING') {
         const checkout = parseBackendNormalCheckout(
           await requestBackend(bid, 'get_players_id_payments_orders_orderNo_checkout', { path: { id: uid, orderNo } })
@@ -144,10 +158,10 @@ export default onResponse(selects, async e => {
     for (const order of data.items) {
       md.addBlockquote(
         createQuoteMarkdown(
-          [order.orderNo, `¥${(order.payAmount / 100).toFixed(2)} · ${statusText(order.status)}`],
+          [order.orderNo, `¥${(order.payAmount / 100).toFixed(2)} · ${orderStatusText(order)}`],
           [
             { label: '查看结果', command: `/查询充值订单 ${order.orderNo}` },
-            ...(order.status === 'PENDING' ? [{ label: '继续支付', command: `/继续支付 ${order.orderNo}` }] : [])
+            ...(order.status === 'PENDING' && !paymentEntryExpired(order) ? [{ label: '继续支付', command: `/继续支付 ${order.orderNo}` }] : [])
           ]
         )
       );

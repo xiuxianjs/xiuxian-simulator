@@ -11,7 +11,7 @@ const asRow = (value: unknown, message: string): Row => {
   return value as Row;
 };
 
-export type BackendSponsorOrder = { orderNo: string; payAmount: number; status: string };
+export type BackendSponsorOrder = { orderNo: string; payAmount: number; status: string; createdAt?: string };
 const order = (value: unknown): BackendSponsorOrder => {
   const data = asRow(value, '支付订单响应不完整');
   const payAmount = data.payAmount;
@@ -27,7 +27,7 @@ const order = (value: unknown): BackendSponsorOrder => {
     throw new Error('支付订单响应不完整');
   }
 
-  return { orderNo: data.orderNo, payAmount, status: data.status };
+  return { orderNo: data.orderNo, payAmount, status: data.status, ...(typeof data.createdAt === 'string' ? { createdAt: data.createdAt } : {}) };
 };
 
 export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string; promotionTexts?: string[] };
@@ -94,8 +94,12 @@ export type BackendNormalPaymentSettlement = {
   monthCardExtended: boolean;
   seclusionPassActivated: boolean;
   fishingPack?: {
-    sku:string;name:string;orderNo:string;rodIds:string[];coinGrant:number;
-    items:{key:string;itemId:number;quantity:number;name:string;held:number}[]
+    sku: string;
+    name: string;
+    orderNo: string;
+    rodIds: string[];
+    coinGrant: number;
+    items: { key: string; itemId: number; quantity: number; name: string; held: number }[];
   };
   spiritVein?: { days: number; dailyCrystal: number; startDate: string; endDate: string };
   periodicPack?: ReturnType<typeof parsePeriodicPackReceipt>;
@@ -139,23 +143,47 @@ export function parseBackendNormalPaymentSettlement(value: unknown): BackendNorm
   const spiritVein = data.spiritVein === undefined || data.spiritVein === null ? undefined : asRow(data.spiritVein, '灵脉租契回执不完整');
   const daily = data.dailyTreasurePack === undefined || data.dailyTreasurePack === null ? undefined : asRow(data.dailyTreasurePack, '每日礼包回执不完整');
   const fishing = data.fishingPack === undefined || data.fishingPack === null ? undefined : asRow(data.fishingPack, '垂钓礼包回执不完整');
-  let fishingPack:BackendNormalPaymentSettlement['fishingPack'];
+  let fishingPack: BackendNormalPaymentSettlement['fishingPack'];
 
   if (fishing) {
-    if (typeof fishing.sku !== 'string' || typeof fishing.name !== 'string' || fishing.orderNo !== data.orderNo || !Number.isSafeInteger(fishing.coinGrant) || Number(fishing.coinGrant) < 0 || !Array.isArray(fishing.rodIds) || fishing.rodIds.some(id => typeof id !== 'string' || !/^[A-Za-z0-9_.:-]{1,40}$/.test(id)) || !Array.isArray(fishing.items)) {
+    if (
+      typeof fishing.sku !== 'string' ||
+      typeof fishing.name !== 'string' ||
+      fishing.orderNo !== data.orderNo ||
+      !Number.isSafeInteger(fishing.coinGrant) ||
+      Number(fishing.coinGrant) < 0 ||
+      !Array.isArray(fishing.rodIds) ||
+      fishing.rodIds.some(id => typeof id !== 'string' || !/^[A-Za-z0-9_.:-]{1,40}$/.test(id)) ||
+      !Array.isArray(fishing.items)
+    ) {
       throw new Error('垂钓礼包回执不完整');
     }
     const items = fishing.items.map(value => {
       const item = asRow(value, '垂钓礼包到账物资不完整');
 
-      if (typeof item.key !== 'string' || typeof item.name !== 'string' || !Number.isSafeInteger(item.itemId) || Number(item.itemId) < 1 || !Number.isSafeInteger(item.quantity) || Number(item.quantity) < 1 || !Number.isSafeInteger(item.held) || Number(item.held) < 0) { throw new Error('垂钓礼包到账物资不完整'); }
+      if (
+        typeof item.key !== 'string' ||
+        typeof item.name !== 'string' ||
+        !Number.isSafeInteger(item.itemId) ||
+        Number(item.itemId) < 1 ||
+        !Number.isSafeInteger(item.quantity) ||
+        Number(item.quantity) < 1 ||
+        !Number.isSafeInteger(item.held) ||
+        Number(item.held) < 0
+      ) {
+        throw new Error('垂钓礼包到账物资不完整');
+      }
 
       return { key: item.key, itemId: item.itemId as number, quantity: item.quantity as number, name: item.name, held: item.held as number };
     });
 
     fishingPack = {
-      sku: fishing.sku, name: fishing.name, orderNo: fishing.orderNo,
-      rodIds: fishing.rodIds as string[], coinGrant: fishing.coinGrant as number, items
+      sku: fishing.sku,
+      name: fishing.name,
+      orderNo: fishing.orderNo,
+      rodIds: fishing.rodIds as string[],
+      coinGrant: fishing.coinGrant as number,
+      items
     };
   }
 

@@ -31,7 +31,13 @@ export async function getPaymentOrders(bid: string, uid: number, page: number) {
       throw new Error('订单列表响应不完整');
     }
 
-    return { orderNo: row.orderNo, status: row.status, payAmount: row.payAmount, packageId: row.packageId };
+    return {
+      orderNo: row.orderNo,
+      status: row.status,
+      payAmount: row.payAmount,
+      packageId: row.packageId,
+      ...(typeof row.createdAt === 'string' ? { createdAt: row.createdAt } : {})
+    };
   });
 
   return { items, total: data.total };

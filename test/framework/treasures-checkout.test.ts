@@ -154,7 +154,7 @@ test('continue checkout rejects a different order receipt before showing its pol
 test('monthly bundle resumes the original checkout without creating another order', async t => {
   t.mock.method(ImageCache.prototype, 'getOrCreate', async () => 'https://offline.example.test/pay.png');
   const number = 'TP-original-monthly';
-  const value = { ...checkout(frozen, number), packageName: '宝物每月全包', order: { orderNo: number, payAmount: 19000, status: 'PENDING', createdAt: '2026-10-01T00:00:00+08:00' } };
+  const value = { ...checkout(frozen, number), packageName: '宝物每月全包', order: { orderNo: number, payAmount: 19000, status: 'PENDING', createdAt: new Date().toISOString() } };
   const { app, requests } = await gameFixture(t, request => {
     if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
     if (request.path.endsWith('/checkout')) return value;
@@ -187,3 +187,30 @@ for (const status of [409, 500]) {
     assert.ok(!JSON.stringify(result.messages).includes(checkout().payUrl));
   });
 }
+
+test('expired order query preserves details without offering another payment', async t => {
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+    return { orderNo, payAmount: 16000, status: 'PENDING', createdAt: '2000-01-01T00:00:00Z' };
+  });
+  const result = delivered(await app.runHandler(orders, app.events.privateMessage({ text: `/查询充值订单 ${orderNo}`, platform: 'qq-bot' })));
+  assert.equal(result.length, 1);
+  assert.ok(result[0].text.includes('支付入口已过期'));
+  assert.ok(result[0].text.includes(orderNo));
+  assert.ok(!JSON.stringify(result).includes('继续支付'));
+  assert.ok(!requests.some(request => request.path.endsWith('/checkout')));
+});
+
+
+test('expired legacy payment button reports only the closure failure', async t => {
+  const reason = '支付平台拒绝关单，原订单未释放';
+  const { app } = await gameFixture(t, request => {
+    if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+    if (request.path.endsWith('/checkout')) return { code: 'CONFLICT', message: reason };
+    return { orderNo, payAmount: 16000, status: 'PENDING', createdAt: '2000-01-01T00:00:00Z' };
+  }, request => request.path.endsWith('/checkout') ? 409 : 200);
+  const result = delivered(await app.runHandler(orders, app.events.privateMessage({ text: `/继续支付 ${orderNo}`, platform: 'qq-bot' })));
+  assert.equal(result.length, 1);
+  assert.ok(result[0].text.includes(reason));
+  assert.ok(!result[0].text.includes('待支付'));
+});
