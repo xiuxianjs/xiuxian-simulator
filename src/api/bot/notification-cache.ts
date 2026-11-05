@@ -1,4 +1,4 @@
-import { notificationRequestError } from './notification-error';
+import { notificationRequestContext, notificationRequestError } from './notification-error';
 import type { NotificationDelivery, NotificationTarget, PermissionState } from '@src/types/notification';
 import axios from 'axios';
 import { getNotificationBackendConfig } from './config';
@@ -6,27 +6,30 @@ import { backendConnectionPools } from './connection-pools';
 
 function cacheClient() {
   const config = getNotificationBackendConfig();
+  const context = notificationRequestContext(config.timeoutMs);
 
-  return axios.create({
+  const client = axios.create({
     ...backendConnectionPools,
     baseURL: config.url,
     timeout: config.timeoutMs,
     headers: config.headers,
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
+
+  return { client, context };
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const endpoint = `/api/v1/internal/notification-relay/cache${path}`;
 
-  const client = cacheClient();
+  const { client, context } = cacheClient();
 
   try {
-    const response = await client.post<{ data: T }>(endpoint, body);
+    const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });
 
     return response.data.data;
   } catch (error) {
-    throw notificationRequestError(endpoint, error);
+    throw notificationRequestError(endpoint, error, context);
   }
 }
 
@@ -108,8 +111,8 @@ export async function queueCommunityNotification(target: NotificationTarget, kin
 export async function claimCommunityNotification(botId: string, consumer: string): Promise<CommunityBatch | null> {
   return await post('/community/claim', { botId, consumer });
 }
-export async function finishCommunityNotification(eventId: string, consumer: string, retry: boolean): Promise<void> {
-  await post('/community/finish', { eventId, consumer, retry });
+export async function finishCommunityNotification(eventId: string, consumer: string, retry: boolean, deferred = false): Promise<void> {
+  await post('/community/finish', { eventId, consumer, retry, deferred });
 }
 
 export type NotificationGroupSnapshot = {

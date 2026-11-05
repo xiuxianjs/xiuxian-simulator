@@ -111,7 +111,7 @@ export const MORE_CATEGORIES: MoreCategory[] = [
       { label: '我的设置', command: '/我的设置', description: '通知与组队设置' },
       { label: '安全中心', command: '/安全中心', description: '密码、邮箱与账号管理' },
       { label: '道友小传', command: '/更多 个人资料', description: '称号、回忆与角色故事', subcategory: '个人资料' },
-      { label: '藏经阁', command: '/更多 游戏资料', description: '图鉴、天书、术语与攻略', subcategory: '游戏资料' },
+      { label: '藏经阁', command: '/更多 游戏资料', description: '图鉴、天书、术语', subcategory: '游戏资料' },
       { label: '反馈', command: '/我的反馈', description: '查看或提交反馈' }
     ]
   },
@@ -134,8 +134,8 @@ export const MORE_CATEGORIES: MoreCategory[] = [
     entries: [
       { label: '图鉴', command: '/图鉴', description: '免登录网页查询物品、装备、功法等资料' },
       { label: '天书', command: '/天书', description: '查看境界解锁与成长说明' },
-      { label: '词典', command: '/词典', description: '查阅游戏术语' },
-      { label: '攻略', command: '/攻略', description: '查看修行攻略' }
+      { label: '词典', command: '/词典', description: '查阅游戏术语' }
+      // { label: '攻略', command: '/攻略', description: '查看修行攻略' }
     ]
   },
   {

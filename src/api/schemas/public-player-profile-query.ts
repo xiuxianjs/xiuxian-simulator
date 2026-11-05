@@ -1,3 +1,5 @@
+import type { PlayerTalents } from '../bot/talents';
+import type { SpiritRootView } from '../bot/spirit-root';
 export interface PublicPlayerProfileQueryData {
   found: boolean;
   hideProfile: boolean;
@@ -14,6 +16,8 @@ export interface PublicPlayerProfileQueryData {
     summary: string;
   };
   detail?: {
+    talents?: PlayerTalents;
+    spiritRoot?: SpiritRootView;
     strength: number;
     intelligence: number;
     constitution: number;

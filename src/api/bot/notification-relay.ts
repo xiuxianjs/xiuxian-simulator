@@ -1,4 +1,4 @@
-import { notificationRequestError } from './notification-error';
+import { notificationRequestContext, notificationRequestError } from './notification-error';
 import { measureTransportStage } from '../../utils/transportTiming';
 import axios from 'axios';
 import { getAppConfig } from '@src/utils/appConfig';
@@ -34,26 +34,29 @@ export type { NotificationDelivery };
 
 function relayClient() {
   const config = getNotificationBackendConfig();
+  const context = notificationRequestContext(config.timeoutMs);
 
-  return axios.create({
+  const client = axios.create({
     ...backendConnectionPools,
     baseURL: config.url,
     timeout: config.timeoutMs,
     headers: config.headers,
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
+
+  return { client, context };
 }
 async function post<T>(path: string, body: unknown): Promise<T> {
   const endpoint = `/api/v1/internal/notification-relay${path}`;
 
-  const client = relayClient();
+  const { client, context } = relayClient();
 
   try {
-    const response = await client.post<{ data: T }>(endpoint, body);
+    const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });
 
     return response.data.data;
   } catch (error) {
-    throw notificationRequestError(endpoint, error);
+    throw notificationRequestError(endpoint, error, context);
   }
 }
 export async function claimNotificationRelay(eventType: string, consumer: string, lane?: 'flymail' | 'standard'): Promise<NotificationRelayEvent | null> {
@@ -121,7 +124,9 @@ export async function markLegacyNotificationSent(messageId: string): Promise<voi
 /** When Node owns the schedule, it triggers the same Go scanner the autonomous Worker uses. */
 export async function scanLegacyNotificationPool(): Promise<void> {
   getWorkerBackendConfig();
-  await relayClient().post('/api/v1/internal/workers/push-message-relay/run', {});
+  const { client, context } = relayClient();
+
+  await client.post('/api/v1/internal/workers/push-message-relay/run', {}, { headers: { 'X-Request-ID': context.requestId } });
 }
 
 export type NotificationSubscriptionTarget = {

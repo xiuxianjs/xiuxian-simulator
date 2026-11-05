@@ -1,13 +1,13 @@
 import { invalidateEventCommandEntry } from '@src/api/bot/command-entry';
 import { invalidateEventBackendRobotIdentity } from '@src/api/bot/identity';
 import { parseBackendRegistration } from '@src/api/bot/registration';
-import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE, newcomerGreeting } from '@src/constants/newcomerGuide';
+import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE } from '@src/constants/newcomerGuide';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
-import { appendAINarration, guideText } from '../onboarding/aiNarration';
+import { guideText } from '../onboarding/aiNarration';
 import { sendRegistrationNamePrompt } from './namePrompt';
 
 export default onResponse(selects, async e => {
@@ -109,29 +109,11 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addBold(await guideText('{{guide.name}} · 新手引导'));
+  md.addBold('序章 · 山径遇险');
   md.addNewline();
-  md.addText(newcomerGreeting(result.data.playerName));
-  if (result.data.spiritRoot?.granted) {
-    md.addNewline();
-    md.addText(`先天灵根：${result.data.spiritRoot.title} · 闭关修为+${result.data.spiritRoot.bonusPercent}%`);
-  }
-  if (result.data.talents?.granted) {
-    md.addNewline();
-    md.addNewline();
-    md.addBold('先天天赋');
-    result.data.talents.talents.forEach(talent => {
-      md.addNewline();
-      md.addText(`【${talent.category}】${talent.name}：${talent.description}${talent.enabled ? '' : '（暂未开启）'}`);
-    });
-    md.addNewline();
-    md.addText('天赋自动生效，完成引导后可发送 /我的天赋 查看。');
-  }
-
-  md.addNewline();
+  md.addText(`道号：${result.data.playerName}`);
   md.addNewline();
   md.addText(await guideText(NEWCOMER_PROLOGUE));
-  await appendAINarration(md, NEWCOMER_PROLOGUE);
 
   md.addNewline();
 
@@ -140,7 +122,7 @@ export default onResponse(selects, async e => {
       isPrivate,
       bid,
       title: '',
-      content: md,
+      content: Format.createMarkdown().addBlockquote(md),
       bar: GUIDE_ACTION_BAR
     })
   );

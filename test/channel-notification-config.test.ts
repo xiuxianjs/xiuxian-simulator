@@ -5,7 +5,7 @@ import { shutdownLogger } from 'alemonjs';
 import { assertChannelRobotEvent, getBackendConfig, getNotificationBackendConfig } from '../src/api/bot/config';
 import { claimNotificationRelay, getLegacySentNotificationIDs, registerNotificationRecipient, scanLegacyNotificationPool } from '../src/api/bot/notification-relay';
 import { readPlatformDeliveryReceipt } from '../src/api/bot/notification-cache';
-import { claimChatNotice } from '../src/api/bot/chat';
+import { claimChatNotice, claimNextChatNotice, observeChatContacts } from '../src/api/bot/chat';
 import { mockBackendConfig } from './backend-config-helper';
 
 after(() => shutdownLogger());
@@ -74,4 +74,45 @@ test('未获得框架 AppID 时忽略旧手填 ID，通知请求不会创建客�
   t.mock.method(axios, 'create', () => { throw new Error('must not request'); });
   assert.equal(getBackendConfig().channelBotId, '');
   await assert.rejects(claimNotificationRelay('player.notification.dispatch', 'consumer'), /AppID 尚未就绪/);
+});
+
+test('通知超时保留实际请求编号与时间预算，不输出原始错误或自动重试', async t => {
+  mockBackendConfig(t, { api_url: 'https://channel.invalid', channel_mode: true, robot_auth_token: 'private-merchant-token', worker_token: 'private-worker-token', api_timeout_ms: 10_000 });
+  const ids: string[] = [];
+  let calls = 0;
+  t.mock.method(axios, 'create', config => {
+    assert.equal(config?.timeout, 10_000);
+    assert.deepEqual(config?.headers, { Authorization: 'Bearer private-merchant-token' });
+    assert.equal(config?.maxRedirects, 0);
+    return { post: async (_path: string, _body: unknown, options: { headers: Record<string, string> }) => {
+      calls++;
+      assert.deepEqual(Object.keys(options.headers), ['X-Request-ID']);
+      const id = options.headers['X-Request-ID'];
+      assert.match(id, /^[0-9a-f-]{36}$/);
+      ids.push(id);
+      throw new axios.AxiosError('private-merchant-token private-worker-token RAW_DIAGNOSTIC', 'ECONNABORTED');
+    } } as never;
+  });
+  const requests = [
+    () => claimNotificationRelay('player.notification.dispatch', 'consumer'),
+    () => readPlatformDeliveryReceipt('event'),
+    () => claimNextChatNotice('100017'),
+    () => observeChatContacts([])
+  ];
+  for (const request of requests) {
+    const before = calls;
+    await assert.rejects(request, error => {
+      assert.ok(error instanceof Error);
+      const details = error as Error & { requestId: string; code: string; elapsedMs: number; timeoutMs: number };
+      assert.equal(details.requestId, ids.at(-1));
+      assert.equal(details.code, 'ECONNABORTED');
+      assert.equal(details.timeoutMs, 10_000);
+      assert.ok(details.elapsedMs >= 0);
+      assert.match(details.message, /requestId=[0-9a-f-]+ elapsedMs=\d+ timeoutMs=10000/);
+      assert.doesNotMatch(details.message, /private-merchant-token|private-worker-token|RAW_DIAGNOSTIC/);
+      return true;
+    });
+    assert.equal(calls, before + 1);
+  }
+  assert.equal(new Set(ids).size, requests.length);
 });

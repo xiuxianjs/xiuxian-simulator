@@ -43,7 +43,29 @@ const batchOperations = new Set<OperationId>([
 export function isBattleOperation(operation: OperationId): boolean {
   return battleOperations.has(operation);
 }
-export function backendRequestTimeout(operation: OperationId, configured: number): number {
+const fishingWriteOperations = new Set([
+  'fishing.preview',
+  'fishing.confirm',
+  'fishing.start-current',
+  'fishing.stop-current',
+  'fishing.configure',
+  'fishing.purchase',
+  'fishing.pack-checkout'
+]);
+
+export function backendRequestTimeout(operation: OperationId, configured: number, parameters?: unknown): number {
+  // Fishing writes can advance an existing session, reserve supplies and commit
+  // an original receipt. Keep their budget separate from battle error wording;
+  // a longer wait never authorizes a retry or changes the idempotency key.
+  if (operation === 'post_robot_business_operation' || operation === 'post_v2_robot_business_operation') {
+    const path = parameters && typeof parameters === 'object' && 'path' in parameters ? parameters.path : undefined;
+    const business = path && typeof path === 'object' && 'operation' in path ? path.operation : undefined;
+
+    if (typeof business === 'string' && fishingWriteOperations.has(business)) {
+      return Math.max(configured, 60_000);
+    }
+  }
+
   return Math.max(configured, batchOperations.has(operation) ? 120_000 : battleOperations.has(operation) ? 60_000 : configured);
 }
 

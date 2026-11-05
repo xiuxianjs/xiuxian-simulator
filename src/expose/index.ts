@@ -1,7 +1,5 @@
-import { scheduledHarvest } from './scheduled-harvest';
-import { bindExecutionPolicies } from './execution-policy';
-import { conversationLifecycle } from '../agent-play/lifecycle';
 import { Expose } from 'alemonjs';
+import { conversationLifecycle } from '../agent-play/lifecycle';
 import { getBackendAttributePanel } from '../api/bot/attribute-panel';
 import { getBackendBattleTemplates } from '../api/bot/battle-templates-query';
 import { getBackendInventory } from '../api/bot/inventory';
@@ -24,8 +22,10 @@ import { craftingActions } from './crafting-actions';
 import { cultivationActions } from './cultivation-actions';
 import { decompositionActions } from './decomposition-actions';
 import { encyclopediaActions } from './encyclopedia-actions';
+import { bindExecutionPolicies } from './execution-policy';
 import { explorationActions } from './exploration-actions';
 import { feedbackActions } from './feedback-actions';
+import { fishingActions } from './fishing-actions';
 import { forgeOrderActions } from './forge-order-actions';
 import { friendActions } from './friend-actions';
 import { glossaryActions } from './glossary-actions';
@@ -63,6 +63,7 @@ import { referralActions } from './referral-actions';
 import { registrationActions } from './registration-actions';
 import { returnRewardsActions } from './return-rewards-actions';
 import { rewardActions } from './reward-actions';
+import { scheduledHarvest } from './scheduled-harvest';
 import { secretRealmActions } from './secret-realm-actions';
 import { settingsActions } from './settings-actions';
 import { shopActions } from './shop-actions';
@@ -82,7 +83,6 @@ import { tianjiaoActions } from './tianjiao-actions';
 import { tianshuActions } from './tianshu-actions';
 import { tongtianActions } from './tongtian-actions';
 import { treasureActions } from './treasure-actions';
-import { fishingActions } from './fishing-actions';
 import { tribulationActions } from './tribulation-actions';
 import { wudaoActions } from './wudao-actions';
 
@@ -125,10 +125,13 @@ type Attributes = {
   mentalRecoveryEfficiency?: number;
 } & Record<(typeof numericFields)[number], number>;
 
+const capabilityCard = { displayName: '修仙模拟器', entryCommand: '/修仙帮助' };
+
 export const gameExpose = Expose.create()
   .provide(conversationLifecycle)
   .provide(scheduledHarvest)
   .provide({
+    ...capabilityCard,
     name: GAME_EXPOSE_PROTOCOL,
     version: '1.327.0',
     description:

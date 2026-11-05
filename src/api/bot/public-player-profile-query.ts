@@ -1,3 +1,5 @@
+import { parsePlayerTalents } from './talents';
+import { parseSpiritRoot } from './spirit-root';
 import type { PublicPlayerProfileQueryData } from '../schemas/public-player-profile-query';
 import { requestBackend } from './client';
 
@@ -70,6 +72,8 @@ function detail(value: unknown): NonNullable<PublicPlayerProfileQueryData['detai
   }
 
   return {
+    ...(data.talents === undefined ? {} : { talents: parsePlayerTalents(data.talents) }),
+    ...(data.spiritRoot === undefined ? {} : { spiritRoot: parseSpiritRoot(data.spiritRoot) }),
     strength: data.strength as number,
     intelligence: data.intelligence as number,
     constitution: data.constitution as number,

@@ -58,6 +58,7 @@ class ChatNoticeLane {
   private running = false;
   private stopped = false;
   private requested = false;
+  private retryNotBefore = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private readonly inFlight = new Map<string, number>();
 
@@ -73,6 +74,12 @@ class ChatNoticeLane {
       return;
     }
     if (this.running) {
+      this.requested = true;
+
+      return;
+    }
+    // SSE wakeups must not bypass the cooldown after a failed claim.
+    if (Date.now() < this.retryNotBefore) {
       this.requested = true;
 
       return;
@@ -117,6 +124,8 @@ class ChatNoticeLane {
       }
     } catch (error) {
       delay = 5000;
+      // Start recovery delay when the request fails, not when it started.
+      this.retryNotBefore = Date.now() + delay;
       logger.error('消息管理通知投递暂停；未确认的发送不会自动重发', error);
     } finally {
       this.running = false;
@@ -126,7 +135,7 @@ class ChatNoticeLane {
             this.timer = undefined;
             void this.dispatch();
           },
-          Math.max(0, (this.requested ? 125 : delay) - (Date.now() - startedAt))
+          Math.max(0, this.retryNotBefore - Date.now(), (this.requested ? 125 : delay) - (Date.now() - startedAt))
         );
         this.timer.unref?.();
       }

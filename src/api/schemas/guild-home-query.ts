@@ -1,3 +1,15 @@
+export interface GuildUpgradeView {
+  kind: 'level' | 'vein' | 'shop';
+  currentLevel: number;
+  targetLevel: number;
+  prestigeCost: number;
+  spiritStoneCost: number;
+  prestigeMissing: number;
+  spiritStoneMissing: number;
+  status: 'ready' | 'blocked' | 'unavailable';
+  reason: string;
+}
+
 export interface GuildHomeMembership {
   guildId: number;
   guildName: string | null;
@@ -8,6 +20,7 @@ export interface GuildHomeMembership {
 }
 
 export interface GuildHomeGuild {
+  upgrades?: GuildUpgradeView[];
   level: number;
   leader: { userId: number; name: string | null };
   spiritStone: number;

@@ -2,7 +2,6 @@ import { logger, type Events } from 'alemonjs';
 import { rememberPlatformGroupActivity, type NotificationGroupActivity } from '@src/api/bot/notification-cache';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { legacyNotificationTarget } from './delivery';
-import { notificationChannel, refreshNotificationPermission } from './channel';
 
 type Observation = { bid: string; activity: NotificationGroupActivity };
 const pending = new Map<string, Observation>();
@@ -56,20 +55,9 @@ async function drain(): Promise<void> {
       const [key, observation] = pending.entries().next().value!;
 
       pending.delete(key);
-      await (async () => {
-        // Probe new/unknown group permissions off the event path. Reporting
-        // still records raw activity when the platform cannot confirm a state.
-        try {
-          const state = await notificationChannel.read(observation.activity.target);
-
-          if (!state || state.state === 'unknown') {
-            await refreshNotificationPermission(observation.activity.target);
-          }
-        } catch (error) {
-          logger.warn('群活动权限探测失败，发送前继续复核', error);
-        }
-        await rememberPlatformGroupActivity(observation.bid, observation.activity);
-      })().catch(error => logger.error('玩家群活动位置上报失败', error));
+      // 活动只记录真实出现过的位置；权限由实际投递及明确操作查询，
+      // 避免普通聊天消耗机器人查询额度或反复请求后端权限接口。
+      await rememberPlatformGroupActivity(observation.bid, observation.activity).catch(error => logger.error('玩家群活动位置上报失败', error));
     }
   } finally {
     running--;

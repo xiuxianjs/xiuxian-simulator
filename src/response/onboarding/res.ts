@@ -56,9 +56,6 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
     );
 
     if (!result.handled) {
-      if (action) {
-        result.data.feedback.unshift(`你选择了：${event.MessageText?.trim()}`);
-      }
       await showOnboarding(event, result.data);
     }
   } catch (error) {

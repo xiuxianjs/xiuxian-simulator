@@ -1,3 +1,4 @@
+import startHandler from '../../src/response/start/res';
 import { configureOnboardingCommandMatcher } from '../../src/response/onboarding/policy';
 import { handleOnboardingResponse } from '../../src/response/onboarding/res';
 import { sendOnboardingFollowup } from '../../src/response/onboarding/followup';
@@ -364,4 +365,54 @@ test('AI 正式 Expose 逐步选择、交接、恢复并回看旧分支，保留
   assert.deepEqual(requests.slice(1, 4).map(request => request.body.arguments), steps.slice(1, 4).map(step => ({ version: step.args.version, command: step.args.command })));
   assert.ok(requests.every(request => /onboarding\.(view|action)$/.test(request.path)));
   assert.equal(requests[4].body.messageText, '/继续引导');
+});
+
+test('分支真实入口一次交给原玩法，不发送交接气泡或教学写请求', async t => {
+  const { app, requests } = await gameFixture(t, () => { throw new Error('Direct entry must use the original route'); });
+  await app.mount({ responseContent: onboardingContent });
+  const downstream = Router.create();
+  downstream.res({ events: ['message.create'] }, async () => async () => {
+    const [message] = useMessage();
+    await message.send({ format: Format.create().addText('交易所面板') });
+  });
+  await app.mount({ responseRouter: downstream.define }, undefined, 'game-route');
+  const event = app.events.groupMessage({ text: '/继续引导', platform: 'qq-bot' });
+  await app.invoke(event, () => showOnboarding(event as GameEvent, {
+    ...initial, phase: 'milestone.market', entries: [{ label: '查看交易所', command: '/交易所' }],
+    actions: [{ label: '返回目录', command: '/继续引导 1 menu' }]
+  }));
+  const result = await app.dispatch(app.events.groupMessage({ text: '/交易所', platform: 'qq-bot' }));
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.messages[0].text, '交易所面板');
+  assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.equal(requests.length, 0);
+});
+
+test('注册成功只发送一个序章气泡，保留道号与继续/跳过入口', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { code: 'OK', data: { playerName: '青禾' } }));
+  const run = await app.runHandler(startHandler, app.events.groupMessage({ text: '/我是 青禾 女', platform: 'qq-bot' }));
+  assert.equal(run.messages.length, 1);
+  assert.equal(run.actions[run.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.match(run.messages[0].text, /序章 · 山径遇险/);
+  assert.match(run.messages[0].text, /道号：青禾/);
+  const nodes = JSON.stringify(run.messages[0].nodes);
+  assert.ok(nodes.includes('/继续'));
+  assert.ok(nodes.includes('/跳过引导'));
+  assert.doesNotMatch(run.messages[0].text, /新手引导|接下来熟悉修行/);
+  assert.equal(requests.length, 1);
+});
+
+test('精简按钮文案后的操作回执降级仍保留完整指令', async t => {
+  const { app, requests } = await gameFixture(t, () => { throw new Error('Rendering must not execute gameplay'); });
+  let count = 0;
+  app.actions.on('message.send', () => [++count === 1 ? createResult(ResultCode.Fail, '失败', null) : createResult(ResultCode.Ok, '成功', { id: 'plain' })]);
+  const event = app.events.groupMessage({ text: '/出关', platform: 'qq-bot' });
+  const run = await app.invoke(event, () => sendOnboardingFollowup(event as GameEvent, {
+    onboarding: { ...initial, status: 'completed', phase: 'completed', actions: [{ label: '查看突破条件', command: '/我的境界' }] }
+  }, '出关', Format.createMarkdown().addText('修为已入账：20')));
+  assert.equal(run.messages.length, 2);
+  assert.match(run.messages[1].text, /查看突破条件 · \/我的境界/);
+  assert.match(run.messages[1].text, /修为已入账：20/);
+  assert.equal(run.actions[run.messages[1].actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.equal(requests.length, 0);
 });

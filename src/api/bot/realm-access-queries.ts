@@ -12,7 +12,7 @@ export const emptyRealmAccess: RealmAccessQuery = {
     '/我',
     '/踏入仙途',
     '/修仙帮助',
-    '/攻略',
+    // '/攻略',
     '/图鉴',
     '/词典',
     '/更多',

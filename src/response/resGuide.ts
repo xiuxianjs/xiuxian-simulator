@@ -1,5 +1,5 @@
 import { commandText } from '@src/utils/commandPrefix';
-import { appendAINarration, guideText } from './onboarding/aiNarration';
+import { guideText } from './onboarding/aiNarration';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareResult } from '@src/api/bot/middleware-entry';
@@ -45,7 +45,6 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
     md.addNewline();
   }
   md.addText(await guideText(presentation.text));
-  await appendAINarration(md, presentation.text);
   for (const [index, advice] of presentation.advice.entries()) {
     if (index === 0) {
       md.addNewline();
@@ -59,7 +58,7 @@ export default async (event: GameEvent, result: RobotMiddlewareResult): Promise<
       isPrivate: event.isPrivate ?? event.name.startsWith('private.'),
       bid: event.UserId,
       title: presentation.title,
-      content: md,
+      content: Format.createMarkdown().addBlockquote(md),
       bar: presentation.showActionBar ? guideActionBar(action.action) : false
     })
   );

@@ -23,7 +23,6 @@ type NotificationContextEvent = GameEvent | Events['notice.create' | 'private.no
 
 // 查询缓存/限流时间，不是游戏冷却；明确的平台权限事件持续保留。
 export const PERMISSION_TTL_SECONDS = 300;
-export const PERMISSION_QUERY_INTERVAL_SECONDS = 60;
 export const CHANNEL_RETRY_SECONDS = 30;
 const REQUEST_TIMEOUT_MS = 30_000;
 
@@ -75,11 +74,14 @@ async function compareAndSetState(target: NotificationTarget, previous: string |
 
 const groupSnapshots = new Map<string, { data: GuildBotState; updatedAt: number }>();
 
-const probes = new Map<string, Promise<PermissionState | null>>();
+type ProbeResult = { state: PermissionState | null; acquired: boolean };
+const probes = new Map<string, Promise<ProbeResult>>();
 
 async function queryNotificationPermission(target: NotificationTarget): Promise<PermissionState['state']> {
   const key = notificationTargetKey(target);
   let state: PermissionState['state'] = 'unknown';
+
+  groupSnapshots.delete(key);
 
   try {
     const [guild] = useGuild({ Platform: target.platform, BotId: target.BotId, Target: target });
@@ -108,37 +110,72 @@ async function queryNotificationPermission(target: NotificationTarget): Promise<
   return state;
 }
 
-export async function refreshNotificationPermission(target: NotificationTarget): Promise<PermissionState | null> {
+export class NotificationProbeDeferredError extends Error {}
+
+export async function refreshNotificationPermission(
+  target: NotificationTarget,
+  afterFailure = false,
+  deferOnCooldown = false
+): Promise<PermissionState | null> {
   if (target.platform !== 'qq-bot' || target.scope !== 'group') {
     return await readNotificationChannel(target);
   }
-  const key = notificationTargetKey(target);
-  const existing = probes.get(key);
-
-  if (existing) {
-    return await existing;
+  if (!target.BotId?.trim()) {
+    throw new Error('QQ 权限查询缺少机器人 BotId');
   }
-  const probe = async () => {
-    // Go 原子快照旧值并获取跨进程查询冷却，权限事件仍可抢先写入。
+  const cached = await readNotificationChannel(target);
+
+  if (!afterFailure && cached && cached.state !== 'unknown') {
+    return cached;
+  }
+  const key = notificationTargetKey(target);
+  const probe = async (): Promise<ProbeResult> => {
     const { previous, acquired } = await acquirePlatformPermissionProbe(target);
 
     if (!acquired) {
-      return await readNotificationChannel(target);
+      return { state: await readNotificationChannel(target), acquired: false };
     }
     const state = await queryNotificationPermission(target);
 
     await compareAndSetState(target, previous, { state, source: 'query', updatedAt: Date.now() }, state === 'unknown' ? 60 : PERMISSION_TTL_SECONDS);
 
-    return await readNotificationChannel(target);
+    return { state: await readNotificationChannel(target), acquired: true };
   };
-  const pending = probe();
+  let pending = probes.get(key);
 
-  probes.set(key, pending);
-  try {
-    return await pending;
-  } finally {
-    probes.delete(key);
+  if (!pending) {
+    pending = probe();
+    probes.set(key, pending);
   }
+  let result: ProbeResult;
+
+  try {
+    result = await pending;
+  } finally {
+    if (probes.get(key) === pending) {
+      probes.delete(key);
+    }
+  }
+  // 只共享探测事实；每个调用者独立决定冷却时返回缓存还是延期。
+  if (!result.acquired && deferOnCooldown && (!result.state || result.state.state === 'unknown' || afterFailure)) {
+    throw new NotificationProbeDeferredError('机器人权限查询冷却中');
+  }
+
+  return result.state;
+}
+
+// 管理权限只能使用实际查询到的角色；冷却期间缺少快照时明确失败。
+export async function readNotificationBotRole(target: NotificationTarget): Promise<GuildBotState['role'] | undefined> {
+  const key = notificationTargetKey(target);
+  const cached = groupSnapshots.get(key);
+
+  if (cached && Date.now() - cached.updatedAt < PERMISSION_TTL_SECONDS * 1000) {
+    return cached.data.role;
+  }
+  await refreshNotificationPermission(target, true, true);
+  const snapshot = groupSnapshots.get(key);
+
+  return snapshot && Date.now() - snapshot.updatedAt < PERMISSION_TTL_SECONDS * 1000 ? snapshot.data.role : undefined;
 }
 
 export const notificationChannel: NotificationChannel = {
@@ -158,7 +195,7 @@ export const notificationChannel: NotificationChannel = {
       return { state: 'blocked', source: 'event', updatedAt: availability.updatedAt };
     }
 
-    return await refreshNotificationPermission(target);
+    return await refreshNotificationPermission(target, true);
   },
   async recordFailure(target) {
     await recordPlatformPermissionFailure(target);

@@ -1,4 +1,4 @@
-import { notificationRequestError } from './notification-error';
+import { notificationRequestContext, notificationRequestError } from './notification-error';
 import axios from 'axios';
 import { getBackendConfig, getNotificationBackendConfig, getWorkerBackendConfig } from './config';
 import { backendConnectionPools } from './connection-pools';
@@ -29,15 +29,16 @@ async function post<T>(path: string, data: unknown): Promise<T> {
   }
   const endpoint = `/chat/internal/${path}`;
   const headers = channel ? { Authorization: `Bearer ${config.robotAuthToken}` } : { 'X-Worker-Token': config.workerToken };
+  const context = notificationRequestContext(config.timeoutMs);
 
   try {
     const response = await axios
       .create({ ...backendConnectionPools, baseURL: config.url, timeout: config.timeoutMs, headers, ...(channel ? { maxRedirects: 0 } : {}) })
-      .post<T>(endpoint, data);
+      .post<T>(endpoint, data, { headers: { 'X-Request-ID': context.requestId } });
 
     return response.data;
   } catch (error) {
-    throw notificationRequestError(endpoint, error);
+    throw notificationRequestError(endpoint, error, context);
   }
 }
 
