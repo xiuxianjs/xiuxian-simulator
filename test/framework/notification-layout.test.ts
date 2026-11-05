@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
 import { onResponse, ResultCode, shutdownLogger, useMessage } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
@@ -128,6 +129,32 @@ test('通知历史每条独立引用块，保留空行、北京时间与原文�
   ]);
   assert.ok(message.commands.includes('/我的通知 1'));
   assert.ok(message.commands.includes('/我的通知 3'));
+});
+
+test('新旧鱼讯历史保留原战报入口，正文去掉裸命令', async t => {
+  const legacy = 'fc_' + '3'.repeat(32);
+  const time = '2026-11-05T00:00:00Z';
+  const history = JSON.parse(readFileSync(new URL('../fixtures/fishing-notification-wire-actual.json', import.meta.url), 'utf8')).history;
+  const original = history.items.filter((item: { fishingCastId?: string }) => item.fishingCastId);
+  assert.equal(original.length, 2);
+  const items = [
+    ...original,
+    { id: 'fishing.result:' + legacy + ':1', time, delivery: '已发送至订阅群', text: '洞府垂钓 · 稀有鱼渔讯\n\n鱼种：寒玉鲈\n结果：战胜，已获得\n\n查看战报：/垂钓 战报 ' + legacy }
+  ];
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, { items, page: 1, hasNext: false }));
+  const result = await app.runHandler(notificationHistory, app.events.privateMessage({ text: '/我的通知', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  const view = inspectMessage(message.nodes);
+  assert.ok(view.text.includes('稀有鱼渔讯') && view.text.includes('鱼王渔讯'));
+  assert.ok(!view.text.includes('/垂钓 战报') && !view.text.includes('查看战报：'));
+  assert.deepEqual(view.commands.filter(command => command.startsWith('/垂钓 战报 ')), [...original.map((item: { fishingCastId: string }) => `/垂钓 战报 ${item.fishingCastId}`), `/垂钓 战报 ${legacy}`]);
+  for (const quote of quoteLines(message.nodes)) {
+    const button = quote.find(node => node.type === 'MD.button') as { options?: Record<string, unknown> } | undefined;
+    assert.equal(button?.options?.autoEnter, false);
+    assert.ok(!Object.hasOwn(button?.options ?? {}, 'show'));
+  }
 });
 
 

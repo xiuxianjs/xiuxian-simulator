@@ -126,7 +126,12 @@ for (const key of ['contest', 'contest-species', 'contest-ranking', 'contest-rew
     : key === 'contest-history' ? '/垂钓 赛史 1' : claimCommand;
   const parsed = parseFishingCommand(command);
   assert.ok(parsed && !('error' in parsed));
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  let previousClaim = false;
+  const { app, requests } = await gameFixture(t, request => {
+    const payload = key === 'contest-receipt' && previousClaim ? actualContest['contest-receipt-replay'] : data;
+    previousClaim = key === 'contest-receipt';
+    return businessEnvelope(request.bid, payload);
+  });
   const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
   const page = delivered(result, 'actual-' + key);
   assert.ok(page.text.includes(data.title));
@@ -144,6 +149,36 @@ for (const key of ['contest', 'contest-species', 'contest-ranking', 'contest-rew
     assert.equal(quotes.length, 1);
     for (const name of data.emphasisNames) { assert.ok(JSON.stringify(quotes[0]).includes(name)); }
     assert.ok(!page.text.includes('本功能启用'));
+  }
+  if (key === 'contest-rewards') {
+    assert.match(page.text, /第1名：6000钱 · 随机史诗宝物碎片×3/);
+    assert.doesNotMatch(page.text, /神话/);
+  }
+  if (key === 'contest-receipt') {
+    const markdown = result.messages[0].nodes.find(node => node.type === 'Markdown');
+    assert.ok(markdown && Array.isArray(markdown.value));
+    const quotes = markdown.value.filter(node => node.type === 'MD.blockquote');
+    assert.equal(quotes.length, 1);
+    const quote = quotes[0];
+    assert.ok(quote && Array.isArray(quote.value));
+    const facts = markdown.value.slice(0, markdown.value.indexOf(quote)).filter(node => node.type === 'MD.text').map(node => node.value);
+    assert.deepEqual(facts, ['赛期：11月02日—11月08日', '赛区：筑基', '排名：第1名', '获得：']);
+    const rewardLines = data.sections[1].lines as string[];
+    assert.equal(rewardLines[0], '灵鳞钱×6,000');
+    assert.equal(quote.value.filter(node => node.type === 'MD.newline').length, rewardLines.length - 1);
+    const renderedRewards = quote.value.filter(node => node.type === 'MD.text' || node.type === 'MD.bold').map(node => [node.type, node.value]);
+    assert.deepEqual(renderedRewards, [
+      ['MD.text', rewardLines[0]],
+      ...rewardLines.slice(1).flatMap(line => {
+        const suffix = line.lastIndexOf('碎片×');
+        return [['MD.bold', line.slice(0, suffix)], ['MD.text', line.slice(suffix)]];
+      })
+    ]);
+    assert.deepEqual(page.commands, ['/垂钓 大赛 ' + originalWeek, '/垂钓', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+    const replay = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot', messageId: 'replay-frozen-contest-receipt' }));
+    delivered(replay, 'actual-contest-receipt-replay');
+    assert.deepEqual(replay.messages[0].nodes, result.messages[0].nodes);
+    assert.deepEqual(requests[1].body.arguments, { week: originalWeek });
   }
   for (const generated of page.commands.filter(command => command.startsWith('/垂钓'))) {
     const roundTrip = parseFishingCommand(generated);

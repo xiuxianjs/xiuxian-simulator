@@ -12,7 +12,7 @@ const PRIMARY_TABS_ROW1: GuiButton[] = [
   { label: '道具', command: '/储物袋 道具 丹药' },
   { label: '材料', command: '/储物袋 材料 草药' },
   { label: '装备', command: '/储物袋 装备' },
-  { label: '渔获', command: '/垂钓 渔获 1', autoEnter: false }
+  { label: '渔获', command: '/储物袋 渔获', autoEnter: false }
 ];
 
 const PRIMARY_TABS_ROW2: GuiButton[] = [
@@ -24,7 +24,7 @@ const PRIMARY_TABS_ROW2: GuiButton[] = [
 
 /**
  * 创建一级分类按钮（放在 FormatGui 的 footer 中）
- * 2行布局：第1行3个，第2行4个
+ * 一级分类分两行，每行4个，页脚另有主页入口。
  */
 export function createPrimaryTabsBar(selected?: string): GuiButton[][] {
   return [
@@ -41,7 +41,7 @@ export function createPrimaryTabsBar(selected?: string): GuiButton[][] {
  */
 export function renderSubTabs(md: FormatMarkDown, tabs: Array<{ label: string; command: string }>, selected?: string) {
   for (const tab of tabs) {
-    md.addButton(markdownButtonLabel(tab.label, tab.label === selected), { data: commandText(tab.command) });
+    md.addButton(markdownButtonLabel(tab.label, tab.label === selected), { data: commandText(tab.command), autoEnter: false });
     md.addText(' ');
   }
   md.addNewline();

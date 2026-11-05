@@ -241,7 +241,7 @@ for (const privateChat of [false, true]) {
         for (const row of rows) assert.ok(view.text.includes(row), row);
         assert.equal(view.text.match(/ 综合概率 /g)?.length, rows.length);
         assert.doesNotMatch(view.text, /普通|优秀|精良|完整|形态|保底|下一次|下一概率|直接完整率|期望|子探索|直出|累计探索|本轮|神话自选|每300|随机碎片|119\/120|12%/);
-        assert.deepEqual(view.commands, ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
+        assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/充值 灵脉租契', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
         assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
       else {
@@ -304,7 +304,7 @@ for (const used of [false, true]) {
     assert.ok(nodes.some(node => node.type === 'MD.text' && node.value === '当前账户'));
     assert.ok(view.text.indexOf('当前账户') > view.text.indexOf('藏宝图探索'));
     assert.match(view.text, /灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
-    assert.deepEqual(view.commands.slice(-2), ['/宝物', '/上古遗珍']);
+    assert.deepEqual(view.commands.slice(-7), ['/宝物', '/上古遗珍', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
     assert.ok(!view.commands.includes('/充值 灵脉租契'));
     assert.equal(requests.length, 1);
     if (used) previews.set('/上古遗珍（免费与首十连已使用）', view);

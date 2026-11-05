@@ -88,7 +88,7 @@ export const marketActions = {
     },
     input => ({ mode: 'confirm', reference: input.ref }),
     input => {
-      if (!validFishingReference(input.ref)) { throw new ExposeError('INVALID_INPUT', '请使用原鱼挂牌预览完整引用'); }
+      if (!validFishingReference(input.ref, 'z')) { throw new ExposeError('INVALID_INPUT', '请使用原鱼挂牌预览完整引用'); }
     }
   ),
   browse_market: observation<BrowseInput>(

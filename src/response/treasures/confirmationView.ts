@@ -10,7 +10,7 @@ const displayGrades = (line: string) => line
     .map(part => (part.startsWith('「') ? part : part.replace(/((?:星尘|晓月|纯阳|仙藏)\d+)阶/gu, '$1')))
     .join('');
 
-export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily-pack-free', data: Confirmation) {
+export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily-pack-free', data: Confirmation, returnCommand?: string) {
   const content = Format.createMarkdown();
 
   if (kind === 'explore') {
@@ -41,7 +41,7 @@ export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily
     { label: '确认', command: `/${kind === 'daily-pack-free' ? '确认礼包' : '确认宝物'} ${data.confirmationRef}`, autoEnter: false },
     {
       label: '取消并返回',
-      command:
+      command: returnCommand ?? (
         kind === 'daily-pack-free'
           ? '/充值 日礼包 30元全包'
           : kind === 'merchant-exchange'
@@ -50,7 +50,7 @@ export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily
               ? '/上古遗珍'
               : kind === 'claimLease'
                 ? '/我的权益 灵脉租契'
-                : '/宝物',
+                : '/宝物'),
       autoEnter: false
     }
   ]);

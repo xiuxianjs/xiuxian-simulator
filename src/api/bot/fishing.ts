@@ -21,6 +21,7 @@ export const fishingViews = [
   'overview',
   'start',
   'species',
+  'bag-materials',
   'instances',
   'fish',
   'gear',
@@ -53,8 +54,11 @@ export type FishingInput = {
   battleId?: string;
   week?: string;
   speciesId?: string;
+  speciesName?: string;
+  fishRealm?: number;
   catchId?: string;
   castId?:string;
+  sessionId?: string;
   rodId?: string;
   currency?: FishingCurrency;
   sku?: string;
@@ -109,8 +113,8 @@ const text = (value: unknown): string => (typeof value === 'string' ? value : in
 const integer = (value: unknown, minimum = 0): number => (typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum ? value : invalid());
 const array = <T>(value: unknown, decode: (value: unknown) => T): T[] => (Array.isArray(value) ? value.map(decode) : invalid());
 
-export function validFishingReference(ref: string): boolean {
-  return ref.length <= 64 && /^r1_[1-9a-z][0-9a-z]*_y_[1-9a-z][0-9a-z]*_[0-9a-f]{24}$/.test(ref);
+export function validFishingReference(ref: string, kind: 'y' | 'z' = 'y'): boolean {
+  return ref.length <= 64 && /^r1_[1-9a-z][0-9a-z]*_[yz]_[1-9a-z][0-9a-z]*_[0-9a-f]{24}$/.test(ref) && ref.split('_', 3)[2] === kind;
 }
 
 export function validFishingEventID(value: string): boolean {
@@ -149,7 +153,7 @@ const action = (value: unknown): FishingAction => {
 const absent = (value: unknown) => value === undefined || value === null;
 
 /** One strict DTO for query, original preview and committed receipt. */
-export function parseFishingView(value: unknown, uid?: number): FishingView {
+export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y' | 'z' = 'y'): FishingView {
   const data = row(value);
   const rulesVersion = text(data.rulesVersion);
   const view = text(data.view);
@@ -176,7 +180,7 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
     };
   });
 
-  if (['species', 'instances', 'pending'].includes(view) && sections.length > 5) {
+  if (['species', 'bag-materials', 'instances', 'pending'].includes(view) && sections.length > 5) {
     return invalid();
   }
   const footer = absent(data.footer) ? [] : array(data.footer, action);
@@ -193,10 +197,11 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
   if (!absent(data.navRows)) {
     const rows = array(data.navRows, value => array(value, action));
 
-    const maxRows = view === 'blessing' ? 3 : 2;
+    const inventoryTabs = view === 'species' || view === 'bag-materials';
+    const maxRows = view === 'blessing' || inventoryTabs ? 3 : 2;
     const maxColumns = view === 'blessing' ? 4 : 6;
 
-    if (rows.length > maxRows || rows.some(row => row.length > maxColumns)) { return invalid(); }
+    if (rows.length > maxRows || rows.some(row => row.length > maxColumns) || (inventoryTabs && rows.flat().length > 12)) { return invalid(); }
     result.navRows = rows;
   }
 
@@ -215,9 +220,7 @@ export function parseFishingView(value: unknown, uid?: number): FishingView {
   if (!absent(data.confirmationRef) && data.confirmationRef !== '') {
     const ref = text(data.confirmationRef);
 
-    const invalidOwner = uid !== undefined && (!Number.isSafeInteger(uid) || uid < 1 || referenceOwner(ref) !== BigInt(uid));
-
-    if (!validFishingReference(ref) || invalidOwner) {
+    if (!validFishingReference(ref, referenceKind) || (uid !== undefined && (!Number.isSafeInteger(uid) || uid < 1 || referenceOwner(ref) !== BigInt(uid)))) {
       return invalid();
     }
     result.confirmationRef = ref;

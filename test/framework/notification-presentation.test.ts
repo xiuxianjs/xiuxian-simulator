@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import axios from 'axios';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -157,11 +157,20 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
   process.env.login = 'qq-bot';
   t.after(() => { if (previousLogin === undefined) delete process.env.login; else process.env.login = previousLogin; });
   const original = [{ type: 'Text', value: '旧消息池内容' }];
+  const rareCast = 'fc_' + '1'.repeat(32);
+  const kingCast = 'fc_' + '2'.repeat(32);
+  const actual = JSON.parse(readFileSync(new URL('../fixtures/fishing-notification-wire-actual.json', import.meta.url), 'utf8')).relay;
+  const rareText = '洞府垂钓 · 稀有鱼渔讯\n\n鱼种：寒玉鲈 · 筑基\n重量：4.280kg\n结果：战胜，已获得';
+  const kingText = '洞府垂钓 · 鱼王渔讯\n\n鱼种：玄甲鱼王 · 筑基\n重量：12.840kg\n结果：脱钩，未获得\n\n查看战报：/垂钓 战报 ' + kingCast;
   const queues: Record<string, unknown[]> = {
     'platform.message.dispatch': [{ eventId: 'legacy-event', recipientUserId: 7, recipientBid: 'owner', payload: { messageId: 'legacy-message', uid: 'owner', data: original } }],
     'player.notification.dispatch': [{ eventId: 'player-event', recipientUserId: 7, recipientBid: 'owner', payload: {
       version: 1, recipientUserId: 7, source: 'pk.ordinary', data: [{ type: 'Text', value: '普通被打战报 #42' }]
-    } }]
+    } }, { eventId: 'fishing.result:' + rareCast + ':7', recipientUserId: 7, recipientBid: 'owner', payload: {
+      version: 1, recipientUserId: 7, source: 'fishing.result.rare', fishingCastId: rareCast, data: [{ type: 'Text', value: rareText }]
+    } }, { eventId: 'fishing.result:' + kingCast + ':7', recipientUserId: 7, recipientBid: 'owner', payload: {
+      version: 1, recipientUserId: 7, source: 'fishing.result.king', data: [{ type: 'Text', value: kingText }]
+    } }, actual]
   };
   const archived: unknown[] = [];
   const receipts: unknown[] = [];
@@ -171,7 +180,7 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
       if (path.endsWith('/retry')) throw new Error(String(body.error));
       if (path.endsWith('/claim')) data = { event: body.lane === 'flymail' ? null : queues[String(body.eventType)].shift() ?? null };
       else if (path.endsWith('/player/categories')) data = { enabled: true };
-    else if (path.endsWith('/legacy-sent-ids')) data = { ids: [] };
+      else if (path.endsWith('/legacy-sent-ids')) data = { ids: [] };
       else if (path.endsWith('/subscription')) data = { platform: 'qq-bot', channelId: 'notice-group', botId: 'notice-bot', targetScope: 'group', isEnabled: true, failureCount: 0, lastDeliveryAt: null, lastError: null };
       else if (path.endsWith('/private-target/read')) data = null;
       else if (path.endsWith('/availability/read')) data = { available: true, updatedAt: 1 };
@@ -183,18 +192,48 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
       return { data: { data } };
     }
   }));
-  const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-token' } } } });
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-token' } } } });
   t.after(() => app.dispose());
   app.actions.on('message.send.target', () => [createResult(ResultCode.Ok, '送达', { id: 'notice-receipt' })]);
   const handler = onResponse('message.create', async () => { await PushMessageTask(); });
   const result = await app.runHandler(handler, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
-  assert.equal(result.messages.length, 2);
+  assert.equal(result.messages.length, 5);
   assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/我的通知'));
   assert.ok(inspectMessage(result.messages[1].nodes).commands.includes('/争夺战报 42'));
+  for (const [offset, id] of [rareCast, kingCast, actual.payload.fishingCastId].entries()) {
+    const { nodes } = result.messages[offset + 2];
+    const notice = inspectMessage(nodes);
+    assert.deepEqual(notice.commands, [`/垂钓 战报 ${id}`, '/我的通知']);
+    assert.ok(!notice.text.includes('/垂钓 战报') && !notice.text.includes('查看战报：'));
+    assert.ok(notice.text.includes(offset === 0 ? '战胜，已获得' : '脱钩，未获得'));
+    const markdown = nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+    assert.equal(markdown.find(node => node.type === 'MD.bold')?.value, '修仙 · 通知');
+    const quote = markdown.find(node => node.type === 'MD.blockquote');
+    assert.ok(quote && Array.isArray(quote.value));
+    const heading = quote.value[0];
+    assert.ok(heading && 'value' in heading);
+    assert.equal(heading.value, offset === 0 ? '洞府垂钓 · 稀有鱼渔讯' : '洞府垂钓 · 鱼王渔讯');
+    const buttons = quote.value.filter(node => node.type === 'MD.button');
+    assert.equal(buttons.length, 2);
+    for (const button of buttons) {
+      assert.equal(button.options?.autoEnter, false);
+      assert.ok(!Object.hasOwn(button.options ?? {}, 'show'));
+      assert.ok([...String(button.options?.data)].length <= 80);
+    }
+  }
+  const actualNotice = inspectMessage(result.messages[4].nodes);
+  assert.ok(actualNotice.text.includes('洞府垂钓 · 鱼王渔讯'));
+  assert.ok(actualNotice.text.includes('碧鳞鱼王 · 炼气') && actualNotice.text.includes('重量：10.856kg'));
   for (const message of result.messages) assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   assert.deepEqual(archived, [original]);
-  assert.deepEqual(receipts, [{ route: 'group', reason: 'sent' }, { route: 'group', reason: 'sent' }]);
+  assert.deepEqual(receipts, Array.from({ length: 5 }, () => ({ route: 'group', reason: 'sent' })));
+  if (process.env.FISHING_NOTICE_CAPTURE) writeFileSync(process.env.FISHING_NOTICE_CAPTURE, JSON.stringify({
+    previousText: kingText,
+    rare: result.messages[2],
+    legacyKing: result.messages[3],
+    king: result.messages[4]
+  }, null, 2));
 });
 
 for (const [label, privateTarget] of [

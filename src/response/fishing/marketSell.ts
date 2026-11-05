@@ -20,7 +20,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
   if (!match) { return false; }
   const [message] = useMessage();
   const common = { bid: event.UserId, isPrivate: isPrivateEvent(event) };
-  const footer = [manual('返回渔获', '/垂钓 渔获 1'), manual('我的上架', '/我的上架')];
+  const footer = [manual('返回渔获', '/储物袋 渔获'), manual('我的上架', '/我的上架')];
   const send = async (body: Parameters<typeof message.send>[0]) => {
     const receipts = await message.send(body);
 
@@ -36,11 +36,11 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     Number.isSafeInteger(page) &&
     page >= 1 &&
     page <= 2147483647 &&
-    (catchId !== '确认' || (parts.length === 2 && reference !== undefined && validFishingReference(reference))) &&
+    (catchId !== '确认' || (parts.length === 2 && reference !== undefined && validFishingReference(reference, 'z'))) &&
     parts.length <= 2 &&
     (!catchId || catchId === '确认' || /^[A-Za-z0-9_.:-]{1,40}$/.test(catchId)) &&
     (reference !== undefined
-      ? validFishingReference(reference)
+      ? validFishingReference(reference, 'z')
       : parts[1] === undefined || (/^[1-9]\d*$/.test(parts[1]) && Number.isSafeInteger(price) && price! <= 100000000));
 
   if (!valid) {
@@ -75,8 +75,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
             ...common,
             title: reply.title || '鱼交易 · 未完成',
             sections: [{ lines: [reply.text], actions: reply.buttons.map(button => manual(button.label, button.command)) }],
-            footer,
-            bar: false
+            footer
           })
         );
       },
@@ -108,8 +107,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
               }))
             : [{ lines: ['状态：当前页没有可上架的本人鱼实例。'] }],
           nav: { current: page, total: Math.max(1, data.page.totalPages), count: data.page.total, command: '/交易上架 鱼类{page}', autoEnter: false },
-          footer,
-          bar: false
+          footer
         })
       );
 
@@ -146,8 +144,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
             actions: data.listingId ? [] : actions
           }
         ],
-        footer,
-        bar: false
+        footer
       })
     );
   } catch {

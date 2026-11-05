@@ -92,7 +92,7 @@ for (const pageVersion of [version, 'treasure-v8-first-guards-20261029']) for (c
   assert.match(view.text, /十连至少出一件整品/);
   assert.ok(view.text.indexOf('单抽出整品概率12%') < view.text.indexOf('十连至少出一件整品'));
   assert.ok(view.text.indexOf('十连至少出一件整品') < view.text.indexOf('单抽综合概率'));
-  assert.deepEqual(view.commands, ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
+  assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/充值 灵脉租契', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
   const nodes = done.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   const blocks = nodes.filter(node => node.type === 'MD.blockquote');
   assert.equal(blocks.length, 3);

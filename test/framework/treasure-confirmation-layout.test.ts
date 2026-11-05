@@ -57,10 +57,10 @@ function confirmOutsideQuote(result: ReturnType<typeof delivered>, command: stri
 }
 
 for (const scenario of [
-  { command: '/宝物 升品 504', kind: 'promote', action: '「神农鼎」星尘1阶 → 星尘2阶；消耗重复本体1、仙蕴0。', displayed: '「神农鼎」星尘1 → 星尘2；消耗重复本体1、仙蕴0。', tips: [], cancel: '/宝物' },
-  { command: '/宝物 升级 504', kind: 'upgrade', action: '「神农鼎」等级1 → 2；消耗宝物经验20。', displayed: '「神农鼎」等级1 → 2；消耗宝物经验20。', tips: ['升级提升战斗数值，生活特效保持当前品级。'], cancel: '/宝物' },
-  { command: '/宝物 分解 本体 504 1', kind: 'decompose', action: '「神农鼎」重复本体1 × 220仙蕴＝220仙蕴', displayed: '「神农鼎」重复本体1 × 220仙蕴＝220仙蕴', tips: ['共获得220仙蕴；主宝物不消耗，分解后不能撤销。'], cancel: '/宝物' },
-  { command: '/上古遗珍 自选 604', kind: 'select-mythic', action: '消耗累计探索神话自选次数1次，领取「掌天瓶」1本体；允许重复。', displayed: '消耗累计探索神话自选次数1次，领取「掌天瓶」1本体；允许重复。', tips: ['自选不增加探索次数，不重置保底。'], cancel: '/上古遗珍' },
+  { command: '/宝物 升品 504', kind: 'promote', action: '「神农鼎」星尘1阶 → 星尘2阶；消耗重复本体1、仙蕴0。', displayed: '「神农鼎」星尘1 → 星尘2；消耗重复本体1、仙蕴0。', tips: [], cancel: '/宝物 详情 504' },
+  { command: '/宝物 升级 504', kind: 'upgrade', action: '「神农鼎」等级1 → 2；消耗宝物经验20。', displayed: '「神农鼎」等级1 → 2；消耗宝物经验20。', tips: ['升级提升战斗数值，生活特效保持当前品级。'], cancel: '/宝物 详情 504' },
+  { command: '/宝物 分解 本体 504 1', kind: 'decompose', action: '「神农鼎」重复本体1 × 220仙蕴＝220仙蕴', displayed: '「神农鼎」重复本体1 × 220仙蕴＝220仙蕴', tips: ['共获得220仙蕴；主宝物不消耗，分解后不能撤销。'], cancel: '/宝物 分解' },
+  { command: '/上古遗珍 自选 604', kind: 'select-mythic', action: '消耗累计探索神话自选次数1次，领取「掌天瓶」1本体；允许重复。', displayed: '消耗累计探索神话自选次数1次，领取「掌天瓶」1本体；允许重复。', tips: ['自选不增加探索次数，不重置保底。'], cancel: '/上古遗珍 自选' },
   { command: '/灵脉租契 领取', kind: 'claimLease', action: '领取已到期收益2日，共4000灵晶。', displayed: '领取已到期收益2日，共4000灵晶。', tips: [], cancel: '/我的权益 灵脉租契' }
 ] as const) {
   test(`${scenario.kind}权威动作摘要在引用块外，说明和动态有效期在块内，确认取消独立一行`, async t => {
@@ -159,7 +159,7 @@ test('确认保留完整最大合法短引用，不因按钮移出引用块截�
     operationId: 'layout-max-ref', confirmationRef: maxRef, expiresAt
   }));
   const result = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 升品 504', platform: 'qq-bot' })));
-  confirmOutsideQuote(result, `/确认宝物 ${maxRef}`, '/宝物');
+  confirmOutsideQuote(result, `/确认宝物 ${maxRef}`, '/宝物 详情 504');
 });
 
 for (const command of ['/宝物 升品 504', '/上古遗珍 领取全包']) {

@@ -7,7 +7,7 @@
       "寒玉鲈",
       "玄甲鱼王"
     ],
-    "rulesVersion": "fishing-contest-v1-5998c53fcf3b766b",
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
     "view": "contest",
     "title": "沧澜钓仙会 · 筑基",
     "sections": [
@@ -117,7 +117,7 @@
       "寒玉鲈",
       "玄甲鱼王"
     ],
-    "rulesVersion": "fishing-contest-v1-5998c53fcf3b766b",
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
     "view": "contest-ranking",
     "title": "沧澜钓仙会 · 筑基",
     "sections": [
@@ -172,11 +172,11 @@
   },
   "contest-receipt": {
     "emphasisNames": [
-      "万宝乾坤袋",
-      "九天息壤",
-      "乾坤鼎"
+      "万木春符",
+      "人皇笔",
+      "地皇书"
     ],
-    "rulesVersion": "fishing-contest-v1-5998c53fcf3b766b",
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
     "view": "contest-receipt",
     "title": "沧澜钓仙会 · 领奖完成",
     "sections": [
@@ -185,10 +185,59 @@
           "赛期：11月02日—11月08日",
           "赛区：筑基",
           "排名：第1名",
-          "获得灵鳞钱：6,000",
-          "九天息壤碎片×1",
-          "乾坤鼎碎片×1",
-          "万宝乾坤袋碎片×1"
+          "获得："
+        ],
+        "actions": []
+      },
+      {
+        "quote": true,
+        "lines": [
+          "灵鳞钱×6,000",
+          "万木春符碎片×1",
+          "人皇笔碎片×1",
+          "地皇书碎片×1"
+        ],
+        "actions": []
+      }
+    ],
+    "footer": [
+      {
+        "label": "查看成绩",
+        "command": "/垂钓 大赛 2026-11-02"
+      },
+      {
+        "label": "返回垂钓",
+        "command": "/垂钓"
+      }
+    ],
+    "operationId": "contest:2026-11-02"
+  },
+  "contest-receipt-replay": {
+    "emphasisNames": [
+      "万木春符",
+      "人皇笔",
+      "地皇书"
+    ],
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
+    "view": "contest-receipt",
+    "title": "沧澜钓仙会 · 领奖完成",
+    "sections": [
+      {
+        "lines": [
+          "赛期：11月02日—11月08日",
+          "赛区：筑基",
+          "排名：第1名",
+          "获得："
+        ],
+        "actions": []
+      },
+      {
+        "quote": true,
+        "lines": [
+          "灵鳞钱×6,000",
+          "万木春符碎片×1",
+          "人皇笔碎片×1",
+          "地皇书碎片×1"
         ],
         "actions": []
       }
@@ -206,7 +255,7 @@
     "operationId": "contest:2026-11-02"
   },
   "contest-rewards": {
-    "rulesVersion": "fishing-contest-v1-5998c53fcf3b766b",
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
     "view": "contest-rewards",
     "title": "沧澜钓仙会 · 筑基",
     "sections": [
@@ -220,10 +269,10 @@
       {
         "title": "排名奖励",
         "lines": [
-          "第1名：6000钱 · 神话碎片×3",
-          "第2名：4000钱 · 神话碎片×2",
-          "第3名：2000钱 · 神话碎片×1",
-          "第4—10名：1000钱 · 史诗碎片×1",
+          "第1名：6000钱 · 随机史诗宝物碎片×3",
+          "第2名：4000钱 · 随机史诗宝物碎片×2",
+          "第3名：2000钱 · 随机史诗宝物碎片×1",
+          "第4—10名：1000钱 · 随机史诗宝物碎片×1",
           "第11—30名：500钱；第31—100名：100钱",
           "碎片同档六件等权；只发实际名次，不补空位。"
         ],
@@ -270,7 +319,7 @@
     "emphasisNames": [
       "铁鳞鲫"
     ],
-    "rulesVersion": "fishing-contest-v1-5998c53fcf3b766b",
+    "rulesVersion": "fishing-contest-v2-23acac721f4842be",
     "view": "contest-species",
     "title": "沧澜钓仙会 · 铁鳞鲫",
     "sections": [

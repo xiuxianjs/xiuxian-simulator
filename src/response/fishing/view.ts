@@ -3,12 +3,20 @@ import type { FishingView, FishingAction, FishingSection } from '@src/api/bot/fi
 import { fishingBaits, fishingChums } from '@src/api/bot/fishing';
 import { FormatGui, type GuiFooter } from '@src/utils/messageHelper';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { renderSubTabs } from '@src/response/storage/newBag/tabs';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import type { GameEvent } from '@src/types/event';
 
 const manual = (actions: FishingAction[]) => actions.map(action => ({ ...action, autoEnter: false as const }));
+const parentCommands = new Map([
+  ['start', '/垂钓'], ['gear', '/垂钓'], ['history', '/垂钓'], ['help', '/垂钓'], ['operation', '/垂钓'],
+  ['catalog', '/储物袋 渔获']
+]);
 const footerRows = (data: FishingView, actions: FishingAction[]): GuiFooter => {
-  const width = data.view === 'overview' || data.view.startsWith('contest') ? 3 : 4;
+  if (data.view === 'overview') {
+    return [actions.slice(0, 3), actions.slice(3, 5), actions.slice(5)].filter(row => row.length > 0).map(manual);
+  }
+  const width = data.view.startsWith('contest') ? 3 : 4;
 
   return actions.length > width ? [manual(actions.slice(0, width)), manual(actions.slice(width))] : manual(actions);
 };
@@ -18,7 +26,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   const md = Format.createMarkdown();
 
   type Markdown = typeof md;
-  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'instances', 'blessing', 'fish']);
+  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish']);
   const emphasisNames = [...new Set(data.emphasisNames ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
   const text = (target: Markdown, value: string) => {
     if (!emphasisNames.length || !value.length) {
@@ -59,7 +67,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     quote = section.quote ?? quote;
     const target = Format.createMarkdown();
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
-    const showID = !['gear', 'history', 'cast', 'species', 'catalog'].includes(data.view) &&
+    const showID = !['gear', 'history', 'cast', 'species', 'catalog', 'instances'].includes(data.view) &&
       !(data.view === 'pending' && section.id.startsWith('fc_'));
     const title = [section.title, showID && section.id ? `#${section.id}` : '', section.suffix].filter(Boolean).join(' ');
     const objectList = itemViews.has(data.view) && !(data.view === 'blessing' && data.status === 'overview');
@@ -67,7 +75,9 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       (objectList || (Boolean(section.id) && !recordView) || Object.hasOwn(fishingBaits, section.title) || Object.hasOwn(fishingChums, section.title));
 
     if (title) {
-      if (number !== undefined) { target.addBold(`【${number}】${title}`); } else if (itemTitle) {
+      if (number !== undefined) { target.addBold(`【${number}】${title}`); } else if (itemTitle && data.view === 'bag-materials') {
+        target.addBold(title);
+      } else if (itemTitle) {
         target.addBold(section.title);
         if (showID && section.id) { target.addText(` #${section.id}`); }
         if (section.suffix) { target.addText(` ${section.suffix}`); }
@@ -106,15 +116,29 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   };
   let footer = data.footer;
 
-  if (data.view === 'overview' && data.sections.length === 4) {
+  if (data.view === 'overview' && (data.sections.length === 4 || data.sections.length === 5)) {
     data.sections.forEach((section, index) => {
-      if (index === 3) {
-        section.lines.forEach((line, i) => { if (i) { md.addNewline(); }text(md, line); });
-        section.actions.forEach(action => { md.addNewline();buttons(md, [action]); });
-      } else { block(section, index === 1 || index === 2, true); }
+      if (index === data.sections.length - 1) {
+        section.lines.forEach(line => { md.addBold(line).addNewline(); });
+        if (section.actions.length) {
+          const controls = Format.createMarkdown();
+
+          section.actions.forEach((action, i) => {
+            if (i > 0) { controls.addNewline(); }
+            buttons(controls, [action]);
+          });
+          md.addBlockquote(controls);
+        }
+      } else { block(section, index !== 0, index <= 2); }
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
     data.sections.forEach((section, index) => block(section, index === 1, false, false, index === 2));
+  } else if (['species', 'bag-materials'].includes(data.view) && data.navRows?.length) {
+    for (const row of data.navRows) {
+      renderSubTabs(md, row, data.status);
+    }
+    md.addNewline();
+    data.sections.forEach(section => block(section, Boolean(section.title || section.id)));
   } else if (data.view === 'blessing') {
     const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
 
@@ -159,12 +183,16 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     data.sections.forEach(section => block(section, false));
   } else if (data.view === 'shop') {
     const modeActions = data.navRows?.flat().filter(action => ['转为出售', '转为购买'].includes(action.label)) ?? [];
+    const buying = modeActions.some(action => action.label === '转为出售');
+    const balance = data.sections[0];
+    const sellCatch = { label: '出售渔获', command: '/储物袋 渔获' };
+    const inlineSale = buying && Boolean(balance?.lines.length);
 
-    if (data.sections[0]) {
-      block(data.sections[0], false);
+    if (balance) {
+      block(inlineSale ? { ...balance, actions: [sellCatch, ...balance.actions] } : balance, inlineSale, inlineSale);
     }
-    if (modeActions.length) {
-      buttons(md, modeActions);
+    if (!inlineSale && modeActions.length) {
+      buttons(md, buying ? [sellCatch] : modeActions);
       md.addNewline().addNewline();
     }
     const tabs = footer.filter(action => ['灵鳞钱', '灵石', '灵晶', '道晶'].includes(action.label));
@@ -175,7 +203,6 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
 
     buttons(md, typeActions);
     md.addNewline().addNewline();
-    const buying = modeActions.some(action => action.label === '转为出售');
 
     data.sections.slice(1).forEach((section, index) => block(section, true, false, false, false, buying ? index + 1 : undefined));
     footer = footer.filter(action => !tabs.includes(action));
@@ -193,17 +220,26 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       md.addText('预览有效5分钟，确认后按本次原预览结算。').addNewline();
     }
   }
+  const parent = parentCommands.get(data.view);
+
+  if (parent && !footer.some(action => action.label.includes('返回') || action.label.includes('取消'))) {
+    const parentIndex = footer.findIndex(action => action.command === parent || (data.view === 'catalog' && /^\/(?:垂钓 )?渔获(?: 1)?$/.test(action.command)));
+    const back = { label: '返回', command: parent };
+
+    footer = parentIndex < 0 ? [...footer, back] : footer.map((action, index) => index === parentIndex ? back : action);
+  }
   if (data.view === 'overview') {
     md.addNewline().addText('——————');
   }
+  const bagParent = data.view === 'species' ? '/储物袋' : data.view === 'bag-materials' ? '/储物袋 渔获' : undefined;
 
   return FormatGui({
     bid: event.UserId,
     isPrivate: isPrivateEvent(event),
     title: data.title,
+    header: bagParent ? manual([{ label: '返回', command: bagParent }]) : undefined,
     content: md,
     nav: data.nav ? { current: data.nav.page, total: data.nav.totalPages, count: data.nav.total, command: data.nav.command, autoEnter: false } : undefined,
-    footer: footerRows(data, footer),
-    bar: false
+    footer: footerRows(data, footer)
   });
 }

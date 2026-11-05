@@ -13,6 +13,7 @@ after(async () => {
   await shutdownLogger();
 });
 const confirmationRef = 'r1_1_b_mh9of000_0123456789abcdef01234567';
+const bottomCommands = ['/我', '/属性面板', '/查看主线', '/我的活动', '/商店'];
 const operationId = 'original-story-operation';
 const fragment = (rarity = 1) => ({ treasureId: rarity * 100 + 1, name: ({ 1: '锈剑残片', 4: '采薇竹篮', 5: '万木春符', 6: '九天息壤' } as Record<number, string>)[rarity] ?? '测试碎片', rarity, kind: 'fragment', quantity: 1, newlyOwned: false });
 const body = { treasureId: 603, name: '乾坤鼎', rarity: 6, kind: 'body', quantity: 1, newlyOwned: true };
@@ -81,7 +82,7 @@ for (const scenario of scenarios) {
     assert.match(narrative.text, /^上古遗珍\n/);
     assert.ok(narrative.text.includes(scenario.story));
     assert.doesNotMatch(narrative.text, /操作编号|宝物经验|碎片|本体|消耗|确认/);
-    assert.deepEqual(narrative.commands, []);
+    assert.deepEqual(narrative.commands, bottomCommands);
     await app.clock.advance(2999);
     assert.equal(sendCalls(app).length, 1);
     await app.clock.advance(1);
@@ -91,9 +92,9 @@ for (const scenario of scenarios) {
     assert.match(views[1].text, /^上古遗珍探索完成\n/);
     assert.ok(views[1].text.includes(`操作编号 ${operationId}`));
     assert.ok(!views[1].text.includes('宝物操作回执'));
-    assert.deepEqual(views[1].commands.slice(-3), ['/宝物', '/上古遗珍', '/充值 灵脉租契']);
+    assert.deepEqual(views[1].commands.slice(-8), ['/上古遗珍', '/宝物', '/充值 灵脉租契', ...bottomCommands]);
     assert.equal(requests.length, 1);
-    if (scenario.preview) previews.set(scenario.preview, `## 探索叙事与结果（${scenario.preview}）\n\n离线真实处理器示例：仅本次直接获得的完整本体决定紫、金、红叙事；碎片及自动合成不提升场景。结算先完成，再分别发送以下两条消息。\n\n第一条消息（没有操作按钮）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的按钮均为手动发送（autoEnter:false），仍引用原操作结果。\n`);
+    if (scenario.preview) previews.set(scenario.preview, `## 探索叙事与结果（${scenario.preview}）\n\n离线真实处理器示例：仅本次直接获得的完整本体决定紫、金、红叙事；碎片及自动合成不提升场景。结算先完成，再分别发送以下两条消息。\n\n第一条消息（探索叙事与通用底栏）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的蓝链只填写指令，仍引用原操作结果。\n`);
   });
 }
 

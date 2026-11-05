@@ -207,7 +207,8 @@ test('渔市购买商品整行序号加粗仅作展示，出售列表不加序�
   assert.ok(JSON.stringify(bought.messages[0].nodes).includes('【1】素灵饵'));
   const markdown = bought.messages[0].nodes.find(node => node.type === 'Markdown');
   assert.ok(markdown && Array.isArray(markdown.value));
-  const quote = markdown.value.find(node => node.type === 'MD.blockquote');
+  const [balance, quote] = markdown.value.filter(node => node.type === 'MD.blockquote');
+  assert.ok(balance && Array.isArray(balance.value) && balance.value.some(node => node.type === 'MD.button' && node.options?.data === '/储物袋 渔获'));
   assert.ok(quote && Array.isArray(quote.value) && quote.value.some(node => node.type === 'MD.bold' && node.value === '【1】素灵饵'));
   selling = true;
   const sold = await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 渔市 sell fish 1', platform: 'qq-bot' }));
@@ -317,7 +318,7 @@ test('钓具名加粗且不显示原编号，使用开钓仍携带完整原竿�
   assert.deepEqual(requests[1].body.arguments, { kind: 'start-current', rodId });
 });
 
-test('鱼种列表与鱼谱隐藏物种代码，原详情动作保留且单尾实例编号仍可见', async t => {
+test('鱼种、鱼谱与单尾列表隐藏编号，详情显示原实例编号', async t => {
   const speciesId = 'fishing_r2_b'; const catchId = 'ff_' + 'c'.repeat(32);
   const { app, requests } = await gameFixture(t, request => {
     const input = request.body.arguments as { view: string };
@@ -335,7 +336,8 @@ test('鱼种列表与鱼谱隐藏物种代码，原详情动作保留且单尾�
     assert.ok(page.commands.includes(`/垂钓 鱼种 ${speciesId} 1 1`));
   }
   const [instances] = sent(await app.runHandler(handler, app.events.privateMessage({ text: `/垂钓 鱼种 ${speciesId} 1 1`, platform: 'qq-bot' })));
-  assert.ok(instances.text.includes(catchId));
+  assert.ok(!instances.text.includes(catchId));
+  assert.ok(instances.commands.includes(`/垂钓 鱼 ${catchId} 1 1`));
   const fishResult = await app.runHandler(handler, app.events.privateMessage({ text: `/垂钓 鱼 ${catchId} 1 1`, platform: 'qq-bot' }));
   const [fish] = sent(fishResult);
   assert.ok(fish.text.includes(catchId));
@@ -392,7 +394,7 @@ for (const active of [false, true]) test(`首页操作逐行并在底部标签�
   assert.ok(page.text.indexOf('使用渔具') < page.text.indexOf('——————'));
   assert.ok(page.text.indexOf('——————') < page.text.indexOf('我的渔获'));
   assert.ok(page.commands.includes(active ? '/垂钓 收竿' : '/垂钓 开钓'));
-  assert.deepEqual(page.commands.slice(-5), footer.map(item => item.command));
+  assert.deepEqual(page.commands.slice(-10), [...footer.map(item => item.command), '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
 });
 
 for (const preview of [true, false]) test(`渔市购买${preview ? '确认' : '完成'}使用普通商店正文句式，不触发客户端自动确认`, async t => {

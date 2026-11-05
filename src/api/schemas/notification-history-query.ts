@@ -4,6 +4,7 @@ export interface NotificationHistoryItem {
   text: string;
   delivery: string;
   flymail?: unknown;
+  fishingCastId?: string;
 }
 
 /**

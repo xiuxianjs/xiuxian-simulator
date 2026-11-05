@@ -7,7 +7,7 @@ import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { buildBubble, errorBubble, type BubbleSection } from '@src/response/presentation';
 import { useMessage } from '@src/utils/useMessage';
 import { isPrivateEvent } from '@src/utils/privateEvent';
-import { parseFishingCommand } from './commands';
+import { isFishingInventoryCommand, parseFishingCommand } from './commands';
 import { fishingBubble } from './view';
 import { parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
 import { presentPaymentCheckout } from '@src/response/recharge/checkoutFlow';
@@ -30,7 +30,9 @@ export default onResponse(selects, async event => {
       throw new Error('垂钓消息未确认送达');
     }
   };
-  const back = [{ label: '返回垂钓', command: '/垂钓', autoEnter: false }];
+  const back = isFishingInventoryCommand(event.MessageText ?? '')
+    ? [{ label: '返回渔获', command: '/储物袋 渔获', autoEnter: false }]
+    : [{ label: '返回垂钓', command: '/垂钓', autoEnter: false }];
   let checkoutOrderNo: string | undefined;
   const recoverCheckout = () => send(errorBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: '垂钓 · 原订单待核对',
     reason: checkoutOrderNo
@@ -89,7 +91,7 @@ export default onResponse(selects, async event => {
             sections: [{ lines: [text], actions: [
               { label: '查询原订单', command: `/查询充值订单 ${checkout.order.orderNo}`, autoEnter: false },
               { label: '恢复原订单', command: `/继续支付 ${checkout.order.orderNo}`, autoEnter: false }
-            ] }], footer: navigation, bar: false }));
+            ] }], footer: navigation }));
         }, navigation);
       }
 
@@ -115,7 +117,7 @@ export default onResponse(selects, async event => {
           sections.push({ lines: [tip.description], actions: actions([{ label: tip.command, command: tip.command }]) });
         }
         await send(
-          buildBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: reply.title || '垂钓 · 未完成', sections, footer: back, bar: false })
+          buildBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: reply.title || '垂钓 · 未完成', sections, footer: back })
         );
       }),
       request

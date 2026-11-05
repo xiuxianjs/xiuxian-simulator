@@ -1,0 +1,616 @@
+{
+  "cases": {
+    "listing-confirm": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "fishConfirmation": {
+            "rulesVersion": "fishing-v1-a49c803b70f57956",
+            "view": "receipt",
+            "title": "鱼挂牌成功",
+            "sections": [
+              {
+                "lines": [
+                  "原鱼ff_11111111111111111111111111111111，挂单1，售价468灵晶。",
+                  "上架手续费23灵晶；原编号和重量保留。"
+                ],
+                "actions": []
+              }
+            ],
+            "footer": [
+              {
+                "label": "返回垂钓",
+                "command": "/垂钓"
+              },
+              {
+                "label": "渔获",
+                "command": "/垂钓 渔获 1"
+              },
+              {
+                "label": "渔市",
+                "command": "/垂钓 渔市 灵鳞钱 1"
+              }
+            ],
+            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2"
+          },
+          "mode": "confirm"
+        }
+      }
+    },
+    "listing-preview": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "catchId": "ff_11111111111111111111111111111111",
+          "fishConfirmation": {
+            "rulesVersion": "fishing-v1-a49c803b70f57956",
+            "view": "confirmation",
+            "title": "鱼交易 · 挂牌预览",
+            "sections": [
+              {
+                "title": "乌鳞大鲤",
+                "id": "ff_11111111111111111111111111111111",
+                "lines": [
+                  "原编号ff_11111111111111111111111111111111 · 重量：2.000千克",
+                  "一单一尾，售价468灵晶；上架手续费23灵晶",
+                  "公示180秒；原鱼挂牌仍占卖家容量。",
+                  "确认仅使用本尾原重量与版本，不替换新鱼。"
+                ],
+                "actions": []
+              }
+            ],
+            "footer": [
+              {
+                "label": "确认上架",
+                "command": "/交易上架 鱼类 确认 r1_1_z_mw3ds1ag_68b0cc513692c8695f7f2676"
+              },
+              {
+                "label": "取消",
+                "command": "/交易上架 鱼类 1"
+              }
+            ],
+            "confirmationRef": "r1_1_z_mw3ds1ag_68b0cc513692c8695f7f2676",
+            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2",
+            "expiresAt": "2026-11-05T18:11:26.4384578+08:00"
+          },
+          "itemName": "乌鳞大鲤",
+          "mode": "start",
+          "range": {
+            "catchId": "ff_11111111111111111111111111111111",
+            "weightG": 2000,
+            "itemName": "乌鳞大鲤",
+            "assetVersion": 1,
+            "rulesVersion": "fishing-v1-a49c803b70f57956",
+            "minPrice": 208,
+            "maxPrice": 468,
+            "referencePrice": 260,
+            "source": "fish_weight_anchor",
+            "credibilityReady": true,
+            "templateItemId": 5,
+            "maxListingQuantity": 1,
+            "fixedQuantity": true
+          },
+          "weightG": 2000
+        }
+      }
+    },
+    "listing-range": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": true,
+            "resourcesSettled": true
+          }
+        },
+        "data": {
+          "catchId": "ff_11111111111111111111111111111111",
+          "fishConfirmation": null,
+          "itemName": "乌鳞大鲤",
+          "mode": "start",
+          "range": {
+            "catchId": "ff_11111111111111111111111111111111",
+            "weightG": 2000,
+            "itemName": "乌鳞大鲤",
+            "assetVersion": 1,
+            "rulesVersion": "fishing-v1-a49c803b70f57956",
+            "minPrice": 208,
+            "maxPrice": 468,
+            "referencePrice": 260,
+            "source": "fish_weight_anchor",
+            "credibilityReady": true,
+            "templateItemId": 5,
+            "maxListingQuantity": 1,
+            "fixedQuantity": true
+          },
+          "weightG": 2000
+        }
+      }
+    },
+    "listing-replay": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "fishConfirmation": {
+            "rulesVersion": "fishing-v1-a49c803b70f57956",
+            "view": "receipt",
+            "title": "鱼挂牌成功",
+            "sections": [
+              {
+                "lines": [
+                  "原鱼ff_11111111111111111111111111111111，挂单1，售价468灵晶。",
+                  "上架手续费23灵晶；原编号和重量保留。"
+                ],
+                "actions": []
+              }
+            ],
+            "footer": [
+              {
+                "label": "返回垂钓",
+                "command": "/垂钓"
+              },
+              {
+                "label": "渔获",
+                "command": "/垂钓 渔获 1"
+              },
+              {
+                "label": "渔市",
+                "command": "/垂钓 渔市 灵鳞钱 1"
+              }
+            ],
+            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2"
+          },
+          "mode": "confirm"
+        }
+      }
+    },
+    "sale-confirm": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "rulesVersion": "fishing-v1-a49c803b70f57956",
+          "view": "receipt",
+          "title": "鱼获回收完成",
+          "sections": [
+            {
+              "lines": [
+                "出售原预览1条鱼，每条向上取整后合计26灵鳞钱。",
+                "本次总计获得26灵鳞钱；重量和单价沿原预览，不重掷。"
+              ],
+              "actions": []
+            }
+          ],
+          "footer": [
+            {
+              "label": "返回垂钓",
+              "command": "/垂钓"
+            },
+            {
+              "label": "渔获",
+              "command": "/垂钓 渔获 1"
+            },
+            {
+              "label": "渔市",
+              "command": "/垂钓 渔市 灵鳞钱 1"
+            }
+          ],
+          "operationId": "fo_1ad30006daa29b960b795ba1adce49d6"
+        }
+      }
+    },
+    "sale-preview": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "emphasisNames": [
+            "乌鳞大鲤"
+          ],
+          "rulesVersion": "fishing-v1-a49c803b70f57956",
+          "view": "confirmation",
+          "title": "售鱼预览",
+          "sections": [
+            {
+              "lines": [
+                "出售渔获",
+                "本次选择1条鱼，重量：2.000千克",
+                "ff_22222222222222222222222222222222 · 乌鳞大鲤 · 重量：2.000千克",
+                "计价：每条鱼精确向上取整后再合计，单卖与批卖相同。",
+                "合计获得：26灵鳞钱。",
+                "不重掷重量或售价；鱼一经回收不可取回。"
+              ],
+              "actions": []
+            },
+            {
+              "lines": [
+                "预览有效5分钟，确认后按本次原预览结算。"
+              ],
+              "actions": []
+            }
+          ],
+          "footer": [
+            {
+              "label": "确认",
+              "command": "/垂钓 确认 r1_1_y_mw3ds1at_5e5932d968d9ba4dd40879cc"
+            },
+            {
+              "label": "取消",
+              "command": "/垂钓"
+            },
+            {
+              "label": "查询原操作",
+              "command": "/垂钓 操作 fo_1ad30006daa29b960b795ba1adce49d6"
+            }
+          ],
+          "confirmationRef": "r1_1_y_mw3ds1at_5e5932d968d9ba4dd40879cc",
+          "operationId": "fo_1ad30006daa29b960b795ba1adce49d6",
+          "expiresAt": "2026-11-05T10:11:26.452465Z"
+        }
+      }
+    },
+    "sale-replay": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
+          }
+        },
+        "data": {
+          "rulesVersion": "fishing-v1-a49c803b70f57956",
+          "view": "receipt",
+          "title": "鱼获回收完成",
+          "sections": [
+            {
+              "lines": [
+                "出售原预览1条鱼，每条向上取整后合计26灵鳞钱。",
+                "本次总计获得26灵鳞钱；重量和单价沿原预览，不重掷。"
+              ],
+              "actions": []
+            }
+          ],
+          "footer": [
+            {
+              "label": "返回垂钓",
+              "command": "/垂钓"
+            },
+            {
+              "label": "渔获",
+              "command": "/垂钓 渔获 1"
+            },
+            {
+              "label": "渔市",
+              "command": "/垂钓 渔市 灵鳞钱 1"
+            }
+          ],
+          "operationId": "fo_1ad30006daa29b960b795ba1adce49d6"
+        }
+      }
+    }
+  },
+  "source": "TestFishingSaleAndMarketListingActualRobotWireReplay; actual HTTP routes and isolated SQLite"
+}

@@ -1,0 +1,62 @@
+{
+  "history": {
+    "page": 1,
+    "hasNext": false,
+    "items": [
+      {
+        "id": "mismatched-report",
+        "time": "2026-11-05T18:14:14.4408238+08:00",
+        "text": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得\n\n查看战报：/垂钓 战报 fc_22222222222222222222222222222222",
+        "delivery": "历史记录"
+      },
+      {
+        "id": "wrong-owner",
+        "time": "2026-11-05T18:14:14.4382643+08:00",
+        "text": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得\n\n查看战报：/垂钓 战报 fc_22222222222222222222222222222222",
+        "delivery": "历史记录"
+      },
+      {
+        "id": "wrong-source",
+        "time": "2026-11-05T18:14:14.4354908+08:00",
+        "text": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得\n\n查看战报：/垂钓 战报 fc_22222222222222222222222222222222",
+        "delivery": "历史记录"
+      },
+      {
+        "fishingCastId": "fc_22222222222222222222222222222222",
+        "id": "old-fish-without-structured-id",
+        "time": "2026-11-05T18:14:14.4344801+08:00",
+        "text": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得",
+        "delivery": "历史记录"
+      },
+      {
+        "fishingCastId": "fc_11111111111111111111111111111111",
+        "id": "fishing.result:fc_11111111111111111111111111111111:1",
+        "time": "2026-11-05T18:14:14.4275015+08:00",
+        "text": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得",
+        "delivery": "已发送至私聊"
+      }
+    ]
+  },
+  "relay": {
+    "eventId": "fishing.result:fc_11111111111111111111111111111111:1",
+    "eventType": "player.notification.dispatch",
+    "payload": {
+      "data": [
+        {
+          "type": "Text",
+          "value": "洞府垂钓 · 鱼王渔讯\n鱼种：碧鳞鱼王 · 炼气\n重量：10.856kg\n结果：脱钩，未获得"
+        }
+      ],
+      "fishingCastId": "fc_11111111111111111111111111111111",
+      "fishingRarity": "king",
+      "idempotencyKey": "fishing.result:fc_11111111111111111111111111111111:1",
+      "recipientUserId": 1,
+      "source": "fishing.result.king",
+      "version": 1
+    },
+    "deliveryAttempts": 1,
+    "recipientUserId": 1,
+    "recipientBid": "fishing_notice_bid"
+  },
+  "source": "TestFishingNotificationWireAndArchivedReportIdentity; actual isolated Go notification relay/history"
+}

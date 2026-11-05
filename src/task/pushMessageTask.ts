@@ -24,6 +24,7 @@ type PlayerNotificationPayload = {
   historyOnly?: boolean;
   source?: string;
   flymail?: unknown;
+  fishingCastId?: unknown;
   version: 1;
   recipientUserId: number;
   data: DataEnums[];
@@ -128,7 +129,7 @@ async function processPlayerNotification(
     const data =
       payload.source === 'flymail.message.received'
         ? (flyMailNoticeData(payload.flymail, ownerUserId) ?? notificationNoticeData(payload.data, payload.source))
-        : notificationNoticeData(payload.data, payload.source);
+        : notificationNoticeData(payload.data, payload.source, payload.fishingCastId);
     const delivery = await deliverNotificationOnce(row.eventId, async () => {
       // Only explicit per-session subscriptions may initiate a DM.
       // Old queued announcements and events without consent stay in history.

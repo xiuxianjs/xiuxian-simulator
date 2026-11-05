@@ -170,8 +170,20 @@ export function notificationTextLayout(text: string): { title: string; lines: st
   return { title: match?.[1] ?? '修仙 · 通知', lines: (match ? normalized.slice(match[0].length) : normalized).split('\n') };
 }
 
+/** Only fishing-result callers may turn the original cast reference into a link. */
+export function fishingNotificationLayout(text: string, castId?: unknown) {
+  const normalized = text.replace(/\r\n/g, '\n');
+  const legacy = /\n\n查看战报：\/垂钓 战报 (fc_[0-9a-f]{32})[ \t]*\n?$/.exec(normalized);
+  const body = legacy ? normalized.slice(0, legacy.index) : normalized;
+  const layout = notificationTextLayout(body.replace(/^(洞府垂钓 · (?:稀有鱼|鱼王)渔讯)\n{1,2}/, '【$1】\n\n'));
+  const original = castId === undefined ? legacy?.[1] : castId;
+  const reportCommand = typeof original === 'string' && /^fc_[0-9a-f]{32}$/.test(original) ? `/垂钓 战报 ${original}` : undefined;
+
+  return { ...layout, reportCommand };
+}
+
 /** 兼容旧纯文本通知；已有 Markdown/图片等富内容保留原样，飞信继续使用专用展示。 */
-export function notificationNoticeData(data: DataEnums[], source = ''): DataEnums[] {
+export function notificationNoticeData(data: DataEnums[], source = '', fishingCastId?: unknown): DataEnums[] {
   if (!data.length || data.some(block => block.type !== 'Text' && block.type !== 'Mention')) {
     return data;
   }
@@ -183,9 +195,16 @@ export function notificationNoticeData(data: DataEnums[], source = ''): DataEnum
   if (!text.trim()) {
     return data;
   }
-  const actions = [...notificationActions(source, text), { label: '我的通知', command: '/我的通知' }];
-  const { title, lines } = notificationTextLayout(text);
-  const built = noticeBubble({ title: noticeTitle(title), lines, actions });
+  const fishing = source === 'fishing.result.rare' || source === 'fishing.result.king' ? fishingNotificationLayout(text, fishingCastId) : undefined;
+  const actions = fishing
+    ? [...(fishing.reportCommand ? [{ label: '查看战报', command: fishing.reportCommand, autoEnter: false }] : []), { label: '我的通知', command: '/我的通知', autoEnter: false }]
+    : [...notificationActions(source, text), { label: '我的通知', command: '/我的通知' }];
+  const { title, lines } = fishing ?? notificationTextLayout(text);
+  const built = noticeBubble({
+    title: fishing ? '修仙 · 通知' : noticeTitle(title),
+    lines: fishing && title !== '修仙 · 通知' ? [title, ...lines] : lines,
+    actions
+  });
 
   return [...data.filter(block => block.type === 'Mention'), ...built.format.value];
 }

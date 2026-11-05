@@ -13,6 +13,19 @@ const currencies: Record<string, FishingCurrency> = {
   dao: 'dao'
 };
 const id = (value: string | undefined) => value !== undefined && /^[A-Za-z0-9_.:-]{1,64}$/.test(value);
+const fishInstanceID = (value: string | undefined): value is string => /^ff_[0-9a-f]{32}$/.test(value ?? '');
+const fishInventoryRealms = ['凡物', '炼气', '筑基', '金丹', '元婴', '化神', '洞虚', '合体', '大乘', '仙'];
+const fishInventoryFilter = (value: string | undefined) => {
+  if (value === undefined || value === '全部') { return {}; }
+  const fishRealm = fishInventoryRealms.indexOf(value);
+
+  return fishRealm >= 0 ? { fishRealm } : undefined;
+};
+const fishSpecies = (value: string) => {
+  if (/^fishing_r[0-9]_[a-e]$/.test(value)) { return { speciesId: value }; }
+
+  return /^\p{Script=Han}{1,20}$/u.test(value) ? { speciesName: value } : undefined;
+};
 const packNames: Record<string, string> = {
   稳如老狗: 'steady_6', 乘风逐浪: 'swift_18', 潜渊寻珍: 'treasure_30', 我全都要: 'all_50',
   筑基水域补给: 'pond_supply_2', 金丹水域补给: 'pond_supply_3', 元婴水域补给: 'pond_supply_4', 化神水域补给: 'pond_supply_5',
@@ -38,9 +51,13 @@ export function fishingWeightGrams(value: string | undefined): number | undefine
   return grams <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(grams) : undefined;
 }
 
+export function isFishingInventoryCommand(message: string): boolean {
+  return /^\s*[/#＃]?(储物袋|物品详情|锁定|解锁|出售)\s+渔获(?:\s|$)/.test(message);
+}
+
 /** Only our exact domain entry is terminal; other packages keep their event. */
 export function parseFishingCommand(message: string): FishingCommand | undefined {
-  const match = /^\s*[/#＃]?(垂钓|渔获|钓具|渔市)(?:\s+(.*?))?\s*$/.exec(message);
+  const match = /^\s*[/#＃]?(垂钓|(?:储物袋|物品详情|锁定|解锁|出售)\s+渔获|渔获|钓具|渔市)(?:\s+(.*?))?\s*$/.exec(message);
 
   if (!match) {
     return undefined;
@@ -48,13 +65,65 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   if ([...message.trim()].length > 80) {
     return error('长度不超过80字符的完整指令；确认凭据不得截断，请重新预览');
   }
-  let args = match[2]?.split(/\s+/).filter(Boolean) ?? [];
-
-  if (match[1] !== '垂钓') {
-    args = [match[1], ...args];
-  }
-  const [verb, ...values] = args;
+  const [entry] = match[1].split(/\s+/);
+  const args = match[2]?.split(/\s+/).filter(Boolean) ?? [];
+  const [verb, ...values] = entry === '垂钓' ? args : [entry === '储物袋' ? '渔获' : entry, ...args];
   const query = (view: FishingInput['view'], input: FishingInput = {}): FishingRequest => ({ operation: 'fishing.query', input: { view, ...input } });
+  const preview = (kind: FishingInput['kind'], input: FishingInput = {}): FishingRequest => ({
+    operation: kind === 'settings' || kind === 'use-chum' ? 'fishing.configure' : 'fishing.preview', input: { kind, ...input }
+  });
+
+  if (entry === '物品详情') {
+    const [catchId, rawPage, rawReturnPage, rawRealm] = args;
+    const page = rawPage === undefined ? 1 : n(rawPage);
+    const returnPage = rawReturnPage === undefined ? 1 : n(rawReturnPage);
+    const filter = fishInventoryFilter(rawRealm);
+
+    return args.length <= 4 && fishInstanceID(catchId) && page && returnPage && filter
+      ? query('fish', { catchId, page, returnPage, ...filter }) : error('/物品详情 渔获 <完整鱼编号> [单尾列表页] [鱼种榜页] [原境界]');
+  }
+  if (entry === '锁定' || entry === '解锁') {
+    return args.length === 1 && fishInstanceID(args[0])
+      ? preview('fish-lock', { catchId: args[0], lock: entry === '锁定' }) : error(`/${entry} 渔获 <完整鱼编号>`);
+  }
+  if (entry === '出售') {
+    const [target, rawMin, rawMax] = args;
+
+    if (args.length === 1 && fishInstanceID(target)) {
+      return preview('sell-fish', { fishIds: [target], preserveUpgrade: false });
+    }
+    const species = target === undefined || target === '全部' ? {} : fishSpecies(target);
+
+    if (species && args.length <= 1) { return query('sell-range', species); }
+    const minWeightG = fishingWeightGrams(rawMin);
+    const maxWeightG = fishingWeightGrams(rawMax);
+
+    return species && args.length === 3 && minWeightG !== undefined && maxWeightG !== undefined && minWeightG <= maxWeightG
+      ? preview('sell-fish-range', { ...species, minWeightG, maxWeightG })
+      : error('/出售 渔获 <完整鱼编号>，或 /出售 渔获 [鱼种或全部] [最低kg 最高kg]');
+  }
+  if (verb === '渔获') {
+    const [target, rawPage, rawReturnPage, rawRealm] = values;
+    const usage = '/储物袋 渔获 [页码]，或 /储物袋 渔获 <境界或鱼种> [页码]';
+
+    if (target === undefined) { return query('species', { page: 1 }); }
+    if (target === '素材') { return values.length === 1 ? query('bag-materials') : error('/储物袋 渔获 素材'); }
+    const legacyPage = n(target);
+
+    if (legacyPage !== undefined) { return values.length === 1 ? query('species', { page: legacyPage }) : error(usage); }
+    const page = rawPage === undefined ? 1 : n(rawPage);
+    const realm = fishInventoryFilter(target);
+
+    if (realm) {
+      return values.length <= 2 && page ? query('species', { page, ...realm }) : error(usage);
+    }
+    const species = fishSpecies(target);
+    const returnPage = rawReturnPage === undefined ? 1 : n(rawReturnPage);
+    const filter = fishInventoryFilter(rawRealm);
+
+    return species && values.length <= 4 && page && returnPage && filter
+      ? query('instances', { ...species, page, returnPage, ...filter }) : error(usage);
+  }
 
   if (verb === '奇遇' || verb === '奇遇掉落') {
     return values.length === 0 ? query(verb === '奇遇' ? 'boss' : 'boss-drops') : values.length === 1 && validFishingEventID(values[0])
@@ -98,10 +167,6 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
     return values.length === 1 && validFishingWeek(values[0])
       ? { operation: 'fishing.contest-claim', input: { week: values[0] } } : error('/垂钓 赛领奖 <周一日期YYYY-MM-DD>');
   }
-  const preview = (kind: FishingInput['kind'], input: FishingInput = {}): FishingRequest => ({
-    operation: kind === 'settings' || kind === 'use-chum' ? 'fishing.configure' : 'fishing.preview', input: { kind, ...input }
-  });
-
   if (!verb) {
     return query('overview');
   }
@@ -128,7 +193,21 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
 
     return sku && values.length === 2 && quantity ? preview('sell-material', { sku, quantity }) : error('/垂钓 回收材料 <水灵砂|凝波晶|镇海髓> [份数]');
   }
-  if (verb === '战报' && values.length === 1 && /^fc_[0-9a-f]{32}$/.test(values[0])) { return query('cast', { castId: values[0] }); }
+  if (verb === '战报' && /^fc_[0-9a-f]{32}$/.test(values[0] ?? '')) {
+    const page = values[1] === undefined ? undefined : n(values[1]);
+
+    return values.length <= 2 && (values[1] === undefined || page !== undefined)
+      ? query('cast', { castId: values[0], ...(page === undefined ? {} : { page }) })
+      : error('/垂钓 战报 <原竿次编号> [页码]');
+  }
+  if (verb === '渔获记录') {
+    const page = values[0] === undefined ? 1 : n(values[0]);
+    const sessionId = values[1];
+
+    return values.length <= 2 && page && (sessionId === undefined || /^[A-Za-z0-9_.:-]{1,40}$/.test(sessionId))
+      ? query('history', { sku: 'fish', page, ...(sessionId === undefined ? {} : { sessionId }) })
+      : error('/垂钓 渔获记录 [页码] [原会话编号]');
+  }
   if (verb === '渔具' || verb === '用网') {
     const waterLevel = values.length === 0 || ['当前', '默认', '0'].includes(values[0]) ? 0 : n(values[0], 1, 9);
 
@@ -144,13 +223,14 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
 
     return values.length === 1 && realm >= 0 && realm <= 9 ? query('blessing', { blessingRealm: realm }) : error('/垂钓 赐福 [总览|境界0-9]');
   }
-  if (['渔获', '待入袋', '钓具', '鱼谱', '战报', '杂获'].includes(verb)) {
+  if (['待入袋', '钓具', '鱼谱', '战报', '杂获'].includes(verb)) {
     const page = values[0] === undefined ? 1 : n(values[0]);
 
     if (values.length > 1 || page === undefined) {
       return error(`/垂钓 ${verb} <页码>`);
     }
-    const view = ({ 待入袋: 'pending', 渔获: 'species', 钓具: 'gear', 鱼谱: 'catalog', 战报: 'history', 杂获: 'history' } as const)[verb as '渔获'];
+    const views = { 待入袋: 'pending', 钓具: 'gear', 鱼谱: 'catalog', 战报: 'history', 杂获: 'history' } as const;
+    const view = views[verb as keyof typeof views];
 
     return query(view, { page, ...(verb === '杂获' ? { sku: 'loot' } : {}) });
   }
@@ -273,7 +353,10 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
     return values.length === 0 ? query('help') : error();
   }
   if (verb === '操作') {
-    return values.length === 1 && id(values[0]) ? query('operation', { operationId: values[0] }) : error('/垂钓 操作 <原操作编号>');
+    const page = values[1] === undefined ? undefined : n(values[1]);
+
+    return values.length <= 2 && id(values[0]) && (values[1] === undefined || page !== undefined)
+      ? query('operation', { operationId: values[0], ...(page === undefined ? {} : { page }) }) : error('/垂钓 操作 <原操作编号> [页码]');
   }
   if (verb === '建塘') {
     return values.length === 0 ? preview('build') : error();

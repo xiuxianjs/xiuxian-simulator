@@ -52,7 +52,7 @@ export function parseRobotMarketSell(value: unknown, expected: string, category:
   if (value.mode === 'confirm') {
     if (!('fishConfirmation' in value)) { throw new Error('鱼挂牌原回执不完整'); }
 
-    return { mode: 'confirm', fishConfirmation: parseFishingView(value.fishConfirmation, uid) };
+    return { mode: 'confirm', fishConfirmation: parseFishingView(value.fishConfirmation, uid, 'z') };
   }
   if (value.mode === 'list') {
     return { mode: 'list', page: presentMarketSellable(parseBackendMarketSellable(value), category) };
@@ -84,7 +84,7 @@ export function parseRobotMarketSell(value: unknown, expected: string, category:
   return {
     mode: 'start',
     range: value.range,
-    ...('fishConfirmation' in value && value.fishConfirmation ? { fishConfirmation: parseFishingView(value.fishConfirmation, uid) } : {}),
+    ...('fishConfirmation' in value && value.fishConfirmation ? { fishConfirmation: parseFishingView(value.fishConfirmation, uid, 'z') } : {}),
     ...(metadata.catchId === undefined
       ? {}
       : { catchId: metadata.catchId, itemName: metadata.itemName as string, weightG: metadata.weightG as number }),

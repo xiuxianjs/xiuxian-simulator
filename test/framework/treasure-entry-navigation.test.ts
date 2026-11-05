@@ -98,6 +98,12 @@ function delivered(result: TestRunResult, command: string) {
   const message = result.messages[0];
 
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const keyboard = message.nodes.filter(node => node.type === 'BT.group');
+  const shortcuts = [['我', '/我'], ['战', '/属性面板'], ['本', '/查看主线'], ['动', '/我的活动'], ['店', '/商店']];
+
+  assert.equal(message.nodes.at(-1)?.type, 'BT.group');
+  assert.equal(keyboard.length, 1);
+  assert.deepEqual(keyboard[0].value, [{ type: 'BT.row', value: shortcuts.map(([value, data]) => ({ type: 'Button', value, options: { data } })) }]);
   const checkButtons = (nodes: Node[]) => {
     for (const node of nodes) {
       if (node.type === 'MD.button') {
@@ -169,7 +175,7 @@ test('上古遗珍首排图鉴与概率、记录同列，秘宝商人在第二�
 });
 
 test('宝物图鉴按稀有度展示，六档按钮可达未拥有条目并保留旧全局页链接', async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, catalog));
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('ancient-relics.overview') ? relics : catalog));
   const run = async (command: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
   const first = await run('/上古遗珍 图鉴');
 
@@ -202,6 +208,11 @@ test('宝物图鉴按稀有度展示，六档按钮可达未拥有条目并保�
     assert.equal(request.path, '/api/v2/robot/business/treasures.catalog');
     assert.deepEqual(request.body.arguments, {});
   }
+  const back = last.nodes.find(node => node.type === 'MD.button' && node.value === '‹返回›');
+
+  assert.equal(back?.options?.data, '/上古遗珍');
+  assert.ok((await run(back!.options!.data as string)).commands.includes('/上古遗珍 图鉴'));
+  assert.equal(requests.at(-1)?.path, '/api/v2/robot/business/ancient-relics.overview');
 });
 
 test('旧宝物图鉴仍打开持有页，不请求全量图鉴或显示未持有神话', async t => {
@@ -251,6 +262,7 @@ test('实际顶部分解按钮进入合并份数库存，份数与旧形态选�
   const portionPreview = await run('/宝物 分解 份数 101 7');
 
   assert.ok(portionPreview.commands.includes(`/确认宝物 ${confirmationRef}`));
+  assert.equal(portionPreview.nodes.find(node => node.type === 'MD.button' && node.value === '‹取消并返回›')?.options?.data, '/宝物 分解');
   assert.deepEqual(requests.at(-1)?.body.arguments, { kind: 'decompose', items: [{ treasureId: 101, kind: 'portion', quantity: 7 }] });
   for (const [kind, command] of [['body', '/宝物 分解 本体 101 1'], ['fragment', '/宝物 分解 碎片 101 1']] as const) {
     const preview = await run(command);

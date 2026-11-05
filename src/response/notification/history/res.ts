@@ -1,7 +1,7 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { isPrivateEvent } from '@src/utils/privateEvent';
-import { notificationTextLayout } from '@src/notification/presentation';
+import { fishingNotificationLayout, notificationTextLayout } from '@src/notification/presentation';
 import { flyMailQuote, flyMailViewCommand, parseFlyMailNotice } from '@src/utils/flyMailPresentation';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
@@ -65,9 +65,14 @@ export default onResponse(selects, async e => {
         md.addBlockquote(quote);
         continue;
       }
-      const { title, lines } = notificationTextLayout(item.text);
+      const fishingCastId = item.fishingCastId ?? /^fishing\.result:(fc_[0-9a-f]{32}):[1-9]\d*$/.exec(item.id)?.[1];
+      const fishing = fishingCastId === undefined ? undefined : fishingNotificationLayout(item.text, fishingCastId);
+      const { title, lines } = fishing ?? notificationTextLayout(item.text);
       const quote = createQuoteMarkdown([`【${index + 1}】${title}`, `时间：${formatGameTime(item.time)}`, '', ...lines]);
 
+      if (fishing?.reportCommand) {
+        quote.addNewline().addButton(markdownButtonLabel('查看战报'), { data: commandText(fishing.reportCommand), autoEnter: false });
+      }
       md.addBlockquote(quote).addNewline();
     }
   } catch (error) {
