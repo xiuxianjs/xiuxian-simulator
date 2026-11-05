@@ -47,7 +47,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     await send(
       errorBubble({
         ...common,
-        title: '鱼交易 · 未完成',
+        title: '交易上架 · 未完成',
         reason: '说明：/交易上架 鱼类[页码]，或 /交易上架 鱼类 完整鱼编号 [整尾灵晶单价]；数量固定1。',
         footer
       })
@@ -73,7 +73,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
         await send(
           buildBubble({
             ...common,
-            title: reply.title || '鱼交易 · 未完成',
+            title: reply.title || '交易上架 · 未完成',
             sections: [{ lines: [reply.text], actions: reply.buttons.map(button => manual(button.label, button.command)) }],
             footer
           })
@@ -97,15 +97,19 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
       await send(
         buildBubble({
           ...common,
-          title: '交易上架 · 鱼类',
+          title: '交易上架 - 鱼类',
           sections: data.page.items.length
             ? data.page.items.map(item => ({
                 title: item.name,
                 id: item.catchId,
-                lines: [`境界：${item.realm}`, `重量：${kg(item.weightG!)}`, '说明：整尾灵晶报价，数量固定1。'],
-                actions: [manual('上架报价', `/交易上架 鱼类 ${item.catchId}`)]
+                lines: [
+                  `数量：${item.quantity}尾 · 境界：${item.realm}`,
+                  `重量：${kg(item.weightG!)}`,
+                  ...(item.priceRange ? [`可挂区间：${item.priceRange.min}~${item.priceRange.max} 灵晶`] : [])
+                ],
+                actions: [manual('上架', `/交易上架 鱼类 ${item.catchId}`)]
               }))
-            : [{ lines: ['状态：当前页没有可上架的本人鱼实例。'] }],
+            : [{ lines: ['状态：暂无可上架的鱼。'] }],
           nav: { current: page, total: Math.max(1, data.page.totalPages), count: data.page.total, command: '/交易上架 鱼类{page}', autoEnter: false },
           footer
         })
@@ -115,12 +119,13 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     }
     if (data.mode !== 'start' || !catchId || !data.range.fixedQuantity || data.range.maxListingQuantity !== 1) { throw new Error('鱼单尾交易规则不匹配'); }
     const range = data.range;
+    const referenceText = range.referencePrice >= range.minPrice && range.referencePrice <= range.maxPrice ? `（参考价 ${range.referencePrice} 灵晶）` : '';
     const actions: BubbleAction[] = [];
 
     for (const [label, amount] of [
       ['最低价', range.minPrice],
       ['最高价', range.maxPrice],
-      ['重量参考价', range.referencePrice]
+      ['参考价', range.referencePrice]
     ] as const) {
       const command = `/交易上架 鱼类 ${catchId} ${amount}`;
 
@@ -129,17 +134,17 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     await send(
       buildBubble({
         ...common,
-        title: data.listingId ? '鱼交易 · 上架完成' : '鱼交易 · 上架报价',
+        title: '交易上架',
         sections: [
           {
             title: data.itemName ?? '原渔获',
             id: catchId,
             lines: [
               ...(data.weightG === undefined ? [] : [`重量：${kg(data.weightG)}`]),
-              `每份：整尾${range.minPrice}～${range.maxPrice}灵晶 · 数量固定1`,
-              `说明：重量回收价值参考${range.referencePrice}晶，不是稀缺成交保证。`,
-              ...(data.message ? [data.message] : ['说明：选择或输入整尾单价后手动发送，按原市场规则上架。']),
-              ...(data.listingId ? [`结果：挂单 #${data.listingId}`] : [])
+              '数量：1尾',
+              ...(data.listingId
+                ? [...(data.message ? [data.message] : []), `上架ID：${data.listingId}`]
+                : [`单价区间：${range.minPrice}~${range.maxPrice} 灵晶${referenceText}`, '说明：可修改快捷指令里的单价。'])
             ],
             actions: data.listingId ? [] : actions
           }
@@ -149,7 +154,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     );
   } catch {
     await send(
-      errorBubble({ ...common, title: '鱼交易 · 结果待核对', reason: '说明：本次市场结果尚未核实，请查看我的上架；不要重新选择另一尾鱼代替原操作。', footer })
+      errorBubble({ ...common, title: '交易上架 · 结果待核对', reason: '说明：本次市场结果尚未核实，请查看我的上架；不要重新选择另一尾鱼代替原操作。', footer })
     );
   }
 

@@ -120,7 +120,27 @@ export default onResponse(selects, async event => {
           buildBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: reply.title || '垂钓 · 未完成', sections, footer: back })
         );
       }),
-      request
+      request,
+      async error => {
+        if (
+          parsed.operation !== 'fishing.query' ||
+          (parsed.input.view !== 'boss' && parsed.input.view !== 'boss-drops') ||
+          !(error instanceof SDKError) ||
+          error.status !== 404 ||
+          error.code !== 'NOT_FOUND'
+        ) {
+          return false;
+        }
+        await send(buildBubble({
+          bid: event.UserId,
+          isPrivate: isPrivateEvent(event),
+          title: '洞府垂钓',
+          sections: [{ lines: [error.message] }],
+          footer: back
+        }));
+
+        return true;
+      }
     );
 
     if (!result.handled) {

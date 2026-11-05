@@ -46,3 +46,9 @@ Boss继续使用原`r1_y`预览与`fishing.confirm`。客户端不保存完整�
 尚待：九境正式Boss模板与强度验证、三条展示契约的实际场景证据，以及最终功能分支发布记录。以上离线证据不证明线上部署、真实QQ投递、Boss难度通过或真实玩家领奖成功。
 
 本轮使用仓库`.agents/skills/bubble-style/SKILL.md`、`.github/skills/bubble-style/SKILL.md`及可用的`.github/skills/bubble-style/content.md`。所引用的`docs/bubble-style/DESIGN.md`和`.agents/skills/bubble-style/content.md`当前不存在，未创建替代总纲。
+
+## 洞府垂钓主页与奇遇入口
+
+顶部依次放「锦鲤赐福」「沧澜钓仙会」和本次「垂钓奇遇」。有本人正在进行的龙鲤事件时才显示第三个按钮，按钮携带原事件编号。开始或结束垂钓及使用渔具各占一行正文，底部两行分别是「我的渔获」「渔市」和「设置」「帮助」。窝料剩余时间显示为时分数字，如 `余03:27`。
+
+当前没有本人的有效奇遇时，直接发送奇遇或掉落指令只提示「当前没有可查看的垂钓奇遇」。原队伍与已参战玩家仍按权限通过具体事件查看战报和奖励。

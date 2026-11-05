@@ -1,6 +1,6 @@
 import { Format } from 'alemonjs';
 import type { FishingView, FishingAction, FishingSection } from '@src/api/bot/fishing';
-import { fishingBaits, fishingChums } from '@src/api/bot/fishing';
+import { fishingBaits, fishingChums, validFishingEventID } from '@src/api/bot/fishing';
 import { FormatGui, type GuiFooter } from '@src/utils/messageHelper';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { renderSubTabs } from '@src/response/storage/newBag/tabs';
@@ -14,7 +14,7 @@ const parentCommands = new Map([
 ]);
 const footerRows = (data: FishingView, actions: FishingAction[]): GuiFooter => {
   if (data.view === 'overview') {
-    return [actions.slice(0, 3), actions.slice(3, 5), actions.slice(5)].filter(row => row.length > 0).map(manual);
+    return [actions.slice(0, 2), actions.slice(2)].filter(row => row.length > 0).map(manual);
   }
   const width = data.view.startsWith('contest') ? 3 : 4;
 
@@ -115,20 +115,24 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     }
   };
   let footer = data.footer;
+  let overviewHeader: FishingAction[] | undefined;
+  const encounter = data.view === 'overview' ? data.sections.find(section => section.title === '上古龙鲤') : undefined;
+  const sections = encounter ? data.sections.filter(section => section !== encounter) : data.sections;
 
-  if (data.view === 'overview' && (data.sections.length === 4 || data.sections.length === 5)) {
-    data.sections.forEach((section, index) => {
-      if (index === data.sections.length - 1) {
+  if (data.view === 'overview') {
+    const top = footer.filter(action => action.label === '锦鲤赐福' || action.label === '沧澜钓仙会');
+    const encounterPrefix = '/垂钓 奇遇 ';
+    const entry = encounter?.actions.find(({ command }) => command.startsWith(encounterPrefix) && validFishingEventID(command.slice(encounterPrefix.length)));
+
+    overviewHeader = entry ? [...top, { ...entry, label: '垂钓奇遇' }] : top;
+    footer = footer.filter(action => !top.includes(action) && action.label !== '垂钓奇遇');
+  }
+
+  if (data.view === 'overview' && sections.length === 4) {
+    sections.forEach((section, index) => {
+      if (index === sections.length - 1) {
         section.lines.forEach(line => { md.addBold(line).addNewline(); });
-        if (section.actions.length) {
-          const controls = Format.createMarkdown();
-
-          section.actions.forEach((action, i) => {
-            if (i > 0) { controls.addNewline(); }
-            buttons(controls, [action]);
-          });
-          md.addBlockquote(controls);
-        }
+        section.actions.forEach(action => { buttons(md, [action]); md.addNewline(); });
       } else { block(section, index !== 0, index <= 2); }
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
@@ -228,16 +232,13 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
 
     footer = parentIndex < 0 ? [...footer, back] : footer.map((action, index) => index === parentIndex ? back : action);
   }
-  if (data.view === 'overview') {
-    md.addNewline().addText('——————');
-  }
   const bagParent = data.view === 'species' ? '/储物袋' : data.view === 'bag-materials' ? '/储物袋 渔获' : undefined;
 
   return FormatGui({
     bid: event.UserId,
     isPrivate: isPrivateEvent(event),
     title: data.title,
-    header: bagParent ? manual([{ label: '返回', command: bagParent }]) : undefined,
+    header: overviewHeader ? manual(overviewHeader) : bagParent ? manual([{ label: '返回', command: bagParent }]) : undefined,
     content: md,
     nav: data.nav ? { current: data.nav.page, total: data.nav.totalPages, count: data.nav.total, command: data.nav.command, autoEnter: false } : undefined,
     footer: footerRows(data, footer)

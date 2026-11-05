@@ -72,6 +72,18 @@ for (const [command, input] of queryCases) test('奇遇赛事短命令真实HTTP
   assert.deepEqual(requests[0].body.arguments, input);
 });
 
+test('未遇到龙鲤时直接发送奇遇指令只显示简短提示', async t => {
+  const { app, requests } = await gameFixture(t, () => ({ code: 'NOT_FOUND', message: '当前没有可查看的垂钓奇遇' }), 404);
+  for (const [command, kind] of [['/垂钓 奇遇', 'boss'], ['/垂钓 奇遇掉落', 'boss-drops']]) {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+    const page = delivered(result, 'boss-unavailable-' + kind);
+    assert.match(page.text, /当前没有可查看的垂钓奇遇/);
+    assert.doesNotMatch(page.text, /挑战队伍|奖励归属|掉落说明|结果待核对/);
+    assert.ok(page.commands.includes('/垂钓'));
+    assert.deepEqual(requests.at(-1)?.body.arguments, { view: kind });
+  }
+});
+
 for (const key of ['active', 'drops', 'preview', 'result', 'battle', 'rewards']) test('Go实际Boss隔离服务六页经QQ处理器原文发送 ' + key, async t => {
   const cases = actualBoss.cases;
   const actions = (data: { sections: { actions?: { command: string }[] }[]; footer: { label: string; command: string }[] }) => [

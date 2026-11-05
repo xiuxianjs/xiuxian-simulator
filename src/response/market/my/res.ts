@@ -1,6 +1,5 @@
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
-import { section } from '@src/response/presentation';
 import { parseMyMarketListings } from '@src/api/bot/my-market-listings';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
@@ -92,36 +91,20 @@ export default onResponse(selects, async e => {
     const totalPrice = it.totalPriceAmount;
     const typeLabel = it.itemCategoryLabel;
     const lockTag = it.lockTag;
+    const fish = it.itemCategory === 'fish';
     // 显示到期时间（优先 expiresAt，回退 createdAt）
     const time = it.expiresAt ? formatGameTime(it.expiresAt) : formatGameTime(it.createdAt);
-
-    if (it.itemCategory === 'fish') {
-      contentMd.addBlockquote(
-        section({
-          title: it.itemName,
-          id: it.catchId,
-          suffix: `· 挂单#${it.listingId}`,
-          lines: [
-            `数量：${Math.trunc(it.weightG! / 1000)}.${String(it.weightG! % 1000).padStart(3, '0')} kg · 单尾`,
-            `状态：${lockTag.trim().length > 0 ? lockTag : '交易中'}`,
-            `每份：${it.unitPriceAmount}${it.currencyName}`,
-            `时间：${time}`
-          ],
-          actions: [{ label: '下架', command: `/交易下架 ${it.listingId}`, autoEnter: false }]
-        })
-      );
-
-      return;
-    }
-
     const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName} ×${it.quantity}${lockTag}`];
-    const extra = it.attributeView;
 
-    if (extra?.attrText) {
-      lines.push(`属性：${extra.attrText}`);
+    if (fish) {
+      const grams = it.weightG!;
+
+      lines.push(`重量：${Math.trunc(grams / 1000)}.${String(grams % 1000).padStart(3, '0')} kg`);
+    } else if (it.attributeView?.attrText) {
+      lines.push(`属性：${it.attributeView.attrText}`);
     }
     lines.push(`单价：${it.unitPriceAmount} ${it.currencyName}  总价：${totalPrice} ${it.currencyName}`, `时间：${time}`);
-    contentMd.addBlockquote(createQuoteMarkdown(lines, [{ label: '下架', command: `/交易下架 ${it.listingId}` }]));
+    contentMd.addBlockquote(createQuoteMarkdown(lines, [{ label: '下架', command: `/交易下架 ${it.listingId}`, autoEnter: fish ? false : undefined }]));
   });
 
   void message.send(

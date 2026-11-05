@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/market/list/res';
+import myListings from '../../src/response/market/my/res';
 import { createMarketCommandBar, parseMarketCommand } from '../../src/response/market/command';
 import type { MarketBrowseItem } from '../../src/api/schemas/market-browse-query';
 import { businessEnvelope, gameFixture } from './fixture';
@@ -12,7 +14,7 @@ after(async () => { mock.timers.reset(); await shutdownLogger(); });
 
 const controlRows = [
   ['我的上架', '记录', '搜索'],
-  ['全部', '道具', '材料', '装备', '天工', '功法', '本命'],
+  ['全部', '道具', '材料', '装备', '天工', '功法', '本命', '鱼类'],
   ['价格升序', '价格降序'],
   ['品级升序', '品级降序']
 ];
@@ -88,6 +90,75 @@ test('最新结果保持服务端顺序，不在气泡中按低价重新排列',
   assert.equal((requests[0].body.arguments as Record<string, unknown>).sort, 'latest');
   const view = inspectMessage(result.messages[0].nodes);
   assert.ok(view.text.indexOf('【302】') < view.text.indexOf('【301】'));
+});
+
+test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及手动操作', async t => {
+  const fish: MarketBrowseItem = {
+    ...item, listingId: 801, itemCategory: 'fish', itemCategoryLabel: '鱼类', itemType: null, itemSubtype: null, templateItemId: null,
+    itemName: '金须鲤', catchId: 'ff_' + 'a'.repeat(32), weightG: 1840, unitPriceAmount: 500,
+    expiresAt: '2026-10-23T09:00:00+08:00'
+  };
+  const unavailable = { ...fish, listingId: 802, itemName: '青背鲫', catchId: 'ff_' + 'b'.repeat(32), weightG: 178, canPurchase: false,
+    purchaseUnavailableReason: '商品仍在公示期' };
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/market.browse')) {
+      return businessEnvelope(request.bid, browse(1, [item, fish, unavailable]));
+    }
+    assert.ok(request.path.endsWith('/market.my-listings'));
+
+    return businessEnvelope(request.bid, {
+      items: [item, fish].map(row => ({ ...row, totalPriceAmount: row.unitPriceAmount * row.quantity, lockTag: '', lockedUntil: null, status: 1 })),
+      pagination: { currentPage: 1, totalPages: 2, total: 6 }
+    });
+  });
+  const render = async (response: typeof handler, text: string) => {
+    const result = await app.runHandler(response, app.events.privateMessage({ text, platform: 'qq-bot' }));
+
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const message = result.messages[0];
+
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+
+    return { ...inspectMessage(message.nodes), nodes: message.nodes };
+  };
+  const publicPage = await render(handler, '/珍宝楼');
+  const myPage = await render(myListings, '/我的上架');
+
+  if (process.env.FISH_MARKET_LIST_CAPTURE_OUTPUT) {
+    writeFileSync(process.env.FISH_MARKET_LIST_CAPTURE_OUTPUT, JSON.stringify({
+      source: 'QQ真实处理器发送节点；隔离市场响应夹具，未投递真实平台。', captures: { browse: publicPage, my: myPage }
+    }, null, 2));
+  }
+  const assertRow = (page: typeof publicPage, expected: string[], action: string) => {
+    const markdown = page.nodes.find(node => node.type === 'Markdown');
+
+    assert.ok(markdown?.type === 'Markdown');
+    const quote = markdown.value.find(node => node.type === 'MD.blockquote' && Array.isArray(node.value) &&
+      node.value.some(part => part.type === 'MD.text' && part.value === expected[0]));
+
+    assert.ok(quote?.type === 'MD.blockquote' && Array.isArray(quote.value), page.text);
+    assert.deepEqual(quote.value.filter(node => node.type === 'MD.text').map(node => node.value).filter(line => line.trim()), expected);
+    const button = quote.value.find(node => node.type === 'MD.button');
+
+    assert.equal(button?.options?.data, action);
+    assert.equal(button?.options?.autoEnter, false);
+    assert.ok(!Object.hasOwn(button?.options ?? {}, 'show'));
+    assert.ok([...action].length <= 80);
+  };
+
+  assertRow(publicPage, ['【801】【鱼类】 金须鲤×1', '重量：1.840 kg', '单价：500 灵晶  卖家：清霜'], '/选购 801 1');
+  assertRow(myPage, ['【801】【鱼类】 金须鲤 ×1', '重量：1.840 kg', '单价：500 灵晶  总价：500 灵晶', '时间：2026-10-23 09:00:00'], '/交易下架 801');
+  assert.match(publicPage.text, /【302】【丹药】 培元丹×1/);
+  assert.match(myPage.text, /【302】【丹药】 培元丹 ×1/);
+  assert.ok(publicPage.commands.includes('/选购 302'));
+  assert.ok(publicPage.commands.includes('/珍宝楼 2'));
+  assert.ok(myPage.commands.includes('/交易下架 302'));
+  assert.ok(myPage.commands.includes('/我的上架 2'));
+  assert.ok(!publicPage.commands.some(command => command.startsWith('/选购 802')));
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { view: 'browse', categoryType: '', categorySubtype: '', keyword: '', sort: 'latest', page: '1' }, { page: 1 }
+  ]);
 });
 
 test('搜索缺参和旧筛选指令提示页也保留同样四行按钮', async t => {

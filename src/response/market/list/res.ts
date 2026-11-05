@@ -6,7 +6,6 @@ import { appendMarketCommandGuide, createMarketCommandBar, getMarketEmptyText, p
 import { formatNumber } from '@src/utils/formatHelper';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
-import { section } from '@src/response/presentation';
 
 const appendMarketCurrencyText = (md: ReturnType<typeof Format.createMarkdown>, spiritsCrystal: number) => {
   md.addText(`灵晶：${formatNumber(spiritsCrystal)}`);
@@ -150,30 +149,12 @@ export default onResponse(selects, async e => {
   data.items.forEach(it => {
     const canBuy = it.canPurchase;
     const typeLabel = it.itemCategoryLabel;
-
-    if (it.itemCategory === 'fish') {
-      contentMd.addBlockquote(
-        section({
-          title: it.itemName,
-          id: it.catchId,
-          suffix: `· 挂单#${it.listingId}`,
-          lines: [
-            `数量：${Math.trunc(it.weightG! / 1000)}.${String(it.weightG! % 1000).padStart(3, '0')} kg · 单尾`,
-            `支付：${it.unitPriceAmount}${it.currencyName}`,
-            `说明：卖家${it.sellerName}`
-          ],
-          actions: canBuy ? [{ label: '购买', command: `/选购 ${it.listingId} 1`, autoEnter: false }] : []
-        })
-      );
-
-      return;
-    }
-
+    const fish = it.itemCategory === 'fish';
     const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName}×${it.quantity}`];
-    const mktBtns: { label: string; command: string }[] = [];
+    const mktBtns: { label: string; command: string; autoEnter?: boolean }[] = [];
 
     if (canBuy) {
-      mktBtns.push({ label: '购买', command: `/选购 ${it.listingId}` });
+      mktBtns.push({ label: '购买', command: `/选购 ${it.listingId}${fish ? ' 1' : ''}`, autoEnter: fish ? false : undefined });
     }
 
     const detailCN = CATEGORY_DETAIL_MAP[it.itemCategory];
@@ -182,13 +163,19 @@ export default onResponse(selects, async e => {
       mktBtns.push({ label: '查看', command: `/物品详情 ${detailCN} ${it.templateItemId}` });
     }
 
-    const extra = it.attributeView;
+    if (fish) {
+      const grams = it.weightG!;
 
-    if (extra?.attrText) {
-      lines.push(`属性：${extra.attrText}`);
-    }
-    if (it.upgradeHint) {
-      lines.push(`提示：${it.upgradeHint}`);
+      lines.push(`重量：${Math.trunc(grams / 1000)}.${String(grams % 1000).padStart(3, '0')} kg`);
+    } else {
+      const extra = it.attributeView;
+
+      if (extra?.attrText) {
+        lines.push(`属性：${extra.attrText}`);
+      }
+      if (it.upgradeHint) {
+        lines.push(`提示：${it.upgradeHint}`);
+      }
     }
     lines.push(`单价：${it.unitPriceAmount} ${it.currencyName}  卖家：${it.sellerName}`);
     contentMd.addBlockquote(createQuoteMarkdown(lines, mktBtns));

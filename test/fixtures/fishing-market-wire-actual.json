@@ -55,12 +55,23 @@
           "fishConfirmation": {
             "rulesVersion": "fishing-v1-a49c803b70f57956",
             "view": "receipt",
-            "title": "鱼挂牌成功",
+            "title": "交易上架",
             "sections": [
               {
                 "lines": [
-                  "原鱼ff_11111111111111111111111111111111，挂单1，售价468灵晶。",
-                  "上架手续费23灵晶；原编号和重量保留。"
+                  "上架成功",
+                  "上架ID：1"
+                ],
+                "actions": []
+              },
+              {
+                "title": "金须鲤",
+                "id": "ff_11111111111111111111111111111111",
+                "lines": [
+                  "重量：1.840 kg",
+                  "数量：1尾",
+                  "单价：114 灵晶",
+                  "手续费：5 灵晶"
                 ],
                 "actions": []
               }
@@ -72,16 +83,134 @@
               },
               {
                 "label": "渔获",
-                "command": "/垂钓 渔获 1"
+                "command": "/储物袋 渔获"
               },
               {
                 "label": "渔市",
                 "command": "/垂钓 渔市 灵鳞钱 1"
               }
             ],
-            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2"
+            "operationId": "fm_c4506034d2d56336eab598c8887bb77e"
           },
           "mode": "confirm"
+        }
+      }
+    },
+    "listing-list": {
+      "data": {
+        "success": true,
+        "branch": "business",
+        "middleware": {
+          "outcome": "allow",
+          "reason": "ALLOWED",
+          "identity": {
+            "bid": "player",
+            "account": {
+              "status": "registered",
+              "playerId": 1
+            }
+          },
+          "replies": [],
+          "contextWarnings": [],
+          "mute": {
+            "muted": false,
+            "claimed": false,
+            "replyCount": 0,
+            "muteTtlSeconds": -2,
+            "replyTtlSeconds": -2,
+            "muteUnlockTime": ""
+          },
+          "entry": {
+            "agreementAccepted": false,
+            "agreements": [
+              {
+                "index": 1,
+                "type": "terms",
+                "title": "游戏使用协议许可及服务协议"
+              },
+              {
+                "index": 2,
+                "type": "privacy",
+                "title": "游戏隐私政策"
+              },
+              {
+                "index": 3,
+                "type": "children",
+                "title": "游戏儿童个人信息保护规则及监护人须知"
+              }
+            ],
+            "maintenance": {
+              "disabled": false
+            },
+            "routeAllowed": true,
+            "nativeComebackProcessed": true,
+            "resourcesSettled": true
+          }
+        },
+        "data": {
+          "mode": "list",
+          "items": [
+            {
+              "catchId": "ff_22222222222222222222222222222222",
+              "weightG": 2000,
+              "userItemId": 0,
+              "templateId": 5,
+              "name": "乌鳞大鲤",
+              "category": "fish",
+              "type": "fish",
+              "quantity": 1,
+              "grade": "",
+              "realm": "凡鱼",
+              "priceRange": {
+                "catchId": "ff_22222222222222222222222222222222",
+                "weightG": 2000,
+                "itemName": "乌鳞大鲤",
+                "assetVersion": 1,
+                "rulesVersion": "fishing-v1-a49c803b70f57956",
+                "minPrice": 208,
+                "maxPrice": 468,
+                "referencePrice": 260,
+                "source": "fish_weight_anchor",
+                "credibilityReady": true,
+                "templateItemId": 5,
+                "maxListingQuantity": 1,
+                "fixedQuantity": true
+              },
+              "currentLowestPrice": null
+            },
+            {
+              "catchId": "ff_11111111111111111111111111111111",
+              "weightG": 1840,
+              "userItemId": 0,
+              "templateId": 12,
+              "name": "金须鲤",
+              "category": "fish",
+              "type": "fish",
+              "quantity": 1,
+              "grade": "",
+              "realm": "筑基",
+              "priceRange": {
+                "catchId": "ff_11111111111111111111111111111111",
+                "weightG": 1840,
+                "itemName": "金须鲤",
+                "assetVersion": 1,
+                "rulesVersion": "fishing-v1-a49c803b70f57956",
+                "minPrice": 50,
+                "maxPrice": 114,
+                "referencePrice": 63,
+                "source": "fish_weight_anchor",
+                "credibilityReady": true,
+                "templateItemId": 12,
+                "maxListingQuantity": 1,
+                "fixedQuantity": true
+              },
+              "currentLowestPrice": null
+            }
+          ],
+          "total": 2,
+          "currentPage": 1,
+          "pageSize": 5,
+          "totalPages": 1
         }
       }
     },
@@ -139,18 +268,23 @@
         "data": {
           "catchId": "ff_11111111111111111111111111111111",
           "fishConfirmation": {
+            "emphasisNames": [
+              "金须鲤"
+            ],
             "rulesVersion": "fishing-v1-a49c803b70f57956",
             "view": "confirmation",
-            "title": "鱼交易 · 挂牌预览",
+            "title": "交易上架 · 确认",
             "sections": [
               {
-                "title": "乌鳞大鲤",
+                "title": "金须鲤",
                 "id": "ff_11111111111111111111111111111111",
                 "lines": [
-                  "原编号ff_11111111111111111111111111111111 · 重量：2.000千克",
-                  "一单一尾，售价468灵晶；上架手续费23灵晶",
-                  "公示180秒；原鱼挂牌仍占卖家容量。",
-                  "确认仅使用本尾原重量与版本，不替换新鱼。"
+                  "重量：1.840 kg",
+                  "数量：1尾",
+                  "单价：114 灵晶",
+                  "手续费：5 灵晶",
+                  "公示：180秒，上架期间仍占渔获容量。",
+                  "预览有效5分钟。"
                 ],
                 "actions": []
               }
@@ -158,35 +292,35 @@
             "footer": [
               {
                 "label": "确认上架",
-                "command": "/交易上架 鱼类 确认 r1_1_z_mw3ds1ag_68b0cc513692c8695f7f2676"
+                "command": "/交易上架 鱼类 确认 r1_1_z_mw3jbjsx_054f5ffc3a290a86c08cd176"
               },
               {
                 "label": "取消",
-                "command": "/交易上架 鱼类 1"
+                "command": "/交易上架 鱼类"
               }
             ],
-            "confirmationRef": "r1_1_z_mw3ds1ag_68b0cc513692c8695f7f2676",
-            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2",
-            "expiresAt": "2026-11-05T18:11:26.4384578+08:00"
+            "confirmationRef": "r1_1_z_mw3jbjsx_054f5ffc3a290a86c08cd176",
+            "operationId": "fm_c4506034d2d56336eab598c8887bb77e",
+            "expiresAt": "2026-11-05T20:46:34.974667+08:00"
           },
-          "itemName": "乌鳞大鲤",
+          "itemName": "金须鲤",
           "mode": "start",
           "range": {
             "catchId": "ff_11111111111111111111111111111111",
-            "weightG": 2000,
-            "itemName": "乌鳞大鲤",
+            "weightG": 1840,
+            "itemName": "金须鲤",
             "assetVersion": 1,
             "rulesVersion": "fishing-v1-a49c803b70f57956",
-            "minPrice": 208,
-            "maxPrice": 468,
-            "referencePrice": 260,
+            "minPrice": 50,
+            "maxPrice": 114,
+            "referencePrice": 63,
             "source": "fish_weight_anchor",
             "credibilityReady": true,
-            "templateItemId": 5,
+            "templateItemId": 12,
             "maxListingQuantity": 1,
             "fixedQuantity": true
           },
-          "weightG": 2000
+          "weightG": 1840
         }
       }
     },
@@ -237,31 +371,31 @@
               "disabled": false
             },
             "routeAllowed": true,
-            "nativeComebackProcessed": true,
-            "resourcesSettled": true
+            "nativeComebackProcessed": false,
+            "resourcesSettled": false
           }
         },
         "data": {
           "catchId": "ff_11111111111111111111111111111111",
           "fishConfirmation": null,
-          "itemName": "乌鳞大鲤",
+          "itemName": "金须鲤",
           "mode": "start",
           "range": {
             "catchId": "ff_11111111111111111111111111111111",
-            "weightG": 2000,
-            "itemName": "乌鳞大鲤",
+            "weightG": 1840,
+            "itemName": "金须鲤",
             "assetVersion": 1,
             "rulesVersion": "fishing-v1-a49c803b70f57956",
-            "minPrice": 208,
-            "maxPrice": 468,
-            "referencePrice": 260,
+            "minPrice": 50,
+            "maxPrice": 114,
+            "referencePrice": 63,
             "source": "fish_weight_anchor",
             "credibilityReady": true,
-            "templateItemId": 5,
+            "templateItemId": 12,
             "maxListingQuantity": 1,
             "fixedQuantity": true
           },
-          "weightG": 2000
+          "weightG": 1840
         }
       }
     },
@@ -320,12 +454,23 @@
           "fishConfirmation": {
             "rulesVersion": "fishing-v1-a49c803b70f57956",
             "view": "receipt",
-            "title": "鱼挂牌成功",
+            "title": "交易上架",
             "sections": [
               {
                 "lines": [
-                  "原鱼ff_11111111111111111111111111111111，挂单1，售价468灵晶。",
-                  "上架手续费23灵晶；原编号和重量保留。"
+                  "上架成功",
+                  "上架ID：1"
+                ],
+                "actions": []
+              },
+              {
+                "title": "金须鲤",
+                "id": "ff_11111111111111111111111111111111",
+                "lines": [
+                  "重量：1.840 kg",
+                  "数量：1尾",
+                  "单价：114 灵晶",
+                  "手续费：5 灵晶"
                 ],
                 "actions": []
               }
@@ -337,14 +482,14 @@
               },
               {
                 "label": "渔获",
-                "command": "/垂钓 渔获 1"
+                "command": "/储物袋 渔获"
               },
               {
                 "label": "渔市",
                 "command": "/垂钓 渔市 灵鳞钱 1"
               }
             ],
-            "operationId": "fm_f07a04c5e57d2564acf3326df3d64fe2"
+            "operationId": "fm_c4506034d2d56336eab598c8887bb77e"
           },
           "mode": "confirm"
         }

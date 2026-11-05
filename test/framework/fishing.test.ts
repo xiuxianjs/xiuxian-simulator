@@ -176,34 +176,44 @@ test('提交回执发送失败后只提供原引用重试，不重建新预览',
   assert.ok(requests[0].path.endsWith('.confirm'));
 });
 
-test('垂钓主页加粗状态、引用开收竿操作、保留3+2页脚，全部操作只填命令',async t=>{
+for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显示，操作放正文，页脚2+2 · ${hasBoss ? '遇见后' : '遇见前'}`,async t=>{
   const sections = [
     {title:'',id:'',suffix:'',lines:['水域：炼气水域','等级：钓技 Lv.2','经验：562.4 / 1500','灵鳞钱：0'],actions:[{label:'开辟',command:'/垂钓 升塘'}]},
-    {title:'',id:'',suffix:'',lines:['照渊寻珍竿 · 一阶','鱼饵：唤王饵 · 余74份','窝料：升灵散 · 余3时27分','收益周期：9分钟'],actions:[{label:'更换钓具',command:'/垂钓 钓具 1'},{label:'更换饵料',command:'/垂钓 饵料'},{label:'打窝',command:'/垂钓 打窝'}]},
+    {title:'',id:'',suffix:'',lines:['照渊寻珍竿 · 一阶','鱼饵：唤王饵 · 余74份','窝料：升灵散 · 余03:27','收益周期：9分钟'],actions:[{label:'更换钓具',command:'/垂钓 钓具 1'},{label:'更换饵料',command:'/垂钓 饵料'},{label:'打窝',command:'/垂钓 打窝'}]},
     {title:'',id:'',suffix:'',lines:['本次渔获：6尾','杂获：3件','预计收竿：明日05:01'],actions:[{label:'查询',command:'/垂钓 渔获记录 1'},{label:'查询',command:'/垂钓 杂获 1'}]},
     {title:'',id:'',suffix:'',lines:['🎣持续垂钓中🎣'],actions:[{label:'结束垂钓',command:'/垂钓 收竿'},{label:'使用渔具',command:'/垂钓 渔具'}]}
   ];
-  const footer=[{label:'我的渔获',command:'/储物袋 渔获'},{label:'渔市',command:'/垂钓 渔市 灵鳞钱 1'},{label:'锦鲤赐福',command:'/垂钓 赐福 1'},{label:'设置',command:'/垂钓 设置'},{label:'帮助',command:'/垂钓 帮助'}];
+  const bossCommand = '/垂钓 奇遇 fb_' + 'a'.repeat(32);
+  if (hasBoss) sections.splice(3, 0, {title:'上古龙鲤',id:'',suffix:'',lines:['水域异动，上古龙鲤现身！'],actions:[{label:'查看异兽',command:bossCommand}]});
+  const footer=[{label:'我的渔获',command:'/储物袋 渔获'},{label:'渔市',command:'/垂钓 渔市 灵鳞钱 1'},{label:'锦鲤赐福',command:'/垂钓 赐福 1'},{label:'设置',command:'/垂钓 设置'},{label:'帮助',command:'/垂钓 帮助'},{label:'沧澜钓仙会',command:'/垂钓 大赛'},{label:'垂钓奇遇',command:'/垂钓 奇遇'}];
   const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,base({sections,footer})));
   const run=await app.runHandler(handler,app.events.privateMessage({text:'/垂钓',platform:'qq-bot'}));
-  const view=delivered(run,'首页·用户指定版');
+  const view=delivered(run,hasBoss ? '首页·奇遇已触发' : '首页·未触发奇遇');
   assert.match(view.text,/等级：钓技 Lv.2/);
   assert.match(view.text,/收益周期：9分钟/);
-  assert.match(view.text,/窝料：升灵散 · 余3时27分/);
+  assert.match(view.text,/窝料：升灵散 · 余03:27/);
   assert.match(view.text,/杂获：3件[^\n]*‹查询›/);
-  assert.match(view.text,/‹我的渔获›‹渔市›‹锦鲤赐福›\n‹设置›‹帮助›/);
+  assert.match(view.text,/‹我的渔获›‹渔市›\n‹设置›‹帮助›/);
+  assert.doesNotMatch(view.text,/水域异动|查看异兽/);
+  assert.equal(view.commands.includes('/垂钓 奇遇'), false);
+  assert.equal(view.commands.includes(bossCommand), hasBoss);
   assert.ok(view.commands.includes('/垂钓 赐福 1'));
   assert.ok(view.commands.includes('/垂钓 渔具'));
   const markdown=run.messages[0].nodes.find(node=>node.type==='Markdown');
   assert.ok(markdown?.type==='Markdown');
+  const waterAt=markdown.value.findIndex(node=>node.type==='MD.text'&&node.value==='水域：炼气水域');
+  assert.ok(waterAt >= 0);
+  assert.deepEqual(markdown.value.slice(0,waterAt).filter(node=>node.type==='MD.button').map(node=>node.value), [
+    '‹锦鲤赐福›', '‹沧澜钓仙会›', ...(hasBoss ? ['‹垂钓奇遇›'] : [])
+  ]);
   const statusAt=markdown.value.findIndex(node=>node.type==='MD.bold'&&node.value==='🎣持续垂钓中🎣');
-  const controls=markdown.value.slice(statusAt+1).find(node=>node.type==='MD.blockquote');
-  assert.ok(statusAt>=0&&controls?.type==='MD.blockquote'&&Array.isArray(controls.value));
-  assert.deepEqual(controls.value.filter(node=>node.type==='MD.button').map(node=>[node.value,node.options?.data]), [
+  assert.ok(statusAt >= 0);
+  const controls=markdown.value.slice(statusAt+1);
+  assert.deepEqual(controls.filter(node=>node.type==='MD.button').slice(0,2).map(node=>[node.value,node.options?.data]), [
     ['‹结束垂钓›','/垂钓 收竿'], ['‹使用渔具›','/垂钓 渔具']
   ]);
-  assert.equal(controls.value.filter(node=>node.type==='MD.newline').length,1);
-  assert.equal((JSON.stringify(run.messages[0].nodes).match(/"type":"MD.blockquote"/g)??[]).length,3);
+  assert.match(view.text,/‹结束垂钓›[^\S\n]*\n[^\S\n]*‹使用渔具›/);
+  assert.equal((JSON.stringify(run.messages[0].nodes).match(/"type":"MD.blockquote"/g)??[]).length,2);
 });
 
 test('升竿真实三组布局保留原编号与资源持有且确认按钮不改原引用',async t=>{
