@@ -79,7 +79,7 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
 
   try {
     const normalizedBid = normalizeRobotBid(bid);
-    const timeoutMs = backendRequestTimeout(transportOperation, config.timeoutMs);
+    const timeoutMs = backendRequestTimeout(transportOperation, config.timeoutMs, args[0]);
     let timedArgs = tracedArgs;
 
     if (operationId === 'post_robot_command_entry' && new Headers(tracedArgs[0]?.headers).get('X-Command-Catalog') === 'v1') {

@@ -1,3 +1,4 @@
+import { section } from '@src/response/presentation';
 import { useMessage } from '@src/utils/useMessage';
 import { parseBackendPublicPlayerProfile } from '@src/api/bot/public-player-profile-query';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -105,6 +106,27 @@ export default onResponse(selects, async e => {
     md.addText(`境界：${profile.realmName}`);
     md.addNewline();
     md.addNewline();
+    const innateLines: string[] = [];
+
+    if (detail.spiritRoot) {
+      const root = detail.spiritRoot;
+
+      innateLines.push(`灵根：${root.granted ? `${root.title} · ${root.qualityName}` : '尚未发放'}`);
+    }
+    if (detail.talents) {
+      if (!detail.talents.granted) {
+        innateLines.push('天赋：尚未发放');
+      } else {
+        detail.talents.talents.forEach(talent => {
+          innateLines.push(`天赋：${talent.name} · ${talent.category}`, `效果：${talent.description}`, `状态：${talent.enabled ? '自动生效中' : '暂未开启'}`);
+        });
+      }
+    }
+    if (innateLines.length > 0) {
+      md.addBlockquote(section({ lines: innateLines }));
+      md.addNewline();
+    }
+
     md.addBold('洞府来访');
     md.addNewline();
     md.addText(`当前关系：${cave.relationLabel}`);
