@@ -412,7 +412,7 @@ const classificationRules: Array<{
   { pattern: /^(!|！|\/|#|＃)?更换邮箱/, feature_name: '更换邮箱', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?验证\s+\d{6}$/, feature_name: '邮箱验证', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?安全中心/, feature_name: '安全中心', feature_category: '信息系统' },
-  { pattern: /^(!|！|\/|#|＃)?攻略/, feature_name: '攻略', feature_category: '信息系统' },
+  // { pattern: /^(!|！|\/|#|＃)?攻略/, feature_name: '攻略', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?词典分类/, feature_name: '词典分类', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?申请词典编辑权限/, feature_name: '申请词典编辑权限', feature_category: '信息系统' },
   { pattern: /^(!|！|\/|#|＃)?录入词典/, feature_name: '录入词典', feature_category: '信息系统' },

@@ -148,7 +148,7 @@ export function createGameRouter() {
     publicXiuxian.use('天书', () => import('@src/response/tianshu/res'));
     publicXiuxian.use('词典分类', () => import('@src/response/glossary/category/res'));
     publicXiuxian.use('词典', () => import('@src/response/glossary/query/res'));
-    publicXiuxian.use('攻略', () => import('@src/response/strategy'));
+    // publicXiuxian.use('攻略', () => import('@src/response/strategy'));
     // 旧版资料查询独立于新版注册、结算和引导流程。
     publicXiuxian.use(['继承', '前世'], () => import('@src/response/legacyArchive/res'));
     publicXiuxian.use(
