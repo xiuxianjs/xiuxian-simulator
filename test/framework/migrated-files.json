@@ -778,5 +778,9 @@
   {
     "file": "world-milestone-presentation.test.mjs",
     "mode": "adapter"
+  },
+  {
+    "file": "notification-activity.test.ts",
+    "mode": "direct"
   }
 ]

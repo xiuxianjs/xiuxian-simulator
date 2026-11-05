@@ -71,3 +71,31 @@ test('官服多机器人中一个领取失败不阻断另一个', async t => {
   await app.invoke(app.events.groupMessage({ platform: 'qq-bot' }), () => dispatchCommunityNotifications());
   assert.deepEqual(claimed.sort(), ['101', '202']);
 });
+
+for (const deferredFirst of [false, true]) {
+  test(`共享探测不共享调用者冷却策略 deferredFirst=${deferredFirst}`, async t => {
+    const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
+    t.after(() => app.dispose());
+    let probes = 0;
+    t.mock.method(axios, 'create', () => ({ async post(path: string) {
+      if (path.endsWith('/permission/probe')) {
+        probes++;
+        await new Promise<void>(resolve => setImmediate(resolve));
+        return { data: { data: { previous: '', acquired: false } } };
+      }
+      assert.ok(path.endsWith('/permission/read'));
+      return { data: { data: { state: null, raw: '' } } };
+    } }));
+    const target = { platform: 'qq-bot', BotId: '123', scope: 'group' as const, targetId: `mixed-${deferredFirst}` };
+    const run = await app.invoke(app.events.groupMessage({ platform: 'qq-bot' }), () => Promise.allSettled(
+      [deferredFirst, !deferredFirst].map(deferred => refreshNotificationPermission(target, false, deferred))
+    ));
+    const normal = run.value[deferredFirst ? 1 : 0];
+    const deferred = run.value[deferredFirst ? 0 : 1];
+    assert.deepEqual(normal, { status: 'fulfilled', value: null });
+    assert.equal(deferred.status, 'rejected');
+    if (deferred.status === 'rejected') assert.match(deferred.reason.message, /查询冷却/);
+    assert.equal(probes, 1);
+    assert.equal(run.actions.length, 0);
+  });
+}
