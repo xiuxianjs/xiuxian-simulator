@@ -700,3 +700,31 @@ async function readGameTasks() {
 `get_base_forge_recipes` 分页读取已开放图纸的普通锻造基础配置，返回材料/产物模板编号、灵石、经验、考核、原始等级/工具品阶及提前锻造生效要求。全局开关和入门境界编号一并返回；不含免费入门特例、玩家库存、学习/考核记录或可打造判断，也不返回旧炼器成功率。版本 `1.325.0`，需配套部署服务端 `base.forge-recipes`。
 
 下架玩法同步停用 AI 能力：宗门大比、黑盒、玩家小店、主题与墨色不再注册查询或操作能力；旧动作调用会被拒绝。普通商店、珍宝楼交易与个人设置继续使用现有能力。
+
+## 新版指令前缀与按钮配置
+
+插件使用 AlemonJS 2.1.123 的应用级指令策略，完整示例见 `alemon.config.example.yaml`。部署配置示例：
+
+```yaml
+apps:
+  xiuxian-game:
+    enabled: true
+    command:
+      prefix: '/'
+      space: false
+      format:
+        enabled: true
+        match: '^[/#＃!！]\s*'
+        replacement: ''
+```
+
+- command 覆盖旧 `xiuxian-game.commandPrefix` / `routeText.allowBare`。未配置 command 时保留旧行为；原配置无需立即迁移。
+- `prefix: /修仙` 搭配 `space: false/true` 分别接受 `/修仙签到`、`/修仙 签到`。仅注册的本包指令进入业务，不吞掉其他插件消息。
+- `format.enabled` 默认关闭；开启后只转换匹配 match 的 command 按钮，普通按钮与 Markdown 按钮、引用块和全局导航共用策略。replacement 支持正则捕获组。未匹配指令、链接和 call 回调不改写。
+- 插件保留源按钮 `/签到`，由框架在发送前转换一次；旧业务解析和 Go 请求仍使用 `/指令`，参数、签名凭据不变。
+- 80 字符预算按配置转换后的完整 Unicode 指令计算，不截断凭据。默认示例使用 `/`，因为现有炼丹 b3 确认已达到 80 字符；更长前缀可能使确认按钮超限，需缩短前缀或由服务端提供短引用。不能声称任意长度前缀都兼容全部确认操作。
+- 框架必须以 `xiuxian-game` 名称加载插件；后台主动发送也必须保留该应用上下文。实际生效配置文件未由迁移脚本自动修改。
+
+定向验证：`node tools/run-framework-tests.mjs --offline --filter=native-command`。
+
+内部约定：按钮数据使用 `commandText()` 保留源指令，普通文字中的可执行提示使用 `displayCommandText()`；不要把按钮源数据当作已编码的展示文本。消息编辑与通知直发同样检查转换后 80 字符预算。Context 放行必须保留原始外部指令，以便后续 Router 继续执行相同前缀规则。

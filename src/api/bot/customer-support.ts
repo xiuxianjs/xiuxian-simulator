@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { commandText } from '@src/utils/commandPrefix';
+import { displayCommandText } from '@src/utils/commandPrefix';
 import { randomUUID } from 'node:crypto';
 import { Format, MessageDirect } from 'alemonjs';
 import { createBackendRequestContext } from './context';
@@ -111,7 +111,7 @@ async function supportExchange(base: { appId: string; userId: string; requestKey
         target,
         format: Format.create().addText(
           delivery.sender === 'system'
-            ? delivery.content.replace(/\/(呼叫客服|继续等待|结束客服|接待|回复|客服)(?=\s|$|[，。])/g, value => commandText(value))
+            ? delivery.content.replace(/\/(呼叫客服|继续等待|结束客服|接待|回复|客服)(?=\s|$|[，。])/g, value => displayCommandText(value))
             : delivery.content
         )
       });

@@ -104,6 +104,7 @@ const onboarding = createContext({
             return;
           }
           if (current.data.version !== state.view.version || current.data.phase !== state.view.phase || current.data.status !== state.view.status) {
+            gameEvent.MessageText = text;
             action.close();
             action.pass();
 
@@ -130,6 +131,8 @@ const onboarding = createContext({
         }
       } catch (error) {
         await showOnboardingRecovery(gameEvent, error);
+      } finally {
+        gameEvent.MessageText = text;
       }
     }
   }

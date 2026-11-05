@@ -192,6 +192,7 @@ test('legacy exclamation commands pass unchanged for every actual framework even
 });
 
 test('production router matcher requires the configured prefix without running lazy handlers',async()=>{
+ app.configure({'xiuxian-game':{commandPrefix:'/'}});
  for(const command of ['我','突破','主线挑战 1-1','收割']) {
   assert.equal(app.run(()=>actualMatch(event(command))),false,command);
   assert.equal(app.run(()=>actualMatch(event('/'+command))),true,command);
@@ -224,20 +225,28 @@ test('a cross-client graduated account receives optional guidance and keeps ordi
 });
 
 
-test('production control routes accept the whitespace already accepted by Context', () => {
-  const route = app.run(()=>actualRoutes.current.find(route => route.regular?.test('/继续引导')));
+test('production control routes accept the whitespace already accepted by Context', async () => {
+  app.configure({'xiuxian-game':{commandPrefix:'/'}});
+  const route = { regular: { test: text => app.run(() => actualMatch(event(text))) } };
   assert.ok(route, 'production onboarding route missing');
   for (const text of ['/继续引导', '  /继续引导  ', '/ 继续引导']) {
     assert.equal(route.regular.test(text), true, text);
   }
-  for (const text of ['继续引导', ' 继续引导 ', '# 退出引导 ', '＃退出引导', '!继续引导', '！退出引导', '/继续引导 突破', '/退出引导abc', '/继续 引导', '//继续引导']) {
+  for (const text of ['继续引导', ' 继续引导 ', '# 退出引导 ', '＃退出引导', '!继续引导', '！退出引导', '/继续引导 突破', '/退出引导abc', '//继续引导']) {
     assert.equal(route.regular.test(text), false, text);
   }
+  // /继续 is a separate task command: registered by the router, never consumed as onboarding control.
+  const other = event('/继续 引导');
+  assert.equal(route.regular.test(other.MessageText), true);
+  let forwarded = 0;
+  await app.invoke(other, () => handleOnboardingResponse(other, () => { forwarded++; }));
+  assert.equal(forwarded, 1);
 });
 
 test('spaced control commands pass Context and reach the registered control route', async () => {
   await open(event('/继续引导'), view());
-  const route = app.run(()=>actualRoutes.current.find(route => route.regular?.test('/继续引导')));
+  app.configure({'xiuxian-game':{commandPrefix:'/'}});
+  const route = { regular: { test: text => app.run(() => actualMatch(event(text))) } };
   for (const text of ['  /继续引导  ', '/ 继续引导']) {
     assert.deepEqual(await deliver(event(text)), { claimed: true, next: 1 });
     assert.equal(route.regular.test(text), true, text);

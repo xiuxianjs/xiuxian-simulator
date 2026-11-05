@@ -1,18 +1,20 @@
+import { legacyCommandHandler } from './utils/legacyCommandHandler';
 import { defineRouter, Router, type Next } from 'alemonjs';
-import { withAccessFacts } from './api/bot/access-facts';
-import { withCommandCatalog } from './api/bot/catalog-query-reuse';
+import { withAccessFacts, getRegisteredAccessFacts } from './api/bot/access-facts';
+import { withCommandCatalog, getRegisteredCommandCatalog } from './api/bot/catalog-query-reuse';
 import type { RobotCommandProfile } from './api/bot/command-entry';
 import { alchemyRoutes } from './response/alchemy/v2/commands';
 import { forgeReadEntries, forgeReadRoutes } from './response/profession/forge/commands';
 import type { GameEvent } from './types/event';
-import { getCommandAllowBare, getCommandPrefix, hasCommandPrefix, internalCommandText } from './utils/commandPrefix';
+import { getCommandAllowBare, getCommandPrefix, getCommandSpace, getNativeCommand, hasCommandPrefix } from './utils/commandPrefix';
 import { isGameEventEnabled } from './utils/eventPolicy';
 import { measureTransportStage } from './utils/transportTiming';
 
 /** 创建时读取配置，生产环境重启后生效；测试可在实例作用域构建。 */
 export function createGameRouter() {
   const prefix = getCommandPrefix();
-  const customPrefix = prefix !== '/';
+  const native = getNativeCommand();
+  const space = getCommandSpace();
   const allowBare = getCommandAllowBare();
   const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const commandPatterns: RegExp[] = [];
@@ -23,32 +25,50 @@ export function createGameRouter() {
 
     commandPatterns.push(regular);
 
+    if (native) {
+      return pattern;
+    }
+
     return regular;
   };
   // 根路由不限制事件；各入口和游戏分组声明自己的事件范围。
   const app = Router.create();
+  const adaptImporter = (importer: () => Promise<unknown>) => {
+    const adapted = withAccessFacts(getRegisteredAccessFacts([importer]), async () => legacyCommandHandler(await importer()));
+    const catalog = getRegisteredCommandCatalog([importer]);
+
+    return catalog ? withCommandCatalog(catalog, adapted) : adapted;
+  };
+  const register = app.register.bind(app);
+
+  app.register = (config, importers, conditions, scopeId) => register(config, importers.map(adaptImporter), conditions, scopeId);
+  const res: typeof app.res = (config, ...importers) => {
+    const routeConfig = native ? { ...config, routeText: { prefixes: [prefix], space, stripPrefix: true, allowBare: false } } : config;
+
+    return app.res(routeConfig, ...importers.map(adaptImporter));
+  };
   const commandEvents = ['message.create', 'private.message.create', 'interaction.create', 'private.interaction.create'] as const;
 
   const supportPlainHandler = async () => (await import('@src/response/customerSupport/plain')).default;
 
   // 客服指令独立于游戏登录流程；仅显式指令匹配，不截获其他插件的私聊。
-  app.res(
+  res(
     { events: commandEvents, regular: commandPattern(/^\/?(?:呼叫客服|客服身份|客服列表|继续等待|客服|接待|回复|结束客服)(?:\s|$)/) },
     () => import('@src/response/customerSupport/res')
   );
 
   // 平台事件置于游戏分组之外，不经过登录、维护或验证码中间件。
-  app.res({ events: ['notice.create', 'private.notice.create'] }, () => import('@src/response/notification/permission/res'));
+  res({ events: ['notice.create', 'private.notice.create'] }, () => import('@src/response/notification/permission/res'));
 
   // 朋友新增、加入群聊
-  app.res({ events: ['private.friend.add', 'guild.join'] }, () => import('@src/response/notification/welcome/res'));
+  res({ events: ['private.friend.add', 'guild.join'] }, () => import('@src/response/notification/welcome/res'));
   // 群成员加入
-  app.res({ events: ['member.add'] }, () => import('@src/response/notification/member/res'));
+  res({ events: ['member.add'] }, () => import('@src/response/notification/member/res'));
   // 失去朋友、退出群聊、被踢出群聊
-  app.res({ events: ['private.friend.remove', 'guild.exit', 'member.remove'] }, () => import('@src/response/notification/lifecycle/res'));
+  res({ events: ['private.friend.remove', 'guild.exit', 'member.remove'] }, () => import('@src/response/notification/lifecycle/res'));
 
   // 下架指令在进入游戏分组前终止，避免旧按钮落入限时活动等前缀路由。
-  app.res(
+  res(
     {
       events: commandEvents,
       regular: commandPattern(
@@ -60,22 +80,22 @@ export function createGameRouter() {
 
   // Versioned teaching callbacks must be checked even after Context expiration.
   // The handler passes unrelated interactions to their existing routes.
-  app.res({ events: ['interaction.create', 'private.interaction.create'] }, () => import('@src/response/onboarding/res'));
+  res({ events: ['interaction.create', 'private.interaction.create'] }, () => import('@src/response/onboarding/res'));
 
-  app.res(
+  res(
     { events: commandEvents, regular: commandPattern(/^\/?(?:宗门群订阅|取消宗门群订阅|师门群订阅|取消师门群订阅)$/) },
     () => import('@src/response/flyMail/guildSubscription/res')
   );
 
   // 群 通知管理、群欢迎、加群提醒、加群申请记录
-  app.res({ events: commandEvents, regular: commandPattern(/^\/?(?:开启每日机缘|关闭每日机缘)$/) }, () => import('@src/response/dailyFortune/res'));
+  res({ events: commandEvents, regular: commandPattern(/^\/?(?:开启每日机缘|关闭每日机缘)$/) }, () => import('@src/response/dailyFortune/res'));
 
-  app.res(
+  res(
     { events: commandEvents, regular: commandPattern(/^\/?(?:群通知管理|配置群欢迎(?:\s|$)|配置加群提醒(?:\s|$)|加群申请记录(?:\s|$))/) },
     () => import('@src/response/notification/community/res')
   );
 
-  app.res(
+  res(
     {
       events: commandEvents,
       regular: commandPattern(/^\s*\/?\s*(?:继续引导(?:\s+[1-9]\d{0,15}\s+[a-z][a-z0-9-]{0,63})?|退出引导|引导目录分页\s+[a-f0-9]{12}\s+[1-9]\d{0,2})\s*$/)
@@ -84,7 +104,7 @@ export function createGameRouter() {
   );
 
   // 任务面板（需在任务系统转义之前注册，避免被 "任务" 前缀抢占）
-  app.res(
+  res(
     {
       events: commandEvents,
       regular: commandPattern(/^\/?(任务面板|修仙面板|我的任务)(?:\s|$)/)
@@ -93,7 +113,7 @@ export function createGameRouter() {
   );
 
   // 任务系统转义 (这类事先查再执行，和游戏的机制无关)
-  app.res(
+  res(
     {
       events: commandEvents,
       regular: commandPattern(/^\/?任务\s+/)
@@ -102,31 +122,17 @@ export function createGameRouter() {
   );
 
   {
-    const publicXiuxian = app.group(
-      {
-        events: commandEvents,
-        // 未命中明确指令时交给其他插件，不生成模糊指令提示。
-        fallback: { suggest: false },
-        routeText: {
-          prefixes: ['notAutoConfirmation:' + prefix, prefix],
-          stripPrefix: true,
-          allowBare
-        }
-      },
-      ...(customPrefix
-        ? [
-            () => Promise.resolve({
-                default: (event: GameEvent) => {
-                  if (customPrefix && event.MessageText) {
-                    event.MessageText = internalCommandText(event.MessageText, prefix);
-                  }
-
-                  return true;
-                }
-              })
-          ]
-        : [])
-    );
+    const publicXiuxian = app.group({
+      events: commandEvents,
+      // 未命中明确指令时交给其他插件，不生成模糊指令提示。
+      fallback: { suggest: false },
+      routeText: {
+        prefixes: ['notAutoConfirmation:' + prefix, prefix],
+        stripPrefix: true,
+        space,
+        allowBare
+      }
+    });
 
     /**
      * 无需身份、不用担心被用户知晓的，公共入口
@@ -605,7 +611,10 @@ export function createGameRouter() {
     // xiuxian.use('黑盒详情', () => import('@src/response/blackBox/room/res'));
     // xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
     xiuxian.use(['宝物', '上古遗珍', '灵脉租契', '确认宝物', '确认礼包'], () => import('@src/response/treasures/res'));
-    xiuxian.use(['垂钓', '储物袋 渔获', '物品详情 渔获', '锁定 渔获', '解锁 渔获', '出售 渔获', '渔获', '钓具', '渔市'], () => import('@src/response/fishing/res'));
+    xiuxian.use(
+      ['垂钓', '储物袋 渔获', '物品详情 渔获', '锁定 渔获', '解锁 渔获', '出售 渔获', '渔获', '钓具', '渔市'],
+      () => import('@src/response/fishing/res')
+    );
     xiuxian.use('活动任务', () => import('@src/response/limitedEvent/tasks/res'));
     xiuxian.use('活动道具', () => import('@src/response/limitedEvent/tokens/res'));
 
@@ -1335,37 +1344,33 @@ export function createGameRouter() {
   }
 
   // 没有精确业务路由消费任务上下文时，单次调用任务终端动作。
-  app.res({ events: [...commandEvents] }, () => import('@src/response/mwTaskContinuation'));
+  res({ events: [...commandEvents] }, () => import('@src/response/mwTaskContinuation'));
 
   // useEvent() 的父级 next 直接到这里；兜底只消费 event.__res。
-  app.res({ events: [...commandEvents] }, () => import('@src/response/mwBusinessFallback'));
+  res({ events: [...commandEvents] }, () => import('@src/response/mwBusinessFallback'));
 
   // Match registered DSL commands without dispatching lazy handlers or exposing
   // the Router instance as the response configuration's default export.
   const matchesGameCommand = (event: { name?: string; MessageText?: string }): boolean => {
     const text = event.MessageText ?? '';
 
-    if (!hasCommandPrefix(text, prefix, allowBare)) {
+    if (!hasCommandPrefix(text, prefix, allowBare, native ? space : undefined)) {
       return false;
     }
 
-    return (
-      (commandEvents.some(name => name === event.name) && commandPatterns.some(pattern => pattern.test(text))) ||
-      app.match({ ...event, MessageText: customPrefix ? internalCommandText(text, prefix) : text }).matched
-    );
+    return (commandEvents.some(name => name === event.name) && commandPatterns.some(pattern => pattern.test(text))) || app.match(event).matched;
   };
 
-  // 仅为允许的已注册裸指令补齐内部斜杠，未匹配消息保留原文。
+  // 外层仅做事件守卫；业务文本适配在框架匹配之后执行。
   const router = defineRouter(
     [{ selects: ['private.message.create'], regular: undefined, handler: supportPlainHandler }, ...app.values].map(entry => ({
       ...entry,
       handler: async () => {
         const loaded = await entry.handler();
         const allowSupportPlain = 'customerSupportPlain' in loaded && loaded.customerSupportPlain === true;
-        const originals = new WeakMap<GameEvent, string>();
         const guard = (event: GameEvent, next: Next) => {
           const text = event.MessageText ?? '';
-          const explicitlyPrefixed = hasCommandPrefix(text, prefix, false);
+          const explicitlyPrefixed = hasCommandPrefix(text, prefix, false, native ? space : undefined);
           const registeredBare = allowBare && !explicitlyPrefixed && matchesGameCommand(event);
 
           if (
@@ -1378,36 +1383,13 @@ export function createGameRouter() {
             return;
           }
 
-          if (event.MessageText && (customPrefix || registeredBare)) {
-            const original = event.MessageText;
-
-            if (registeredBare) {
-              event.MessageText = '/' + original.trimStart();
-            } else if (entry.regular) {
-              event.MessageText = internalCommandText(original, prefix);
-            }
-            originals.set(event, original);
-          }
-
           return true;
         };
-        const restore = (event: GameEvent, next: Next) => {
-          const original = originals.get(event);
-
-          if (original !== undefined) {
-            // 任务入口会有意重写指令，继续交给本包路由时使用配置前缀。
-            const current = event.MessageText;
-            const normalized = hasCommandPrefix(original, prefix, false) ? internalCommandText(original, prefix) : '/' + original.trimStart();
-
-            event.MessageText = current && current !== original && current !== normalized ? prefix + current.replace(/^\//, '') : original;
-            originals.delete(event);
-          }
-          next();
-        };
+        const pass = (_event: GameEvent, next: Next) => next();
 
         return typeof loaded === 'function'
-          ? { select: entry.selects, current: [guard, loaded, restore] }
-          : { ...loaded, current: [guard, ...(Array.isArray(loaded.current) ? loaded.current : [loaded.current]), restore] };
+          ? { select: entry.selects, current: [guard, loaded, pass] }
+          : { ...loaded, current: [guard, ...(Array.isArray(loaded.current) ? loaded.current : [loaded.current]), pass] };
       }
     }))
   );
@@ -1423,7 +1405,7 @@ export function resolveCommandTransportProfile(_event: GameEvent): RobotCommandP
 const routers = new Map<string, ReturnType<typeof createGameRouter>>();
 
 function configuredRouter() {
-  const key = JSON.stringify([getCommandPrefix(), getCommandAllowBare()]);
+  const key = JSON.stringify([getCommandPrefix(), getCommandAllowBare(), getCommandSpace(), getNativeCommand()]);
   let router = routers.get(key);
 
   if (!router) {

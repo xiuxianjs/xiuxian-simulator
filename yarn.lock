@@ -1596,10 +1596,10 @@ ajv@^6.14.0:
     json-schema-traverse "^0.4.1"
     uri-js "^4.2.2"
 
-alemonjs@^2.1.122:
-  version "2.1.122"
-  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.122.tgz#dddc6e23edc5ac9f9541ff4b7523ce37e3528e08"
-  integrity sha512-Bm5pwixNRqd2L80ztQhJg6incVYdiHWu1U7f9kEJ9BHnejTnKyiWTAcv8U0+YxvJNhC2ADhvyzTzC7RXernzUw==
+alemonjs@^2.1.123:
+  version "2.1.123"
+  resolved "https://registry.npmmirror.com/alemonjs/-/alemonjs-2.1.123.tgz#82c0cdcc5f5c9b7cccdb2b18d4a0785b9901c7c8"
+  integrity sha512-FwXCwZi3R17U1xtTqCXU7pTLjlSJvxPMpXWqvmFVdrYsouuSMWLUrJBNraiE0Q7wszv6QDvGTWQkJiHAKUopHw==
   dependencies:
     "@koa/cors" "^5.0.0"
     axios "^1.14.0"

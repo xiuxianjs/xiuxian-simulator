@@ -1,4 +1,4 @@
-import { commandText, hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
+import { displayCommandText, hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { parseRobotSkillBookBatchQuery, parseBackendSkillBookBatchDecompose } from '@src/api/bot/skill-book-batch-decompose';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import type { GameEvent } from '@src/types/event';
@@ -123,7 +123,9 @@ const response = onResponse(selects, async e => {
       { label: '取消', command: '取消' }
     ] satisfies GuiButton[];
 
-    previewMd.addNewline().addBlockquote(createQuoteMarkdown([`请在60秒内回复【${commandText('确认分解')}】或【${commandText('取消')}】。`], confirmFooter));
+    previewMd
+      .addNewline()
+      .addBlockquote(createQuoteMarkdown([`请在60秒内回复【${displayCommandText('确认分解')}】或【${displayCommandText('取消')}】。`], confirmFooter));
 
     void message.send(FormatGui({ isPrivate, bid, title: '', content: previewMd, keyboard: [confirmFooter] }));
 
@@ -229,7 +231,7 @@ const response = onResponse(selects, async e => {
           { label: '取消', command: '取消' }
         ];
 
-        hintMd.addText(`请回复【${commandText('确认分解')}】或【${commandText('取消')}】`);
+        hintMd.addText(`请回复【${displayCommandText('确认分解')}】或【${displayCommandText('取消')}】`);
 
         void msg.send(FormatGui({ isPrivate, bid, title: '', content: hintMd, footer: [hintFooter] }));
 

@@ -1,5 +1,19 @@
+# 新版框架配置。默认保留 /，避免增加现有确认凭据的完整指令长度。
+# 如改为 /修仙，可设置 space: true 生成 /修仙 签到；超 80 字符的确认按钮会拒绝发送。
+apps:
+  xiuxian-game:
+    enabled: true
+    command:
+      prefix: '/'
+      space: false
+      format:
+        enabled: true
+        match: '^[/#＃!！]\s*'
+        replacement: ''
+
 xiuxian-game:
-  # 指令前缀，支持多字符（如 '**'）；修改后重启。默认 '/'；该配置替换 '/'。
+  # 以下为旧版兼容项；配置 apps.xiuxian-game.command 后以新版规则为准，禁止裸指令。
+  # 旧指令前缀，支持多字符（如 '**'）；修改后重启。默认 '/'。
   # 自定义时默认只接受该前缀；消息按钮及全局导航跟随配置。
   # commandPrefix: '/'
   # 不配置前缀时默认允许裸指令；显式配置前缀时默认禁止。

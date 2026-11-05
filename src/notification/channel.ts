@@ -1,3 +1,4 @@
+import { assertCommandBudget } from '@src/utils/commandPrefix';
 import { bufferFlyMailSend } from './flymailBuffer';
 import { NotificationDeliveryUncertainError } from '@src/types/notification';
 import { measureTransportStage } from '@src/utils/transportTiming';
@@ -219,6 +220,7 @@ async function sendNotificationNow(
   if (current?.state === 'blocked') {
     throw new Error('通知通道已关闭或失效');
   }
+  assertCommandBudget(data);
   const direct = MessageDirect.create();
   const result = await measureTransportStage('notification.platform.send', () => withNotificationTimeout(() => {
       if (target.platform === 'qq-bot') {

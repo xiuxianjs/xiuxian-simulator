@@ -1,4 +1,4 @@
-import { prefixCommandFormat, prefixOutgoingCommands } from './commandPrefix';
+import { prefixCommandFormat, prefixOutgoingCommands, prefixCommandData } from './commandPrefix';
 import { Format, getCurrentEvent, useMessage as useFrameworkMessage, type DataEnums } from 'alemonjs';
 import { compactButtonSpacing } from './compactButtonSpacing';
 import { manualCommandLinks } from './manualCommandLinks';
@@ -11,6 +11,7 @@ type MessageClient = ReturnType<typeof useFrameworkMessage>[0];
 export function timedMessageClient(message: MessageClient, traceEvent: Parameters<typeof measureTransportStage>[2] = getCurrentEvent()): MessageClient {
   return {
     ...message,
+    edit: params => message.edit({ ...params, format: prefixCommandData(params.format) }),
     send: async params => {
       const allowed = isLearnedBooksTimingEvent(traceEvent)
         ? await measureTransportStage('presentation.access', () => presentationCommandFilter(traceEvent), traceEvent)
