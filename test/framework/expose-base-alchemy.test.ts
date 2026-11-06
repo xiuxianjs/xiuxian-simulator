@@ -17,7 +17,7 @@ test('炼丹基础配方使用真实V2配置并拒绝玩家查询条件', async 
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     count++; assert.equal(new URL(request.url).pathname, '/api/v2/robot/business/base.alchemy-recipes');
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
-    assert.deepEqual(body.arguments, { page: 1, pageSize: 20 });
+    assert.deepEqual(body.arguments, { page: 1, pageSize: 20, knownVersion: '' });
     return { status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', data: { ...config, playerId: 999, inventory: [] }, middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } } } }) };
   } }));
   const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });

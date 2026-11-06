@@ -17,7 +17,7 @@ test('锻造基础配方使用真实配置及提前打造规则并拒绝玩家�
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     count++; assert.equal(new URL(request.url).pathname, '/api/v2/robot/business/base.forge-recipes');
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
-    assert.deepEqual(body.arguments, { page: 1, pageSize: 20 });
+    assert.deepEqual(body.arguments, { page: 1, pageSize: 20, knownVersion: '' });
     return { status: 200, headers: {}, data: JSON.stringify({ data: { success: true, branch: 'business', data: { ...config, playerId: 999, inventory: [], items: config.items.map((item: any) => ({ ...item, learned: true, ownerUid: 999, materials: item.materials.map((material: any) => ({ ...material, available: 999, stock: 999 })) })) }, middleware: { outcome: 'allow', reason: 'ALLOWED', identity: { bid: 'player', account: { status: 'registered', playerId: 1 } }, replies: [], contextWarnings: [], entry: { maintenance: { disabled: false }, routeAllowed: true, resourcesSettled: false, nativeComebackProcessed: false } } } }) };
   } }));
   const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });

@@ -7,6 +7,15 @@ export function presentationAccessFor(event: object & { UserId?: string }, read:
   if (!snapshot || snapshot.bid !== event.UserId) {
     snapshot = { bid: event.UserId, pending: read() };
     snapshots.set(event, snapshot);
+    const current = snapshot;
+
+    // A transient failure is not an access fact. Do not discard a newer
+    // snapshot installed after invalidation or an identity change.
+    void current.pending.catch(() => {
+      if (snapshots.get(event) === current) {
+        snapshots.delete(event);
+      }
+    });
   }
 
   return snapshot.pending;

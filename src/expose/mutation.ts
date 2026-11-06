@@ -13,6 +13,7 @@ import { middlewareInputFromEvent } from '../api/bot/middleware-entry';
 import { isRobotPublicEntry, parseRobotBusinessEnvelope, type RobotBusinessOperation } from '../api/bot/robot-business';
 import { invalidateEventBackendRobotIdentity } from '../api/bot/identity';
 import { invalidateEventCommandEntry } from '../api/bot/command-entry';
+import { preparePublicCatalogRequest } from '../api/bot/public-catalog-cache';
 import type { GameEvent } from '../types/event';
 
 const button = object({ label: text, command: text });
@@ -185,13 +186,19 @@ export function mutation<I extends Record<string, unknown>>(
       if (operation === 'daily-fortune.claim' && event.Target?.scope === 'group') {
         middleware.channelId = event.Target.targetId;
       }
+      const catalog = options.freshRead ? preparePublicCatalogRequest(operation, args) : undefined;
       const raw = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {
         path: { operation },
-        body: { ...middleware, messageText, arguments: args, ...(taskInput === undefined ? {} : { taskInput }) },
+        body: { ...middleware, messageText, arguments: catalog?.arguments ?? args, ...(taskInput === undefined ? {} : { taskInput }) },
         ...writeContext(request),
         signal: context.signal
       });
-      const response = parseRobotBusinessEnvelope(raw, event.UserId, (data, uid) => decode(data, input, uid), isRobotPublicEntry(operation));
+      const response = parseRobotBusinessEnvelope(
+        raw,
+        event.UserId,
+        (data, uid) => (catalog ? catalog.decode(data, value => decode(value, input, uid)) : decode(data, input, uid)),
+        isRobotPublicEntry(operation)
+      );
 
       if (operation === 'account.register' && response.success && response.branch === 'business' && (response.data as { code?: string }).code === 'OK') {
         invalidateEventBackendRobotIdentity(event);

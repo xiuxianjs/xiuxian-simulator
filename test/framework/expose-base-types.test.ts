@@ -17,7 +17,7 @@ test('品阶与类型查询保留真实基础字段并隔离玩家参数', async
   t.mock.method(axios, 'create', () => ({ request: async (request: any) => {
     assert.equal(new URL(request.url).pathname, `/api/v2/robot/business/${current.operation}`);
     const body = typeof request.data === 'string' ? JSON.parse(request.data) : request.data;
-    assert.deepEqual(body.arguments, { page: 1, pageSize: 100 });
+    assert.deepEqual(body.arguments, { page: 1, pageSize: 100, knownVersion: '' });
     keys.push(request.headers['idempotency-key']);
     return { status: 200, headers: {}, data: JSON.stringify(current.envelope) };
   } }));

@@ -111,7 +111,7 @@ export default onResponse(selects, async e => {
     if (detail.spiritRoot) {
       const root = detail.spiritRoot;
 
-      innateLines.push(`灵根：${root.granted ? `${root.title} · ${root.qualityName}` : '尚未发放'}`);
+      innateLines.push(`灵根：${root.granted ? root.title : '尚未发放'}`);
     }
     if (detail.talents) {
       if (!detail.talents.granted) {
