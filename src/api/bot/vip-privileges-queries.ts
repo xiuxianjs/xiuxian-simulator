@@ -30,12 +30,37 @@ function privilegeRows(value: unknown): VipPrivilegesQueryData['vipPrivileges'] 
   return value.map(item => {
     const row = record(item);
 
-    if (typeof row.text !== 'string' || (row.needText !== undefined && typeof row.needText !== 'string')) {
+    if (typeof row.text !== 'string' || (row.needText !== undefined && typeof row.needText !== 'string') || (row.code !== undefined && typeof row.code !== 'string')) {
       throw new Error('特权接口列表不完整');
     }
 
-    return { minLevel: row.minLevel === undefined ? undefined : number(row.minLevel), text: row.text, unlocked: boolean(row.unlocked), needText: row.needText };
+    return { minLevel: row.minLevel === undefined ? undefined : number(row.minLevel), text: row.text, unlocked: boolean(row.unlocked), needText: row.needText,
+      ...(row.code === undefined ? {} : { code: row.code }) };
   });
+}
+
+function periodicPackResets(value: unknown): VipPrivilegesQueryData['periodicPackResets'] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new Error('礼包重置特权状态不完整');
+  }
+  const rows = value.map((item): NonNullable<VipPrivilegesQueryData['periodicPackResets']>[number] => {
+    const { period, used } = record(item);
+
+    if (period !== 'weekly' && period !== 'monthly') {
+      throw new Error('礼包重置特权周期无效');
+    }
+
+    return { period, used: boolean(used) };
+  });
+
+  if (new Set(rows.map(row => row.period)).size !== rows.length) {
+    throw new Error('礼包重置特权周期重复');
+  }
+
+  return rows;
 }
 export async function getBackendVipPrivileges(bid: string | undefined, uid: number): Promise<VipPrivilegesQueryData> {
   if (!bid) {
@@ -72,6 +97,7 @@ export function parseBackendVipPrivileges(value: unknown) {
   const found = boolean(data.found);
   const vipPrivileges = privilegeRows(data.vipPrivileges);
   const monthCardPrivileges = privilegeRows(data.monthCardPrivileges);
+  const resets = periodicPackResets(data.periodicPackResets);
 
   if (found && (levelEligibility.length !== 10 || levelEligibility.some((row, level) => row.minLevel !== level))) {
     throw new Error('特权接口等级或配置不完整');
@@ -90,6 +116,7 @@ export function parseBackendVipPrivileges(value: unknown) {
     canUseSoulPath: boolean(data.canUseSoulPath),
     activeThemeConfig: data.activeThemeConfig,
     vipPrivileges,
-    monthCardPrivileges
+    monthCardPrivileges,
+    ...(resets === undefined ? {} : { periodicPackResets: resets })
   };
 }

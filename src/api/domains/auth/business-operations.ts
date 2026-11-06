@@ -372,6 +372,7 @@ const robotBusinessOperations = [
   'recharge.newcomer-claim',
   'recharge.newcomer-info',
   'recharge.periodic-packs',
+  'recharge.periodic-pack-reset',
   'recharge.weekly-info',
   'recharge.weekly-rebate-claim',
   'referral.bind',

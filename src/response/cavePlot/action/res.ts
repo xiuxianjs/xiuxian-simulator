@@ -14,9 +14,15 @@ import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { presentBackendCavePlots } from '@src/response/cavePlot/info/res';
 import { sendSelfCavePlotPage } from '@src/response/cavePlot/render';
+import { buildBubble } from '@src/response/presentation';
 import { selects } from '@src/response/config';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
+
+const batchMethods = [
+  { title: '灵石', accelerator: 'spiritStone' },
+  { title: '小绿瓶', accelerator: 'greenBottle' }
+];
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -44,6 +50,27 @@ export default onResponse(selects, async e => {
 
   if (inputError) {
     await failure({ title: '', heading: '', text: inputError, buttons: [], advice: [] });
+
+    return;
+  }
+  if (args.mode === 'batch-options') {
+    const methods = batchMethods.filter(method => args.accelerator === null || args.accelerator === method.accelerator);
+
+    await message.send(buildBubble({
+      isPrivate,
+      bid,
+      title,
+      sections: [
+        { lines: ['次数按每块灵田计算。选择快捷项填入指令，也可修改次数后发送。'] },
+        ...methods.map(method => ({
+          title: method.title,
+          lines: [],
+          actions: [1, 3].map(count => ({ label: `${count}次`, command: `/一键加速 ${method.title} ${count}`, autoEnter: false }))
+        }))
+      ],
+      footer: [{ label: '返回灵田', command: '/灵田', autoEnter: false }],
+      bar: false
+    }));
 
     return;
   }

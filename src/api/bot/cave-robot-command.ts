@@ -35,12 +35,37 @@ export function parseRobotCavePlant(value: unknown) {
   throw new Error('播种响应分支无效');
 }
 
+export function parseCaveBatchAcceleration(messageText: string) {
+  const text = messageText.trim().replace(/^[!！/#＃]/, '');
+
+  if (/^一键(?:灵田)?催熟$/.test(text)) {
+    return { title: '一键灵田催熟', accelerator: 'ripen', count: '1' };
+  }
+  const match = text.match(/^一键(?:灵田)?加速(?:[ \t]+(?:(灵石|小绿瓶)(?:[ \t]+(\d+))?|(\d+)))?$/);
+
+  if (!match) {
+    return null;
+  }
+  const [, item, itemCount, stoneCount] = match;
+  const countText = itemCount ?? stoneCount;
+  const count = countText === undefined ? null : Number(countText);
+
+  if (count !== null && (!Number.isSafeInteger(count) || count <= 0)) {
+    return null;
+  }
+  const accelerator = item === '小绿瓶' ? 'greenBottle' : 'spiritStone';
+
+  return { title: '一键灵田加速', accelerator: item || countText ? accelerator : null, count: count === null ? null : String(count) };
+}
+
 export function caveActionCommand(messageText: string) {
-  if (/^[!！/#＃]?一键(?:灵田)?(?:加速|催熟)$/.test(messageText.trim())) {
+  const batch = parseCaveBatchAcceleration(messageText);
+
+  if (batch) {
     return {
       operation: 'cave.accelerate' as const,
-      title: messageText.includes('催熟') ? '一键灵田催熟' : '一键灵田加速',
-      args: { mode: 'all', plotIndex: null, accelerator: messageText.includes('催熟') ? 'ripen' : 'spiritStone', count: '1' }
+      title: batch.title,
+      args: { mode: batch.count === null ? 'batch-options' : 'all', plotIndex: null, accelerator: batch.accelerator, count: batch.count }
     };
   }
   const text = messageText.trim().replace(/^([!！/#＃]?)一键(浇灌|除虫|除草|收割)(?=\s|$)/, '$1$2');

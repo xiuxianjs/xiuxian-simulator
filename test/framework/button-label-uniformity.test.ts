@@ -8,6 +8,8 @@ import { createTestApp } from 'alemonjs/testing';
 import { createMarkdownText } from '../../node_modules/@alemonjs/qq-bot/lib/format.js';
 import { markdownButtonLabel } from '../../src/utils/buttonLabel';
 import { createQuoteMarkdown, FormatGui } from '../../src/utils/messageHelper';
+import { filterFeatureFormat } from '../../src/utils/featureVisibility';
+import { manualCommandLinks } from '../../src/utils/manualCommandLinks';
 
 after(() => shutdownLogger());
 
@@ -72,4 +74,14 @@ test('服务端旧标题、无装饰标题和已转换标题在真实发送中�
     assert.doesNotMatch(rendered, /show="[^\"]*[\[\]]/);
   }
   assert.equal(markdownButtonLabel('材料[稀有]'), '‹材料‹稀有››');
+});
+
+test('功能过滤移除重置命令时保留加粗特权说明', () => {
+  const row = Format.createMarkdown().addBold('每周可重置周礼包1次').addButton(markdownButtonLabel('重置本周'), { data: '/充值 周礼包 重置', autoEnter: false });
+  const original = Format.create().addMarkdown(Format.createMarkdown().addBlockquote(row));
+  const sent = manualCommandLinks(filterFeatureFormat(original, () => false));
+  const markdown = sent.value.find(node => node.type === 'Markdown');
+
+  assert.ok(markdown);
+  assert.equal(createMarkdownText(markdown.value, 'c2c').trim(), '> **每周可重置周礼包1次**');
 });

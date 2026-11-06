@@ -10,6 +10,7 @@ export type VipPrivilegesQueryData = {
   canUseMeridian: boolean;
   canUseSoulPath: boolean;
   activeThemeConfig: string | null;
-  vipPrivileges: { minLevel?: number; text: string; unlocked: boolean; needText?: string }[];
+  vipPrivileges: { minLevel?: number; text: string; unlocked: boolean; needText?: string; code?: string }[];
   monthCardPrivileges: { minLevel?: number; text: string; unlocked: boolean; needText?: string }[];
+  periodicPackResets?: { period: 'weekly' | 'monthly'; used: boolean }[];
 };

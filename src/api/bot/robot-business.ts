@@ -142,6 +142,7 @@ export type RobotBusinessOperation =
   | 'recharge.weekly-info'
   | 'recharge.catalog'
   | 'recharge.periodic-packs'
+  | 'recharge.periodic-pack-reset'
   | 'tasks.settings'
   | 'tasks.alias'
   | 'tasks.clear'

@@ -1,6 +1,8 @@
 type Row = Record<string, unknown>;
 export type RechargePackPeriod = 'weekly' | 'monthly';
 
+export const validPeriodicPackResetReference = (reference: string) => /^r1_[0-9a-z]{1,13}_q_[0-9a-z]{1,13}_[0-9a-f]{24}$/.test(reference);
+
 function invalid(): never {
   throw new Error('周月礼包响应不完整，请刷新后重试');
 }
@@ -145,4 +147,30 @@ export function parsePeriodicPackReceipt(value: unknown) {
       return { kind: item.kind, lootboxId: integer(item.lootboxId), name: text(item.name), quantity: integer(item.quantity) };
     })
   };
+}
+
+export function parsePeriodicPackReset(value: unknown, period: RechargePackPeriod, mode: 'preview' | 'confirm') {
+  const data = row(value);
+  const periodStart = date(data.periodStart);
+  const periodEnd = date(data.periodEnd);
+
+  if (data.period !== period || periodStart >= periodEnd) {
+    return invalid();
+  }
+  if (mode === 'preview') {
+    const reference = text(data.reference);
+
+    if (!validPeriodicPackResetReference(reference)) {
+      return invalid();
+    }
+
+    return { mode, periodStart, periodEnd, reference };
+  }
+  const resetAt = text(data.resetAt);
+
+  if (!Number.isFinite(Date.parse(resetAt))) {
+    return invalid();
+  }
+
+  return { mode, periodStart, periodEnd, resetAt };
 }

@@ -16,6 +16,7 @@ import { parseSpiritVein, parseTreasureDailyPacks } from '@src/api/bot/treasures
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parseRechargePeriodicPacks } from '@src/api/bot/recharge-periodic-packs';
 import { buildPeriodicPackFeedback, buildPeriodicPackProductPage } from '../periodicPackView';
+import { handlePeriodicPackReset } from '../periodicPackReset';
 import { section } from '@src/response/presentation/sections';
 import type { BusinessFeedbackRenderer } from '@src/response/feedbackRenderer';
 import { buildRechargeProductCard, buildSpiritVeinProductBlock, buildDailyPackProductPage, dailyPackSku } from '../productView';
@@ -29,6 +30,8 @@ export default onResponse(selects, async e => {
   const category = e.MessageText.trim().replace(/^[/#＃!！]?(?:充值说明|充值信息|充值)\s*/, '');
   const dailyCategory = /^(?:日礼包|每日礼包)(?:\s|$)/.test(category);
   const periodicCategory = /^(周礼包|月礼包)(?:\s|$)/.exec(category)?.[1];
+  const periodicInput = periodicCategory ? category.split(/\s+/).slice(1) : [];
+  const resetCommand = periodicCategory && ['重置', '确认重置'].includes(periodicInput[0]);
   const pageTitle = dailyCategory ? '每日礼包' : (periodicCategory ?? (category === '灵脉租契' ? '灵脉租契' : '充值'));
 
   if ((dailyCategory || periodicCategory) && !isPrivate) {
@@ -38,11 +41,18 @@ export default onResponse(selects, async e => {
         bid,
         title: pageTitle,
         content: Format.createMarkdown().addText(
-          `${dailyCategory ? '日礼包' : periodicCategory}仅支持私聊，请在私聊中发送 /充值 ${dailyCategory ? '日礼包' : periodicCategory}。`
+          resetCommand
+            ? '礼包额度重置仅支持私聊，请在私聊中打开我的特权。'
+            : `${dailyCategory ? '日礼包' : periodicCategory}仅支持私聊，请在私聊中发送 /充值 ${dailyCategory ? '日礼包' : periodicCategory}。`
         ),
         bar: false
       })
     );
+
+    return;
+  }
+  if (resetCommand) {
+    await handlePeriodicPackReset(e, periodicCategory === '周礼包' ? 'weekly' : 'monthly', periodicInput, parentNext);
 
     return;
   }
@@ -232,7 +242,7 @@ export default onResponse(selects, async e => {
       if (loaded.data.period !== period) {
         throw new Error('礼包周期响应不一致');
       }
-      md.absorb(buildPeriodicPackProductPage(loaded.data, category.split(/\s+/).slice(1)));
+      md.absorb(buildPeriodicPackProductPage(loaded.data, periodicInput));
     }
     if (selected === '灵脉租契' || selected === '日礼包') {
       const loaded =

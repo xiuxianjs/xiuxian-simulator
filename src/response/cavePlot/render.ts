@@ -61,10 +61,9 @@ const FUNCTION_BUTTONS: ActionButton[] = [
   { label: '药圃经营', command: '/我的灵田 经营' }
 ];
 
-const ACCELERATION_BUTTONS: ActionButton[] = [
-  { label: '一键灵田加速', command: '/一键灵田加速' },
-  { label: '一键灵田催熟', command: '/一键灵田催熟' }
-];
+const TEND_BUTTON: ActionButton = { label: '一键打理', command: '/一键打理灵田' };
+const ACCELERATION_BUTTON = { label: '一键加速', command: '/一键加速', autoEnter: false };
+const RIPEN_BUTTON: ActionButton = { label: '一键灵田催熟', command: '/一键灵田催熟' };
 
 const BATCH_OPERATION_BUTTONS: ActionButton[] = [
   { label: '开垦所有', command: '/开垦所有', availabilityLabel: '开垦' },
@@ -195,22 +194,24 @@ function buildSelfCavePlotContent(
   }
 
   const operationButtons = BATCH_OPERATION_BUTTONS.filter(button => availableActionLabels.has(button.availabilityLabel ?? button.label));
-
-  if (careCount > 0 || count('收割') > 0) {
-    operationButtons.unshift({ label: '一键打理', command: '/一键打理灵田' });
-  }
+  const batchButtons = [
+    ...(careCount > 0 || count('收割') > 0 ? [TEND_BUTTON] : []),
+    ...(availableActionLabels.has('加速') ? [ACCELERATION_BUTTON] : []),
+    RIPEN_BUTTON
+  ];
 
   return {
     content: md,
     nav: pagination.nav,
     functionButtons: [...FUNCTION_BUTTONS],
+    batchButtons,
     qqOperationButtons: [...operationButtons, ...(availableActionLabels.has('播种') ? [{ label: '播种空田', command: '/播种' }] : [])]
   };
 }
 
 export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
   const { title, bid, isPrivate, message, plots, leadText, stasisFormation } = options;
-  const { content, nav, functionButtons, qqOperationButtons } = buildSelfCavePlotContent(
+  const { content, nav, functionButtons, batchButtons, qqOperationButtons } = buildSelfCavePlotContent(
     plots,
     leadText,
     stasisFormation,
@@ -307,10 +308,12 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
         content: md,
         nav: pagination.nav,
         footer: [
-          ...ACCELERATION_BUTTONS,
-          ...(canCultivate ? [{ label: '开垦所有', command: '/开垦所有' }] : []),
-          ...(canPlant ? [{ label: '播种空田', command: '/播种' }] : []),
-          { label: '返回灵田', command: '/我的灵田' }
+          batchButtons,
+          [
+            ...(canCultivate ? [{ label: '开垦所有', command: '/开垦所有' }] : []),
+            ...(canPlant ? [{ label: '播种空田', command: '/播种' }] : []),
+            { label: '返回灵田', command: '/我的灵田' }
+          ]
         ]
       })
     );
@@ -325,7 +328,7 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
       header: [{ label: '洞府', command: '/我的洞府' }, ...functionButtons],
       content,
       nav,
-      footer: [ACCELERATION_BUTTONS, qqOperationButtons]
+      footer: [batchButtons, qqOperationButtons]
     })
   );
 }

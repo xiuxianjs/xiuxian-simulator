@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
+import { createMarkdownText } from '../../node_modules/@alemonjs/qq-bot/lib/format.js';
 import rightsHandler from '../../src/response/monthCard/rights/res';
 import privilegesHandler from '../../src/response/monthCard/privileges/res';
 import claimHandler from '../../src/response/monthCard/claim/res';
@@ -103,6 +104,96 @@ test('特权分类前置，保留加成和解锁条件，隐藏其他分类内�
     if (command.includes('未解锁')) assert.match(view.text, /还需 ¥30/);
   }
   assert.equal(requests.length, 3);
+});
+
+const packResetPrivileges = (vipLevel: number, used: { weekly?: boolean; monthly?: boolean } = {}) => ({
+  found: true, name: '道友', vipLevel, totalRechargeAmount: 200000, hasMonthCard: false, pillDailyLimit: 6 + vipLevel,
+  levelEligibility: Array.from({ length: 10 }, (_, minLevel) => ({ minLevel, unlocked: minLevel <= vipLevel, needAmount: 0 })),
+  checkinDoubleDays: {}, activeThemeConfig: null, canUseMeridian: true, canUseSoulPath: true, monthCardPrivileges: [],
+  vipPrivileges: [
+    ...Array.from({ length: 6 }, (_, index) => ({ minLevel: vipLevel, text: `常规特权${index + 1}`, unlocked: true })),
+    ...(vipLevel >= 7 ? [{ minLevel: vipLevel, text: '每月可重置月礼包1次', unlocked: true, code: 'periodic-pack-reset-monthly' }] : []),
+    ...(vipLevel >= 8 ? [{ minLevel: vipLevel, text: '每周可重置周礼包1次', unlocked: true, code: 'periodic-pack-reset-weekly' }] : [])
+  ],
+  periodicPackResets: [
+    ...(vipLevel >= 7 ? [{ period: 'monthly', used: used.monthly ?? false }] : []),
+    ...(vipLevel >= 8 ? [{ period: 'weekly', used: used.weekly ?? false }] : [])
+  ]
+});
+
+for (const vipLevel of [6, 7, 8, 9]) {
+  test(`VIP${vipLevel} 礼包重置描述和预填按钮位于我的特权第一页顶部`, async t => {
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, packResetPrivileges(vipLevel)));
+    const first = await app.runHandler(privilegesHandler, app.events.privateMessage({ text: '/我的特权', platform: 'qq-bot' }));
+    assert.equal(first.messages.length, 1);
+    const message = first.messages[0];
+    assert.equal(first.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    const commands = view.commands.filter(command => command.endsWith(' 重置'));
+    assert.deepEqual(commands, vipLevel >= 8 ? ['/充值 周礼包 重置', '/充值 月礼包 重置'] : vipLevel === 7 ? ['/充值 月礼包 重置'] : []);
+    if (vipLevel >= 7) {
+      const firstQuote = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).find(node => node.type === 'MD.blockquote');
+      assert.ok(firstQuote && Array.isArray(firstQuote.value));
+      const rendered = createMarkdownText([firstQuote], 'c2c');
+      const monthly = '**每月可重置月礼包1次** <qqbot-cmd-input text="/充值 月礼包 重置" show="‹重置本月›" />';
+      const weekly = '**每周可重置周礼包1次** <qqbot-cmd-input text="/充值 周礼包 重置" show="‹重置本周›" />';
+      assert.deepEqual(rendered.trim().split('\n'), vipLevel >= 8 ? [`> ${weekly}`, `> ${monthly}`] : [`> ${monthly}`]);
+      const controls = firstQuote.value.filter(node => node.type === 'MD.button');
+      assert.deepEqual(controls.map(node => node.value), vipLevel >= 8 ? ['‹重置本周›', '‹重置本月›'] : ['‹重置本月›']);
+      for (const control of controls) {
+        assert.equal(control.options?.autoEnter, false);
+        assert.ok(!Object.hasOwn(control.options ?? {}, 'show'));
+      }
+    }
+    const second = await app.runHandler(privilegesHandler, app.events.privateMessage({ text: '/我的特权 2', platform: 'qq-bot' }));
+    assert.equal(second.actions[second.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    const paged = inspectMessage(second.messages[0].nodes);
+    assert.match(paged.text, /常规特权6/);
+    assert.doesNotMatch(paged.text, /可重置[周月]礼包|重置本[周月]/);
+    assert.ok(requests.every(request => request.path.endsWith('/membership.privileges')));
+  });
+}
+
+for (const [used, command, expectedControls] of [
+  [{ weekly: true }, '/充值 月礼包 重置', ['（已重置）', '‹重置本月›']],
+  [{ monthly: true }, '/充值 周礼包 重置', ['‹重置本周›', '（已重置）']],
+  [{ weekly: true, monthly: true }, undefined, ['（已重置）', '（已重置）']]
+] as const) {
+  test(`用过的礼包重置状态随说明加粗 ${JSON.stringify(used)}`, async t => {
+    const { app } = await gameFixture(t, request => businessEnvelope(request.bid, packResetPrivileges(8, used)));
+    const result = await app.runHandler(privilegesHandler, app.events.privateMessage({ text: '/我的特权', platform: 'qq-bot' }));
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const firstQuote = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).find(node => node.type === 'MD.blockquote');
+    assert.ok(firstQuote && Array.isArray(firstQuote.value));
+    const controls = firstQuote.value.flatMap(node => {
+      if (node.type === 'MD.button') return [node.value];
+      return node.type === 'MD.bold' && node.value.endsWith('（已重置）') ? ['（已重置）'] : [];
+    });
+    assert.deepEqual(controls, expectedControls);
+    const rendered = createMarkdownText([firstQuote], 'c2c');
+    if ('weekly' in used) assert.match(rendered, /^> \*\*每周可重置周礼包1次（已重置）\*\*[ \t]*$/m);
+    if ('monthly' in used) assert.match(rendered, /^> \*\*每月可重置月礼包1次（已重置）\*\*[ \t]*$/m);
+    assert.deepEqual(inspectMessage(message.nodes).commands.filter(value => value.endsWith(' 重置')), command ? [command] : []);
+  });
+}
+
+test('群聊与旧特权回执都没有礼包重置命令', async t => {
+  const { periodicPackResets: _statuses, ...legacy } = packResetPrivileges(8);
+  let data: unknown = packResetPrivileges(8, { weekly: true });
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  for (const event of [app.events.groupMessage({ text: '/我的特权', platform: 'qq-bot' }), app.events.privateMessage({ text: '/我的特权', platform: 'qq-bot' })]) {
+    const result = await app.runHandler(privilegesHandler, event);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.ok(!view.commands.some(command => command.endsWith(' 重置')));
+    if (event.name === 'message.create') {
+      assert.match(view.text, /请在私聊打开「我的特权」重置/);
+      assert.match(view.text, /（已重置）/);
+    }
+    data = legacy;
+  }
 });
 
 test('月卡领取回执保留全部到账数量和未来进度，一次请求且不提供再次领取', async t => {

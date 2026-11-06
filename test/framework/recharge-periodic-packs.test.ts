@@ -7,6 +7,7 @@ import pay from '../../src/response/recharge/pay/res';
 import orders from '../../src/response/recharge/orders/res';
 import { ImageCache } from '../../src/utils/imageCdn';
 import { parseRechargePeriodicPacks } from '../../src/api/bot/recharge-periodic-packs';
+import { createGameRouter } from '../../src/router';
 import { businessEnvelope, gameFixture } from './fixture';
 
 before(() => mock.timers.enable({ apis: ['setInterval', 'setTimeout'] }));
@@ -116,6 +117,7 @@ for (const [index, tier] of ['30元', '68元', '98元', '288元全包'].entries(
     assert.ok(message.view.commands.includes('/充值 周礼包 98元'));
     assert.ok(message.view.commands.includes('/充值 周礼包 288元全包'));
     assert.ok(message.view.commands.includes(`/充值购买 ${product.packageId}`));
+    assert.ok(!message.view.commands.some(command => command.endsWith(' 重置')));
     assert.equal(message.view.commands.filter(command => command.startsWith('/充值购买')).length, 1);
     const heading = message.nodes.findIndex(node => node.type === 'MD.text' && String(node.value).startsWith(headingText));
     const emphasis = message.nodes.findIndex(node => node.type === 'MD.bold' && node.value === product.label);
@@ -174,6 +176,88 @@ for (const category of ['周礼包', '月礼包']) {
     assert.equal(requests.length, 0);
   });
 }
+
+const resetReference = `r1_${'z'.repeat(13)}_q_${'z'.repeat(13)}_${'a'.repeat(24)}`;
+
+for (const [category, period, periodStart, periodEnd] of [
+  ['周礼包', 'weekly', '2026-11-02', '2026-11-09'],
+  ['月礼包', 'monthly', '2026-11-01', '2026-12-01']
+] as const) {
+  test(`${category} 重置预览、原引用确认及重复发送使用同一套餐周期`, async t => {
+    const resetAt = '2026-11-06T14:30:00+08:00';
+    const { app, requests } = await gameFixture(t, request => {
+      const input = request.body.arguments as { mode: string };
+
+      return businessEnvelope(request.bid, { period, periodStart, periodEnd, ...(input.mode === 'preview' ? { reference: resetReference } : { resetAt }) });
+    });
+    await app.mount({ responseRouter: app.run(createGameRouter).router }, undefined, 'xiuxian-game');
+    const [preview] = delivered(await app.dispatch(app.events.privateMessage({ text: `/充值 ${category} 重置`, platform: 'qq-bot' })));
+    const confirm = preview.view.commands.find(command => command.includes('确认重置'));
+    assert.equal(confirm, `/充值 ${category} 确认重置 ${resetReference}`);
+    assert.equal([...confirm!].length, 70);
+    assert.equal(Buffer.byteLength(confirm!, 'utf8'), 88);
+    assert.match(preview.view.text, /已购奖励保留/);
+    assert.match(preview.view.text, /有效期：5分钟/);
+    assert.ok(preview.view.commands.includes('/我的特权'));
+    for (let index = 0; index < 2; index++) {
+      const [receipt] = delivered(await app.dispatch(app.events.privateMessage({ text: confirm!, platform: 'qq-bot' })));
+      assert.match(receipt.view.text, /本期购买额度已重置/);
+      assert.match(receipt.view.text, /2026-11-06 14:30/);
+      assert.ok(receipt.view.commands.includes('/我的特权'));
+      assert.ok(!receipt.view.commands.some(command => command.includes('确认重置')));
+    }
+    assert.deepEqual(requests.map(request => request.path), Array(3).fill('/api/v2/robot/business/recharge.periodic-pack-reset'));
+    assert.deepEqual(requests.map(request => request.body.arguments), [
+      { mode: 'preview', period, private: true },
+      { mode: 'confirm', period, private: true, reference: resetReference },
+      { mode: 'confirm', period, private: true, reference: resetReference }
+    ]);
+    assert.ok(requests.every(request => request.idempotencyKey));
+    assert.equal(new Set(requests.map(request => request.idempotencyKey)).size, 3);
+  });
+}
+
+test('礼包重置在群聊或损坏短引用下不会发起业务请求', async t => {
+  const { app, requests } = await gameFixture(t, () => { throw new Error('无效指令不可请求服务'); });
+  for (const event of [
+    app.events.groupMessage({ text: '/充值 周礼包 重置', platform: 'qq-bot' }),
+    app.events.groupMessage({ text: '/充值 月礼包 确认重置 ' + resetReference, platform: 'qq-bot' }),
+    app.events.privateMessage({ text: '/充值 周礼包 重置 extra', platform: 'qq-bot' }),
+    app.events.privateMessage({ text: '/充值 周礼包 确认重置 ' + resetReference.slice(0, -1), platform: 'qq-bot' }),
+    app.events.privateMessage({ text: '/充值 月礼包 确认重置 ' + resetReference.replace('_q_', '_r_'), platform: 'qq-bot' })
+  ]) {
+    const [message] = delivered(await app.runHandler(recharge, event));
+    assert.match(message.view.text, /仅支持私聊|重置指令无效/);
+    assert.ok(!message.view.commands.some(command => command.includes('确认重置')));
+  }
+  assert.equal(requests.length, 0);
+});
+
+test('礼包重置预览被服务端拒绝时保留原原因和返回入口', async t => {
+  const reason = '本期仍有待核对订单，请先核对原订单。';
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [
+    { title: '原重置拒绝', heading: '', text: reason, buttons: [], advice: [] }
+  ]));
+  const [message] = delivered(await app.runHandler(recharge, app.events.privateMessage({ text: '/充值 月礼包 重置', platform: 'qq-bot' })));
+  assert.equal(requests.length, 1);
+  assert.ok(message.view.text.includes(reason));
+  assert.ok(message.view.commands.includes('/我的特权'));
+  assert.ok(message.view.commands.includes('/充值 月礼包'));
+  assert.ok(!message.view.commands.some(command => command.includes('确认重置')));
+});
+
+test('礼包重置未知结果仅提供原确认重试和额度查询', async t => {
+  const original = '/充值 月礼包 确认重置 ' + resetReference;
+  const { app, requests } = await gameFixture(t, () => ({ code: 'INTERNAL', message: '原数据库错误' }), 500);
+  const [message] = delivered(await app.runHandler(recharge, app.events.privateMessage({ text: original, platform: 'qq-bot' })));
+  assert.equal(requests.length, 1);
+  assert.match(message.view.text, /重置结果暂未核实/);
+  assert.ok(message.view.commands.includes(original));
+  assert.ok(message.view.commands.includes('/充值 月礼包'));
+  assert.ok(message.view.commands.includes('/我的特权'));
+  assert.ok(!message.view.commands.includes('/充值 月礼包 重置'));
+  assert.doesNotMatch(message.view.text, /原数据库错误/);
+});
 
 test('周礼包未决原订单、售罄与返利信息缺失均不能另建支付', async t => {
   let current = structuredClone(packs);

@@ -27,7 +27,7 @@ const card = object({ active: boolean, expireTime: text, ...fields(number, 'rema
   'expireTime',
   'package'
 ]);
-const privilege = object({ minLevel: number, text, unlocked: boolean, needText: text }, ['minLevel', 'needText']);
+const privilege = object({ minLevel: number, text, unlocked: boolean, needText: text, code: text }, ['minLevel', 'needText', 'code']);
 
 const issued = list(object({ type: text, name: text, amount: integer }));
 const day = (maximum: number) => ({ type: 'integer' as const, minimum: 1, maximum });
@@ -275,8 +275,9 @@ export const membershipActions = {
       levelEligibility: list(object({ minLevel: number, unlocked: boolean, needAmount: number })),
       checkinDoubleDays: list(object({ key: text, days: list(number) })),
       vipPrivileges: list(privilege),
-      monthCardPrivileges: list(privilege)
-    }),
+      monthCardPrivileges: list(privilege),
+      periodicPackResets: list(object({ period: { type: 'string', enum: ['weekly', 'monthly'] }, used: boolean }))
+    }, ['periodicPackResets']),
     () => '/我的特权',
     data => {
       const result = parseBackendVipPrivileges(data);

@@ -3,6 +3,7 @@ import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import action from '../../src/response/cavePlot/action/res';
+import { createGameRouter } from '../../src/router';
 import { businessEnvelope, gameFixture } from './fixture';
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
@@ -45,13 +46,87 @@ for (const isPrivate of [false, true]) test(`ordinary complete acceleration stay
  const message = '第2块灵田已使用 1 份灵肥，成熟时间缩短 1 小时。'; const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'command', result: { message, overview } })); const text = '/灵田加速 2 灵肥 1'; const result = await app.runHandler(action, isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' })); const view = inspectMessage(result.messages[0].nodes); assert.equal(requests.length, 1); assert.ok(view.text.includes(message)); assert.ok(!view.text.includes('建议：')); assert.ok(view.text.includes('原最新状态')); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 
-for (const [text, accelerator] of [['/一键灵田加速', 'spiritStone'], ['/一键灵田催熟', 'ripen'], ['/一键加速', 'spiritStone'], ['/一键催熟', 'ripen']] as const) test(text + ' submits one batch and preserves partial receipt', async t => {
+for (const text of ['/一键灵田催熟', '/一键催熟']) test(text + ' submits one batch and preserves partial receipt', async t => {
  const message = '本次已确认成功1块，合计消耗50灵石。第3块未执行：灵石不足';
  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'command', result: { message, overview } }));
  const result = await app.runHandler(action, app.events.groupMessage({ text, platform: 'qq-bot' }));
  assert.equal(requests.length, 1);
- assert.deepEqual(requests[0].body.arguments, { mode: 'all', plotIndex: null, accelerator, count: '1' });
+ assert.deepEqual(requests[0].body.arguments, { mode: 'all', plotIndex: null, accelerator: 'ripen', count: '1' });
  assert.ok(requests[0].idempotencyKey);
  assert.ok(inspectMessage(result.messages[0].nodes).text.includes(message));
  assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
+
+const countedBatches = [
+  ['/一键加速 3', 'spiritStone', '3', '合计消耗100灵石。第3块未执行：灵石不足'],
+  ['/一键加速 小绿瓶 1', 'greenBottle', '1', '合计消耗1瓶小绿瓶。第3块未执行：小绿瓶不足'],
+  ['/一键灵田加速 灵石 002', 'spiritStone', '2', '合计消耗50灵石。'],
+  ['/一键加速 9007199254740991', 'spiritStone', '9007199254740991', '合计消耗50灵石。']
+] as const;
+
+for (const [text, accelerator, count, receipt] of countedBatches) {
+  test(text + ' sends one counted batch through the real router', async t => {
+    const message = '本次已确认成功1块，' + receipt;
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'command', result: { message, overview } }));
+    await app.mount({ responseRouter: app.run(createGameRouter).router }, undefined, 'xiuxian-game');
+    const event = accelerator === 'greenBottle' ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' });
+    const result = await app.dispatch(event);
+
+    assert.deepEqual(result.errors, []);
+    assert.equal(requests.length, 1);
+    assert.ok(requests[0].path.endsWith('/cave.accelerate'));
+    assert.deepEqual(requests[0].body.arguments, { mode: 'all', plotIndex: null, accelerator, count });
+    assert.ok(requests[0].idempotencyKey);
+    assert.equal(result.messages.length, 1);
+    const sent = result.messages[0];
+
+    assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(sent.nodes);
+
+    assert.ok(view.text.includes(message), view.text);
+    assert.ok(view.commands.includes('/一键加速'));
+    const nodes = JSON.stringify(sent.nodes);
+    assert.match(nodes, /"autoEnter":false/);
+    assert.doesNotMatch(nodes, /"autoEnter":true|"show":/);
+  });
+}
+
+const methods = [
+  ['/一键加速', ['灵石', '小绿瓶']],
+  ['/一键灵田加速', ['灵石', '小绿瓶']],
+  ['/一键加速 灵石', ['灵石']],
+  ['/一键灵田加速 小绿瓶', ['小绿瓶']]
+] as const;
+
+for (const [text, available] of methods) {
+  for (const isPrivate of [false, true]) {
+    test(text + ' selects method/count without a write, private=' + isPrivate, async t => {
+      const { app, requests } = await gameFixture(t, () => { throw new Error('加速选择页不应提交请求'); });
+      await app.mount({ responseRouter: app.run(createGameRouter).router }, undefined, 'xiuxian-game');
+      const event = isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' });
+      const result = await app.dispatch(event);
+
+      assert.deepEqual(result.errors, []);
+      assert.equal(requests.length, 0);
+      assert.equal(result.messages.length, 1);
+      const sent = result.messages[0];
+
+      assert.equal(sent.target?.targetId, isPrivate ? event.UserId : event.ChannelId);
+      assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+      const view = inspectMessage(sent.nodes);
+
+      assert.match(view.text, /次数按每块灵田计算/);
+      assert.deepEqual(view.commands, [...available.flatMap(method => [1, 3].map(count => '/一键加速 ' + method + ' ' + count)), '/灵田']);
+      const markdown = sent.nodes.find(node => node.type === 'Markdown');
+      assert.ok(markdown);
+      const buttons = [...markdown.value, ...markdown.value.flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [])]
+        .filter(node => node.type === 'MD.button');
+
+      assert.equal(buttons.length, view.commands.length);
+      for (const button of buttons) {
+        assert.equal(button.options?.autoEnter, false);
+        assert.ok(!Object.hasOwn(button.options ?? {}, 'show'));
+      }
+    });
+  }
+}

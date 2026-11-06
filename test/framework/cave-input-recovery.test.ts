@@ -12,7 +12,9 @@ const invalid = [
  ...['/一键播种', '/一键播种 聚灵丹 0', '/一键播种 聚灵丹 101', '/一键播种 聚灵丹 -1', '/一键播种 聚灵丹 1.5', '/一键播种 聚灵丹 abc', '/一键播种 聚灵丹 10 20'].map(text => ({ handler: plant, text })),
  ...['/开垦 -1', '/开垦 0', '/开垦 1.5', '/开垦 2abc', '/开垦 2 3', '/开垦 9007199254740992', '/开垦所有 2', '/一键开垦 不确认', '/开垦所有不确认'].map(text => ({ handler: cultivate, text })),
  ...['/播种0', '/播种 0', '/播种 0 聚灵草种', '/播种 9007199254740992 聚灵草种', '/播种 100000000000000000000', '/播种 2\n聚灵草种'].map(text => ({ handler: plant, text })),
- ...['/浇灌 2abc', '/浇灌 -1', '/浇灌 1.5', '/浇灌 2 3', '/一键浇灌 0', '/一键除虫 不确认', '/除虫 0', '/除草 9007199254740992', '/收割 2abc', '/一键收割 0', '/升级灵田 -1', '/升级灵田 2 不确认', '/灵田加速0', '/灵田加速 0', '/灵田加速 9007199254740992', '/灵田加速 2 3', '/灵田加速 2 灵肥 0', '/灵田加速 2 小绿瓶 -1', '/灵田加速 2 灵石 1.5', '/灵田加速 2 催熟 9007199254740992', '/灵田加速 2 灵肥 1 不确认'].map(text => ({ handler: action, text }))
+ ...['/浇灌 2abc', '/浇灌 -1', '/浇灌 1.5', '/浇灌 2 3', '/一键浇灌 0', '/一键除虫 不确认', '/除虫 0', '/除草 9007199254740992', '/收割 2abc', '/一键收割 0', '/升级灵田 -1', '/升级灵田 2 不确认', '/灵田加速0', '/灵田加速 0', '/灵田加速 9007199254740992', '/灵田加速 2 3', '/灵田加速 2 灵肥 0', '/灵田加速 2 小绿瓶 -1', '/灵田加速 2 灵石 1.5', '/灵田加速 2 催熟 9007199254740992', '/灵田加速 2 灵肥 1 不确认'].map(text => ({ handler: action, text })),
+ ...['/一键加速 0', '/一键加速 -1', '/一键加速 1.5', '/一键加速 9007199254740992', '/一键加速 小绿瓶 0', '/一键加速 小绿瓶 1 2',
+   '/一键加速 灵肥 1', '/一键加速 催熟 1', '/一键催熟 2', '/一键灵田加速 1\n2'].map(text => ({ handler: action, text }))
 ];
 for (const entry of invalid) for (const isPrivate of [false, true]) test(`invalid own cave input has no HTTP ${entry.text} private=${isPrivate}`, async t => {
  const { app, requests } = await gameFixture(t, () => { throw new Error('invalid cave input must not execute'); }); const event = isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' }); const result = await app.runHandler(entry.handler, event); const view = inspectMessage(result.messages[0].nodes);
