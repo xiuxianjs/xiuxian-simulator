@@ -41,11 +41,14 @@ for (const { scope, mode } of [{scope:'c2c',mode:'wakeup'}, {scope:'c2c',mode:'p
   });
 }
 
-for (const outcome of ['rejected', 'no-friend', 'refused', 'timeout', 'missing', 'blocked', 'disabled']) {
+for (const outcome of ['rejected', 'no-friend', 'refused', 'timeout', 'missing', 'blocked', 'disabled', 'permission-unavailable']) {
   test(`消息管理保存 ${outcome} 的真实结果且不重发`, async t => {
     const app = createTestApp({ config: { 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { close_proactive_message: outcome === 'disabled', backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
     t.after(() => app.dispose());
-    t.mock.method(axios, 'create', () => ({ async post(path: string) { return { data: { data: path.endsWith('/availability/read') ? null : { state: outcome === 'blocked' ? { state: 'blocked' } : null } } }; } }));
+    t.mock.method(axios, 'create', () => ({ async post(path: string) {
+      if (outcome === 'permission-unavailable') throw new Error('authorization unavailable');
+      return { data: { data: path.endsWith('/availability/read') ? null : { state: outcome === 'blocked' ? { state: 'blocked' } : null } } };
+    } }));
     let sends = 0;
     const client = Object.assign(new EventEmitter(), { async usersOpenMessages() {
       sends++;
@@ -59,8 +62,9 @@ for (const outcome of ['rejected', 'no-friend', 'refused', 'timeout', 'missing',
     let receipt: ChatReceipt | undefined;
     const result = await app.runHandler(onResponse('message.create', async () => { receipt = await sendChatNotice(claim); }), app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
     assert.deepEqual(result.errors, []);
-    assert.equal(sends, outcome === 'blocked' || outcome === 'disabled' ? 0 : 1);
-    assert.equal(receipt?.status, ['rejected', 'no-friend', 'refused'].includes(outcome) ? 'failed' : outcome === 'blocked' || outcome === 'disabled' ? 'skipped' : 'unknown');
+    assert.equal(sends, ['blocked', 'disabled', 'permission-unavailable'].includes(outcome) ? 0 : 1);
+    assert.equal(receipt?.status, ['rejected', 'no-friend', 'refused'].includes(outcome) ? 'failed' : outcome === 'blocked' || outcome === 'disabled' ? 'skipped' : outcome === 'permission-unavailable' ? 'not_sent' : 'unknown');
+    if (outcome === 'permission-unavailable') assert.equal(result.actions.length, 0);
     if (outcome === 'rejected') { assert.match(receipt!.error, /40034122/); assert.equal(receipt?.platformCode, 40034122); }
     if (outcome === 'no-friend') assert.equal(receipt?.platformCode, 40054004);
     if (outcome === 'refused') assert.equal(receipt?.platformCode, 40054013);

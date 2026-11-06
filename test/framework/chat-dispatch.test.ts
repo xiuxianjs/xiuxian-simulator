@@ -52,9 +52,56 @@ test('领取失败自动恢复；回执失败只重试回执；停止时不发�
   assert.equal(sends, 1); assert.equal(receipts, 2);
   t.mock.timers.tick(30000); await settle(); assert.equal(sends, 1);
   let release!: (result: { claim: ChatClaim; pending: boolean }) => void;
-  const stopping = new ChatNoticeDispatcher(() => ['bot'], () => new Promise(resolve => { release = resolve; }), async item => { sends++; return receipt(item); });
+  const stopping = new ChatNoticeDispatcher(() => ['bot'], () => new Promise(resolve => { release = resolve; }), async item => { sends++; return receipt(item); }, async result => {
+    assert.equal(result.status, 'not_sent');
+    assert.equal(result.contactId, 2);
+    return {};
+  });
   const pending = stopping.dispatch(); stopping.stop(); release({ claim: claim(2), pending: true }); await pending;
   assert.equal(sends, 1);
+});
+
+for (const status of ['not_sent', 'sent', 'unknown'] as const) {
+  test(`回执持续503后恢复只提交同一${status}回执，不重复发送`, async t => {
+    t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+    let claims = 0, sends = 0;
+    const results: ChatReceipt[] = [];
+    const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => ({ claim: ++claims === 1 ? claim(1) : null, pending: false }), async item => {
+      sends++;
+      return { ...receipt(item), status, messageId: status === 'sent' ? '1' : '' };
+    }, async result => {
+      results.push(result);
+      if (results.length <= 3) throw Object.assign(new Error('unavailable'), { status: 503 });
+      return {};
+    });
+    t.after(() => dispatcher.stop());
+    await dispatcher.dispatch(); await settle();
+    assert.equal(results.length, 2);
+    t.mock.timers.tick(4999); await settle(); assert.equal(results.length, 2);
+    t.mock.timers.tick(1); await settle(); assert.equal(results.length, 3);
+    t.mock.timers.tick(10_000); await settle(); assert.equal(results.length, 4);
+    assert.ok(results.every(result => result === results[0]));
+    assert.equal(sends, 1);
+    dispatcher.stop(); t.mock.timers.tick(60_000); await settle();
+    assert.equal(results.length, 4);
+  });
+}
+
+test('停止会取消回执退避，失效领取凭据不无限重试', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  for (const status of [503, 404]) {
+    let calls = 0, claims = 0;
+    const dispatcher = new ChatNoticeDispatcher(() => ['bot'], async () => ({ claim: ++claims === 1 ? claim(1) : null, pending: false }), async item => receipt(item), async () => {
+      calls++;
+      throw Object.assign(new Error('receipt rejected'), { status });
+    });
+    t.after(() => dispatcher.stop());
+    await dispatcher.dispatch(); await settle();
+    assert.equal(calls, status === 503 ? 2 : 1);
+    dispatcher.stop();
+    await settle(); t.mock.timers.tick(60_000); await settle();
+    assert.equal(calls, status === 503 ? 2 : 1);
+  }
 });
 
 test('忙时唤醒被保留，空队列也有恢复检查以应对丢失 SSE', async t => {

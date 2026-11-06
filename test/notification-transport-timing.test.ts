@@ -4,6 +4,7 @@ import { logger, MessageDirect, Ok } from 'alemonjs';
 import { notificationChannel } from '../src/notification/channel';
 import { mockBackendConfig } from './backend-config-helper';
 import type { NotificationTarget } from '../src/types/notification';
+import { NotificationDeliveryUncertainError } from '../src/types/notification';
 
 for (const [platform, scope, method] of [['qq-bot', 'group', 'sendToTarget'], ['onebot', 'group', 'sendToChannel'], ['onebot', 'c2c', 'sendToUser']] as const) {
   test(`notification ${platform}/${scope} times the actual SDK promise and preserves receipt checks`, async t => {
@@ -44,7 +45,7 @@ for (const [platform, scope, method] of [['qq-bot', 'group', 'sendToTarget'], ['
     await new Promise<void>(resolve => setImmediate(resolve));
     const failure = new Error('original SDK rejection');
     rejectSend(failure);
-    await assert.rejects(rejected, error => error === failure);
+    await assert.rejects(rejected, error => error instanceof NotificationDeliveryUncertainError && error.cause === failure);
     assert.equal((logs[2][1] as { outcome: string }).outcome, 'rejected');
     assert.equal(calls, 3);
   });
@@ -70,7 +71,7 @@ test('notification deadline logs rejection while the underlying SDK may still be
   await new Promise<void>(resolve => setImmediate(resolve));
   now = 30100;
   t.mock.timers.tick(30000);
-  await assert.rejects(pending, /通知平台请求超时/);
+  await assert.rejects(pending, error => error instanceof NotificationDeliveryUncertainError && error.cause instanceof Error && /通知平台请求超时/.test(error.cause.message));
   assert.equal(settled, false);
   assert.deepEqual(logs.map(value => [value.outcome, value.durationMs]), [['rejected', 30000]]);
   finish([{ code: Ok }]);

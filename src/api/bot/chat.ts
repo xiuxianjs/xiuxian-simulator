@@ -14,7 +14,7 @@ export type ChatClaim = {
   mode: 'wakeup' | 'proactive';
 };
 export type ChatReceipt = Pick<ChatClaim, 'noticeId' | 'contactId' | 'botId' | 'token'> & {
-  status: 'sent' | 'failed' | 'unknown' | 'skipped';
+  status: 'sent' | 'failed' | 'unknown' | 'skipped' | 'not_sent';
   messageId: string;
   error: string;
   platformCode?: number;

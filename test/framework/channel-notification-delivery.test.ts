@@ -28,7 +28,8 @@ test('game API rejects another robot event before creating an authenticated requ
 });
 
 test('channel player notification uses native destination, real platform receipt, then ack without global claim', async t => {
-  const app = createTestApp({ config });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const app = createTestApp({ config, timeoutMs: 60_000 });
   t.after(() => app.dispose());
   const oldLogin = process.env.login;
   process.env.login = 'qq-bot';
@@ -74,7 +75,16 @@ test('channel player notification uses native destination, real platform receipt
     delivered = true;
     return [createResult(ResultCode.Ok, '送达', { id: 'channel-platform-receipt' })];
   });
-  const result = await app.runHandler(async () => { await PushMessageTask(); }, app.events.groupMessage({ platform: 'qq-bot' }));
+  const result = await app.runHandler(async () => {
+    const pendingTask = PushMessageTask();
+    // Standard notifications use a native 30s batching timer, independently
+    // of the framework clock. Drain setup, then advance that business timer.
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(delivered, false);
+    assert.equal(acknowledgements.length, 0);
+    t.mock.timers.tick(30_000);
+    await pendingTask;
+  }, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
   assert.equal(result.messages.length, 1);
   assert.equal(result.messages[0].target?.BotId, '100017');

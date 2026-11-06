@@ -23,6 +23,7 @@ export async function sendChatNotice(claim: ChatClaim): Promise<ChatReceipt> {
     return { ...receipt, status: 'skipped', error: '不支持的投递场景；群消息不使用私聊召回' };
   }
   const target = { platform: 'qq-bot', scope: claim.scope ?? 'c2c', targetId: claim.openId, BotId: claim.botId };
+  let platformStarted = false;
 
   try {
     const permission = await notificationChannel.read(target);
@@ -31,8 +32,11 @@ export async function sendChatNotice(claim: ChatClaim): Promise<ChatReceipt> {
       return { ...receipt, status: 'skipped', error: '平台事件记录表明用户已拒收或好友关系失效' };
     }
     const [message] = useMessage({ Platform: 'qq-bot', BotId: claim.botId, Target: target });
-    const results = await withNotificationTimeout(() => message.send({ target, content: { markdown: { content: claim.content } }, wakeup: target.scope === 'c2c' && claim.mode === 'wakeup' })
-    );
+    const results = await withNotificationTimeout(() => {
+      platformStarted = true;
+
+      return message.send({ target, content: { markdown: { content: claim.content } }, wakeup: target.scope === 'c2c' && claim.mode === 'wakeup' });
+    });
 
     if (results.length === 1 && results[0].code === Ok && results[0].data?.id) {
       return { ...receipt, status: 'sent', messageId: results[0].data.id };
@@ -48,7 +52,7 @@ export async function sendChatNotice(claim: ChatClaim): Promise<ChatReceipt> {
       error: JSON.stringify(results).slice(0, 2000)
     };
   } catch (error) {
-    return { ...receipt, error: error instanceof Error ? error.message : '平台发送结果未知' };
+    return { ...receipt, status: platformStarted ? 'unknown' : 'not_sent', error: error instanceof Error ? error.message : '通知执行失败' };
   }
 }
 
@@ -61,6 +65,7 @@ class ChatNoticeLane {
   private retryNotBefore = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private readonly inFlight = new Map<string, number>();
+  private readonly receiptWaits = new Set<() => void>();
 
   constructor(
     private readonly bots: () => string[],
@@ -113,8 +118,9 @@ class ChatNoticeLane {
         if (!next.claim) {
           continue;
         }
-        // If stopped during claim, leave the claim to expire as unknown.
+        // No platform call was made; release the exact claim even during shutdown.
         if (this.stopped) {
+          await this.submitReceipt({ ...next.claim, status: 'not_sent', messageId: '', error: '发送前停止投递' });
           break;
         }
         this.inFlight.set(botId, (this.inFlight.get(botId) ?? 0) + 1);
@@ -146,18 +152,58 @@ class ChatNoticeLane {
     try {
       const result = await this.send(item);
 
-      try {
-        await this.finish(result);
-      } catch {
-        await this.finish(result);
-      }
+      await this.submitReceipt(result);
     } catch (error) {
       logger.error('消息管理回执未确认；不会重复发送', error);
     }
   }
 
+  private async submitReceipt(result: ChatReceipt): Promise<void> {
+    let failures = 0;
+
+    for (;;) {
+      try {
+        await this.finish(result);
+
+        return;
+      } catch (error) {
+        const status = (error as { status?: number } | null)?.status;
+
+        if (this.stopped || (status !== undefined && status >= 400 && status < 500 && status !== 429)) {
+          throw error;
+        }
+        failures++;
+        // Preserve the existing immediate receipt retry, then back off. This
+        // loop never calls send; each pending receipt still occupies a lane slot.
+        if (failures === 1) {
+          continue;
+        }
+        const delay = Math.min(5000 * 2 ** Math.min(failures - 2, 3), 30_000);
+
+        logger.warn('消息管理回执待重试；仅重试回执，不重复调用平台发送', error);
+        await new Promise<void>(resolve => {
+          const resume = () => {
+            clearTimeout(timer);
+            this.receiptWaits.delete(resume);
+            resolve();
+          };
+          const timer = setTimeout(resume, delay);
+
+          this.receiptWaits.add(resume);
+          timer.unref?.();
+        });
+        if (this.stopped) {
+          throw error;
+        }
+      }
+    }
+  }
+
   stop(): void {
     this.stopped = true;
+    for (const resume of this.receiptWaits) {
+      resume();
+    }
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = undefined;
