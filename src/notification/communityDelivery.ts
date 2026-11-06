@@ -151,43 +151,44 @@ export async function dispatchCommunityNotifications(): Promise<void> {
         throw new Error('渠道通知机器人未在 QQ 平台配置中启用');
       }
 
-      await Promise.all(
+      const results = await Promise.allSettled(
         selectedBotIds.map(async botId => {
-          try {
-            const consumer = `node.community:${randomUUID()}`;
+          const consumer = `node.community:${randomUUID()}`;
 
-            for (let processed = 0; processed < 10; processed++) {
-              const batch = await claimCommunityNotification(botId, consumer);
+          for (let processed = 0; processed < 10; processed++) {
+            const batch = await claimCommunityNotification(botId, consumer);
 
-              if (!batch) {
-                break;
-              }
-              try {
-                if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
-                  const sent = await deliverBatch(batch);
-
-                  if (sent) {
-                    await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });
-                  }
-                }
-                await finishCommunityNotification(batch.eventId, consumer, false);
-              } catch (error) {
-                const deferred = error instanceof NotificationProbeDeferredError;
-
-                if (!deferred) {
-                  logger.warn('群平台通知等待重试', error instanceof Error ? error.message : '未知错误');
-                }
-                await finishCommunityNotification(batch.eventId, consumer, true, deferred);
-              }
-              if (processed === 9) {
-                pending = true;
-              }
+            if (!batch) {
+              break;
             }
-          } catch (error) {
-            logger.warn('机器人群通知调度失败', { botId, error });
+            try {
+              if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
+                const sent = await deliverBatch(batch);
+
+                if (sent) {
+                  await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });
+                }
+              }
+              await finishCommunityNotification(batch.eventId, consumer, false);
+            } catch (error) {
+              const deferred = error instanceof NotificationProbeDeferredError;
+
+              if (!deferred) {
+                logger.warn('群平台通知等待重试', error instanceof Error ? error.message : '未知错误');
+              }
+              await finishCommunityNotification(batch.eventId, consumer, true, deferred);
+            }
+            if (processed === 9) {
+              pending = true;
+            }
           }
         })
       );
+      const failure = results.find(result => result.status === 'rejected');
+
+      if (failure?.status === 'rejected') {
+        throw failure.reason;
+      }
     }
   } finally {
     running = false;

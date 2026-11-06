@@ -11,7 +11,7 @@ const asRow = (value: unknown, message: string): Row => {
   return value as Row;
 };
 
-export type BackendSponsorOrder = { orderNo: string; payAmount: number; status: string; createdAt?: string };
+export type BackendSponsorOrder = { orderNo: string; payAmount: number; status: string; createdAt?: string; resolutionState?: string };
 const order = (value: unknown): BackendSponsorOrder => {
   const data = asRow(value, '支付订单响应不完整');
   const payAmount = data.payAmount;
@@ -27,7 +27,13 @@ const order = (value: unknown): BackendSponsorOrder => {
     throw new Error('支付订单响应不完整');
   }
 
-  return { orderNo: data.orderNo, payAmount, status: data.status, ...(typeof data.createdAt === 'string' ? { createdAt: data.createdAt } : {}) };
+  return {
+    orderNo: data.orderNo,
+    payAmount,
+    status: data.status,
+    ...(typeof data.createdAt === 'string' ? { createdAt: data.createdAt } : {}),
+    ...(typeof data.resolutionState === 'string' ? { resolutionState: data.resolutionState } : {})
+  };
 };
 
 export type BackendSponsorCheckout = { order: BackendSponsorOrder; payUrl: string; packageName: string; promotionTexts?: string[] };

@@ -3,6 +3,7 @@ import { after, test } from 'node:test';
 import axios, { AxiosError } from 'axios';
 import { logger, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
+import { NotificationDispatcher } from '../../src/notification/dispatch';
 import { startNotificationStream, stopNotificationStream } from '../../src/notification/stream';
 import { claimNotificationRelay } from '../../src/api/bot/notification-relay';
 import { observeChatContacts } from '../../src/api/bot/chat';
@@ -42,6 +43,7 @@ test('503 日志包含接口、状态、业务错误和请求编号，不携带 
 
 for (const channelMode of [false, true]) {
 test(`领取失败只重试对应队列，健康 SSE 与其它队列不受影响 channel=${channelMode}`, async t => {
+  t.mock.method(Math, 'random', () => 0);
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const app = createTestApp({ config: { ...config, 'xiuxian-game': { backend: { ...config['xiuxian-game'].backend, channel_mode: channelMode } } }, timeoutMs: 60000 });
   t.after(() => app.dispose());
@@ -163,4 +165,33 @@ test('标准通知领取失败只由队列重试层记录一次', async t => {
     stopNotificationStream();
   }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
   assert.deepEqual(result.errors, []);
+});
+
+test('通知重试增加随机间隔，唤醒不绕过退避，停止取消重试', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.method(Math, 'random', () => 0.8);
+  t.mock.method(logger, 'error', () => {});
+  let attempts = 0;
+  const dispatcher = new NotificationDispatcher([{ name: 'test', run: async () => { attempts++; throw new Error('unavailable'); } }]);
+  t.after(() => dispatcher.stop());
+  dispatcher.wake();
+  await settle();
+  assert.equal(attempts, 1);
+  dispatcher.wake();
+  t.mock.timers.tick(1199);
+  await settle();
+  assert.equal(attempts, 1);
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(attempts, 2);
+  t.mock.timers.tick(2399);
+  await settle();
+  assert.equal(attempts, 2);
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(attempts, 3);
+  dispatcher.stop();
+  t.mock.timers.tick(60000);
+  await settle();
+  assert.equal(attempts, 3);
 });

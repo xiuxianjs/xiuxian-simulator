@@ -36,7 +36,8 @@ export async function getPaymentOrders(bid: string, uid: number, page: number) {
       status: row.status,
       payAmount: row.payAmount,
       packageId: row.packageId,
-      ...(typeof row.createdAt === 'string' ? { createdAt: row.createdAt } : {})
+      ...(typeof row.createdAt === 'string' ? { createdAt: row.createdAt } : {}),
+      ...(typeof row.resolutionState === 'string' ? { resolutionState: row.resolutionState } : {})
     };
   });
 

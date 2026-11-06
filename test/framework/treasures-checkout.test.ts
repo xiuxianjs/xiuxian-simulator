@@ -214,3 +214,36 @@ test('expired legacy payment button reports only the closure failure', async t =
   assert.ok(result[0].text.includes(reason));
   assert.ok(!result[0].text.includes('待支付'));
 });
+
+for (const [resolutionState, label] of Object.entries({
+  awaiting_payment: '已结束，额度已释放，可重新购买',
+  closed: '已结束，额度已释放，可重新购买',
+  refund_pending: '退款处理中，将原路退回，不再发奖',
+  refunded: '已原路退款'
+})) {
+  test(`order resolution ${resolutionState} is visible and never offers old payment`, async t => {
+    const { app, requests } = await gameFixture(t, request => {
+      if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+      return { orderNo, payAmount: 16000, status: resolutionState === 'refunded' ? 'REFUND' : 'FAILED', resolutionState };
+    });
+    const result = delivered(await app.runHandler(orders, app.events.privateMessage({ text: `/查询充值订单 ${orderNo}`, platform: 'qq-bot' })));
+    assert.equal(result.length, 1);
+    assert.ok(result[0].text.includes(label));
+    assert.ok(!result[0].text.includes('支付失败'));
+    assert.ok(!JSON.stringify(result).includes('继续支付'));
+    assert.ok(!requests.some(request => request.path.endsWith('/checkout')));
+  });
+}
+
+test('order list retains released and refund task states', async t => {
+  const { app } = await gameFixture(t, request => {
+    if (request.path.endsWith('membership.rights')) return businessEnvelope(request.bid, rights);
+    return { items: ['awaiting_payment', 'refund_pending', 'refunded'].map((resolutionState, i) => ({
+      orderNo: `ended-${i}`, payAmount: 100, packageId: 31, status: resolutionState === 'refunded' ? 'REFUND' : 'FAILED', resolutionState
+    })), total: 3 };
+  });
+  const result = delivered(await app.runHandler(orders, app.events.privateMessage({ text: '/我的订单', platform: 'qq-bot' })));
+  const text = result.map(view => view.text).join('\n');
+  for (const label of ['额度已释放', '退款处理中', '已原路退款']) assert.ok(text.includes(label));
+  assert.ok(!JSON.stringify(result).includes('继续支付'));
+});

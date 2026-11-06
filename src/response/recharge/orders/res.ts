@@ -28,7 +28,20 @@ const paymentEntryExpired = (order: { status: string; createdAt?: string }) => o
   typeof order.createdAt === 'string' &&
   Number.isFinite(Date.parse(order.createdAt)) &&
   Date.now() - Date.parse(order.createdAt) >= 5 * 60 * 1000;
-const orderStatusText = (order: { status: string; createdAt?: string }) => paymentEntryExpired(order) ? '支付入口已过期，关单及预留释放待确认' : statusText(order.status);
+const orderStatusText = (order: { status: string; createdAt?: string; resolutionState?: string }) => {
+  const resolutionText: Record<string, string> = {
+    awaiting_payment: '已结束，额度已释放，可重新购买',
+    closed: '已结束，额度已释放，可重新购买',
+    refund_pending: '退款处理中，将原路退回，不再发奖',
+    refunded: '已原路退款'
+  };
+
+  if (order.resolutionState && resolutionText[order.resolutionState]) {
+    return `状态：${resolutionText[order.resolutionState]}`;
+  }
+
+  return paymentEntryExpired(order) ? '支付入口已过期，关单及预留释放待确认' : statusText(order.status);
+};
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();

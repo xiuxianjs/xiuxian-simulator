@@ -31,10 +31,13 @@ export class NotificationDispatcher {
       lane.delay = 1000;
     } catch (error) {
       if (!this.stopped) {
-        const delay = lane.delay;
+        // Randomize retries across lanes/instances while keeping the original
+        // exponential minimum; a slow upstream must not synchronize all bots.
+        const baseDelay = lane.delay;
+        const delay = baseDelay + Math.floor(baseDelay * 0.25 * Math.random());
 
         logger.error(`通知队列 ${lane.name} 失败，${delay}ms 后重试`, error);
-        lane.delay = Math.min(delay * 2, 30000);
+        lane.delay = Math.min(baseDelay * 2, 30000);
         lane.timer = setTimeout(() => {
           lane.timer = undefined;
           void this.drain(lane);
