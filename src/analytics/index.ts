@@ -13,6 +13,7 @@
  * 埋点上报（fire-and-forget HTTP），不读写任何游戏状态，也不依赖 `@src/db`。
  */
 import { getCurrentEvent, logger } from 'alemonjs';
+import { randomUUID } from 'node:crypto';
 import { getAppConfig } from '../utils/appConfig';
 import { getBackendConfig } from '../api/bot/config';
 import { getQQBotAppId, getQQBotAppIds } from '../utils/qqBotIdentity';
@@ -87,32 +88,123 @@ function getAnalyticsConfig(ctx: TrackContext = currentContext()) {
 
 // ==================== 通用批量发送器 ====================
 
+const retryRetained = new Set<() => void>();
+
+/** Explicit replay after operators fix a rejected upload; original batch identity is preserved. */
+export const retryRetainedAnalyticsBatches = () => {
+  for (const retry of retryRetained) {
+    retry();
+  }
+};
+const deliveryStatus = { pending: 0, retained: 0, dropped: 0 };
+
+/** In-memory delivery health; retained batches survive errors, not process restarts. */
+export const getAnalyticsDeliveryStatus = () => ({ ...deliveryStatus });
+
 function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: number) {
   type Route = NonNullable<ReturnType<typeof getAnalyticsConfig>>;
   type Queue = { route: Route; buffer: T[]; timer?: ReturnType<typeof setTimeout> };
+  type Batch = { id: string; route: Route; body: string; count: number; attempts: number; retained: boolean };
   const queues = new Map<string, Queue>();
+  const pending = new Map<string, Batch>();
+  const maxBatches = 100;
 
-  async function flush(key: string, queue: Queue): Promise<void> {
+  async function deliver(batch: Batch): Promise<void> {
+    batch.attempts++;
+    const { apiUrl, apiKey, appid } = batch.route;
+    let retryable = false;
+    let reason = '网络请求失败';
+    let status = 'network';
+
+    try {
+      // Old servers return 404 here, so retries can never hit a non-idempotent endpoint.
+      const res = await fetch(`${apiUrl}${endpoint}/batches?appid=${encodeURIComponent(appid)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey, 'Idempotency-Key': batch.id },
+        body: batch.body,
+        signal: AbortSignal.timeout(10000)
+      });
+
+      status = String(res.status);
+      let result: { code?: number; message?: string; data?: { received?: number } } | undefined;
+
+      try {
+        result = JSON.parse(await res.text());
+      } catch {
+        // Never log a proxy HTML response or request payload.
+      }
+      if (res.ok && result?.code === 0 && result.data?.received === batch.count) {
+        pending.delete(batch.id);
+        deliveryStatus.pending--;
+
+        return;
+      }
+      retryable = res.status === 408 || res.status === 429 || res.status >= 500;
+      reason = typeof result?.message === 'string' ? result.message.replace(/[\r\n]/g, ' ').slice(0, 500) : '缺少有效的批次入库回执';
+    } catch {
+      retryable = true;
+    }
+    logger.error(`[logap] ${endpoint} 上报失败: ${status}; appid=${appid}; batch=${batch.id}; events=${batch.count}; attempt=${batch.attempts}; ${reason}`);
+    if (retryable && batch.attempts < 3) {
+      setTimeout(
+        () => {
+          void deliver(batch);
+        },
+        1000 * 2 ** (batch.attempts - 1)
+      );
+    } else {
+      batch.retained = true;
+      deliveryStatus.retained++;
+      logger.error(`[logap] 批次已保留在内存: batch=${batch.id}; retained=${deliveryStatus.retained}; 自动重试已停止`);
+    }
+  }
+
+  retryRetained.add(() => {
+    for (const batch of pending.values()) {
+      if (!batch.retained) {
+        continue;
+      }
+      batch.retained = false;
+      batch.attempts = 0;
+      deliveryStatus.retained--;
+      void deliver(batch);
+    }
+  });
+
+  function flush(key: string, queue: Queue): void {
     queues.delete(key);
     if (queue.timer) {
       clearTimeout(queue.timer);
     }
-    const { apiUrl, apiKey, appid } = queue.route;
+    if (pending.size >= maxBatches) {
+      // Evict only an exhausted batch, never a request awaiting an acknowledgement.
+      const oldest = [...pending.values()].find(batch => batch.retained);
 
-    try {
-      const res = await fetch(`${apiUrl}${endpoint}?appid=${encodeURIComponent(appid)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
-        body: JSON.stringify({ appid, events: queue.buffer }),
-        signal: AbortSignal.timeout(10000)
-      });
+      if (oldest) {
+        pending.delete(oldest.id);
+        deliveryStatus.retained--;
+        deliveryStatus.pending--;
+        deliveryStatus.dropped += oldest.count;
+        logger.error(`[logap] 保留队列已满，淘汰批次: batch=${oldest.id}; events=${oldest.count}`);
+      } else {
+        deliveryStatus.dropped += queue.buffer.length;
+        logger.error(`[logap] 在途队列已满，本批次未入队: appid=${queue.route.appid}; events=${queue.buffer.length}`);
 
-      if (!res.ok) {
-        logger.error(`[logap] ${endpoint} 上报失败: ${res.status} ${res.statusText}`);
+        return;
       }
-    } catch (error) {
-      logger.error(`[logap] ${endpoint} 上报异常:`, error);
     }
+    const batch: Batch = {
+      id: randomUUID(),
+      route: queue.route,
+      body: JSON.stringify({ appid: queue.route.appid, events: queue.buffer }),
+      count: queue.buffer.length,
+      attempts: 0,
+      retained: false
+    };
+
+    pending.set(batch.id, batch);
+    deliveryStatus.pending++;
+    void deliver(batch);
   }
 
   return {
@@ -130,13 +222,13 @@ function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: num
         queues.set(key, queue);
       }
       queue.buffer.push(item);
-      const pending = queue;
+      const pendingQueue = queue;
 
       if (queue.buffer.length >= bufferSize) {
-        void flush(key, pending);
+        flush(key, pendingQueue);
       } else {
         queue.timer ??= setTimeout(() => {
-          void flush(key, pending);
+          flush(key, pendingQueue);
         }, flushMs);
       }
     }

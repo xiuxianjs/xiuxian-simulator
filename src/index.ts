@@ -1,3 +1,4 @@
+import { startRechargeSubscriptions, stopRechargeSubscriptions } from './api/bot/recharge-subscription';
 import { platform } from '@alemonjs/qq-bot';
 import { onWatchConfigValue } from 'alemonjs';
 import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
@@ -41,6 +42,7 @@ async function startReadyServices(): Promise<void> {
   stopWaitingForAppId = undefined;
   servicesStarted = true;
   startCustomerSupportPolling();
+  startRechargeSubscriptions();
   await resetChatContactObserver();
   try {
     await startFeatureVisibility();
@@ -91,6 +93,7 @@ export default defineChildren({
     stopWaitingForAppId = undefined;
     stopNotificationStream();
     await stopCustomerSupportPolling();
+    stopRechargeSubscriptions();
     await stopChatContactObserver();
   },
   // 注册路由

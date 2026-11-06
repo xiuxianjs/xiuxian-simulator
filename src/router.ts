@@ -87,6 +87,8 @@ export function createGameRouter() {
     () => import('@src/response/flyMail/guildSubscription/res')
   );
 
+  res({ events: commandEvents, regular: commandPattern(/^\/?(?:订阅充值|取消订阅充值|充值身份)$/) }, () => import('@src/response/rechargeSubscription/res'));
+
   // 群 通知管理、群欢迎、加群提醒、加群申请记录
   res({ events: commandEvents, regular: commandPattern(/^\/?(?:开启每日机缘|关闭每日机缘)$/) }, () => import('@src/response/dailyFortune/res'));
 

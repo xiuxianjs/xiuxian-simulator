@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test, type TestContext } from 'node:test';
-import { onResponse, shutdownLogger } from 'alemonjs';
+import { onResponse, shutdownLogger, logger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import trackFeature from '../../src/response/mwFeatureTrack';
 import { trackAction, trackLogin } from '../../src/analytics';
@@ -19,7 +19,7 @@ function capture(t: TestContext) {
   const requests: { url: string; key: string; body: { appid: string; events: Record<string, unknown>[] } }[] = [];
   t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
     requests.push({ url, key: (init.headers as Record<string, string>)['X-API-Key'], body: JSON.parse(String(init.body)) });
-    return new Response('{}');
+    return new Response(JSON.stringify({ code: 0, data: { received: JSON.parse(String(init.body)).events.length } }));
   });
   return requests;
 }
@@ -101,7 +101,9 @@ test('上报网络失败不会成为游戏处理异常，满批后后续事件�
   assert.equal(calls, 1);
   t.mock.timers.tick(8000);
   await turn();
-  assert.equal(calls, 2);
+  assert.ok(calls >= 2);
+  for (let i = 0; i < 4; i++) { t.mock.timers.tick(10000); await turn(); }
+  assert.equal(calls, 6);
 });
 
 
@@ -123,4 +125,54 @@ test('扫码未完成不产生统计请求，框架补全 AppID 后自动上报'
   assert.equal(requests.length, 1);
   assert.equal(requests[0].body.appid, '102062268');
   assert.equal(requests[0].body.events.length, 1);
+});
+
+
+test('HTTP 400 和 HTTP 200 业务失败均记录服务端原因，不输出密钥或事件内容', async t => {
+  capture(t);
+  const errors: string[] = [];
+  t.mock.method(logger, 'error', (...args: unknown[]) => { errors.push(args.map(String).join(' ')); });
+  const responses = [
+    new Response(JSON.stringify({ code: -1, message: '该 AppID 未配置游戏数据源' }), { status: 400 }),
+    new Response(JSON.stringify({ code: -1, message: '写入失败: database unavailable' }), { status: 200 })
+  ];
+  t.mock.method(globalThis, 'fetch', async () => responses.shift()!);
+  const app = fixture(t, 'private-upload-key');
+  const event = app.events.groupMessage({ platform: 'qq-bot', botId: '102062268' });
+  for (let i = 0; i < 2; i++) {
+    const result = await app.runHandler(onResponse('message.create', () => {
+      trackAction(7, 'test', '日常', 'success', 0, { privateText: 'private-event-content' });
+    }), event);
+    assert.deepEqual(result.errors, []);
+    t.mock.timers.tick(8000);
+    await turn();
+  }
+  const failures = errors.filter(line => line.includes("上报失败"));
+  assert.equal(failures.length, 2);
+  assert.match(failures[0], /400.*appid=102062268.*该 AppID 未配置游戏数据源/);
+  assert.match(failures[1], /200.*写入失败/);
+  assert.ok(errors.every(line => !line.includes('private-upload-key') && !line.includes('private-event-content')));
+});
+
+
+test('响应丢失后使用原批次号和原内容重试，成功回执后停止', async t => {
+  capture(t);
+  const requests: { body: string; key: string; url: string }[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    requests.push({ url, body: String(init.body), key: (init.headers as Record<string,string>)['Idempotency-Key'] });
+    if (requests.length === 1) throw new Error('response lost after commit');
+    return new Response(JSON.stringify({ code: 0, data: { received: 1, replayed: true } }));
+  });
+  const app = fixture(t, 'key');
+  const event = app.events.groupMessage({ platform: 'qq-bot', botId: '102062268' });
+  assert.deepEqual((await app.runHandler(onResponse('message.create', () => trackAction(7, 'test', '日常', 'success')), event)).errors, []);
+  t.mock.timers.tick(8000); await turn();
+  assert.equal(requests.length, 1);
+  t.mock.timers.tick(1000); await turn();
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[0], requests[1]);
+  assert.ok(requests[0].key.length > 0);
+  assert.match(requests[0].url, /\/actions\/batches\?appid=/);
+  t.mock.timers.tick(30000); await turn();
+  assert.equal(requests.length, 2);
 });
