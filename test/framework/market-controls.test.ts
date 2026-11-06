@@ -6,6 +6,7 @@ import { inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/market/list/res';
 import myListings from '../../src/response/market/my/res';
 import { createMarketCommandBar, parseMarketCommand } from '../../src/response/market/command';
+import { createGameRouter } from '../../src/router';
 import type { MarketBrowseItem } from '../../src/api/schemas/market-browse-query';
 import { businessEnvelope, gameFixture } from './fixture';
 
@@ -92,7 +93,7 @@ test('最新结果保持服务端顺序，不在气泡中按低价重新排列',
   assert.ok(view.text.indexOf('【302】') < view.text.indexOf('【301】'));
 });
 
-test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及手动操作', async t => {
+test('珍宝楼列表只显示鱼的交易信息，查看页按挂单编号读取精确克重', async t => {
   const fish: MarketBrowseItem = {
     ...item, listingId: 801, itemCategory: 'fish', itemCategoryLabel: '鱼类', itemType: null, itemSubtype: null, templateItemId: null,
     itemName: '金须鲤', catchId: 'ff_' + 'a'.repeat(32), weightG: 1840, unitPriceAmount: 500,
@@ -104,6 +105,9 @@ test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及�
     if (request.path.endsWith('/market.browse')) {
       return businessEnvelope(request.bid, browse(1, [item, fish, unavailable]));
     }
+    if (request.path.endsWith('/market.fish-detail')) {
+      return businessEnvelope(request.bid, { ...fish, fishRealmName: '筑基' });
+    }
     assert.ok(request.path.endsWith('/market.my-listings'));
 
     return businessEnvelope(request.bid, {
@@ -111,8 +115,10 @@ test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及�
       pagination: { currentPage: 1, totalPages: 2, total: 6 }
     });
   });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
   const render = async (response: typeof handler, text: string) => {
-    const result = await app.runHandler(response, app.events.privateMessage({ text, platform: 'qq-bot' }));
+    const event = app.events.privateMessage({ text, platform: 'qq-bot' });
+    const result = response === handler ? await app.dispatch(event) : await app.runHandler(response, event);
 
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
@@ -123,11 +129,15 @@ test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及�
     return { ...inspectMessage(message.nodes), nodes: message.nodes };
   };
   const publicPage = await render(handler, '/珍宝楼');
+  const detailCommand = publicPage.commands.find(command => command === '/珍宝楼 查看鱼类 801');
+
+  assert.ok(detailCommand);
+  const detailPage = await render(handler, detailCommand);
   const myPage = await render(myListings, '/我的上架');
 
   if (process.env.FISH_MARKET_LIST_CAPTURE_OUTPUT) {
     writeFileSync(process.env.FISH_MARKET_LIST_CAPTURE_OUTPUT, JSON.stringify({
-      source: 'QQ真实处理器发送节点；隔离市场响应夹具，未投递真实平台。', captures: { browse: publicPage, my: myPage }
+      source: 'QQ真实处理器发送节点；隔离市场响应夹具，未投递真实平台。', captures: { browse: publicPage, detail: detailPage, my: myPage }
     }, null, 2));
   }
   const assertRow = (page: typeof publicPage, expected: string[], action: string) => {
@@ -147,8 +157,14 @@ test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及�
     assert.ok([...action].length <= 80);
   };
 
-  assertRow(publicPage, ['【801】【鱼类】 金须鲤×1', '重量：1.840 kg', '单价：500 灵晶  卖家：清霜'], '/选购 801 1');
+  assertRow(publicPage, ['【801】【鱼类】 金须鲤×1', '单价：500 灵晶  卖家：清霜'], '/选购 801 1');
   assertRow(myPage, ['【801】【鱼类】 金须鲤 ×1', '重量：1.840 kg', '单价：500 灵晶  总价：500 灵晶', '时间：2026-10-23 09:00:00'], '/交易下架 801');
+  assert.doesNotMatch(publicPage.text, /重量：|1\.840 kg|0\.178 kg/);
+  assert.match(detailPage.text, /珍宝楼 · 鱼类详情/);
+  assert.match(detailPage.text, /【801】金须鲤 #ff_a{32}/);
+  assert.match(detailPage.text, /境界：筑基/);
+  assert.match(detailPage.text, /重量：1\.840 kg/);
+  assert.deepEqual(detailPage.commands, ['/珍宝楼', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
   assert.match(publicPage.text, /【302】【丹药】 培元丹×1/);
   assert.match(myPage.text, /【302】【丹药】 培元丹 ×1/);
   assert.ok(publicPage.commands.includes('/选购 302'));
@@ -156,9 +172,35 @@ test('公开和我的挂单共用普通物品行，鱼仍保留精确克重及�
   assert.ok(myPage.commands.includes('/交易下架 302'));
   assert.ok(myPage.commands.includes('/我的上架 2'));
   assert.ok(!publicPage.commands.some(command => command.startsWith('/选购 802')));
+  assert.ok(publicPage.commands.includes('/珍宝楼 查看鱼类 802'));
   assert.deepEqual(requests.map(request => request.body.arguments), [
-    { view: 'browse', categoryType: '', categorySubtype: '', keyword: '', sort: 'latest', page: '1' }, { page: 1 }
+    { view: 'browse', categoryType: '', categorySubtype: '', keyword: '', sort: 'latest', page: '1' }, { listingId: 801 }, { page: 1 }
   ]);
+});
+
+test('鱼类详情拒绝不合法编号和错挂单的返回数据', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    listingId: 802, itemName: '金须鲤', catchId: 'ff_' + 'a'.repeat(32), weightG: 1840,
+    fishRealmName: '筑基', unitPriceAmount: 500, currencyName: '灵晶', sellerName: '清霜'
+  }));
+  const render = async (text: string) => {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
+
+    assert.equal(result.messages.length, 1);
+
+    return inspectMessage(result.messages[0].nodes);
+  };
+
+  for (const command of ['/珍宝楼 查看鱼类', '/珍宝楼 查看鱼类 0', '/珍宝楼 查看鱼类 9007199254740992', '/珍宝楼 查看鱼类 801 确认']) {
+    assert.match((await render(command)).text, /请输入有效的鱼类挂单编号/);
+  }
+  assert.equal(requests.length, 0);
+  const view = await render('/珍宝楼 查看鱼类 801');
+
+  assert.match(view.text, /查看鱼类详情失败/);
+  assert.doesNotMatch(view.text, /1\.840 kg/);
+  assert.equal(view.commands[0], '/珍宝楼');
+  assert.equal(requests.length, 1);
 });
 
 test('搜索缺参和旧筛选指令提示页也保留同样四行按钮', async t => {

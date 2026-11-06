@@ -343,6 +343,7 @@ export type RobotBusinessOperation =
   | 'market.purchase'
   | 'market.cancel'
   | 'market.browse'
+  | 'market.fish-detail'
   | 'market.my-listings'
   | 'market.records'
   | 'market.credibility'

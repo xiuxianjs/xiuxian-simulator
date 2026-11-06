@@ -143,6 +143,7 @@ test('总路由将储物袋渔获和旧链接送入原鱼种库存，和本次�
 test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', async t => {
   const catchId = 'ff_' + 'a'.repeat(32);
   const speciesId = 'fishing_r0_a';
+  const sellSpeciesCommand = '/出售 渔获 银纹小鲫 全部';
   const detailCommand = `/物品详情 渔获 ${catchId} 2 3 凡物`;
   const instancesCommand = `/储物袋 渔获 ${speciesId} 2 3 凡物`;
   const lockedId = 'ff_' + 'c'.repeat(32);
@@ -182,12 +183,14 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
       return businessEnvelope(request.bid, { ...base, view: 'receipt', title: '渔获操作 · 已完成' });
     }
     assert.ok(request.path.endsWith('/fishing.query'));
-    const { view } = request.body.arguments as { view: string };
+    const { view, speciesName } = request.body.arguments as { view: string; speciesName?: string };
 
     if (view === 'species') {
       return businessEnvelope(request.bid, {
         ...base, view, title: '储物袋 · 渔获', status: '凡物', navRows: [tabs.slice(0, 6), tabs.slice(6)],
-        sections: [{ title: '银纹小鲫', id: speciesId, lines: ['数量：7尾'], actions: [{ label: '查看该种', command: instancesCommand }] }]
+        sections: [{ title: '银纹小鲫', id: speciesId, lines: ['数量：7尾'], actions: [{ label: '查看该种', command: instancesCommand }, { label: '一键出售', command: sellSpeciesCommand }] }],
+        nav: { page: 1, totalPages: 1, total: 1, command: '/储物袋 渔获 凡物 {page}' },
+        footer: [{ label: '按境界出售', command: '/出售 渔获 境界' }, { label: '鱼谱', command: '/垂钓 鱼谱 1' }]
       });
     }
     if (view === 'bag-materials') {
@@ -221,7 +224,22 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
       });
     }
 
-    return businessEnvelope(request.bid, { ...base, view, title: '渔获 · 按重量出售' });
+    if (view === 'sell-realm') {
+      return businessEnvelope(request.bid, {
+        ...base, view, title: '鱼类出售 · 按境界', sections: [{
+          title: '凡物', lines: ['可出售：2尾'], actions: [{ label: '预览出售', command: '/出售 渔获 境界 凡物' }]
+        }], footer: [{ label: '返回渔获', command: '/储物袋 渔获' }]
+      });
+    }
+    assert.equal(view, 'sell-range');
+
+    return businessEnvelope(request.bid, {
+      ...base, view, title: '鱼类出售 · 重量区间', emphasisNames: speciesName ? [speciesName] : [],
+      sections: [{
+        lines: [...(speciesName ? [`限定鱼种：${speciesName}`] : []), '请输入最低和最高重量，单位kg，最多3位小数。'],
+        actions: [{ label: '填写重量区间', command: speciesName ? `/出售 渔获 ${speciesName} 0.080 0.450` : '/出售 渔获 全部 0.080 18000.000' }]
+      }]
+    });
   });
   const routes = app.run(createGameRouter);
 
@@ -245,6 +263,7 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
 
   assert.deepEqual(inventory.commands.slice(0, 12), tabs.map(tab => tab.command));
   assert.ok(inventory.commands.includes(instancesCommand));
+  assert.ok(inventory.commands.includes(sellSpeciesCommand));
   const markdown = inventory.nodes.find(node => node.type === 'Markdown');
 
   assert.ok(markdown && Array.isArray(markdown.value));
@@ -254,7 +273,10 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
   assert.ok(firstTabs.every(node => !Object.hasOwn(node.options ?? {}, 'show')));
   assert.equal(firstTabs[1].value, '‹▸凡物›');
   assert.ok(markdown.value.findIndex(node => node.type === 'MD.button') < markdown.value.findIndex(node => node.type === 'MD.blockquote'));
-  assert.ok(markdown.value.some(node => node.type === 'MD.button' && node.value === '‹返回›' && node.options?.data === '/储物袋'));
+  assert.match(inventory.text, /第1\/1页 · 共1条/);
+  assert.deepEqual(markdown.value.filter(node => node.type === 'MD.button').slice(12).map(node => [node.value, node.options?.data, node.options?.autoEnter]), [
+    ['‹按境界出售›', '/出售 渔获 境界', false], ['‹鱼谱›', '/垂钓 鱼谱 1', false]
+  ]);
 
   const materials = await open(inventory.commands[11]);
 
@@ -293,8 +315,34 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
   await open(`/垂钓 确认 ${confirmRef}`);
   await open(`解锁 渔获 ${catchId}`);
   await open(`/出售 渔获 ${catchId}`);
-  await open('/出售 渔获');
-  await open('/出售 渔获 银纹小鲫');
+  const oneClick = await open(sellSpeciesCommand);
+  assert.ok(oneClick.commands.includes(`/垂钓 确认 ${confirmRef}`));
+  const realmCommand = inventory.commands.find(command => command === '/出售 渔获 境界');
+
+  assert.ok(realmCommand);
+  const realmGuide = await open(realmCommand);
+  const selectedRealmCommand = realmGuide.commands.find(command => command === '/出售 渔获 境界 凡物');
+
+  assert.ok(selectedRealmCommand);
+  const realmMarkdown = realmGuide.nodes.find(node => node.type === 'Markdown');
+
+  assert.ok(realmMarkdown?.type === 'Markdown');
+  const realmCard = realmMarkdown.value.find(node => node.type === 'MD.blockquote');
+
+  assert.ok(realmCard?.type === 'MD.blockquote' && Array.isArray(realmCard.value));
+  assert.ok(realmCard.value.some(node => node.type === 'MD.bold' && node.value === '凡物'));
+  assert.ok(realmCard.value.some(node => node.type === 'MD.button' && node.options?.data === selectedRealmCommand && node.options?.autoEnter === false));
+  assert.ok((await open(selectedRealmCommand)).commands.includes(`/垂钓 确认 ${confirmRef}`));
+  const allGuide = await open('/出售 渔获');
+  const speciesGuide = await open('/出售 渔获 银纹小鲫');
+
+  assert.deepEqual(allGuide.commands.slice(0, -5), ['/出售 渔获 全部 0.080 18000.000']);
+  assert.deepEqual(speciesGuide.commands.slice(0, -5), ['/出售 渔获 银纹小鲫 0.080 0.450']);
+  const guideMarkdown = speciesGuide.nodes.find(node => node.type === 'Markdown');
+
+  assert.ok(guideMarkdown?.type === 'Markdown');
+  assert.ok(guideMarkdown.value.some(node => node.type === 'MD.bold' && node.value === '银纹小鲫'));
+  assert.ok(guideMarkdown.value.some(node => node.type === 'MD.button' && node.value === '‹填写重量区间›' && node.options?.autoEnter === false));
   await open('/出售 渔获 银纹小鲫 0.001 1.234');
   await open('/出售 渔获 全部 0 1.234');
   assert.ok((await open(`/垂钓 操作 ${operationId}`)).commands.includes(`/垂钓 操作 ${operationId} 2`));
@@ -307,17 +355,21 @@ test('储物袋渔获沿装备命令查看鱼种、原单尾和预览操作', as
     { view: 'fish', catchId, page: 2, returnPage: 3, fishRealm: 0 },
     { kind: 'fish-lock', catchId, lock: true }, { ref: confirmRef }, { kind: 'fish-lock', catchId, lock: false },
     { kind: 'sell-fish', fishIds: [catchId], preserveUpgrade: false },
+    { kind: 'sell-fish', speciesName: '银纹小鲫' },
+    { view: 'sell-realm' }, { kind: 'sell-fish', fishRealm: 0 },
     { view: 'sell-range' }, { view: 'sell-range', speciesName: '银纹小鲫' },
     { kind: 'sell-fish-range', speciesName: '银纹小鲫', minWeightG: 1, maxWeightG: 1234 },
     { kind: 'sell-fish-range', minWeightG: 0, maxWeightG: 1234 },
     { view: 'operation', operationId }, { view: 'operation', operationId, page: 2 }
   ]);
-  for (const command of [`/物品详情 渔获 ${catchId.slice(0, -1)}`, '/锁定 渔获 2', '/出售 渔获 银纹小鲫 1.2', '/出售 渔获 全部 2 1']) {
+  for (const command of [`/物品详情 渔获 ${catchId.slice(0, -1)}`, '/锁定 渔获 2', '/出售 渔获 银纹小鲫 1.2', '/出售 渔获 全部 2 1', '/出售 渔获 全部 全部', '/出售 渔获 境界 全部', '/出售 渔获 境界 炼气 1']) {
     const rejected = await open(command);
 
     assert.ok(rejected.commands.includes(fishCommand));
   }
-  assert.equal(requests.filter(request => request.path.includes('/api/v2/robot/business/')).length, 15);
+  assert.equal(requests.filter(request => request.path.includes('/api/v2/robot/business/')).length, 18);
+  assert.deepEqual(parseFishingCommand('/出售 渔获 境界 2'), { operation: 'fishing.query', input: { view: 'sell-realm', page: 2 } });
+  assert.deepEqual(parseFishingCommand('/出售 渔获 境界 仙'), { operation: 'fishing.preview', input: { kind: 'sell-fish', fishRealm: 9 } });
   assert.equal(parseFishingCommand('/物品详情 装备 42'), undefined);
   assert.equal(parseFishingCommand('/锁定 装备 42'), undefined);
 });

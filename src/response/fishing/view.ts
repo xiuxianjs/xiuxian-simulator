@@ -26,7 +26,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   const md = Format.createMarkdown();
 
   type Markdown = typeof md;
-  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish']);
+  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish', 'sell-realm']);
   const emphasisNames = [...new Set(data.emphasisNames ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
   const text = (target: Markdown, value: string) => {
     if (!emphasisNames.length || !value.length) {
@@ -232,7 +232,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
 
     footer = parentIndex < 0 ? [...footer, back] : footer.map((action, index) => index === parentIndex ? back : action);
   }
-  const bagParent = data.view === 'species' ? '/储物袋' : data.view === 'bag-materials' ? '/储物袋 渔获' : undefined;
+  const bagParent = data.view === 'bag-materials' ? '/储物袋 渔获' : undefined;
 
   return FormatGui({
     bid: event.UserId,

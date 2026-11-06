@@ -89,18 +89,33 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   if (entry === '出售') {
     const [target, rawMin, rawMax] = args;
 
+    if (target === '境界') {
+      if (args.length === 1) { return query('sell-realm'); }
+      if (args.length === 2) {
+        const page = n(rawMin);
+        const fishRealm = fishInventoryRealms.indexOf(rawMin);
+
+        if (page !== undefined) { return query('sell-realm', { page }); }
+        if (fishRealm >= 0) { return preview('sell-fish', { fishRealm }); }
+      }
+
+      return error('/出售 渔获 境界 [页码或境界名]');
+    }
     if (args.length === 1 && fishInstanceID(target)) {
       return preview('sell-fish', { fishIds: [target], preserveUpgrade: false });
     }
     const species = target === undefined || target === '全部' ? {} : fishSpecies(target);
 
     if (species && args.length <= 1) { return query('sell-range', species); }
+    if (species && target !== '全部' && args.length === 2 && rawMin === '全部') {
+      return preview('sell-fish', species);
+    }
     const minWeightG = fishingWeightGrams(rawMin);
     const maxWeightG = fishingWeightGrams(rawMax);
 
     return species && args.length === 3 && minWeightG !== undefined && maxWeightG !== undefined && minWeightG <= maxWeightG
       ? preview('sell-fish-range', { ...species, minWeightG, maxWeightG })
-      : error('/出售 渔获 <完整鱼编号>，或 /出售 渔获 [鱼种或全部] [最低kg 最高kg]');
+      : error('/出售 渔获 <完整鱼编号>，或 /出售 渔获 境界，或 /出售 渔获 [鱼种或全部] [最低kg 最高kg]');
   }
   if (verb === '渔获') {
     const [target, rawPage, rawReturnPage, rawRealm] = values;
@@ -367,6 +382,11 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   if (verb === '升塘') {
     return values.length === 0 ? preview('pond-upgrade') : error();
   }
+  if (verb === '换竿') {
+    return values.length === 1 && id(values[0])
+      ? { operation: 'fishing.configure', input: { kind: 'rod-switch', rodId: values[0] } }
+      : error('/垂钓 换竿 <原竿编号>');
+  }
   if (verb === '升竿') {
     return values.length === 1 && id(values[0]) ? preview('rod-upgrade', { rodId: values[0] }) : error('/垂钓 升竿 <原竿编号>');
   }
@@ -400,7 +420,7 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
 
     if (/^chum:[^:]+:\d+$/.test(sku ?? '')) { return error('/垂钓 渔市（窝料已取消等级，请重新选择）'); }
 
-    if (sku?.startsWith('bait:') && ['crystal', 'dao'].includes(currency ?? '')) { return error('鱼饵仅在灵石或灵鳞钱页出售'); }
+    if (sku?.startsWith('bait:') && currency !== 'stone') { return { error: '鱼饵仅支持灵石购买，请从渔市选择鱼饵。' }; }
 
     return (values.length === 2 || (hasCurrency && currency)) && id(sku) && quantity
       ? { operation: 'fishing.purchase', input: { kind: 'purchase', sku, quantity, ...(currency ? { currency } : {}) } }

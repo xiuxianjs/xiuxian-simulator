@@ -176,7 +176,7 @@ test('提交回执发送失败后只提供原引用重试，不重建新预览',
   assert.ok(requests[0].path.endsWith('.confirm'));
 });
 
-for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显示，操作放正文，页脚2+2 · ${hasBoss ? '遇见后' : '遇见前'}`,async t=>{
+for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显示，礼包在设置左边 · ${hasBoss ? '遇见后' : '遇见前'}`,async t=>{
   const sections = [
     {title:'',id:'',suffix:'',lines:['水域：炼气水域','等级：钓技 Lv.2','经验：562.4 / 1500','灵鳞钱：0'],actions:[{label:'开辟',command:'/垂钓 升塘'}]},
     {title:'',id:'',suffix:'',lines:['照渊寻珍竿 · 一阶','鱼饵：唤王饵 · 余74份','窝料：升灵散 · 余03:27','收益周期：9分钟'],actions:[{label:'更换钓具',command:'/垂钓 钓具 1'},{label:'更换饵料',command:'/垂钓 饵料'},{label:'打窝',command:'/垂钓 打窝'}]},
@@ -185,7 +185,7 @@ for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显�
   ];
   const bossCommand = '/垂钓 奇遇 fb_' + 'a'.repeat(32);
   if (hasBoss) sections.splice(3, 0, {title:'上古龙鲤',id:'',suffix:'',lines:['水域异动，上古龙鲤现身！'],actions:[{label:'查看异兽',command:bossCommand}]});
-  const footer=[{label:'我的渔获',command:'/储物袋 渔获'},{label:'渔市',command:'/垂钓 渔市 灵鳞钱 1'},{label:'锦鲤赐福',command:'/垂钓 赐福 1'},{label:'设置',command:'/垂钓 设置'},{label:'帮助',command:'/垂钓 帮助'},{label:'沧澜钓仙会',command:'/垂钓 大赛'},{label:'垂钓奇遇',command:'/垂钓 奇遇'}];
+  const footer=[{label:'我的渔获',command:'/储物袋 渔获'},{label:'渔市',command:'/垂钓 渔市 灵鳞钱 1'},{label:'锦鲤赐福',command:'/垂钓 赐福 1'},{label:'礼包',command:'/垂钓 礼包'},{label:'设置',command:'/垂钓 设置'},{label:'帮助',command:'/垂钓 帮助'},{label:'沧澜钓仙会',command:'/垂钓 大赛'},{label:'垂钓奇遇',command:'/垂钓 奇遇'}];
   const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,base({sections,footer})));
   const run=await app.runHandler(handler,app.events.privateMessage({text:'/垂钓',platform:'qq-bot'}));
   const view=delivered(run,hasBoss ? '首页·奇遇已触发' : '首页·未触发奇遇');
@@ -193,7 +193,8 @@ for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显�
   assert.match(view.text,/收益周期：9分钟/);
   assert.match(view.text,/窝料：升灵散 · 余03:27/);
   assert.match(view.text,/杂获：3件[^\n]*‹查询›/);
-  assert.match(view.text,/‹我的渔获›‹渔市›\n‹设置›‹帮助›/);
+  assert.match(view.text,/‹我的渔获›‹渔市›\n‹礼包›‹设置›‹帮助›/);
+  assert.ok(view.commands.includes('/垂钓 礼包'));
   assert.doesNotMatch(view.text,/水域异动|查看异兽/);
   assert.equal(view.commands.includes('/垂钓 奇遇'), false);
   assert.equal(view.commands.includes(bossCommand), hasBoss);
@@ -218,13 +219,31 @@ for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显�
 
 test('升竿真实三组布局保留原编号与资源持有且确认按钮不改原引用',async t=>{
   const section=(lines:string[])=>({title:'',id:'',suffix:'',lines,actions:[]});
-  const data=base({view:'rod-upgrade-preview',title:'升竿预览',sections:[section(['青竹灵竿 · 一阶 → 二阶','原竿编号：fr_0123456789abcdef0123456789abcdef']),section(['灵鳞钱：250 / 持有8,640','矿石精华：2 / 持有12','水灵砂：10 / 持有28']),section(['垂钓值阶数系数：1.00 → 1.15','需钓技 Lv.2  · 已满足','原竿编号保留','预览有效5分钟，确认后扣除上述资源。'])],confirmationRef:ref,operationId:'upgrade-user-layout',expiresAt:'2026-11-04T10:00:00Z',footer:[{label:'确认升阶',command:`/垂钓 确认 ${ref}`},{label:'取消',command:'/垂钓'}]});
+  const data=base({view:'rod-upgrade-preview',title:'升竿预览',sections:[section(['青竹灵竿 · 一阶 → 二阶','原竿编号：fr_0123456789abcdef0123456789abcdef']),section(['灵鳞钱：250 / 持有8,640','矿石精华：2 / 持有12','水灵砂：10 / 持有28']),section(['钓力阶数系数：1.00 → 1.15','需钓技 Lv.2  · 已满足','原竿编号保留','预览有效5分钟，确认后扣除上述资源。'])],confirmationRef:ref,operationId:'upgrade-user-layout',expiresAt:'2026-11-04T10:00:00Z',footer:[{label:'确认升阶',command:`/垂钓 确认 ${ref}`},{label:'取消',command:'/垂钓'}]});
   const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,data));
   const view=delivered(await app.runHandler(handler,app.events.privateMessage({text:'/垂钓 升竿 fr_0123456789abcdef0123456789abcdef',platform:'qq-bot'})),'升竿·用户指定版');
   assert.match(view.text,/原竿编号：fr_0123456789abcdef0123456789abcdef/);
   assert.match(view.text,/矿石精华：2 \/ 持有12/);
   assert.match(view.text,/确认升阶/);
   assert.equal(view.commands.filter(cmd=>cmd===`/垂钓 确认 ${ref}`).length,1);
+});
+
+test('钓具页换竿只发送一次配置请求并展示下一竿生效', async t => {
+  const rodId = 'fr_0123456789abcdef0123456789abcdef';
+  const command = `/垂钓 换竿 ${rodId}`;
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('fishing.configure')
+    ? base({ view: 'receipt', title: '已安排更换钓具', sections: [{ title: '', id: '', suffix: '', lines: ['从下一竿开始生效。'], actions: [] }] })
+    : base({ view: 'gear', title: '垂钓 · 钓具', sections: [{ title: '照渊寻珍竿', id: rodId, suffix: '', lines: [], actions: [{ label: '换竿', command }] }] })));
+  const gear = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 钓具 1', platform: 'qq-bot' })), '钓具·换竿入口');
+  const switchCommand = gear.commands.find(cmd => cmd === command);
+
+  assert.ok(switchCommand);
+  const receipt = delivered(await app.runHandler(handler, app.events.privateMessage({ text: switchCommand, platform: 'qq-bot' })), '钓具·换竿结果');
+
+  assert.match(receipt.text, /从下一竿开始生效/);
+  assert.equal(requests.length, 2);
+  assert.ok(requests[1].path.endsWith('/fishing.configure'));
+  assert.deepEqual(requests[1].body.arguments, { kind: 'rod-switch', rodId });
 });
 
 test('渔市旧事实兼容时仅显示五分类导航且100晶仍走原兑换预览',async t=>{
@@ -394,10 +413,11 @@ test('本次渔获的查询打开原会话记录并可翻阅单竿战报', async
   ]);
 });
 
-test('晶道页不接受直接购饵，钱石购买与礼包入口不受影响',async t=>{
+test('渔市鱼饵只接受灵石购买，旧灵鳞钱命令不发送请求',async t=>{
   const {app,requests}=await gameFixture(t,()=>{throw new Error('forbidden bait pages must not request');});
-  for(const currency of ['灵晶','道晶']){
-    delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 购买 ${currency} bait:plain 1`,platform:'qq-bot'})),`禁售饵·${currency}`);
+  for(const currency of ['灵鳞钱','灵晶','道晶']){
+    const view = delivered(await app.runHandler(handler,app.events.privateMessage({text:`/垂钓 购买 ${currency} bait:plain 1`,platform:'qq-bot'})),`禁售饵·${currency}`);
+    assert.match(view.text, /鱼饵仅支持灵石购买/);
   }
   assert.equal(requests.length,0);
   assert.deepEqual(parseFishingCommand('/垂钓 购买 灵石 bait:steady 1'),{operation:'fishing.purchase',input:{kind:'purchase',sku:'bait:steady',quantity:1,currency:'stone'}});

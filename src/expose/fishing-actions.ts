@@ -118,7 +118,7 @@ export const fishingActions = {
   preview_fishing_action: observation<FishingInput>(
     '预览本人垂钓动作的原资产、费用与配置；仅取得5分钟原引用，未确认不扣款。开钓预留已有有限饵窝，不自动购买。',
     'fishing.preview',
-    object({ kind: { type: 'string', enum: fishingKinds.filter(kind => !['start-current', 'stop-current'].includes(kind)) }, ...previewFields }, Object.keys(previewFields)),
+    object({ kind: { type: 'string', enum: fishingKinds.filter(kind => !['start-current', 'stop-current', 'rod-switch'].includes(kind)) }, ...previewFields }, Object.keys(previewFields)),
     viewSchema,
     () => '/垂钓',
     (data, _input, uid) => {
@@ -169,7 +169,9 @@ export const fishingActions = {
       }
       if (input.kind === 'use-chum' && (!input.quantity || !Object.values(fishingChums).includes(input.chumType as 'basic'))) { throw new ExposeError('INVALID_INPUT', '请选择六种窝料之一及正整数份数'); }
       if (input.kind === 'purchase' && /^chum:[^:]+:\d+$/.test(input.sku ?? '')) { throw new ExposeError('INVALID_INPUT', '窝料已取消等级，请重新选择商品'); }
-      if (input.kind === 'purchase' && input.sku?.startsWith('bait:') && ['crystal', 'dao'].includes(input.currency ?? '')) { throw new ExposeError('INVALID_INPUT', '鱼饵仅在灵石或灵鳞钱页出售'); }
+      if (input.kind === 'purchase' && input.sku?.startsWith('bait:') && input.currency !== 'stone') {
+        throw new ExposeError('INVALID_INPUT', '鱼饵仅支持灵石购买');
+      }
       if (input.kind === 'cashout' && (!input.quantity || !['crystal', 'stone'].includes(input.currency ?? ''))) {
         throw new ExposeError('INVALID_INPUT', '仅允许灵鳞钱兑出灵晶或灵石');
       }

@@ -169,7 +169,9 @@ export default onResponse(selects, async event => {
             : parsed.operation === 'fishing.stop-current'
               ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'
               : parsed.operation === 'fishing.configure'
-                ? '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
+                ? parsed.input.kind === 'rod-switch'
+                  ? '说明：换竿结果尚未核实，请先查看当前钓具。'
+                  : '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
             : parsed.operation === 'fishing.purchase'
               ? '说明：购买结果尚未核实，请先核对余额与已有物资，不要重复购买。'
               : '说明：请求暂未完成，请稍后重新查看；未取得原预览时不能确认。',

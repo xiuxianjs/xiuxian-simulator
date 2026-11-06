@@ -79,6 +79,7 @@ for (const [name, input] of [
   ['preview_fishing_action', { kind: 'stop-current' }],
   ['preview_fishing_action', { kind: 'start', waterLevel: 2, hours: 24, rodId: 'R1', baitType: 'plain', baitCount: 288 }],
   ['preview_fishing_action', { kind: 'cashout', currency: 'dao', quantity: 1 }],
+  ['preview_fishing_action', { kind: 'purchase', currency: 'coin', sku: 'bait:plain', quantity: 1 }],
   ['preview_fishing_action', { kind:'settings',settings:{} }],
   ['preview_fishing_action', { kind:'settings',settings:{baitOrder:['plain','plain']} }],
   ['preview_fishing_action', { kind:'settings',settings:{autoChum:true,uid:2} }],

@@ -10,6 +10,7 @@ export const fishingViews = [
   'contest-ranking',
   'contest-rewards',
   'contest-history',
+  'sell-realm',
   'sell-range',
   'materials',
   'chum',
@@ -32,7 +33,7 @@ export const fishingViews = [
   'help',
   'operation'
 ] as const;
-export const fishingKinds = ['boss-challenge', 'sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
+export const fishingKinds = ['boss-challenge', 'sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-switch', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
 export const fishingCurrencies = ['coin', 'stone', 'crystal', 'dao'] as const;
 export const fishingShopCategories = ['all', 'fish', 'bait', 'chum', 'rod', 'net', 'material'] as const;
 export const fishingBaits = { 素灵饵: 'plain', 定鳞饵: 'steady', 聚灵饵: 'realm', 引珍饵: 'rare', 唤王饵: 'king' } as const;

@@ -100,7 +100,7 @@ test('收杆和收竿均直接提交当前会话一次，显示后端回执而�
   assert.deepEqual(requests.map(request => request.body.arguments), [{ kind: 'stop-current' }, { kind: 'stop-current' }]);
 });
 
-for (const command of ['/垂钓 开钓', '/垂钓 收杆', '/垂钓 购买 灵鳞钱 bait:plain 1', '/垂钓 设置 持续打窝 关', '/垂钓 打窝 聚鳞散 1']) test(`直接写操作结果不明只提示核对，不重新购买或误称缺预览：${command}`, async t => {
+for (const command of ['/垂钓 开钓', '/垂钓 收杆', '/垂钓 购买 灵鳞钱 chum:basic 1', '/垂钓 购买 灵石 bait:plain 1', '/垂钓 设置 持续打窝 关', '/垂钓 打窝 聚鳞散 1']) test(`直接写操作结果不明只提示核对，不重新购买或误称缺预览：${command}`, async t => {
   const { app, requests } = await gameFixture(t, () => ({ code: 'INTERNAL', message: 'offline failure' }), 500);
   const [page] = sent(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
   assert.ok(page.text.includes('尚未核实')); assert.ok(!page.text.includes('未取得原预览'));
@@ -196,13 +196,16 @@ test('渔市购买商品整行序号加粗仅作展示，出售列表不加序�
   let selling = false;
   const data = () => !selling ? actualShop : view({ view: 'shop', title: '渔市 · 出售鱼类',
     navRows: [[action(selling ? '转为购买' : '转为出售', '/垂钓 渔市 buy bait 1')]],
-    sections: [section('', ['灵鳞钱：8,640']), section('素灵饵', ['每竿消耗1份'], [action('灵鳞钱购买', '/垂钓 购买 coin bait:plain 1')])] });
+    sections: [section('', ['灵鳞钱：8,640']), section('草鲫', ['持有：1尾'])] });
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data()));
   const bought = await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 渔市 bait 1', platform: 'qq-bot' }));
-  assert.ok(sent(bought)[0].commands.includes('/垂钓 购买 coin bait:plain 1'));
+  const buyPage = sent(bought)[0];
+  assert.ok(buyPage.commands.includes('/垂钓 购买 stone bait:plain 1'));
+  assert.ok(!buyPage.commands.some(command => command.includes('购买 coin bait:')));
+  assert.ok(!buyPage.commands.includes('/垂钓 礼包'));
   const buyText = inspectMessage(bought.messages[0].nodes).text;
-  assert.ok(buyText.includes('灵石：368（原价400）/1份 · 日限购10/10'));
-  assert.ok(buyText.includes('灵鳞钱：36（原价40）/10份 · 无限制'));
+  assert.ok(buyText.includes('灵石：368（原价400）/1份 · 日限购100/100'));
+  assert.ok(buyText.includes('灵石：92（原价100）/1份 · 无限制'));
   assert.ok(buyText.indexOf('鱼王权重×3') < buyText.indexOf('灵石：368'));
   assert.ok(JSON.stringify(bought.messages[0].nodes).includes('【1】素灵饵'));
   const markdown = bought.messages[0].nodes.find(node => node.type === 'Markdown');
@@ -383,18 +386,16 @@ test('中文渔获杂获记录不画内部代码，原战报动作与pending单�
   assert.ok(pending.text.includes(catchId));
 });
 
-for (const active of [false, true]) test(`首页操作逐行并在底部标签前分隔，运行中=${active}`, async t => {
-  const footer = [['我的渔获', '/垂钓 渔获 1'], ['渔市', '/垂钓 渔市'], ['锦鲤赐福', '/垂钓 赐福'], ['设置', '/垂钓 设置'], ['帮助', '/垂钓 帮助']].map(([label, command]) => action(label, command));
+for (const active of [false, true]) test(`垂钓主页礼包始终在设置左边，运行中=${active}`, async t => {
+  const footer = [['我的渔获', '/垂钓 渔获 1'], ['渔市', '/垂钓 渔市'], ['锦鲤赐福', '/垂钓 赐福'], ['礼包', '/垂钓 礼包'], ['设置', '/垂钓 设置'], ['帮助', '/垂钓 帮助']].map(([label, command]) => action(label, command));
   const data = view({ view: 'overview', title: '洞府垂钓', sections: [section('', ['水域：筑基水域']), section('', ['青竹灵竿']),
     section('', ['本次渔获：0尾']), section('', [active ? '……持续垂钓中……' : '……尚未垂钓……'],
       [action(active ? '收杆' : '甩杆', active ? '/垂钓 收竿' : '/垂钓 开钓'), action('使用渔具', '/垂钓 渔具')])], footer });
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
   const [page] = sent(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })));
-  assert.ok(page.text.includes('——————'));
-  assert.ok(page.text.indexOf('使用渔具') < page.text.indexOf('——————'));
-  assert.ok(page.text.indexOf('——————') < page.text.indexOf('我的渔获'));
+  assert.match(page.text, /‹使用渔具›\s+‹我的渔获›‹渔市›\n‹礼包›‹设置›‹帮助›/);
   assert.ok(page.commands.includes(active ? '/垂钓 收竿' : '/垂钓 开钓'));
-  assert.deepEqual(page.commands.slice(-10), [...footer.map(item => item.command), '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+  assert.deepEqual(page.commands.slice(-10), [...footer.filter(item => item.label !== '锦鲤赐福').map(item => item.command), '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
 });
 
 for (const preview of [true, false]) test(`渔市购买${preview ? '确认' : '完成'}使用普通商店正文句式，不触发客户端自动确认`, async t => {

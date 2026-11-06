@@ -277,6 +277,7 @@ const robotBusinessOperations = [
   'market.browse',
   'market.cancel',
   'market.credibility',
+  'market.fish-detail',
   'market.my-listings',
   'market.purchase',
   'market.records',

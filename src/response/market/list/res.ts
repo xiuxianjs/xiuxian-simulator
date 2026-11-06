@@ -1,5 +1,5 @@
 import { useMessage } from '@src/utils/useMessage';
-import { parseRobotMarketBrowse } from '@src/api/bot/market-robot-query';
+import { parseRobotMarketBrowse, parseRobotMarketFishDetail } from '@src/api/bot/market-robot-query';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { appendMarketCommandGuide, createMarketCommandBar, getMarketEmptyText, parseMarketCommand, shouldQueryMarket } from '@src/response/market/command';
@@ -33,13 +33,52 @@ export default onResponse(selects, async e => {
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
   const text = (e.MessageText ?? '').trim();
+  const [, next] = useEvent();
+  const detail = /^(?:[!！/#＃])?(?:交易所|珍宝楼)\s+查看鱼类(?:\s+(.*))?$/.exec(text);
+
+  if (detail) {
+    const title = '珍宝楼 · 鱼类详情';
+    const footer = [{ label: '返回', command: '/珍宝楼', autoEnter: false }];
+    const sendDetail = (content: ReturnType<typeof Format.createMarkdown>) => message.send(FormatGui({ isPrivate, bid, title, content, footer }));
+    const listingId = Number(detail[1]);
+
+    if (!/^[1-9]\d*$/.test(detail[1] ?? '') || !Number.isSafeInteger(listingId)) {
+      await sendDetail(Format.createMarkdown().addText('请输入有效的鱼类挂单编号。'));
+
+      return;
+    }
+    try {
+      const result = await runRobotBusiness(
+        e, 'market.fish-detail', { listingId }, data => parseRobotMarketFishDetail(data, listingId), next,
+        async reply => { await sendDetail(Format.createMarkdown().addText(reply.text)); }
+      );
+
+      if (!result.handled) {
+        const fish = result.data;
+        const weight = `${Math.trunc(fish.weightG / 1000)}.${String(fish.weightG % 1000).padStart(3, '0')} kg`;
+        const content = Format.createMarkdown().addBlockquote(createQuoteMarkdown([
+          `【${listingId}】${fish.itemName} #${fish.catchId}`,
+          `境界：${fish.fishRealmName}`,
+          `重量：${weight}`,
+          `单价：${fish.unitPriceAmount} ${fish.currencyName}  卖家：${fish.sellerName}`
+        ]));
+
+        await sendDetail(content);
+      }
+    } catch (error) {
+      logger.error('查看珍宝楼鱼类详情失败:', error);
+      await sendDetail(Format.createMarkdown().addText('查看鱼类详情失败，请稍后再试。'));
+    }
+
+    return;
+  }
   const parsed = parseMarketCommand(text);
 
   if (!parsed) {
     return;
   }
 
-  const [, next] = useEvent();
+  const footer = createMarketCommandBar(parsed).map(row => row.map(button => ({ ...button, autoEnter: false })));
   const view = shouldQueryMarket(parsed) ? 'browse' : 'guide';
   const sendFailure = (text: string) => message.send(
       FormatGui({
@@ -47,7 +86,7 @@ export default onResponse(selects, async e => {
         bid,
         title: parsed.title,
         content: Format.createMarkdown().addText(text),
-        footer: createMarketCommandBar(parsed)
+        footer
       })
     );
   let loaded;
@@ -103,7 +142,7 @@ export default onResponse(selects, async e => {
         bid,
         title: parsed.title,
         content: contentMd,
-        footer: createMarketCommandBar(parsed)
+        footer
       })
     );
 
@@ -131,7 +170,7 @@ export default onResponse(selects, async e => {
         bid,
         title: parsed.title,
         content: contentMd,
-        footer: createMarketCommandBar(parsed)
+        footer
       })
     );
 
@@ -154,19 +193,17 @@ export default onResponse(selects, async e => {
     const mktBtns: { label: string; command: string; autoEnter?: boolean }[] = [];
 
     if (canBuy) {
-      mktBtns.push({ label: '购买', command: `/选购 ${it.listingId}${fish ? ' 1' : ''}`, autoEnter: fish ? false : undefined });
+      mktBtns.push({ label: '购买', command: `/选购 ${it.listingId}${fish ? ' 1' : ''}`, autoEnter: false });
     }
 
     const detailCN = CATEGORY_DETAIL_MAP[it.itemCategory];
 
     if (detailCN && it.templateItemId) {
-      mktBtns.push({ label: '查看', command: `/物品详情 ${detailCN} ${it.templateItemId}` });
+      mktBtns.push({ label: '查看', command: `/物品详情 ${detailCN} ${it.templateItemId}`, autoEnter: false });
     }
 
     if (fish) {
-      const grams = it.weightG!;
-
-      lines.push(`重量：${Math.trunc(grams / 1000)}.${String(grams % 1000).padStart(3, '0')} kg`);
+      mktBtns.push({ label: '查看', command: `/珍宝楼 查看鱼类 ${it.listingId}`, autoEnter: false });
     } else {
       const extra = it.attributeView;
 
@@ -191,9 +228,10 @@ export default onResponse(selects, async e => {
         current: data.pagination.currentPage,
         total: data.pagination.totalPages,
         count: data.pagination.total,
-        command: parsed.pageCommand
+        command: parsed.pageCommand,
+        autoEnter: false
       },
-      footer: createMarketCommandBar(parsed)
+      footer
     })
   );
 });
