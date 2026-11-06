@@ -1,3 +1,4 @@
+import { notificationSettingsData } from './presentation';
 import { Format, type DataEnums } from 'alemonjs';
 import { readPlatformAvailability, readPlatformGroupCandidates } from '@src/api/bot/notification-cache';
 import { type NotificationDelivery } from '@src/types/notification';
@@ -37,7 +38,10 @@ export async function deliverFlyMailNotification(eventId: string, bid: string, d
     if ((await readPlatformAvailability(target, bid))?.available === false) {
       continue;
     }
-    const delivery = await deliverNotification({ group: target, recipientBid: bid, data: reminder, enabled, fallbackOnFailure: true }, notificationChannel);
+    const delivery = await deliverNotification(
+      { group: target, recipientBid: bid, data: notificationSettingsData(reminder, 'flymail.message.received'), enabled, fallbackOnFailure: true },
+      notificationChannel
+    );
 
     if (delivery.route === 'group') {
       return { route: 'group', reason: 'reminded' };

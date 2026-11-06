@@ -1,6 +1,7 @@
 import { noticeTitle } from '@src/response/presentation/format';
 import { noticeBubble } from '@src/response/presentation/presets';
-import { type DataEnums } from 'alemonjs';
+import { Format, type DataEnums } from 'alemonjs';
+import { addOptions } from '@src/utils/messageHelper';
 
 type Action = { label: string; command: string };
 
@@ -197,8 +198,8 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingCa
   }
   const fishing = source === 'fishing.result.rare' || source === 'fishing.result.king' ? fishingNotificationLayout(text, fishingCastId) : undefined;
   const actions = fishing
-    ? [...(fishing.reportCommand ? [{ label: '查看战报', command: fishing.reportCommand, autoEnter: false }] : []), { label: '我的通知', command: '/我的通知', autoEnter: false }]
-    : [...notificationActions(source, text), { label: '我的通知', command: '/我的通知' }];
+    ? [...(fishing.reportCommand ? [{ label: '查看战报', command: fishing.reportCommand, autoEnter: false }] : [])]
+    : [...notificationActions(source, text)];
   const { title, lines } = fishing ?? notificationTextLayout(text);
   const built = noticeBubble({
     title: fishing ? '修仙 · 通知' : noticeTitle(title),
@@ -207,4 +208,47 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingCa
   });
 
   return [...data.filter(block => block.type === 'Mention'), ...built.format.value];
+}
+
+/** 与服务端 notificationCategory 的分类前缀保持一致；未知来源归入 other。 */
+export function notificationSettingsData(data: DataEnums[], source = ''): DataEnums[] {
+  const categories: Record<string, string> = {
+    meditation: '闭关',
+    exploration: '秘境探索',
+    cave: '洞府灵田',
+    forge: '锻造委托',
+    tribulation: '渡劫',
+    pk: '切磋与劫掠',
+    friend: '好友',
+    companion: '道侣',
+    master: '师徒',
+    team: '队伍',
+    guild: '宗门',
+    flymail: '飞信',
+    'black-box': '黑盒'
+  };
+  const prefix = source.split(/[.:]/)[0];
+  const category = Object.hasOwn(categories, prefix) ? prefix : 'other';
+  const controls = Format.createMarkdown();
+
+  addOptions(controls, [{ label: '关闭此类通知', command: `/通知设置 ${category} 关闭` }]);
+
+  return [...data, ...Format.create().addMarkdown(Format.createMarkdown().addBlockquote(controls)).value];
+}
+
+/** 导航只由实际发送批次追加一次，不能放进各通知条目。 */
+export function notificationNavigationData(data: DataEnums[]): DataEnums[] {
+  const navigation = Format.createMarkdown();
+
+  addOptions(navigation, [
+    { label: '通知设置', command: '/通知设置' },
+    { label: '我的通知', command: '/我的通知' }
+  ]);
+
+  // 只去掉客户端通用页标题，不触碰引用块中的服务端正文或特定事件标题。
+  const body = data.map(block => block.type === 'Markdown' ? { ...block, value: block.value.filter(node => node.type !== 'MD.bold' || node.value !== '修仙 · 通知') } : block
+  );
+  const heading = Format.create().addMarkdown(Format.createMarkdown().addBold('修仙 · 通知').addNewline().addNewline()).value;
+
+  return [...heading, ...body, ...Format.create().addMarkdown(navigation).value];
 }

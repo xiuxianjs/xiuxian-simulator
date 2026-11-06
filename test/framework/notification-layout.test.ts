@@ -58,7 +58,7 @@ test('模板通知保持具体标题、独立换行与战报操作，匹配超�
       assert.ok(message.text.includes(row.title));
       assert.equal(message.text.split(row.title).length, 2);
       assert.ok(message.commands.includes(row.command));
-      assert.ok(message.commands.includes('/我的通知'));
+      assert.ok(!message.commands.includes('/通知设置'));
       assertSeparateActionLine(message.nodes);
       assert.ok(!message.commands.some(command => /^\/(回击|开始匹配)/.test(command)));
       const [quote] = quoteLines(message.nodes);

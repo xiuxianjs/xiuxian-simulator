@@ -71,8 +71,8 @@ test('纯文本通知实际发送 Markdown，业务入口与原文保留在同�
     ['bounty.expired.reward', '赏金已自动发放', '/我'],
     ['bounty.expired.refund', '未使用赏金已退还', '/我'],
     ['flymail.message.received', '旧飞信缺少会话元数据', '/飞信'],
-    ['future.source', '未知来源保留原文', '/我的通知'],
-    ['', '旧消息池通知', '/我的通知']
+    ['future.source', '未知来源保留原文', ''],
+    ['', '旧消息池通知', '']
   ];
   for (const [source, text, command] of cases) {
     for (const privateChat of [false, true]) {
@@ -92,8 +92,8 @@ test('纯文本通知实际发送 Markdown，业务入口与原文保留在同�
       if (quote.type !== 'MD.blockquote' || !Array.isArray(quote.value)) throw new Error('Expected structured quote');
       const view = inspectMessage([{ type: 'Markdown', value: quote.value }]);
       for (const line of text.split('\n')) assert.ok(view.text.includes(line), source);
-      assert.ok(view.commands.includes(command), source);
-      assert.ok(view.commands.includes('/我的通知'), source);
+      if (command) assert.ok(view.commands.includes(command), source);
+      assert.ok(!view.commands.includes('/通知设置'), source);
       assert.ok(!view.commands.some(value => value.startsWith('/反击')), source);
     }
   }
@@ -199,12 +199,12 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
   const result = await app.runHandler(handler, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
   assert.equal(result.messages.length, 5);
-  assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/我的通知'));
+  assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/通知设置'));
   assert.ok(inspectMessage(result.messages[1].nodes).commands.includes('/争夺战报 42'));
   for (const [offset, id] of [rareCast, kingCast, actual.payload.fishingCastId].entries()) {
     const { nodes } = result.messages[offset + 2];
     const notice = inspectMessage(nodes);
-    assert.deepEqual(notice.commands, [`/垂钓 战报 ${id}`, '/我的通知']);
+    assert.deepEqual(notice.commands, [`/垂钓 战报 ${id}`, '/通知设置', '/我的通知']);
     assert.ok(!notice.text.includes('/垂钓 战报') && !notice.text.includes('查看战报：'));
     assert.ok(notice.text.includes(offset === 0 ? '战胜，已获得' : '脱钩，未获得'));
     const markdown = nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);

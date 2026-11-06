@@ -1,6 +1,6 @@
 import { playerNotificationEnabled } from '@src/api/bot/notification-cache';
 import { getBackendConfig } from '@src/api/bot/config';
-import { withFlyMailBuffer } from '@src/notification/flymailBuffer';
+import { withFlyMailBuffer, withNotificationBuffer } from '@src/notification/flymailBuffer';
 import type { NotificationRelayEvent } from '@src/api/bot/notification-relay';
 import { flyMailNoticeData } from '@src/utils/flyMailPresentation';
 import { deliverFlyMailNotification } from '@src/notification/flymailDelivery';
@@ -14,7 +14,7 @@ import {
   retryNotificationRelay
 } from '@src/api/bot/notification-relay';
 import { deliverLegacyNotification, deliverPlayerNotification, deliverNotificationOnce } from '@src/notification/service';
-import { notificationNoticeData } from '@src/notification/presentation';
+import { notificationNoticeData, notificationSettingsData, notificationNavigationData } from '@src/notification/presentation';
 import { logger, type DataEnums } from 'alemonjs';
 import { randomUUID } from 'crypto';
 
@@ -83,13 +83,30 @@ type LoadLegacyIDs = () => Promise<Set<string>>;
 async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: 'flymail' | 'standard'): Promise<void> {
   const consumer = `node.${lane}.player-notification:${randomUUID()}`;
 
-  while (true) {
-    const row = await claimNotificationRelay('player.notification.dispatch', consumer, lane);
+  const active = new Set<Promise<void>>();
 
-    if (!row) {
-      break;
+  try {
+    while (true) {
+      if (active.size >= 64) {
+        await Promise.race(active);
+      }
+      const row = await claimNotificationRelay('player.notification.dispatch', consumer, lane);
+
+      if (!row) {
+        if (!active.size) {
+          break;
+        }
+        await Promise.race(active);
+        continue;
+      }
+      const owner = String(row.recipientUserId ?? row.recipientBid ?? row.eventId);
+      const delivery = withNotificationBuffer(owner, () => processPlayerNotification(row, consumer, loadLegacyIDs, lane));
+
+      active.add(delivery);
+      void delivery.finally(() => active.delete(delivery)).catch(() => {});
     }
-    await processPlayerNotification(row, consumer, loadLegacyIDs, lane);
+  } finally {
+    await Promise.allSettled(active);
   }
 }
 
@@ -151,10 +168,16 @@ async function processPlayerNotification(
         return Promise.resolve({ route: 'history' as const, reason: 'no_target' as const });
       }
       if (payload.source === 'flymail.message.received') {
-        return deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', data, proactiveEnabled());
+        return deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', notificationSettingsData(data, payload.source), proactiveEnabled());
       }
 
-      return deliverPlayerNotification(ownerUserId, row.recipientBid!, data, proactiveEnabled(), blackBoxNotice ? { privateOnly: true } : undefined);
+      return deliverPlayerNotification(
+        ownerUserId,
+        row.recipientBid!,
+        notificationSettingsData(data, payload.source),
+        proactiveEnabled(),
+        blackBoxNotice ? { privateOnly: true } : undefined
+      );
     });
 
     // 只有明确成功或已经决定仅保留站内记录才确认；未知回执继续重试。
@@ -201,7 +224,7 @@ async function dispatchWorkerMessages(loadLegacyIDs: LoadLegacyIDs): Promise<voi
       if (payload.uid) {
         await archiveNotificationRelay(payload.uid, `platform.message:${messageId || row.eventId}`, data);
       }
-      const notice = notificationNoticeData(data);
+      const notice = notificationNavigationData(notificationSettingsData(notificationNoticeData(data)));
       const delivery = await deliverNotificationOnce(`platform:${messageId || row.eventId}`, async () => {
         if (ownerUserId !== undefined && !(await playerNotificationEnabled(ownerUserId))) {
           return { route: 'history' as const, reason: 'proactive_disabled' as const };
