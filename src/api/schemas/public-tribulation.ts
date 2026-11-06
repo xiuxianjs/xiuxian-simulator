@@ -130,16 +130,16 @@ export function parseParticipationReward(data: unknown): TribulationParticipatio
   }
   const v = data as Record<string, unknown>;
 
+  // The server includes VIP, fishing and treasure bonuses in the credited amount.
   if (
     !['baseExperience', 'creditedExperience', 'dailyRewarded', 'dailyLimit'].every(k => Number.isSafeInteger(v[k]) && Number(v[k]) >= 0) ||
     v.dailyLimit !== 3 ||
     Number(v.dailyRewarded) > Number(v.dailyLimit) ||
-    Number(v.creditedExperience) > Number(v.baseExperience) ||
     typeof v.rewardDate !== 'string' ||
     !/^\d{4}-\d{2}-\d{2}$/.test(v.rewardDate) ||
     typeof v.repeated !== 'boolean' ||
     !['granted', 'daily_limit', 'experience_cap', 'no_eligible_dungeon'].includes(String(v.reason)) ||
-    (v.reason === 'granted' ? Number(v.creditedExperience) <= 0 : v.creditedExperience !== 0)
+    (v.reason === 'granted' ? Number(v.baseExperience) <= 0 || Number(v.creditedExperience) <= 0 : v.creditedExperience !== 0)
   ) {
     throw new Error('渡劫感悟回执不完整');
   }

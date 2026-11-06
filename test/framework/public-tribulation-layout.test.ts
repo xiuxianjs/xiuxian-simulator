@@ -4,6 +4,7 @@ import { Format, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/tribulation/publicRes';
 import participationHandler from '../../src/response/tribulation/res';
+import { parseParticipationReward } from '../../src/api/schemas/public-tribulation';
 import { FormatGui } from '../../src/utils/messageHelper';
 import { useMessage } from '../../src/utils/useMessage';
 import { businessEnvelope, gameFixture } from './fixture';
@@ -117,11 +118,17 @@ test('共享分页保留万宝楼已有的总页数和上下页样式',async t=>
 });
 
 for (const kind of ['participate', 'disrupt']) {
-  for (const state of ['granted', 'repeated', 'daily_limit']) {
+  for (const [state, creditedExperience, repeated, expected] of [
+    ['granted', 10, false, /修为 \+10，已即时到账/],
+    ['boosted', 12, false, /修为 \+12，已即时到账/],
+    ['repeated', 10, true, /本场已获得修为 \+10，本次未重复发放/],
+    ['boosted_repeated', 12, true, /本场已获得修为 \+12，本次未重复发放/],
+    ['daily_limit', 0, false, /当日3场奖励已领满/]
+  ] as const) {
     test(`榜单按钮直接参与并展示服务端修为回执：${kind}/${state}`, async t => {
-      const reward = { baseExperience: 10, creditedExperience: state === 'daily_limit' ? 0 : 10,
+      const reward = { baseExperience: 10, creditedExperience,
         dailyRewarded: state === 'daily_limit' ? 3 : 1, dailyLimit: 3, rewardDate: '2026-10-21',
-        reason: state === 'daily_limit' ? 'daily_limit' : 'granted', repeated: state === 'repeated' };
+        reason: state === 'daily_limit' ? 'daily_limit' : 'granted', repeated };
       const { app, requests } = await gameFixture(t, request => {
         const args = request.body.arguments as { kind: string; eventId?: number };
         if (args.kind === 'list') return businessEnvelope(request.bid, [event]);
@@ -142,10 +149,27 @@ for (const kind of ['participate', 'disrupt']) {
       const message = result.messages[0];
       assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
       const view = inspectMessage(message.nodes);
-      assert.match(view.text, state === 'daily_limit' ? /当日3场奖励已领满/ : state === 'repeated' ? /本场已获得修为 \+10，本次未重复发放/ : /修为 \+10，已即时到账/);
+      assert.match(view.text, expected);
       assert.deepEqual(cards(message.nodes)[0].commands, ['/劫云榜']);
       assert.ok(!view.commands.includes('/观望渡劫 7'));
       assert.deepEqual(requests.map(request => (request.body.arguments as { kind: string }).kind), ['list', kind]);
     });
   }
 }
+
+test('渡劫感悟回执拒绝无基础修为的正到账及不安全或与状态不符的到账', () => {
+  const reward = { baseExperience: 10, creditedExperience: 12, dailyRewarded: 1, dailyLimit: 3,
+    rewardDate: '2026-10-21', reason: 'granted', repeated: false };
+  for (const patch of [
+    { baseExperience: 0 },
+    { creditedExperience: 0 },
+    { creditedExperience: -1 },
+    { creditedExperience: Number.MAX_SAFE_INTEGER + 1 },
+    { creditedExperience: 1.5 },
+    { reason: 'daily_limit' },
+    { reason: 'experience_cap' },
+    { reason: 'no_eligible_dungeon' }
+  ]) {
+    assert.throws(() => parseParticipationReward({ ...reward, ...patch }), /渡劫感悟回执不完整/);
+  }
+});
