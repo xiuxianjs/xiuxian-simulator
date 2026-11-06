@@ -122,12 +122,20 @@ export function validFishingEventID(value: string): boolean {
   return /^[A-Za-z0-9_.:-]{1,40}$/.test(value);
 }
 
-/** Absolute Shanghai week key; never reinterpret a previous week's claim. */
-export function validFishingWeek(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { return false; }
+function fishingCalendarDate(value: string): Date | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { return undefined; }
   const date = new Date(value + 'T00:00:00.000Z');
 
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && date.getUTCDay() === 1;
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : undefined;
+}
+
+export function validFishingDate(value: string): boolean {
+  return fishingCalendarDate(value) !== undefined;
+}
+
+/** Absolute Shanghai week key; never reinterpret a previous week's claim. */
+export function validFishingWeek(value: string): boolean {
+  return fishingCalendarDate(value)?.getUTCDay() === 1;
 }
 
 function referenceOwner(ref: string): bigint {
@@ -181,7 +189,7 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
     };
   });
 
-  if (['species', 'bag-materials', 'instances', 'pending'].includes(view) && sections.length > 5) {
+  if (['species', 'bag-materials', 'instances', 'pending', 'market-fish-species', 'market-fish-instances'].includes(view) && sections.length > 5) {
     return invalid();
   }
   const footer = absent(data.footer) ? [] : array(data.footer, action);
@@ -198,7 +206,7 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
   if (!absent(data.navRows)) {
     const rows = array(data.navRows, value => array(value, action));
 
-    const inventoryTabs = view === 'species' || view === 'bag-materials';
+    const inventoryTabs = ['species', 'bag-materials', 'market-fish-species', 'market-fish-instances'].includes(view);
     const maxRows = view === 'blessing' || inventoryTabs ? 3 : 2;
     const maxColumns = view === 'blessing' ? 4 : 6;
 

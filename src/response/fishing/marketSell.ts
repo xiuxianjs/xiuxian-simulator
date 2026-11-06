@@ -1,5 +1,6 @@
 import { validFishingReference } from '@src/api/bot/fishing';
 import { fishingBubble } from './view';
+import { fishInventoryRealms } from './commands';
 import type { Next } from 'alemonjs';
 import { ResultCode } from 'alemonjs';
 import type { GameEvent } from '@src/types/event';
@@ -12,6 +13,66 @@ import { createBackendReadRequestContext, createBackendRequestContext } from '@s
 
 const kg = (g: number) => `${Math.trunc(g / 1000)}.${String(g % 1000).padStart(3, '0')} kg`;
 const manual = (label: string, command: string): BubbleAction => ({ label, command, autoEnter: false });
+
+const pageNumber = (raw = '1') => {
+  const page = Number(raw);
+
+  return /^\d+$/.test(raw) && page >= 1 && page <= 2147483647 ? String(page) : undefined;
+};
+
+function parseFishPicker(parts: string[], suffix?: string) {
+  const [target, first, second, third, last] = parts;
+  const input = { mode: 'fish-picker' as const, category: 'fish' as const };
+
+  if (target === '鱼种') {
+    const page = pageNumber(second);
+    const returnPage = pageNumber(third);
+    const fishRealm = last === undefined || last === '全部' ? undefined : fishInventoryRealms.indexOf(last);
+
+    if (suffix || parts.length > 5 || !first || !/^fishing_r[0-9]_[a-e]$/.test(first) || !page || !returnPage ||
+        (fishRealm !== undefined && fishRealm < 0)) {
+      return null;
+    }
+
+    return { ...input, speciesId: first, page, returnPage, ...(fishRealm === undefined ? {} : { fishRealm }) };
+  }
+  const fishRealm = target === undefined || target === '全部' ? undefined : fishInventoryRealms.indexOf(target);
+
+  if (fishRealm === -1) {
+    return undefined;
+  }
+  const page = pageNumber(first ?? suffix);
+
+  return page && parts.length <= 2 && (!suffix || target === undefined)
+    ? { ...input, page, ...(fishRealm === undefined ? {} : { fishRealm }) }
+    : null;
+}
+
+function parseFishMarketArguments(parts: string[], suffix?: string) {
+  const picker = parseFishPicker(parts, suffix);
+
+  if (picker !== undefined) {
+    return picker;
+  }
+  const [catchId, argument] = parts;
+
+  if (parts.length > 2 || !pageNumber(suffix)) {
+    return null;
+  }
+  if (catchId === '确认') {
+    return argument && validFishingReference(argument, 'z') ? { mode: 'confirm' as const, reference: argument } : null;
+  }
+  if (!/^[A-Za-z0-9_.:-]{1,40}$/.test(catchId)) {
+    return null;
+  }
+  const price = argument === undefined ? null : Number(argument);
+
+  if (price !== null && (!/^[1-9]\d*$/.test(argument) || !Number.isSafeInteger(price) || price > 100000000)) {
+    return null;
+  }
+
+  return { mode: price === null ? 'start' as const : 'direct' as const, category: 'fish', catchId, firstNumber: price, secondNumber: null };
+}
 
 /** Preserve the original market workflow while keeping catch IDs as strings. */
 export async function handleFishingMarketSell(event: GameEvent, next: Next): Promise<boolean> {
@@ -27,47 +88,28 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
     if (!receipts.length || receipts.some(receipt => receipt.code !== ResultCode.Ok)) { throw new Error('鱼交易消息未确认送达'); }
   };
   const parts = match[2]?.split(/\s+/).filter(Boolean) ?? [];
-  const page = Number(match[1] ?? 1);
-  const catchId = parts[0];
-  const reference = catchId === '确认' ? parts[1] : undefined;
-  const price = parts[1] === undefined ? undefined : Number(parts[1]);
-  const valid =
-    [...(event.MessageText ?? '')].length <= 80 &&
-    Number.isSafeInteger(page) &&
-    page >= 1 &&
-    page <= 2147483647 &&
-    (catchId !== '确认' || (parts.length === 2 && reference !== undefined && validFishingReference(reference, 'z'))) &&
-    parts.length <= 2 &&
-    (!catchId || catchId === '确认' || /^[A-Za-z0-9_.:-]{1,40}$/.test(catchId)) &&
-    (reference !== undefined
-      ? validFishingReference(reference, 'z')
-      : parts[1] === undefined || (/^[1-9]\d*$/.test(parts[1]) && Number.isSafeInteger(price) && price! <= 100000000));
+  const args = [...(event.MessageText ?? '')].length <= 80 ? parseFishMarketArguments(parts, match[1]) : null;
 
-  if (!valid) {
+  if (!args) {
     await send(
       errorBubble({
         ...common,
         title: '交易上架 · 未完成',
-        reason: '说明：/交易上架 鱼类[页码]，或 /交易上架 鱼类 完整鱼编号 [整尾灵晶单价]；数量固定1。',
+        reason: '说明：/交易上架 鱼类 [境界 [页码]]，或 /交易上架 鱼类 完整鱼编号 [整尾灵晶单价]。数量固定1。',
         footer
       })
     );
 
     return true;
   }
-  const mode = reference ? 'confirm' : catchId ? 'start' : 'list';
-  const args = reference
-    ? { mode, reference }
-    : catchId
-      ? { mode, category: 'fish', catchId, firstNumber: price ?? null, secondNumber: null }
-      : { mode, category: 'fish', subtype: '', page: String(page) };
+  const { mode } = args;
 
   try {
     const response = await runRobotBusiness(
       event,
       'market.sell',
       args,
-      (data, uid) => parseRobotMarketSell(data, mode, 'fish', uid),
+      (data, uid) => parseRobotMarketSell(data, mode === 'direct' ? 'receipt' : mode, 'fish', uid),
       next,
       async reply => {
         await send(
@@ -79,45 +121,36 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
           })
         );
       },
-      reference || (catchId && price !== undefined) ? createBackendRequestContext(event, 'market.sell.fish') : createBackendReadRequestContext()
+      mode === 'confirm' || mode === 'direct' ? createBackendRequestContext(event, 'market.sell.fish') : createBackendReadRequestContext()
     );
 
     if (response.handled) { return true; }
     const data = response.data;
 
-    if (data.mode === 'confirm' || (data.mode === 'start' && data.fishConfirmation)) {
-      const confirmation = data.fishConfirmation!;
+    if (data.mode === 'confirm') {
+      const confirmation = data.fishConfirmation;
 
       await send(fishingBubble(confirmation, event, confirmation.confirmationRef ? `/交易上架 鱼类 确认 ${confirmation.confirmationRef}` : undefined));
 
       return true;
     }
-    if (data.mode === 'list') {
-      if (data.page.items.length > 5) { throw new Error('鱼上架列表超过约定页大小'); }
-      await send(
-        buildBubble({
-          ...common,
-          title: '交易上架 - 鱼类',
-          sections: data.page.items.length
-            ? data.page.items.map(item => ({
-                title: item.name,
-                id: item.catchId,
-                lines: [
-                  `数量：${item.quantity}尾 · 境界：${item.realm}`,
-                  `重量：${kg(item.weightG!)}`,
-                  ...(item.priceRange ? [`可挂区间：${item.priceRange.min}~${item.priceRange.max} 灵晶`] : [])
-                ],
-                actions: [manual('上架', `/交易上架 鱼类 ${item.catchId}`)]
-              }))
-            : [{ lines: ['状态：暂无可上架的鱼。'] }],
-          nav: { current: page, total: Math.max(1, data.page.totalPages), count: data.page.total, command: '/交易上架 鱼类{page}', autoEnter: false },
-          footer
-        })
-      );
+    if (data.mode === 'fish-picker') {
+      const expected = 'speciesId' in args ? 'market-fish-instances' : 'market-fish-species';
+
+      if (data.view.view !== expected) { throw new Error('可上架鱼类列表与筛选条件不一致'); }
+      await send(fishingBubble(data.view, event));
 
       return true;
     }
-    if (data.mode !== 'start' || !catchId || !data.range.fixedQuantity || data.range.maxListingQuantity !== 1) { throw new Error('鱼单尾交易规则不匹配'); }
+    if (data.mode === 'receipt') {
+      await send(fishingBubble(data.receipt, event));
+
+      return true;
+    }
+    if (data.mode !== 'start' || args.mode !== 'start' || data.fishConfirmation || !data.range.fixedQuantity || data.range.maxListingQuantity !== 1) {
+      throw new Error('鱼单尾交易规则不匹配');
+    }
+    const { catchId } = args;
     const range = data.range;
     const referenceText = range.referencePrice >= range.minPrice && range.referencePrice <= range.maxPrice ? `（参考价 ${range.referencePrice} 灵晶）` : '';
     const actions: BubbleAction[] = [];
@@ -144,7 +177,7 @@ export async function handleFishingMarketSell(event: GameEvent, next: Next): Pro
               '数量：1尾',
               ...(data.listingId
                 ? [...(data.message ? [data.message] : []), `上架ID：${data.listingId}`]
-                : [`单价区间：${range.minPrice}~${range.maxPrice} 灵晶${referenceText}`, '说明：可修改快捷指令里的单价。'])
+                : [`单价区间：${range.minPrice}~${range.maxPrice} 灵晶${referenceText}`, '说明：可修改快捷指令里的单价，发送后直接上架。'])
             ],
             actions: data.listingId ? [] : actions
           }

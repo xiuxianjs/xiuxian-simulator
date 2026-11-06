@@ -30,6 +30,8 @@ export function presentMarketSellable(page: BackendMarketSellablePage, category:
 type RobotMarketSell =
   | { mode: 'choose' }
   | { mode: 'list'; page: ReturnType<typeof presentMarketSellable> }
+  | { mode: 'fish-picker'; view: FishingView }
+  | { mode: 'receipt'; receipt: FishingView }
   | {
       mode: 'start';
       range: BackendMarketPriceRange;
@@ -56,6 +58,24 @@ export function parseRobotMarketSell(value: unknown, expected: string, category:
   }
   if (value.mode === 'list') {
     return { mode: 'list', page: presentMarketSellable(parseBackendMarketSellable(value), category) };
+  }
+  if (value.mode === 'fish-picker') {
+    const view = parseFishingView('view' in value ? value.view : undefined);
+
+    if (!['market-fish-species', 'market-fish-instances'].includes(view.view) || view.confirmationRef) {
+      throw new Error('可上架鱼类列表响应不完整');
+    }
+
+    return { mode: 'fish-picker', view };
+  }
+  if (value.mode === 'receipt') {
+    const receipt = parseFishingView('receipt' in value ? value.receipt : undefined);
+
+    if (receipt.view !== 'receipt' || receipt.confirmationRef || !receipt.operationId?.trim()) {
+      throw new Error('鱼类上架回执不完整');
+    }
+
+    return { mode: 'receipt', receipt };
   }
   if (value.mode !== 'start' || !('range' in value)) {
     throw new Error('交易上架响应不完整');

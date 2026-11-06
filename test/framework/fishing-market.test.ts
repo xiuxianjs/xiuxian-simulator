@@ -8,6 +8,7 @@ import fishingHandler from '../../src/response/fishing/res';
 import { parseFishingView } from '../../src/api/bot/fishing';
 import { parseBackendMarketSellable } from '../../src/api/bot/market-trade';
 import { parseFishingCommand } from '../../src/response/fishing/commands';
+import { createGameRouter } from '../../src/router';
 import { businessEnvelope, gameFixture } from './fixture';
 
 const captures: Record<string, TestRunResult['messages']> = {};
@@ -21,6 +22,33 @@ const marketPreview = wire['listing-preview'].data.data;
 const reference = marketPreview.fishConfirmation.confirmationRef;
 const range = { minPrice: 50, maxPrice: 114, referencePrice: 63, source: 'fish_weight_anchor', credibilityReady: true, templateItemId: 0, maxListingQuantity: 1, fixedQuantity: true };
 const fish = { userItemId: 0, templateId: 0, catchId, weightG: 1840, category: 'fish', name: '金须鲤', quantity: 1, gradeId: null, grade: '', realm: '筑基', currentLowestPrice: null, priceRange: range };
+const pickerCommand = '/交易上架 鱼类';
+const speciesId = 'fishing_r2_b';
+const pickerFooter = [{ label: '返回渔获', command: '/储物袋 渔获' }, { label: '我的上架', command: '/我的上架' }];
+const pickerArgs = { mode: 'fish-picker', category: 'fish' };
+type PickerArgs = { fishRealm?: number; speciesId?: string; page: string; returnPage?: string };
+
+function pickerResponse(args: PickerArgs) {
+  const realm = args.fishRealm === 2 ? '筑基' : '全部';
+  const page = Number(args.page);
+  const group = realm === '全部' ? pickerCommand : `${pickerCommand} ${realm}`;
+  const base = { rulesVersion: 'market-picker-test', title: '交易上架 - 鱼类', status: realm, footer: pickerFooter };
+  const instances = `${pickerCommand} 鱼种 ${speciesId}`;
+
+  return { ...pickerArgs, view: args.speciesId ? {
+    ...base, view: 'market-fish-instances',
+    sections: [{ title: '金须鲤', id: catchId, lines: ['数量：1尾 · 境界：筑基', '重量：1.840 kg', '可挂区间：50~114 灵晶'],
+      actions: [{ label: '上架', command: `${pickerCommand} ${catchId}` }] }],
+    nav: { page, totalPages: 2, total: 7, command: `${instances} {page} ${args.returnPage} ${realm}` },
+    footer: [{ label: '返回鱼种', command: `${group} ${args.returnPage}` }, ...pickerFooter]
+  } : {
+    ...base, view: 'market-fish-species',
+    navRows: [[{ label: '全部', command: pickerCommand }, { label: '筑基', command: `${pickerCommand} 筑基` }, { label: '炼气', command: `${pickerCommand} 炼气` }]],
+    sections: [{ title: '金须鲤', id: speciesId, lines: ['数量：7尾 · 境界：筑基'],
+      actions: [{ label: '查看该种', command: `${instances} 1 ${page} ${realm}` }] }],
+    nav: { page, totalPages: 2, total: 6, command: `${pickerCommand} ${realm} {page}` }
+  } };
+}
 function delivered(result: TestRunResult) {
   assert.deepEqual(result.errors, []);
   assert.equal(result.messages.length, 1);
@@ -46,17 +74,47 @@ function delivered(result: TestRunResult) {
   return inspectMessage(nodes);
 }
 
-test('原市场鱼类上架页逐尾保留字符串编号及精确克重', async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'list', items: [fish], total: 1, totalPages: 1, currentPage: 1, pageSize: 5 }));
-  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/交易上架 鱼类', platform: 'qq-bot' }));
-  const view = delivered(result);
-  captures['listing-list'] = result.messages;
-  assert.match(view.text, /交易上架 - 鱼类/);
-  assert.match(view.text, /数量：1尾 · 境界：筑基/);
-  assert.match(view.text, /重量：1.840 kg/);
-  assert.match(view.text, /可挂区间：50~114 灵晶/);
-  assert.ok(view.commands.includes(`/交易上架 鱼类 ${catchId}`));
-  assert.deepEqual(requests[0].body.arguments, { mode: 'list', category: 'fish', subtype: '', page: '1' });
+test('鱼类上架沿境界、鱼种和单尾翻页往返，保留筛选和原始编号', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, pickerResponse(request.body.arguments as PickerArgs)));
+  await app.mount({ responseRouter: app.run(createGameRouter).router }, undefined, 'xiuxian-game');
+  const run = async (text: string) => {
+    const result = await app.dispatch(app.events.privateMessage({ text, platform: 'qq-bot' }));
+
+    return { messages: result.messages, view: delivered(result) };
+  };
+  const { view: all, messages } = await run(pickerCommand);
+  captures['listing-list'] = messages;
+  assert.match(all.text, /交易上架 - 鱼类/);
+  assert.match(all.text, /‹▸全部›/);
+  assert.match(all.text, /数量：7尾 · 境界：筑基/);
+  assert.ok(all.text.indexOf('‹筑基›') < all.text.indexOf('金须鲤'));
+  assert.ok(!all.text.includes(speciesId));
+  const realmCommand = all.commands.find(command => command === `${pickerCommand} 筑基`)!;
+  const { view: realm } = await run(realmCommand);
+  assert.match(realm.text, /‹▸筑基›/);
+  const pageCommand = realm.commands.find(command => command === `${pickerCommand} 筑基 2`)!;
+  const { view: species } = await run(pageCommand);
+  const speciesCommand = species.commands.find(command => command === `${pickerCommand} 鱼种 ${speciesId} 1 2 筑基`)!;
+  const { view: instance, messages: instanceMessages } = await run(speciesCommand);
+  captures['listing-instances'] = instanceMessages;
+  assert.match(instance.text, /重量：1.840 kg/);
+  assert.match(instance.text, /可挂区间：50~114 灵晶/);
+  assert.ok(instance.text.includes(catchId));
+  assert.ok(instance.commands.includes(`${pickerCommand} ${catchId}`));
+  const secondInstanceCommand = instance.commands.find(command => command === `${pickerCommand} 鱼种 ${speciesId} 2 2 筑基`)!;
+  const { view: secondInstance } = await run(secondInstanceCommand);
+  await run(secondInstance.commands.find(command => command === pageCommand)!);
+  await run(`${pickerCommand}2`);
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { ...pickerArgs, page: '1' },
+    { ...pickerArgs, page: '1', fishRealm: 2 },
+    { ...pickerArgs, page: '2', fishRealm: 2 },
+    { ...pickerArgs, page: '1', fishRealm: 2, speciesId, returnPage: '2' },
+    { ...pickerArgs, page: '2', fishRealm: 2, speciesId, returnPage: '2' },
+    { ...pickerArgs, page: '2', fishRealm: 2 },
+    { ...pickerArgs, page: '2' }
+  ]);
+  assert.ok(requests.every(request => request.path.endsWith('/market.sell')));
 });
 
 // Service facts: NPC ceil per fish 21/14 coins, converted at 10 coins/crystal,
@@ -77,36 +135,17 @@ for (const row of [
   assert.deepEqual(requests[0].body.arguments, { mode: 'start', category: 'fish', catchId, firstNumber: null, secondNumber: null });
 });
 
-test('Go实际鱼挂牌预览使用z原引用，同一引用显示原回执与重放', async t => {
+test('已有 Go 鱼挂牌 z 原引用仍可取回原回执与重放', async t => {
   let confirmed = false;
   const { app, requests } = await gameFixture(t, request => {
     const args = request.body.arguments as Record<string, unknown>;
-    if (args.mode === 'start') return wire['listing-preview'].data;
-    if (args.mode === 'list') return wire['listing-list'].data;
     assert.deepEqual(args, { mode: 'confirm', reference });
     const result = wire[confirmed ? 'listing-replay' : 'listing-confirm'].data;
     confirmed = true;
     return result;
   });
-  const { catchId: originalFish, range: originalRange } = marketPreview;
-  const previewResult = await app.runHandler(handler, app.events.privateMessage({ text: `/交易上架 鱼类 ${originalFish} ${originalRange.maxPrice}`, platform: 'qq-bot', userId: 'player' }));
-  const preview = delivered(previewResult);
-  captures['listing-preview'] = previewResult.messages;
+  const { catchId: originalFish } = marketPreview;
   const command = `/交易上架 鱼类 确认 ${reference}`;
-  assert.ok(preview.text.includes('交易上架 · 确认'));
-  assert.match(preview.text, /重量：1\.840 kg/);
-  assert.match(preview.text, /预览有效5分钟/);
-  assert.ok(preview.commands.includes(command));
-  assert.ok(preview.commands.includes('/交易上架 鱼类'));
-  assert.ok(!preview.commands.some(command => command.startsWith('/垂钓 确认')));
-  assert.deepEqual(requests[0].body.arguments, { mode: 'start', category: 'fish', catchId: originalFish, firstNumber: originalRange.maxPrice, secondNumber: null });
-  const cancelCommand = preview.commands.find(value => value === '/交易上架 鱼类')!;
-  const canceled = delivered(await app.runHandler(handler, app.events.privateMessage({ text: cancelCommand, platform: 'qq-bot', userId: 'player' })));
-  assert.ok(canceled.text.includes('交易上架 - 鱼类'));
-  assert.match(canceled.text, /境界：筑基/);
-  assert.match(canceled.text, /境界：凡鱼/);
-  assert.deepEqual(requests[1].body.arguments, { mode: 'list', category: 'fish', subtype: '', page: '1' });
-  assert.equal(confirmed, false);
   for (const messageId of ['fish-confirm-1', 'fish-confirm-1', 'fish-confirm-2']) {
     const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot', userId: 'player', messageId }));
     const receipt = delivered(result);
@@ -116,8 +155,53 @@ test('Go实际鱼挂牌预览使用z原引用，同一引用显示原回执与�
     assert.ok(receipt.text.includes(originalFish));
     captures['listing-confirm'] = result.messages;
   }
-  assert.equal(requests[2].idempotencyKey, requests[3].idempotencyKey);
+  assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);
   assert.ok(requests.every(request => request.path.endsWith('/market.sell')));
+});
+
+test('鱼类只查单尾报价，发送带价蓝链直接上架并使用原消息幂等键', async t => {
+  const { catchId: originalFish } = marketPreview;
+  const receipt = wire['listing-confirm'].data.data.fishConfirmation;
+  const { app, requests } = await gameFixture(t, request => {
+    const input = request.body.arguments as Record<string, unknown>;
+
+    return businessEnvelope(request.bid, input.mode === 'start'
+      ? { mode: 'start', range, catchId: originalFish, weightG: 1840, itemName: '金须鲤' }
+      : { mode: 'receipt', receipt });
+  });
+  const quote = delivered(await app.runHandler(handler, app.events.privateMessage({ text: `${pickerCommand} ${originalFish}`, platform: 'qq-bot' })));
+  assert.match(quote.text, /发送后直接上架/);
+  const direct = quote.commands.find(command => command === `${pickerCommand} ${originalFish} 114`)!;
+  for (const messageId of ['fish-direct-1', 'fish-direct-1']) {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: direct, platform: 'qq-bot', messageId }));
+    const view = delivered(result);
+
+    captures['listing-direct'] = result.messages;
+    assert.match(view.text, /上架成功/);
+    assert.match(view.text, /重量：1\.840 kg/);
+    assert.match(view.text, /单价：114 灵晶/);
+    assert.ok(view.text.includes(originalFish));
+    assert.ok(!view.commands.some(command => command.includes('确认')));
+  }
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { mode: 'start', category: 'fish', catchId: originalFish, firstNumber: null, secondNumber: null },
+    { mode: 'direct', category: 'fish', catchId: originalFish, firstNumber: 114, secondNumber: null },
+    { mode: 'direct', category: 'fish', catchId: originalFish, firstNumber: 114, secondNumber: null }
+  ]);
+  assert.equal(requests[1].idempotencyKey, requests[2].idempotencyKey);
+});
+
+test('直接上架回执未知时只提供核对入口，旧预览响应不生成确认按钮', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, marketPreview));
+  const pricedCommand = `${pickerCommand} ${catchId} 114`;
+  const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: pricedCommand, platform: 'qq-bot' })));
+
+  assert.match(view.text, /交易上架 · 结果待核对/);
+  assert.ok(view.commands.includes('/我的上架'));
+  assert.ok(!view.commands.some(command => command === pricedCommand || command.includes('确认')));
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { mode: 'direct', category: 'fish', catchId, firstNumber: 114, secondNumber: null }
+  ]);
 });
 
 test('Go实际售鱼y预览与确认经QQ正常显示原回执', async t => {
@@ -167,7 +251,8 @@ test('A档最低参考1晶的鱼报价只生成合法2晶动作，不生成越�
 for (const command of [
   '/交易上架 鱼类 确认', `/交易上架 鱼类 确认 ${reference.slice(0, -1)}`,
   `/交易上架 鱼类 确认 ${reference.replace('_z_', '_y_')}`,
-  `/交易上架 鱼类 ${catchId} 1 100`, `/交易上架 鱼类 ${catchId} -1`, `/交易上架 鱼类 ${catchId} 1.5`
+  `/交易上架 鱼类 ${catchId} 1 100`, `/交易上架 鱼类 ${catchId} -1`, `/交易上架 鱼类 ${catchId} 1.5`,
+  `${pickerCommand} 筑基 0`, `${pickerCommand} 筑基 2147483648`, `${pickerCommand} 鱼种 bad 1 1`, `${pickerCommand} 鱼种 ${speciesId} 1 0 筑基`
 ]) test(`鱼挂单损坏/数量混淆零后端请求：${command}`, async t => {
   const { app, requests } = await gameFixture(t, () => { throw new Error('invalid fish listing must not request'); });
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));

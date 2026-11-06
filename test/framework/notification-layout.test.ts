@@ -157,6 +157,26 @@ test('新旧鱼讯历史保留原战报入口，正文去掉裸命令', async t 
   }
 });
 
+test('奇遇历史只为结构化原事件编号提供手动入口', async t => {
+  const bossID = 'fb_' + '4'.repeat(32);
+  const text = '【洞府垂钓 · 垂钓奇遇】\n\n水域异动，上古龙鲤现身！';
+  const time = '2026-11-06T00:00:00Z';
+  const items = [
+    { id: 'encounter', text, time, delivery: '已发送至订阅群', fishingBossEventId: bossID },
+    { id: 'malformed', text, time, delivery: '历史记录', fishingBossEventId: bossID.slice(0, -1) },
+    { id: 'plain', text: text + '\n/垂钓 奇遇 ' + bossID, time, delivery: '历史记录' }
+  ];
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, { items, page: 1, hasNext: false }));
+  const result = await app.runHandler(notificationHistory, app.events.privateMessage({ text: '/我的通知', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  const message = result.messages[0];
+  const command = '/垂钓 奇遇 ' + bossID;
+  assert.deepEqual(message.commands.filter(value => value.startsWith('/垂钓 奇遇 ')), [command]);
+  const button = quoteLines(message.nodes)[0].find(node => node.type === 'MD.button') as { options?: Record<string, unknown> } | undefined;
+  assert.equal(button?.options?.autoEnter, false);
+  assert.ok(!Object.hasOwn(button?.options ?? {}, 'show'));
+});
+
 
 test('私聊飞信保留原始正文和回复，不再构造管理员订阅告警', async t => {
   const app = createTestApp();

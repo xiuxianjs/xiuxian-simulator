@@ -2,6 +2,7 @@
 const robotBusinessOperations = [
   'fishing.query',
   'fishing.contest-claim',
+  'fishing.daily-supply',
   'fishing.preview',
   'fishing.purchase',
   'fishing.start-current',

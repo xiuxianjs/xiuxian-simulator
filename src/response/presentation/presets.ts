@@ -74,12 +74,16 @@ export const errorBubble = (input: Common & { reason: string; actions?: BubbleAc
   });
 
 /** 主动通知：正文原样，来源按钮 + 我的通知；不挂全局键盘。 */
-export const noticeBubble = (input: Common & { lines: string[]; actions?: BubbleAction[] }) => buildBubble({
+export const noticeBubble = (input: Common & { heading?: string; lines: string[]; actions?: BubbleAction[] }) => buildBubble({
     isPrivate: input.isPrivate,
     bid: input.bid,
     mention: input.mention,
     title: input.title,
     // 通知的操作固定单独一行：正文末尾补一个空行，再挂按钮。
-    sections: [{ lines: input.actions && input.actions.length > 0 && input.lines.length > 0 ? [...input.lines, ''] : input.lines, actions: input.actions }],
+    sections: [{
+      title: input.heading,
+      lines: input.actions && input.actions.length > 0 && input.lines.length > 0 ? [...input.lines, ''] : input.lines,
+      actions: input.actions
+    }],
     bar: false
   });

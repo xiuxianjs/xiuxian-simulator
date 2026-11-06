@@ -26,7 +26,8 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   const md = Format.createMarkdown();
 
   type Markdown = typeof md;
-  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish', 'sell-realm']);
+  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish', 'sell-realm',
+    'market-fish-species', 'market-fish-instances']);
   const emphasisNames = [...new Set(data.emphasisNames ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
   const text = (target: Markdown, value: string) => {
     if (!emphasisNames.length || !value.length) {
@@ -67,7 +68,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     quote = section.quote ?? quote;
     const target = Format.createMarkdown();
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
-    const showID = !['gear', 'history', 'cast', 'species', 'catalog', 'instances'].includes(data.view) &&
+    const showID = !['gear', 'history', 'cast', 'species', 'catalog', 'instances', 'market-fish-species'].includes(data.view) &&
       !(data.view === 'pending' && section.id.startsWith('fc_'));
     const title = [section.title, showID && section.id ? `#${section.id}` : '', section.suffix].filter(Boolean).join(' ');
     const objectList = itemViews.has(data.view) && !(data.view === 'blessing' && data.status === 'overview');
@@ -137,7 +138,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
     data.sections.forEach((section, index) => block(section, index === 1, false, false, index === 2));
-  } else if (['species', 'bag-materials'].includes(data.view) && data.navRows?.length) {
+  } else if (['species', 'bag-materials', 'market-fish-species', 'market-fish-instances'].includes(data.view) && data.navRows?.length) {
     for (const row of data.navRows) {
       renderSubTabs(md, row, data.status);
     }

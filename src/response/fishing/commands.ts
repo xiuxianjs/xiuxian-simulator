@@ -1,6 +1,6 @@
-import { fishingBaits, fishingChums, validFishingReference, validFishingEventID, validFishingWeek, type FishingInput, type FishingCurrency } from '@src/api/bot/fishing';
+import { fishingBaits, fishingChums, validFishingDate, validFishingReference, validFishingEventID, validFishingWeek, type FishingInput, type FishingCurrency } from '@src/api/bot/fishing';
 
-type FishingRequest = { operation: 'fishing.query' | 'fishing.preview' | 'fishing.purchase' | 'fishing.start-current' | 'fishing.stop-current' | 'fishing.configure' | 'fishing.contest-claim'; input: FishingInput } | { operation: 'fishing.confirm'; input: { ref: string } } | { operation: 'fishing.pack-checkout'; input: { sku: string } };
+type FishingRequest = { operation: 'fishing.query' | 'fishing.preview' | 'fishing.purchase' | 'fishing.start-current' | 'fishing.stop-current' | 'fishing.configure' | 'fishing.contest-claim'; input: FishingInput } | { operation: 'fishing.confirm'; input: { ref: string } } | { operation: 'fishing.pack-checkout'; input: { sku: string } } | { operation: 'fishing.daily-supply'; input: { chumType?: string; date?: string } };
 export type FishingCommand = FishingRequest | { error: string };
 const currencies: Record<string, FishingCurrency> = {
   灵鳞钱: 'coin',
@@ -14,7 +14,8 @@ const currencies: Record<string, FishingCurrency> = {
 };
 const id = (value: string | undefined) => value !== undefined && /^[A-Za-z0-9_.:-]{1,64}$/.test(value);
 const fishInstanceID = (value: string | undefined): value is string => /^ff_[0-9a-f]{32}$/.test(value ?? '');
-const fishInventoryRealms = ['凡物', '炼气', '筑基', '金丹', '元婴', '化神', '洞虚', '合体', '大乘', '仙'];
+
+export const fishInventoryRealms = ['凡物', '炼气', '筑基', '金丹', '元婴', '化神', '洞虚', '合体', '大乘', '仙'];
 const fishInventoryFilter = (value: string | undefined) => {
   if (value === undefined || value === '全部') { return {}; }
   const fishRealm = fishInventoryRealms.indexOf(value);
@@ -181,6 +182,15 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
   if (verb === '赛领奖') {
     return values.length === 1 && validFishingWeek(values[0])
       ? { operation: 'fishing.contest-claim', input: { week: values[0] } } : error('/垂钓 赛领奖 <周一日期YYYY-MM-DD>');
+  }
+  if (verb === '每日补给') {
+    if (values.length === 0) { return { operation: 'fishing.daily-supply', input: {} }; }
+    const [action, name, date] = values;
+    const chumType = Object.hasOwn(fishingChums, name) ? fishingChums[name as keyof typeof fishingChums] : undefined;
+
+    return values.length === 3 && action === '领取' && chumType && validFishingDate(date)
+      ? { operation: 'fishing.daily-supply', input: { chumType, date } }
+      : error('/垂钓 每日补给，或 /垂钓 每日补给 领取 <窝料名> <日期YYYY-MM-DD>');
   }
   if (!verb) {
     return query('overview');

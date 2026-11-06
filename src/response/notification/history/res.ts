@@ -1,7 +1,7 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { isPrivateEvent } from '@src/utils/privateEvent';
-import { fishingNotificationLayout, notificationTextLayout } from '@src/notification/presentation';
+import { fishingBossNoticeCommand, fishingNotificationLayout, notificationTextLayout } from '@src/notification/presentation';
 import { flyMailQuote, flyMailViewCommand, parseFlyMailNotice } from '@src/utils/flyMailPresentation';
 import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
@@ -21,7 +21,7 @@ export default onResponse(selects, async e => {
     return parentNext();
   }
   const page = Number(match[1] ?? 1);
-  const footer = [{ label: '返回主页', command: '/我' }];
+  const footer = [{ label: '返回主页', command: '/我', autoEnter: false }];
   let hasNext = false;
 
   try {
@@ -73,6 +73,11 @@ export default onResponse(selects, async e => {
       if (fishing?.reportCommand) {
         quote.addNewline().addButton(markdownButtonLabel('查看战报'), { data: commandText(fishing.reportCommand), autoEnter: false });
       }
+      const encounterCommand = fishingBossNoticeCommand(item.fishingBossEventId);
+
+      if (encounterCommand) {
+        quote.addNewline().addButton(markdownButtonLabel('查看奇遇'), { data: commandText(encounterCommand), autoEnter: false });
+      }
       md.addBlockquote(quote).addNewline();
     }
   } catch (error) {
@@ -86,7 +91,7 @@ export default onResponse(selects, async e => {
       title: '我的通知',
       content: md,
       footer,
-      nav: { current: page, hasNext, command: '/我的通知 {page}' }
+      nav: { current: page, hasNext, command: '/我的通知 {page}', autoEnter: false }
     })
   );
 });

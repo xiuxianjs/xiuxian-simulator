@@ -5,6 +5,12 @@ import { addOptions } from '@src/utils/messageHelper';
 
 type Action = { label: string; command: string };
 
+export const fishingBossNotificationSource = 'fishing.boss.discovered';
+
+export function fishingBossNoticeCommand(eventId: unknown): string | undefined {
+  return typeof eventId === 'string' && /^fb_[0-9a-f]{32}$/.test(eventId) ? `/垂钓 奇遇 ${eventId}` : undefined;
+}
+
 function notificationReference(text: string, pattern: RegExp): string | undefined {
   const id = text.match(pattern)?.[1];
 
@@ -184,7 +190,7 @@ export function fishingNotificationLayout(text: string, castId?: unknown) {
 }
 
 /** 兼容旧纯文本通知；已有 Markdown/图片等富内容保留原样，飞信继续使用专用展示。 */
-export function notificationNoticeData(data: DataEnums[], source = '', fishingCastId?: unknown): DataEnums[] {
+export function notificationNoticeData(data: DataEnums[], source = '', fishingReference?: unknown): DataEnums[] {
   if (!data.length || data.some(block => block.type !== 'Text' && block.type !== 'Mention')) {
     return data;
   }
@@ -196,14 +202,18 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingCa
   if (!text.trim()) {
     return data;
   }
-  const fishing = source === 'fishing.result.rare' || source === 'fishing.result.king' ? fishingNotificationLayout(text, fishingCastId) : undefined;
-  const actions = fishing
-    ? [...(fishing.reportCommand ? [{ label: '查看战报', command: fishing.reportCommand, autoEnter: false }] : [])]
-    : [...notificationActions(source, text)];
+  const fishing = source === 'fishing.result.rare' || source === 'fishing.result.king' ? fishingNotificationLayout(text, fishingReference) : undefined;
+  const encounter = source === fishingBossNotificationSource;
+  const fishingNotice = Boolean(fishing) || encounter;
+  const command = encounter ? fishingBossNoticeCommand(fishingReference) : fishing?.reportCommand;
+  const actions = fishingNotice
+    ? (command ? [{ label: encounter ? '查看奇遇' : '查看战报', command, autoEnter: false }] : [])
+    : notificationActions(source, text);
   const { title, lines } = fishing ?? notificationTextLayout(text);
   const built = noticeBubble({
-    title: fishing ? '修仙 · 通知' : noticeTitle(title),
-    lines: fishing && title !== '修仙 · 通知' ? [title, ...lines] : lines,
+    title: fishingNotice ? '修仙 · 通知' : noticeTitle(title),
+    heading: fishingNotice && title !== '修仙 · 通知' ? title : undefined,
+    lines,
     actions
   });
 
@@ -212,6 +222,7 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingCa
 
 /** 与服务端 notificationCategory 的分类前缀保持一致；未知来源归入 other。 */
 export function notificationSettingsData(data: DataEnums[], source = ''): DataEnums[] {
+  if (source === fishingBossNotificationSource) { return data; }
   const categories: Record<string, string> = {
     meditation: '闭关',
     exploration: '秘境探索',
@@ -241,8 +252,8 @@ export function notificationNavigationData(data: DataEnums[]): DataEnums[] {
   const navigation = Format.createMarkdown();
 
   addOptions(navigation, [
-    { label: '通知设置', command: '/通知设置' },
-    { label: '我的通知', command: '/我的通知' }
+    { label: '通知设置', command: '/通知设置', autoEnter: false },
+    { label: '我的通知', command: '/我的通知', autoEnter: false }
   ]);
 
   // 只去掉客户端通用页标题，不触碰引用块中的服务端正文或特定事件标题。

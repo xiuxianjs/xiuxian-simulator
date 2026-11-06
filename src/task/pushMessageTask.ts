@@ -14,7 +14,7 @@ import {
   retryNotificationRelay
 } from '@src/api/bot/notification-relay';
 import { deliverLegacyNotification, deliverPlayerNotification, deliverNotificationOnce } from '@src/notification/service';
-import { notificationNoticeData, notificationSettingsData, notificationNavigationData } from '@src/notification/presentation';
+import { fishingBossNotificationSource, notificationNoticeData, notificationSettingsData, notificationNavigationData } from '@src/notification/presentation';
 import { logger, type DataEnums } from 'alemonjs';
 import { randomUUID } from 'crypto';
 
@@ -25,6 +25,7 @@ type PlayerNotificationPayload = {
   source?: string;
   flymail?: unknown;
   fishingCastId?: unknown;
+  fishingBossEventId?: unknown;
   version: 1;
   recipientUserId: number;
   data: DataEnums[];
@@ -143,10 +144,11 @@ async function processPlayerNotification(
     }
     // 归属必须与服务端下发的一致，订阅查询与私聊地址都按该玩家进行。
     const ownerUserId = resolveNotificationOwner(row, row.recipientBid ?? '', payload.recipientUserId);
+    const fishingReference = payload.source === fishingBossNotificationSource ? payload.fishingBossEventId : payload.fishingCastId;
     const data =
       payload.source === 'flymail.message.received'
         ? (flyMailNoticeData(payload.flymail, ownerUserId) ?? notificationNoticeData(payload.data, payload.source))
-        : notificationNoticeData(payload.data, payload.source, payload.fishingCastId);
+        : notificationNoticeData(payload.data, payload.source, fishingReference);
     const delivery = await deliverNotificationOnce(row.eventId, async () => {
       // Only explicit per-session subscriptions may initiate a DM.
       // Old queued announcements and events without consent stay in history.

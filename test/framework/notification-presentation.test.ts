@@ -10,6 +10,7 @@ import { createResult, Format, onResponse, ResultCode, shutdownLogger, useMessag
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { notificationNoticeData } from '../../src/notification/presentation';
 import { PushMessageTask } from '../../src/task/pushMessageTask';
+import { NOTIFICATION_BUFFER_MS } from '../../src/notification/flymailBuffer';
 import companionAccept from '../../src/response/companion/accept/res';
 import teamApplications from '../../src/response/team/applications/res';
 import competitionReward from '../../src/response/guildCompetition/claimReward/res';
@@ -160,6 +161,13 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
   const rareCast = 'fc_' + '1'.repeat(32);
   const kingCast = 'fc_' + '2'.repeat(32);
   const actual = JSON.parse(readFileSync(new URL('../fixtures/fishing-notification-wire-actual.json', import.meta.url), 'utf8')).relay;
+  const bossID = 'fb_' + '4'.repeat(32);
+  const bossText = '【洞府垂钓 · 垂钓奇遇】\n\n水域异动，上古龙鲤现身！\n境界：筑基 · 大圆满\n挑战截止：11-07 18:00（北京时间）\n剩余挑战：3次';
+  const boss = process.env.FISHING_BOSS_NOTICE_WIRE
+    ? JSON.parse(readFileSync(process.env.FISHING_BOSS_NOTICE_WIRE, 'utf8')).relay
+    : { eventId: `fishing.boss.discovered:${bossID}:7`, recipientUserId: 7, recipientBid: 'owner', payload: {
+      version: 1, recipientUserId: 7, source: 'fishing.boss.discovered', fishingBossEventId: bossID, data: [{ type: 'Text', value: bossText }]
+    } };
   const rareText = '洞府垂钓 · 稀有鱼渔讯\n\n鱼种：寒玉鲈 · 筑基\n重量：4.280kg\n结果：战胜，已获得';
   const kingText = '洞府垂钓 · 鱼王渔讯\n\n鱼种：玄甲鱼王 · 筑基\n重量：12.840kg\n结果：脱钩，未获得\n\n查看战报：/垂钓 战报 ' + kingCast;
   const queues: Record<string, unknown[]> = {
@@ -170,7 +178,7 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
       version: 1, recipientUserId: 7, source: 'fishing.result.rare', fishingCastId: rareCast, data: [{ type: 'Text', value: rareText }]
     } }, { eventId: 'fishing.result:' + kingCast + ':7', recipientUserId: 7, recipientBid: 'owner', payload: {
       version: 1, recipientUserId: 7, source: 'fishing.result.king', data: [{ type: 'Text', value: kingText }]
-    } }, actual]
+    } }, actual, boss]
   };
   const archived: unknown[] = [];
   const receipts: unknown[] = [];
@@ -194,45 +202,57 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
   }));
   const app = createTestApp({ config: { 'qq-bot': { app_id: '100017' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'offline-token' } } } });
   t.after(() => app.dispose());
+  // Keep the framework and platform deadlines real while letting the notification batch flush immediately.
+  mock.timers.reset();
+  const schedule = globalThis.setTimeout;
+  const timer = t.mock.method(globalThis, 'setTimeout', (callback, delay, ...args) =>
+    schedule(callback, delay === NOTIFICATION_BUFFER_MS ? 1 : delay, ...args)
+  );
+  t.after(() => { timer.mock.restore(); mock.timers.enable({ apis: ['setTimeout'] }); });
   app.actions.on('message.send.target', () => [createResult(ResultCode.Ok, '送达', { id: 'notice-receipt' })]);
   const handler = onResponse('message.create', async () => { await PushMessageTask(); });
   const result = await app.runHandler(handler, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
-  assert.equal(result.messages.length, 5);
-  assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/通知设置'));
-  assert.ok(inspectMessage(result.messages[1].nodes).commands.includes('/争夺战报 42'));
-  for (const [offset, id] of [rareCast, kingCast, actual.payload.fishingCastId].entries()) {
-    const { nodes } = result.messages[offset + 2];
-    const notice = inspectMessage(nodes);
-    assert.deepEqual(notice.commands, [`/垂钓 战报 ${id}`, '/通知设置', '/我的通知']);
-    assert.ok(!notice.text.includes('/垂钓 战报') && !notice.text.includes('查看战报：'));
-    assert.ok(notice.text.includes(offset === 0 ? '战胜，已获得' : '脱钩，未获得'));
-    const markdown = nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
-    assert.equal(markdown.find(node => node.type === 'MD.bold')?.value, '修仙 · 通知');
-    const quote = markdown.find(node => node.type === 'MD.blockquote');
-    assert.ok(quote && Array.isArray(quote.value));
-    const heading = quote.value[0];
-    assert.ok(heading && 'value' in heading);
-    assert.equal(heading.value, offset === 0 ? '洞府垂钓 · 稀有鱼渔讯' : '洞府垂钓 · 鱼王渔讯');
-    const buttons = quote.value.filter(node => node.type === 'MD.button');
-    assert.equal(buttons.length, 2);
-    for (const button of buttons) {
-      assert.equal(button.options?.autoEnter, false);
-      assert.ok(!Object.hasOwn(button.options ?? {}, 'show'));
-      assert.ok([...String(button.options?.data)].length <= 80);
+  const messages = result.messages.map(message => ({
+    message,
+    notice: inspectMessage(message.nodes),
+    markdown: message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])
+  }));
+  assert.ok(messages.some(({ notice }) => notice.text.includes('旧消息池内容') && notice.commands.includes('/通知设置')));
+  assert.ok(messages.some(({ notice }) => notice.commands.includes('/争夺战报 42')));
+  function findFishingNotice(command: string, heading: string, fact: string) {
+    for (const entry of messages) {
+      const quote = entry.markdown.find(node => node.type === 'MD.blockquote' && Array.isArray(node.value) &&
+        node.value.some(line => line.type === 'MD.text' && line.value === fact) &&
+        node.value.some(line => line.type === 'MD.button' && line.options?.data === command));
+      if (quote?.type !== 'MD.blockquote' || !Array.isArray(quote.value)) { continue; }
+      assert.deepEqual(quote.value[0], { type: 'MD.bold', value: heading });
+      assert.equal(entry.markdown.find(node => node.type === 'MD.bold')?.value, '修仙 · 通知');
+      assert.ok(entry.notice.commands.includes('/通知设置') && entry.notice.commands.includes('/我的通知'));
+      const link = quote.value.find(line => line.type === 'MD.button');
+      assert.equal(link?.options?.autoEnter, false);
+      assert.ok(!Object.hasOwn(link?.options ?? {}, 'show'));
+      assert.ok([...command].length <= 80);
+      assert.doesNotMatch(JSON.stringify(quote.value.filter(line => line.type === 'MD.text')), /查看战报：|\/垂钓 战报/);
+      return { message: entry.message, quote, lines: quote.value };
     }
+    assert.fail(`通知未送达：${heading} ${fact}`);
   }
-  const actualNotice = inspectMessage(result.messages[4].nodes);
-  assert.ok(actualNotice.text.includes('洞府垂钓 · 鱼王渔讯'));
-  assert.ok(actualNotice.text.includes('碧鳞鱼王 · 炼气') && actualNotice.text.includes('重量：10.856kg'));
+  const rare = findFishingNotice(`/垂钓 战报 ${rareCast}`, '洞府垂钓 · 稀有鱼渔讯', '结果：战胜，已获得');
+  const legacyKing = findFishingNotice(`/垂钓 战报 ${kingCast}`, '洞府垂钓 · 鱼王渔讯', '结果：脱钩，未获得');
+  const king = findFishingNotice(`/垂钓 战报 ${actual.payload.fishingCastId}`, '洞府垂钓 · 鱼王渔讯', '重量：10.856kg');
+  const bossNotice = findFishingNotice(`/垂钓 奇遇 ${boss.payload.fishingBossEventId}`, '洞府垂钓 · 垂钓奇遇', '水域异动，上古龙鲤现身！');
+  assert.equal(bossNotice.lines.filter(line => line.type === 'MD.button').length, 1);
   for (const message of result.messages) assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   assert.deepEqual(archived, [original]);
-  assert.deepEqual(receipts, Array.from({ length: 5 }, () => ({ route: 'group', reason: 'sent' })));
+  assert.deepEqual(receipts, Array.from({ length: 6 }, () => ({ route: 'group', reason: 'sent' })));
   if (process.env.FISHING_NOTICE_CAPTURE) writeFileSync(process.env.FISHING_NOTICE_CAPTURE, JSON.stringify({
     previousText: kingText,
-    rare: result.messages[2],
-    legacyKing: result.messages[3],
-    king: result.messages[4]
+    rare: rare.message,
+    legacyKing: legacyKing.message,
+    king: king.message,
+    boss: bossNotice.message,
+    bossQuote: bossNotice.quote
   }, null, 2));
 });
 

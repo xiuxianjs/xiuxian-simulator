@@ -97,7 +97,8 @@ export default onResponse(selects, async event => {
 
       return;
     }
-    const request = parsed.operation === 'fishing.query' ? createBackendReadRequestContext() : createBackendRequestContext(event, parsed.operation);
+    const readOnly = parsed.operation === 'fishing.query' || (parsed.operation === 'fishing.daily-supply' && parsed.input.date === undefined);
+    const request = readOnly ? createBackendReadRequestContext() : createBackendRequestContext(event, parsed.operation);
     const result = await runRobotBusiness(
       event,
       parsed.operation,
@@ -150,6 +151,20 @@ export default onResponse(selects, async event => {
     logger.warn('[fishing] 垂钓请求或消息投递未确认', error);
     if (parsed.operation === 'fishing.pack-checkout') {
       await recoverCheckout();
+
+      return;
+    }
+    if (parsed.operation === 'fishing.daily-supply') {
+      const original = parsed.input.date === undefined ? undefined : event.MessageText?.trim();
+
+      await send(errorBubble({
+        bid: event.UserId,
+        isPrivate: isPrivateEvent(event),
+        title: '每日补给 · 未完成',
+        reason: original ? '说明：领取结果待核对，可查看补给记录或重试原领取。' : '说明：暂未获取每日补给，请稍后刷新。',
+        actions: original ? [{ label: '重试原领取', command: original, autoEnter: false }] : undefined,
+        footer: [{ label: '查看每日补给', command: '/垂钓 每日补给', autoEnter: false }, ...back]
+      }));
 
       return;
     }
