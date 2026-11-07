@@ -9,7 +9,11 @@ import type { GameEvent } from '@src/types/event';
 
 const manual = (actions: FishingAction[]) => actions.map(action => ({ ...action, autoEnter: false as const }));
 const parentCommands = new Map([
-  ['start', '/垂钓'], ['gear', '/垂钓'], ['history', '/垂钓'], ['help', '/垂钓'], ['operation', '/垂钓'],
+  ['start', '/垂钓'],
+  ['gear', '/垂钓'],
+  ['history', '/垂钓'],
+  ['help', '/垂钓'],
+  ['operation', '/垂钓'],
   ['catalog', '/储物袋 渔获']
 ]);
 const footerRows = (data: FishingView, actions: FishingAction[]): GuiFooter => {
@@ -26,15 +30,29 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   const md = Format.createMarkdown();
 
   type Markdown = typeof md;
-  const itemViews = new Set(['packages', 'chum', 'gear', 'tools', 'materials', 'catalog', 'species', 'bag-materials', 'instances', 'blessing', 'fish', 'sell-realm',
-    'market-fish-species', 'market-fish-instances']);
+  const itemViews = new Set([
+    'packages',
+    'chum',
+    'gear',
+    'tools',
+    'materials',
+    'catalog',
+    'species',
+    'bag-materials',
+    'instances',
+    'blessing',
+    'fish',
+    'sell-realm',
+    'market-fish-species',
+    'market-fish-instances'
+  ]);
   const emphasisNames = [...new Set(data.emphasisNames ?? [])].filter(Boolean).sort((a, b) => b.length - a.length);
   const text = (target: Markdown, value: string) => {
     if (!emphasisNames.length || !value.length) {
- target.addText(value);
+      target.addText(value);
 
- return;
-}
+      return;
+    }
     let cursor = 0;
 
     while (cursor < value.length) {
@@ -44,14 +62,19 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       for (const candidate of emphasisNames) {
         const index = value.indexOf(candidate, cursor);
 
-        if (index >= 0 && index < next) { next = index; name = candidate; }
+        if (index >= 0 && index < next) {
+          next = index;
+          name = candidate;
+        }
       }
       if (!name) {
- target.addText(value.slice(cursor));
+        target.addText(value.slice(cursor));
 
- return;
-}
-      if (next > cursor) { target.addText(value.slice(cursor, next)); }
+        return;
+      }
+      if (next > cursor) {
+        target.addText(value.slice(cursor, next));
+      }
       target.addBold(name);
       cursor = next + name.length;
     }
@@ -68,22 +91,40 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     quote = section.quote ?? quote;
     const target = Format.createMarkdown();
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
-    const showID = !['gear', 'history', 'cast', 'species', 'catalog', 'instances', 'market-fish-species'].includes(data.view) &&
+    const showID =
+      !['gear', 'history', 'cast', 'species', 'catalog', 'instances', 'market-fish-species'].includes(data.view) &&
       !(data.view === 'pending' && section.id.startsWith('fc_'));
     const title = [section.title, showID && section.id ? `#${section.id}` : '', section.suffix].filter(Boolean).join(' ');
     const objectList = itemViews.has(data.view) && !(data.view === 'blessing' && data.status === 'overview');
-    const itemTitle = quote && Boolean(section.title) && !data.confirmationRef &&
-      (objectList || (Boolean(section.id) && !recordView) || Object.hasOwn(fishingBaits, section.title) || Object.hasOwn(fishingChums, section.title));
+    const itemTitle =
+      quote &&
+      Boolean(section.title) &&
+      !data.confirmationRef &&
+      (objectList ||
+        (data.view === 'probabilities' && ['渔获与杂获', '鱼的境界', '鱼的稀有度'].includes(section.title)) ||
+        (Boolean(section.id) && !recordView) ||
+        Object.hasOwn(fishingBaits, section.title) ||
+        Object.hasOwn(fishingChums, section.title));
 
     if (title) {
-      if (number !== undefined) { target.addBold(`【${number}】${title}`); } else if (itemTitle && data.view === 'bag-materials') {
+      if (number !== undefined) {
+        target.addBold(`【${number}】${title}`);
+      } else if (itemTitle && data.view === 'bag-materials') {
         target.addBold(title);
       } else if (itemTitle) {
         target.addBold(section.title);
-        if (showID && section.id) { target.addText(` #${section.id}`); }
-        if (section.suffix) { target.addText(` ${section.suffix}`); }
-      } else { text(target, title); }
-      if (titleActions) { buttons(target, section.actions); }
+        if (showID && section.id) {
+          target.addText(` #${section.id}`);
+        }
+        if (section.suffix) {
+          target.addText(` ${section.suffix}`);
+        }
+      } else {
+        text(target, title);
+      }
+      if (titleActions) {
+        buttons(target, section.actions);
+      }
       if (section.lines.length) {
         target.addNewline();
       }
@@ -100,7 +141,9 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     const rest = titleActions ? [] : inline ? section.actions.slice(section.lines.length) : section.actions;
 
     if (rest.length) {
-      if (title || section.lines.length) { target.addNewline(); }
+      if (title || section.lines.length) {
+        target.addNewline();
+      }
       buttons(target, rest);
     }
     if (quote) {
@@ -132,9 +175,16 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   if (data.view === 'overview' && sections.length === 4) {
     sections.forEach((section, index) => {
       if (index === sections.length - 1) {
-        section.lines.forEach(line => { md.addBold(line).addNewline(); });
-        section.actions.forEach(action => { buttons(md, [action]); md.addNewline(); });
-      } else { block(section, index !== 0, index <= 2); }
+        section.lines.forEach(line => {
+          md.addBold(line).addNewline();
+        });
+        section.actions.forEach(action => {
+          buttons(md, [action]);
+          md.addNewline();
+        });
+      } else {
+        block(section, index !== 0, index <= 2);
+      }
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
     data.sections.forEach((section, index) => block(section, index === 1, false, false, index === 2));
@@ -147,38 +197,60 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   } else if (data.view === 'blessing') {
     const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
 
-    if (intro) { block(intro, false); }
+    if (intro) {
+      block(intro, false);
+    }
     for (const row of data.navRows ?? []) {
       buttons(md, row);
       md.addNewline();
     }
-    if (data.navRows?.length) { md.addNewline(); }
+    if (data.navRows?.length) {
+      md.addNewline();
+    }
     data.sections.slice(intro ? 1 : 0).forEach(section => block(section, Boolean(section.title), false, Boolean(section.title)));
   } else if (data.view === 'packages') {
     for (const row of data.navRows ?? []) {
       buttons(md, row, data.status);
       md.addNewline();
     }
-    if (data.navRows?.length) { md.addNewline(); }
+    if (data.navRows?.length) {
+      md.addNewline();
+    }
     data.sections.forEach(section => block(section, Boolean(section.title || section.id)));
-  } else if (['boss', 'boss-drops', 'boss-battle', 'boss-rewards', 'contest', 'contest-species', 'contest-ranking', 'contest-rewards', 'contest-history'].includes(data.view)) {
+  } else if (
+    ['boss', 'boss-drops', 'boss-battle', 'boss-rewards', 'contest', 'contest-species', 'contest-ranking', 'contest-rewards', 'contest-history'].includes(
+      data.view
+    )
+  ) {
     const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
 
-    if (intro) { block(intro, false); }
+    if (intro) {
+      block(intro, false);
+    }
     for (const row of data.navRows ?? []) {
       buttons(md, row);
       md.addNewline();
     }
-    if (data.navRows?.length) { md.addNewline(); }
+    if (data.navRows?.length) {
+      md.addNewline();
+    }
     data.sections.slice(intro ? 1 : 0).forEach(section => block(section, Boolean(section.title || section.id)));
   } else if (data.view === 'net-receipt') {
     const result = Format.createMarkdown();
 
     data.sections.forEach((section, index) => {
-      if (index) { result.addNewline(); }
+      if (index) {
+        result.addNewline();
+      }
       if (section.title) {
-        if (section.title === '待入袋') { result.addText(section.title); } else { result.addBold(section.title); }
-        if (section.lines.length) { result.addText(' · '); }
+        if (section.title === '待入袋') {
+          result.addText(section.title);
+        } else {
+          result.addBold(section.title);
+        }
+        if (section.lines.length) {
+          result.addText(' · ');
+        }
       }
       text(result, section.lines.join(' '));
       buttons(result, section.actions);
@@ -204,7 +276,9 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
 
     const categories = ['饵料', '窝料', '钓具', '渔具', '素材', '鱼类'];
     const serverCategories = data.navRows?.flat().filter(action => categories.includes(action.label)) ?? [];
-    const typeActions = serverCategories.length ? serverCategories : categories.slice(0, 5).map((label, index) => ({ label, command: `/垂钓 渔市 ${['bait', 'chum', 'rod', 'net', 'material'][index]} 1` }));
+    const typeActions = serverCategories.length
+      ? serverCategories
+      : categories.slice(0, 5).map((label, index) => ({ label, command: `/垂钓 渔市 ${['bait', 'chum', 'rod', 'net', 'material'][index]} 1` }));
 
     buttons(md, typeActions);
     md.addNewline().addNewline();
@@ -231,7 +305,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     const parentIndex = footer.findIndex(action => action.command === parent || (data.view === 'catalog' && /^\/(?:垂钓 )?渔获(?: 1)?$/.test(action.command)));
     const back = { label: '返回', command: parent };
 
-    footer = parentIndex < 0 ? [...footer, back] : footer.map((action, index) => index === parentIndex ? back : action);
+    footer = parentIndex < 0 ? [...footer, back] : footer.map((action, index) => (index === parentIndex ? back : action));
   }
   const bagParent = data.view === 'bag-materials' ? '/储物袋 渔获' : undefined;
 

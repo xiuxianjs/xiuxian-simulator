@@ -22,18 +22,23 @@ const overview = {
 };
 const probabilities = {
   ...common, view: 'probabilities', title: '垂钓 · 当前概率', sections: [
-    section(['水域：金丹水域', '钓具：流云逐浪竿 · 三阶', '鱼饵：聚灵饵', '窝料：升灵散']),
-    section(['渔获：90.00%', '杂获：10.00%']),
-    section(['说明：以下为抽中鱼类后的占比', '普通：90.00%', '珍惜：7.00%', '鱼王：3.00%'])
+    { ...section(['水域：金丹水域', '鱼竿：流云逐浪竿 · 三阶', '鱼饵：聚灵饵', '窝料：升灵散']), title: '当前配置' },
+    { ...section(['渔获：90%', '杂获：10%']), title: '渔获与杂获' },
+    { ...section(['渔获中鱼的境界分布', '金丹：34.48%', '筑基：44.13%', '炼气：15.76%', '凡鱼：5.63%']), title: '鱼的境界' },
+    { ...section(['渔获中鱼的稀有度分布', '普通：90.00%', '珍惜：7.00%', '鱼王：3.00%']), title: '鱼的稀有度' },
+    { ...section(['当前钓力：428.73~600.22', '对当前境鱼的钓起率', '普通：95%', '珍惜：79.46%', '鱼王：68.82%']), quote: true }
   ]
 };
 
-const flatten = (nodes: readonly any[]): any[] => nodes.flatMap(node => Array.isArray(node.value) ? flatten(node.value) : [node]);
+const flatten = (nodes: readonly any[]): any[] => nodes.flatMap(node => [node, ...(Array.isArray(node.value) ? flatten(node.value) : [])]);
 
 for (const isPrivate of [false, true]) {
   test(`当前概率从收益周期同行蓝链进入，只查询且保留服务端比例 private=${isPrivate}`, async t => {
+    const response = structuredClone(probabilities);
+    // The client must also retain arbitrary ranges supplied by the service.
+    if (isPrivate) response.sections.at(-1)!.lines = ['当前钓力：100~140', '对当前境鱼的钓起率', '普通：23%~40%', '珍惜：20%', '鱼王：10%'];
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
-      (request.body.arguments as { view: string }).view === 'probabilities' ? probabilities : overview));
+      (request.body.arguments as { view: string }).view === 'probabilities' ? response : overview));
     const event = (text: string) => isPrivate
       ? app.events.privateMessage({ text, platform: 'qq-bot' })
       : app.events.groupMessage({ text, platform: 'qq-bot' });
@@ -52,7 +57,14 @@ for (const isPrivate of [false, true]) {
     assert.deepEqual(requests.map(request => request.body.arguments), [{ view: 'overview' }, { view: 'probabilities' }]);
     assert.ok(requests.every(request => request.path.endsWith('/fishing.query')));
     const page = inspectMessage(opened.messages[0].nodes);
-    for (const item of probabilities.sections.flatMap(item => item.lines)) assert.ok(page.text.includes(item));
+    for (const item of response.sections.flatMap(item => item.lines)) assert.ok(page.text.includes(item));
+    const control = flatten(opened.messages[0].nodes).find(node => node.type === 'MD.blockquote' &&
+      flatten([node]).some(leaf => leaf.type === 'MD.text' && String(leaf.value).includes('当前钓力：')));
+    assert.ok(control);
+    for (const line of response.sections.at(-1)!.lines) assert.ok(inspectMessage([control]).text.includes(line));
+    const bold = flatten(opened.messages[0].nodes).filter(node => node.type === 'MD.bold').map(node => node.value);
+    for (const title of ['渔获与杂获', '鱼的境界', '鱼的稀有度']) assert.equal(bold.filter(value => value === title).length, 1);
+    for (const plain of ['当前配置', '渔获中鱼的境界分布', '渔获中鱼的稀有度分布']) assert.ok(!bold.includes(plain));
     assert.ok(page.commands.includes('/垂钓'));
     assert.ok(!/上古|龙鲤|奇遇/.test(page.text));
     for (const result of [home, opened]) {
