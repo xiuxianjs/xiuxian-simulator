@@ -52,3 +52,6 @@ xiuxian-game:
   # 可选：以下地址和密钥都配置才会上报，AppID 自动取自 QQ 框架配置和当前事件。
   # analytics_api_url: 'https://xiuxian-logap.alemonjs.com'
   # analytics_api_key: ''
+
+  # 每个机器人实例使用自己的持久卷，目录需可写。
+  # analytics_queue_dir: data/robot-analytics-outbox

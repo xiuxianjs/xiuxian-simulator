@@ -1,3 +1,4 @@
+import { startAnalyticsDelivery, stopAnalyticsDelivery } from './analytics';
 import { startRechargeSubscriptions, stopRechargeSubscriptions } from './api/bot/recharge-subscription';
 import { platform } from '@alemonjs/qq-bot';
 import { onWatchConfigValue } from 'alemonjs';
@@ -25,6 +26,7 @@ const isQQBot = process.env.login === platform;
 
 let stopWaitingForAppId: (() => void) | undefined;
 let servicesStarted = false;
+let stopAnalyticsConfigWatch: (() => void) | undefined;
 let disposed = false;
 
 async function startReadyServices(): Promise<void> {
@@ -59,6 +61,8 @@ export default defineChildren({
   onCreated: async () => {
     disposed = false;
     servicesStarted = false;
+    startAnalyticsDelivery();
+    stopAnalyticsConfigWatch = onWatchConfigValue(startAnalyticsDelivery);
     await startReadyServices();
     logger.info('修仙机器人已启动');
   },
@@ -89,6 +93,9 @@ export default defineChildren({
   // 应用销毁阶段触发。
   onDispose: async () => {
     disposed = true;
+    stopAnalyticsConfigWatch?.();
+    stopAnalyticsConfigWatch = undefined;
+    stopAnalyticsDelivery();
     stopWaitingForAppId?.();
     stopWaitingForAppId = undefined;
     stopNotificationStream();

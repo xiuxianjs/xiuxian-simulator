@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { AnalyticsOutbox } from '../../src/analytics/outbox';
 import { after, test, type TestContext } from 'node:test';
 import { onResponse, shutdownLogger, logger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import trackFeature from '../../src/response/mwFeatureTrack';
-import { trackAction, trackLogin } from '../../src/analytics';
+import { getAnalyticsDeliveryStatus, startAnalyticsDelivery, stopAnalyticsDelivery, trackAction, trackLogin } from '../../src/analytics';
 
 after(() => shutdownLogger());
 const turn = () => new Promise<void>(resolve => setImmediate(resolve));
@@ -14,8 +18,8 @@ function fixture(t: TestContext, key: string, extra = {}, qq: Record<string, unk
   t.after(() => app.dispose());
   return app;
 }
-function capture(t: TestContext) {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+function capture(t: TestContext, withDate = false) {
+  t.mock.timers.enable({ apis: withDate ? ['setTimeout', 'Date'] : ['setTimeout'] });
   const requests: { url: string; key: string; body: { appid: string; events: Record<string, unknown>[] } }[] = [];
   t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
     requests.push({ url, key: (init.headers as Record<string, string>)['X-API-Key'], body: JSON.parse(String(init.body)) });
@@ -90,7 +94,12 @@ test('缺失、非法或非 QQ 事件身份不上报，不使用额外手填 App
 test('上报网络失败不会成为游戏处理异常，满批后后续事件仍能发送', async t => {
   capture(t);
   let calls = 0;
-  t.mock.method(globalThis, 'fetch', async () => { calls++; throw new Error('offline'); });
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    calls++;
+    if (calls <= 6) throw new Error('offline');
+    return new Response(JSON.stringify({ code: 0, data: { received: JSON.parse(String(init.body)).events.length } }));
+  });
+  t.mock.method(Math, 'random', () => 0);
   const app = fixture(t, 'key');
   const event = app.events.groupMessage({ platform: 'qq-bot' });
   Object.assign(event, { BotId: '333333333' });
@@ -102,8 +111,9 @@ test('上报网络失败不会成为游戏处理异常，满批后后续事件�
   t.mock.timers.tick(8000);
   await turn();
   assert.ok(calls >= 2);
-  for (let i = 0; i < 4; i++) { t.mock.timers.tick(10000); await turn(); }
-  assert.equal(calls, 6);
+  for (let i = 0; i < 5; i++) { t.mock.timers.tick(10000); await turn(); }
+  assert.equal(calls, 8);
+  assert.equal(getAnalyticsDeliveryStatus().retrying, 0);
 });
 
 
@@ -128,13 +138,13 @@ test('扫码未完成不产生统计请求，框架补全 AppID 后自动上报'
 });
 
 
-test('HTTP 400 和 HTTP 200 业务失败均记录服务端原因，不输出密钥或事件内容', async t => {
+test('HTTP 400 和 HTTP 200 业务拒绝不会自动重试，日志仅保留受控错误码', async t => {
   capture(t);
   const errors: string[] = [];
   t.mock.method(logger, 'error', (...args: unknown[]) => { errors.push(args.map(String).join(' ')); });
   const responses = [
-    new Response(JSON.stringify({ code: -1, message: '该 AppID 未配置游戏数据源' }), { status: 400 }),
-    new Response(JSON.stringify({ code: -1, message: '写入失败: database unavailable' }), { status: 200 })
+    new Response(JSON.stringify({ code: -1, reason: 'unknown_appid', message: 'private-upload-key' }), { status: 400 }),
+    new Response(JSON.stringify({ code: -1, reason: 'private-event-content', message: 'database unavailable' }), { status: 200 })
   ];
   t.mock.method(globalThis, 'fetch', async () => responses.shift()!);
   const app = fixture(t, 'private-upload-key');
@@ -149,9 +159,12 @@ test('HTTP 400 和 HTTP 200 业务失败均记录服务端原因，不输出密�
   }
   const failures = errors.filter(line => line.includes("上报失败"));
   assert.equal(failures.length, 2);
-  assert.match(failures[0], /400.*appid=102062268.*该 AppID 未配置游戏数据源/);
-  assert.match(failures[1], /200.*写入失败/);
-  assert.ok(errors.every(line => !line.includes('private-upload-key') && !line.includes('private-event-content')));
+  assert.match(failures[0], /400.*appid=102062268.*unknown_appid/);
+  assert.match(failures[1], /200.*invalid_receipt/);
+  t.mock.timers.tick(300000);
+  await turn();
+  assert.equal(errors.filter(line => line.includes('上报失败')).length, 2);
+  assert.ok(errors.every(line => !line.includes('private-upload-key') && !line.includes('private-event-content') && !line.includes('database unavailable')));
 });
 
 
@@ -175,4 +188,146 @@ test('响应丢失后使用原批次号和原内容重试，成功回执后停�
   assert.match(requests[0].url, /\/actions\/batches\?appid=/);
   t.mock.timers.tick(30000); await turn();
   assert.equal(requests.length, 2);
+});
+
+
+test('临时故障超过三次后自动补报，遵守 Retry-After 且不改批次身份', async t => {
+  capture(t);
+  t.mock.method(Math, 'random', () => 0);
+  const requests: { body: string; id: string; url: string }[] = [];
+  const before = getAnalyticsDeliveryStatus();
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    requests.push({ url, body: String(init.body), id: (init.headers as Record<string, string>)['Idempotency-Key'] });
+    if (requests.length === 1) return new Response('{}', { status: 429, headers: { 'Retry-After': '4' } });
+    if (requests.length === 2) return new Response('{}', { status: 503 });
+    if (requests.length === 3) return new Response('invalid response');
+    return new Response(JSON.stringify({ code: 0, data: { received: 1, replayed: true } }));
+  });
+  const app = fixture(t, 'key');
+  const event = app.events.groupMessage({ platform: 'qq-bot', botId: '102062268' });
+  assert.deepEqual((await app.runHandler(onResponse('message.create', () => trackAction(7, 'test', '日常', 'success')), event)).errors, []);
+  for (const [ms, expected] of [[8000, 1], [3999, 1], [1, 2], [2000, 3], [29999, 3], [1, 4], [300000, 4]]) {
+    t.mock.timers.tick(ms);
+    await turn();
+    assert.equal(requests.length, expected);
+  }
+  assert.ok(requests.every(request => JSON.stringify(request) === JSON.stringify(requests[0])));
+  assert.ok(requests[0].id);
+  assert.deepEqual(getAnalyticsDeliveryStatus(), before);
+});
+
+test('离线积压落盘，重启仅用当前匹配路由的密钥重放，确认后从磁盘移除', async t => {
+  capture(t, true);
+  const directory = mkdtempSync(join(tmpdir(), 'robot-analytics-'));
+  t.after(() => {
+    stopAnalyticsDelivery();
+    rmSync(directory, { recursive: true, force: true });
+  });
+  stopAnalyticsDelivery();
+  const old = fixture(t, 'old-secret', { analytics_queue_dir: directory });
+  const current = fixture(t, 'rotated-secret', { analytics_queue_dir: directory });
+  const other = fixture(t, 'other-secret', { analytics_queue_dir: directory, analytics_api_url: 'https://other.invalid' });
+  const event = (app: typeof old) => app.events.groupMessage({ text: '/签到', platform: 'qq-bot', botId: '102062268' });
+  const start = onResponse('message.create', () => startAnalyticsDelivery());
+  const produce = onResponse('message.create', e => {
+    startAnalyticsDelivery();
+    Object.assign(e, { uid: 7 });
+    trackFeature(e);
+  });
+  const requests: { url: string; id: string; body: string; key: string }[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    const headers = init.headers as Record<string, string>;
+    requests.push({ url, id: headers['Idempotency-Key'], body: String(init.body), key: headers['X-API-Key'] });
+    if (requests.length <= 2) throw new Error('offline or acknowledgement lost');
+    return new Response(JSON.stringify({ code: 0, data: { received: 1, replayed: true } }));
+  });
+
+  assert.deepEqual((await old.runHandler(produce, event(old))).errors, []);
+  t.mock.timers.tick(5000);
+  await turn();
+  assert.equal(requests.length, 1);
+  stopAnalyticsDelivery();
+  assert.ok(!readFileSync(join(directory, 'batches.sqlite')).includes(Buffer.from('old-secret')));
+
+  assert.deepEqual((await other.runHandler(start, event(other))).errors, []);
+  t.mock.timers.tick(1000);
+  await turn();
+  assert.equal(requests.length, 1);
+  stopAnalyticsDelivery();
+
+  assert.deepEqual((await current.runHandler(start, event(current))).errors, []);
+  await turn();
+  assert.equal(requests.length, 2);
+  stopAnalyticsDelivery();
+
+  assert.deepEqual((await current.runHandler(start, event(current))).errors, []);
+  await turn();
+  assert.equal(requests.length, 2);
+  t.mock.timers.tick(2000);
+  await turn();
+  assert.equal(requests.length, 3);
+  for (const request of requests.slice(1)) {
+    assert.deepEqual(request, { ...requests[0], key: 'rotated-secret' });
+  }
+  assert.equal(getAnalyticsDeliveryStatus().pending, 0);
+  stopAnalyticsDelivery();
+
+  assert.deepEqual((await current.runHandler(start, event(current))).errors, []);
+  assert.equal(getAnalyticsDeliveryStatus().pending, 0);
+  assert.equal(requests.length, 3);
+});
+
+test('持久队列达到 AppID 容量后拒绝新批次，保留待确认批次和其他 AppID 的容量', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'robot-analytics-limit-'));
+  const store = new AnalyticsOutbox(directory);
+  t.after(() => {
+    store.close();
+    rmSync(directory, { recursive: true, force: true });
+  });
+  const batch = { id: '', apiUrl: 'https://analytics.invalid', appid: '102062268', body: '{}', count: 1, attempts: 0, retryAt: 0, held: 0 };
+  for (let i = 0; i < 100; i++) assert.equal(store.put('features', { ...batch, id: String(i) }), true);
+  assert.equal(store.put('features', { ...batch, id: 'overflow' }), false);
+  assert.equal(store.put('features', { ...batch, id: 'other', appid: '222222222' }), true);
+  assert.equal(store.list('features').length, 101);
+  assert.equal(store.list('features')[0].id, '0');
+});
+
+test('旧密钥被拒后暂停原批次，配置新密钥后自动重放', async t => {
+  capture(t, true);
+  const directory = mkdtempSync(join(tmpdir(), 'robot-analytics-key-'));
+  t.after(() => {
+    stopAnalyticsDelivery();
+    rmSync(directory, { recursive: true, force: true });
+  });
+  stopAnalyticsDelivery();
+  const old = fixture(t, 'old-secret', { analytics_queue_dir: directory });
+  const current = fixture(t, 'new-secret', { analytics_queue_dir: directory });
+  const event = (app: typeof old) => app.events.groupMessage({ text: '/签到', platform: 'qq-bot', botId: '102062268' });
+  const start = onResponse('message.create', () => startAnalyticsDelivery());
+  const requests: { id: string; body: string; key: string }[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const headers = init.headers as Record<string, string>;
+    requests.push({ id: headers['Idempotency-Key'], body: String(init.body), key: headers['X-API-Key'] });
+    if (headers['X-API-Key'] === 'old-secret') return new Response(JSON.stringify({ code: -1, reason: 'invalid_api_key' }), { status: 401 });
+    return new Response(JSON.stringify({ code: 0, data: { received: 1, replayed: true } }));
+  });
+  const produce = onResponse('message.create', e => {
+    startAnalyticsDelivery();
+    Object.assign(e, { uid: 7 });
+    trackFeature(e);
+  });
+  assert.deepEqual((await old.runHandler(produce, event(old))).errors, []);
+  t.mock.timers.tick(5000);
+  await turn();
+  assert.equal(getAnalyticsDeliveryStatus().retained, 1);
+  assert.deepEqual((await old.runHandler(start, event(old))).errors, []);
+  t.mock.timers.tick(300000);
+  await turn();
+  assert.equal(requests.length, 1);
+  stopAnalyticsDelivery();
+  assert.deepEqual((await current.runHandler(start, event(current))).errors, []);
+  await turn();
+  assert.equal(getAnalyticsDeliveryStatus().pending, 0);
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1], { ...requests[0], key: 'new-secret' });
 });

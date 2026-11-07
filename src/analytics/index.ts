@@ -14,6 +14,8 @@
  */
 import { getCurrentEvent, logger } from 'alemonjs';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
+import { AnalyticsOutbox, maxAnalyticsBatchBytes, type StoredBatch } from './outbox';
 import { getAppConfig } from '../utils/appConfig';
 import { getBackendConfig } from '../api/bot/config';
 import { getQQBotAppId, getQQBotAppIds } from '../utils/qqBotIdentity';
@@ -57,6 +59,18 @@ function currentContext(): TrackContext {
 
 /** 在入队时捕获配置，定时发送时不再读取其他机器人的运行上下文。 */
 function getAnalyticsConfig(ctx: TrackContext = currentContext()) {
+  const routes = configuredAnalyticsRoutes();
+  const appid = ctx.platform === 'qq-bot' ? ctx.appid : ctx.platform ? '' : getQQBotAppId();
+  const route = routes.find(candidate => candidate.appid === appid);
+
+  if (routes.length && !route) {
+    logger.error('[logap] 事件缺少有效的 QQ 机器人身份，本次不上报');
+  }
+
+  return route;
+}
+
+function configuredAnalyticsRoutes() {
   const config = getAppConfig();
   const apiUrl = String(config.analytics_api_url ?? '')
     .trim()
@@ -64,26 +78,67 @@ function getAnalyticsConfig(ctx: TrackContext = currentContext()) {
   const apiKey = String(config.analytics_api_key ?? '').trim();
 
   if (!apiUrl || !apiKey) {
-    return null;
+    return [];
   }
+  const target = URL.parse(apiUrl);
   const backend = getBackendConfig();
 
-  if (apiUrl === backend.url) {
-    return null;
-  }
-  const ids = getQQBotAppIds();
-  const appid = ctx.platform === 'qq-bot' ? ctx.appid : ctx.platform ? '' : getQQBotAppId();
-
-  if (!ids.length) {
-    return null;
-  }
-  if (!appid || !ids.includes(appid) || (backend.channelMode && appid !== backend.channelBotId)) {
-    logger.error('[logap] 事件缺少有效的 QQ 机器人身份，本次不上报');
-
-    return null;
+  if (
+    !target ||
+    !['http:', 'https:'].includes(target.protocol) ||
+    target.username ||
+    target.password ||
+    target.search ||
+    target.hash ||
+    apiUrl === backend.url
+  ) {
+    return [];
   }
 
-  return { apiUrl, apiKey, appid };
+  return getQQBotAppIds()
+    .filter(appid => !backend.channelMode || appid === backend.channelBotId)
+    .map(appid => ({ apiUrl, apiKey, appid }));
+}
+
+type Route = ReturnType<typeof configuredAnalyticsRoutes>[number];
+let outbox: AnalyticsOutbox | undefined;
+let managed = false;
+let deliveryRunning = false;
+
+export function startAnalyticsDelivery(): void {
+  managed = true;
+  deliveryRunning = true;
+  const routes = configuredAnalyticsRoutes();
+
+  if (!outbox && routes.length) {
+    let store: AnalyticsOutbox | undefined;
+
+    try {
+      const directory = String(getAppConfig().analytics_queue_dir ?? '').trim();
+
+      store = new AnalyticsOutbox(resolve(directory ? directory : 'data/robot-analytics-outbox'));
+      const features = store.list('/api/v2/track/features');
+      const actions = store.list('/api/v2/track/actions');
+
+      outbox = store;
+      featureSender.restore(features);
+      actionSender.restore(actions);
+    } catch {
+      store?.close();
+      outbox = undefined;
+      logger.error('[logap] 无法打开持久队列，埋点发送已暂停');
+    }
+  }
+  featureSender.configure(routes);
+  actionSender.configure(routes);
+}
+
+export function stopAnalyticsDelivery(): void {
+  deliveryRunning = false;
+  featureSender.stop();
+  actionSender.stop();
+  outbox?.close();
+  outbox = undefined;
 }
 
 // ==================== 通用批量发送器 ====================
@@ -96,24 +151,134 @@ export const retryRetainedAnalyticsBatches = () => {
     retry();
   }
 };
-const deliveryStatus = { pending: 0, retained: 0, dropped: 0 };
+const deliveryStatus = { pending: 0, retrying: 0, retained: 0, dropped: 0 };
 
-/** In-memory delivery health; retained batches survive errors, not process restarts. */
+/** Delivery counters for the current process. Pending, retrying and held rows are restored at startup. */
 export const getAnalyticsDeliveryStatus = () => ({ ...deliveryStatus });
 
+const uploadReasons = new Set([
+  'invalid_payload',
+  'payload_too_large',
+  'invalid_batch_size',
+  'invalid_event',
+  'invalid_event_data',
+  'invalid_batch_id',
+  'appid_mismatch',
+  'batch_conflict',
+  'storage_unavailable',
+  'invalid_appid',
+  'unknown_appid',
+  'source_unavailable',
+  'upload_key_unavailable',
+  'invalid_api_key',
+  'registry_unavailable',
+  'bot_inactive',
+  'bot_ownership_changed',
+  'uid_ownership_mismatch'
+]);
+
+function retryAfterMs(value: string | null): number {
+  if (!value) {
+    return 0;
+  }
+  const delay = /^\d+$/.test(value) ? Number(value) * 1000 : Date.parse(value) - Date.now();
+
+  return Number.isNaN(delay) ? 0 : Math.min(2147483647, Math.max(0, delay));
+}
+
 function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: number) {
-  type Route = NonNullable<ReturnType<typeof getAnalyticsConfig>>;
-  type Queue = { route: Route; buffer: T[]; timer?: ReturnType<typeof setTimeout> };
-  type Batch = { id: string; route: Route; body: string; count: number; attempts: number; retained: boolean };
+  type Queue = { route: Route; prefix: string; buffer: string[]; bytes: number; timer?: ReturnType<typeof setTimeout> };
+  type Batch = {
+    id: string;
+    route: Omit<Route, 'apiKey'>;
+    timer?: ReturnType<typeof setTimeout>;
+    body: string;
+    count: number;
+    attempts: number;
+    authHeld?: boolean;
+    state: 'ready' | 'sending' | 'retrying' | 'retained';
+  };
   const queues = new Map<string, Queue>();
   const pending = new Map<string, Batch>();
-  const maxBatches = 100;
+  const maxBatchesPerApp = 100;
+  const maxBatches = 400;
+  const maxConcurrent = 8;
+  const activeByApp = new Map<string, number>();
+  let active = 0;
+  let runtime = new AbortController();
+  const credentials = new Map<string, string>();
+  const routeKey = (route: Omit<Route, 'apiKey'>) => JSON.stringify([route.apiUrl, route.appid]);
 
-  async function deliver(batch: Batch): Promise<void> {
+  function schedule(batch: Batch, retryAt: number): void {
+    batch.state = 'retrying';
+    deliveryStatus.retrying++;
+    batch.timer = setTimeout(
+      () => {
+        batch.timer = undefined;
+        batch.state = 'ready';
+        deliveryStatus.retrying--;
+        pump();
+      },
+      Math.max(0, retryAt - Date.now())
+    );
+  }
+
+  function saveState(batch: Batch, retryAt: number, held: number): boolean {
+    try {
+      outbox?.update(batch.id, batch.attempts, retryAt, held);
+
+      return true;
+    } catch {
+      logger.error(`[logap] 无法更新持久队列: batch=${batch.id}`);
+
+      return false;
+    }
+  }
+
+  function pump(): void {
+    if (managed && (!deliveryRunning || !outbox)) {
+      return;
+    }
+    const signal = runtime.signal;
+
+    for (const batch of pending.values()) {
+      if (active >= maxConcurrent) {
+        break;
+      }
+      const appid = batch.route.appid;
+      const appActive = activeByApp.get(appid) ?? 0;
+
+      const apiKey = credentials.get(routeKey(batch.route));
+
+      if (batch.state !== 'ready' || !apiKey || appActive >= 2) {
+        continue;
+      }
+      batch.state = 'sending';
+      active++;
+      activeByApp.set(appid, appActive + 1);
+      void deliver(batch, apiKey, signal).finally(() => {
+        if (signal.aborted) {
+          return;
+        }
+        const remaining = (activeByApp.get(appid) ?? 1) - 1;
+
+        if (remaining) {
+          activeByApp.set(appid, remaining);
+        } else {
+          activeByApp.delete(appid);
+        }
+        active--;
+        pump();
+      });
+    }
+  }
+
+  async function deliver(batch: Batch, apiKey: string, signal: AbortSignal): Promise<void> {
     batch.attempts++;
-    const { apiUrl, apiKey, appid } = batch.route;
+    const { apiUrl, appid } = batch.route;
     let retryable = false;
-    let reason = '网络请求失败';
+    let reason = 'network_error';
+    let retryAfter = 0;
     let status = 'network';
 
     try {
@@ -122,53 +287,82 @@ function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: num
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey, 'Idempotency-Key': batch.id },
         body: batch.body,
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
+        redirect: 'error'
       });
 
       status = String(res.status);
-      let result: { code?: number; message?: string; data?: { received?: number } } | undefined;
+      retryable = res.status === 408 || res.status === 429 || res.status >= 500 || res.ok;
+      retryAfter = retryAfterMs(res.headers.get('Retry-After'));
+      let result: { code?: number; reason?: string; data?: { received?: number } } | undefined;
+      const responseText = await res.text();
 
       try {
-        result = JSON.parse(await res.text());
+        result = JSON.parse(responseText);
       } catch {
         // Never log a proxy HTML response or request payload.
       }
+      if (signal.aborted) {
+        return;
+      }
       if (res.ok && result?.code === 0 && result.data?.received === batch.count) {
+        outbox?.acknowledge(batch.id);
         pending.delete(batch.id);
         deliveryStatus.pending--;
 
         return;
       }
-      retryable = res.status === 408 || res.status === 429 || res.status >= 500;
-      reason = typeof result?.message === 'string' ? result.message.replace(/[\r\n]/g, ' ').slice(0, 500) : '缺少有效的批次入库回执';
+      if (res.ok && typeof result?.code === 'number' && result.code !== 0) {
+        retryable = false;
+      }
+      reason = typeof result?.reason === 'string' && uploadReasons.has(result.reason) ? result.reason : res.ok ? 'invalid_receipt' : 'http_error';
     } catch {
-      retryable = true;
+      retryable ||= status === 'network';
+    }
+    if (signal.aborted) {
+      return;
     }
     logger.error(`[logap] ${endpoint} 上报失败: ${status}; appid=${appid}; batch=${batch.id}; events=${batch.count}; attempt=${batch.attempts}; ${reason}`);
-    if (retryable && batch.attempts < 3) {
-      setTimeout(
-        () => {
-          void deliver(batch);
-        },
-        1000 * 2 ** (batch.attempts - 1)
-      );
+    if (retryable) {
+      const delay =
+        batch.attempts < 3 ? 1000 * 2 ** (batch.attempts - 1) : Math.min(300000, 30000 * 2 ** Math.min(batch.attempts - 3, 4)) * (1 + Math.random() * 0.2);
+
+      const retryAt = Date.now() + Math.max(delay, retryAfter);
+
+      saveState(batch, retryAt, 0);
+      schedule(batch, retryAt);
     } else {
-      batch.retained = true;
+      batch.authHeld = status === '401' || reason === 'bot_inactive' || reason === 'bot_ownership_changed';
+      const currentKey = credentials.get(routeKey(batch.route));
+
+      if (batch.authHeld && currentKey && currentKey !== apiKey && saveState(batch, 0, 0)) {
+        batch.state = 'ready';
+
+        return;
+      }
+      saveState(batch, 0, batch.authHeld ? 2 : 1);
+      batch.state = 'retained';
       deliveryStatus.retained++;
-      logger.error(`[logap] 批次已保留在内存: batch=${batch.id}; retained=${deliveryStatus.retained}; 自动重试已停止`);
+      logger.error(`[logap] 批次待人工处理: batch=${batch.id}; retained=${deliveryStatus.retained}; 等待人工处理`);
+    }
+  }
+
+  function releaseHeld(batch: Batch): void {
+    batch.attempts = 0;
+    if (saveState(batch, 0, 0)) {
+      batch.authHeld = false;
+      batch.state = 'ready';
+      deliveryStatus.retained--;
     }
   }
 
   retryRetained.add(() => {
     for (const batch of pending.values()) {
-      if (!batch.retained) {
-        continue;
+      if (batch.state === 'retained') {
+        releaseHeld(batch);
       }
-      batch.retained = false;
-      batch.attempts = 0;
-      deliveryStatus.retained--;
-      void deliver(batch);
     }
+    pump();
   });
 
   function flush(key: string, queue: Queue): void {
@@ -176,52 +370,134 @@ function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: num
     if (queue.timer) {
       clearTimeout(queue.timer);
     }
-    if (pending.size >= maxBatches) {
-      // Evict only an exhausted batch, never a request awaiting an acknowledgement.
-      const oldest = [...pending.values()].find(batch => batch.retained);
-
-      if (oldest) {
-        pending.delete(oldest.id);
-        deliveryStatus.retained--;
-        deliveryStatus.pending--;
-        deliveryStatus.dropped += oldest.count;
-        logger.error(`[logap] 保留队列已满，淘汰批次: batch=${oldest.id}; events=${oldest.count}`);
-      } else {
-        deliveryStatus.dropped += queue.buffer.length;
-        logger.error(`[logap] 在途队列已满，本批次未入队: appid=${queue.route.appid}; events=${queue.buffer.length}`);
-
-        return;
-      }
-    }
+    const appBatches = [...pending.values()].filter(batch => batch.route.appid === queue.route.appid);
+    const { apiUrl, appid } = queue.route;
     const batch: Batch = {
       id: randomUUID(),
-      route: queue.route,
-      body: JSON.stringify({ appid: queue.route.appid, events: queue.buffer }),
+      route: { apiUrl, appid },
+      body: `${queue.prefix}${queue.buffer.join(',')}]}`,
       count: queue.buffer.length,
       attempts: 0,
-      retained: false
+      state: 'ready'
     };
+
+    let accepted = false;
+
+    try {
+      accepted = outbox
+        ? outbox.put(endpoint, { ...batch.route, id: batch.id, body: batch.body, count: batch.count, attempts: 0, retryAt: 0, held: 0 })
+        : !managed && pending.size < maxBatches && appBatches.length < maxBatchesPerApp;
+    } catch {
+      logger.error(`[logap] 持久队列写入失败: appid=${appid}; batch=${batch.id}`);
+    }
+    if (!accepted) {
+      deliveryStatus.dropped += batch.count;
+      logger.error(`[logap] 批次未入队: appid=${appid}; events=${batch.count}`);
+
+      return;
+    }
 
     pending.set(batch.id, batch);
     deliveryStatus.pending++;
-    void deliver(batch);
+    pump();
   }
 
   return {
+    configure(routes: Route[]) {
+      const previous = new Map(credentials);
+
+      credentials.clear();
+      for (const route of routes) {
+        credentials.set(routeKey(route), route.apiKey);
+      }
+      for (const batch of pending.values()) {
+        const key = routeKey(batch.route);
+        const apiKey = credentials.get(key);
+
+        if (batch.state === 'retained' && batch.authHeld && apiKey && apiKey !== previous.get(key)) {
+          releaseHeld(batch);
+        }
+      }
+      pump();
+    },
+    restore(rows: StoredBatch[]) {
+      for (const row of rows) {
+        const batch: Batch = {
+          id: row.id,
+          route: { apiUrl: row.apiUrl, appid: row.appid },
+          body: row.body,
+          count: row.count,
+          attempts: row.attempts,
+          authHeld: row.held === 2,
+          state: row.held ? 'retained' : 'ready'
+        };
+
+        pending.set(batch.id, batch);
+        deliveryStatus.pending++;
+        if (row.held) {
+          deliveryStatus.retained++;
+        } else if (row.retryAt > Date.now()) {
+          schedule(batch, row.retryAt);
+        }
+      }
+    },
+    stop() {
+      for (const [key, queue] of queues) {
+        flush(key, queue);
+      }
+      runtime.abort();
+      runtime = new AbortController();
+      for (const batch of pending.values()) {
+        clearTimeout(batch.timer);
+        deliveryStatus.pending--;
+        if (batch.state === 'retained') {
+          deliveryStatus.retained--;
+        }
+        if (batch.state === 'retrying') {
+          deliveryStatus.retrying--;
+        }
+      }
+      pending.clear();
+      credentials.clear();
+      activeByApp.clear();
+      active = 0;
+    },
     push(item: T, ctx: TrackContext = currentContext()) {
       const route = getAnalyticsConfig(ctx);
 
       if (!route) {
         return;
       }
-      const key = JSON.stringify([route.apiUrl, route.appid, route.apiKey]);
+      if (managed && !deliveryRunning) {
+        return;
+      }
+      if (!managed) {
+        credentials.set(routeKey(route), route.apiKey);
+      }
+      const key = routeKey(route);
+      const prefix = `{"appid":${JSON.stringify(route.appid)},"events":[`;
+      const envelopeBytes = Buffer.byteLength(prefix) + 2;
+      const encoded = JSON.stringify(item);
+      const eventBytes = Buffer.byteLength(encoded);
+
+      if (envelopeBytes + eventBytes > maxAnalyticsBatchBytes) {
+        deliveryStatus.dropped++;
+        logger.error(`[logap] 单条事件超出上报体积限制: appid=${route.appid}`);
+
+        return;
+      }
       let queue = queues.get(key);
 
+      if (queue && queue.bytes + eventBytes + 1 > maxAnalyticsBatchBytes) {
+        flush(key, queue);
+        queue = undefined;
+      }
       if (!queue) {
-        queue = { route, buffer: [] };
+        queue = { route, prefix, bytes: envelopeBytes, buffer: [] };
         queues.set(key, queue);
       }
-      queue.buffer.push(item);
+      queue.bytes += eventBytes + Number(queue.buffer.length > 0);
+      queue.buffer.push(encoded);
       const pendingQueue = queue;
 
       if (queue.buffer.length >= bufferSize) {
