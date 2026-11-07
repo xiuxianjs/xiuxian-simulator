@@ -14,9 +14,9 @@ import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { presentBackendCavePlots } from '@src/response/cavePlot/info/res';
 import { sendSelfCavePlotPage } from '@src/response/cavePlot/render';
-import { buildBubble } from '@src/response/presentation';
+import { section } from '@src/response/presentation';
 import { selects } from '@src/response/config';
-import { FormatGui } from '@src/utils/messageHelper';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 
 const batchMethods = [
@@ -55,22 +55,30 @@ export default onResponse(selects, async e => {
   }
   if (args.mode === 'batch-options') {
     const methods = batchMethods.filter(method => args.accelerator === null || args.accelerator === method.accelerator);
+    const md = Format.createMarkdown().addBlockquote(
+      section({
+        lines: ['说明：次数按每块灵田计算。选择快捷项填入指令，也可修改次数后发送。']
+      })
+    );
 
-    await message.send(buildBubble({
-      isPrivate,
-      bid,
-      title,
-      sections: [
-        { lines: ['次数按每块灵田计算。选择快捷项填入指令，也可修改次数后发送。'] },
-        ...methods.map(method => ({
-          title: method.title,
-          lines: [],
-          actions: [1, 3].map(count => ({ label: `${count}次`, command: `/一键加速 ${method.title} ${count}`, autoEnter: false }))
-        }))
-      ],
-      footer: [{ label: '返回灵田', command: '/灵田', autoEnter: false }],
-      bar: false
-    }));
+    for (const method of methods) {
+      md.addNewline().addBold(method.title).addNewline();
+      addOptions(
+        md,
+        [1, 2, 3, 4].map(count => ({ label: `${count}次`, command: `/一键加速 ${method.title} ${count}`, autoEnter: false }))
+      );
+    }
+
+    await message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title,
+        content: md,
+        footer: [{ label: '返回灵田', command: '/灵田', autoEnter: false }],
+        bar: false
+      })
+    );
 
     return;
   }
@@ -186,6 +194,7 @@ export default onResponse(selects, async e => {
       isPrivate,
       message,
       plots: presentBackendCavePlots(overview.plots),
+      batchActions: overview.batchActions,
       cultivationCostText: overview.cultivationCostText,
       leadText: result.message,
       treasureEffects: result.treasureEffects,

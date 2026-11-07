@@ -8,8 +8,8 @@ import { businessEnvelope, gameFixture } from './fixture';
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
 const plot = { plotIndex: 2, plotState: 'cultivated', fieldGrade: 1, seedName: '原灵种', seedMatureHours: 12, seedStageSplit: null, cropName: '原灵植', baseYield: 3, expReward: 4, abnormalFlags: 0, abnormalStateCount: 0, isMature: false, plantedAt: null, matureAt: '2026-12-01T12:00:00Z', remainingSeconds: 7200, title: '原地块', detail: '原最新状态', capabilities: [{ kind: 'accelerate' }] };
-const overview = { plots: [plot], maxPlots: 1, cultivatedCount: 1, plantedCount: 1, matureCount: 0, abnormalCount: 0, auraScore: 10, auraLevel: '原等级', auraLabel: '原灵气', activeFormations: [] };
-const matureOverview = { ...overview, matureCount: 1, plots: [{ ...plot, isMature: true, remainingSeconds: 0, capabilities: [{ kind: 'harvest' }] }] };
+const overview = { batchActions: { canAccelerate: true, canRipen: true }, plots: [plot], maxPlots: 1, cultivatedCount: 1, plantedCount: 1, matureCount: 0, abnormalCount: 0, auraScore: 10, auraLevel: '原等级', auraLabel: '原灵气', activeFormations: [] };
+const matureOverview = { ...overview, batchActions: { canAccelerate: false, canRipen: false }, matureCount: 1, plots: [{ ...plot, isMature: true, remainingSeconds: 0, capabilities: [{ kind: 'harvest' }] }] };
 const noExecution = (commands: string[]) => assert.ok(!commands.some(command => /^\/灵田加速\s+\d+\s+(灵肥|小绿瓶|灵石|催熟)/.test(command)));
 const refusals = [
  ['当前没有可加速的灵植。', '灵肥', '/灵田', '无需再购买加速物资'],
@@ -60,6 +60,7 @@ for (const text of ['/一键灵田催熟', '/一键催熟']) test(text + ' submi
 const countedBatches = [
   ['/一键加速 3', 'spiritStone', '3', '合计消耗100灵石。第3块未执行：灵石不足'],
   ['/一键加速 小绿瓶 1', 'greenBottle', '1', '合计消耗1瓶小绿瓶。第3块未执行：小绿瓶不足'],
+  ['/一键加速 小绿瓶 4', 'greenBottle', '4', '合计消耗4瓶小绿瓶。'],
   ['/一键灵田加速 灵石 002', 'spiritStone', '2', '合计消耗50灵石。'],
   ['/一键加速 9007199254740991', 'spiritStone', '9007199254740991', '合计消耗50灵石。']
 ] as const;
@@ -116,7 +117,7 @@ for (const [text, available] of methods) {
       const view = inspectMessage(sent.nodes);
 
       assert.match(view.text, /次数按每块灵田计算/);
-      assert.deepEqual(view.commands, [...available.flatMap(method => [1, 3].map(count => '/一键加速 ' + method + ' ' + count)), '/灵田']);
+      assert.deepEqual(view.commands, [...available.flatMap(method => [1, 2, 3, 4].map(count => '/一键加速 ' + method + ' ' + count)), '/灵田']);
       const markdown = sent.nodes.find(node => node.type === 'Markdown');
       assert.ok(markdown);
       const buttons = [...markdown.value, ...markdown.value.flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [])]

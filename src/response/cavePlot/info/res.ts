@@ -4,6 +4,7 @@ import { parseCavePage } from '../pagination';
 import { useMessage } from '@src/utils/useMessage';
 import { parseBackendCaveView } from '@src/api/bot/cave-command';
 import type { CaveOverviewPlot } from '@src/api/schemas/cave-overview-query';
+import type { CavePlotOverviewItem } from '@src/types/cavePlot';
 import { ownPlotActions } from '@src/response/cavePlot/capabilities';
 import { sendSelfCavePlotPage } from '@src/response/cavePlot/render';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -11,22 +12,13 @@ import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { selects } from '@src/response/config';
 import { onResponse, useEvent, logger } from 'alemonjs';
 
-type CavePlotPresentation = {
-  plotIndex: number;
-  plotState: 'cultivated' | 'unlockable' | 'locked';
-  title: string;
-  detail: string;
-  actionLabel?: string;
-  actionCommand?: string;
-  actions: Array<{ label: string; command: string }>;
-};
-
 // Plot title, state description and command eligibility are authoritative Go
 // display facts. The bot only selects its Markdown layout.
-function plotPresentation(plot: CaveOverviewPlot): CavePlotPresentation {
+function plotPresentation(plot: CaveOverviewPlot): CavePlotOverviewItem {
   return {
     plotIndex: plot.plotIndex,
     plotState: plot.plotState,
+    hasCrop: plot.plotState === 'cultivated' && plot.cropName.trim() !== '',
     title: plot.title,
     detail: plot.detail,
     actionLabel: ownPlotActions(plot)[0]?.label,
@@ -35,7 +27,7 @@ function plotPresentation(plot: CaveOverviewPlot): CavePlotPresentation {
   };
 }
 
-export function presentBackendCavePlots(plots: CaveOverviewPlot[]): CavePlotPresentation[] {
+export function presentBackendCavePlots(plots: CaveOverviewPlot[]): CavePlotOverviewItem[] {
   return plots.map(plotPresentation);
 }
 
@@ -74,6 +66,7 @@ export default onResponse(selects, async e => {
         return match ? Number(match[1]) : undefined;
       })(),
       plots: presentBackendCavePlots(overview.plots),
+      batchActions: overview.batchActions,
       cultivationCostText: overview.cultivationCostText,
       stasisFormation: overview.stasisFormation ?? undefined
     });

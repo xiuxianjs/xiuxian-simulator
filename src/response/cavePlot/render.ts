@@ -21,6 +21,7 @@ type ActionButton = {
   label: string;
   command: string;
   availabilityLabel?: string;
+  autoEnter?: boolean;
 };
 
 type SendSelfCavePlotPageOptions = {
@@ -32,6 +33,7 @@ type SendSelfCavePlotPageOptions = {
     send: (...payload: any[]) => unknown;
   };
   plots?: CavePlotOverviewItem[];
+  batchActions?: { canAccelerate: boolean; canRipen: boolean };
   leadText?: string;
   advice?: RobotMiddlewareReply['advice'];
   cultivationCostText?: string;
@@ -62,15 +64,12 @@ const FUNCTION_BUTTONS: ActionButton[] = [
 ];
 
 const TEND_BUTTON: ActionButton = { label: '一键打理', command: '/一键打理灵田' };
-const ACCELERATION_BUTTON = { label: '一键加速', command: '/一键加速', autoEnter: false };
-const RIPEN_BUTTON: ActionButton = { label: '一键灵田催熟', command: '/一键灵田催熟' };
+const ACCELERATION_BUTTON: ActionButton = { label: '一键加速', command: '/一键加速', autoEnter: false };
+const RIPEN_BUTTON: ActionButton = { label: '一键催熟', command: '/一键催熟', autoEnter: false };
 
 const BATCH_OPERATION_BUTTONS: ActionButton[] = [
   { label: '开垦所有', command: '/开垦所有', availabilityLabel: '开垦' },
-  { label: '一键收割', command: '/一键收割', availabilityLabel: '收割' },
-  { label: '一键浇灌', command: '/一键浇灌', availabilityLabel: '浇灌' },
-  { label: '一键除虫', command: '/一键除虫', availabilityLabel: '除虫' },
-  { label: '一键除草', command: '/一键除草', availabilityLabel: '除草' }
+  { label: '一键收割', command: '/一键收割', availabilityLabel: '收割' }
 ];
 
 const RECORD_BUTTON: ActionButton = { label: '记录', command: '/灵田记录' };
@@ -126,7 +125,8 @@ function buildSelfCavePlotContent(
   page?: number,
   advice: RobotMiddlewareReply['advice'] = [],
   cultivationCostText?: string,
-  treasureEffects?: TreasureEffectNotice[]
+  treasureEffects?: TreasureEffectNotice[],
+  batchActions?: { canAccelerate: boolean; canRipen: boolean }
 ) {
   const md = Format.createMarkdown();
   const allPlots = plots ?? [];
@@ -196,8 +196,8 @@ function buildSelfCavePlotContent(
   const operationButtons = BATCH_OPERATION_BUTTONS.filter(button => availableActionLabels.has(button.availabilityLabel ?? button.label));
   const batchButtons = [
     ...(careCount > 0 || count('收割') > 0 ? [TEND_BUTTON] : []),
-    ...(availableActionLabels.has('加速') ? [ACCELERATION_BUTTON] : []),
-    RIPEN_BUTTON
+    ...(batchActions?.canAccelerate ? [ACCELERATION_BUTTON] : []),
+    ...(batchActions?.canRipen ? [RIPEN_BUTTON] : [])
   ];
 
   return {
@@ -218,7 +218,8 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
     options.page,
     options.advice,
     options.cultivationCostText,
-    options.treasureEffects
+    options.treasureEffects,
+    options.batchActions
   );
   const targetBid = typeof bid === 'string' ? bid : bid === undefined ? undefined : String(bid);
 

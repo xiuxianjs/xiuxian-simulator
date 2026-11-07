@@ -20,6 +20,7 @@ export const fishingViews = [
   'pending',
   'blessing',
   'overview',
+  'probabilities',
   'start',
   'species',
   'bag-materials',
@@ -33,7 +34,27 @@ export const fishingViews = [
   'help',
   'operation'
 ] as const;
-export const fishingKinds = ['boss-challenge', 'sell-fish-range', 'sell-material', 'use-chum', 'use-net', 'settings', 'build', 'start-current', 'stop-current', 'start', 'stop', 'sell-fish', 'pond-upgrade', 'rod-switch', 'rod-upgrade', 'purchase', 'cashout', 'fish-lock', 'blessing-unlock'] as const;
+export const fishingKinds = [
+  'boss-challenge',
+  'sell-fish-range',
+  'sell-material',
+  'use-chum',
+  'use-net',
+  'settings',
+  'build',
+  'start-current',
+  'stop-current',
+  'start',
+  'stop',
+  'sell-fish',
+  'pond-upgrade',
+  'rod-switch',
+  'rod-upgrade',
+  'purchase',
+  'cashout',
+  'fish-lock',
+  'blessing-unlock'
+] as const;
 export const fishingCurrencies = ['coin', 'stone', 'crystal', 'dao'] as const;
 export const fishingShopCategories = ['all', 'fish', 'bait', 'chum', 'rod', 'net', 'material'] as const;
 export const fishingBaits = { 素灵饵: 'plain', 定鳞饵: 'steady', 聚灵饵: 'realm', 引珍饵: 'rare', 唤王饵: 'king' } as const;
@@ -42,13 +63,18 @@ export const fishingChums = { 聚鳞散: 'basic', 催鳞散: 'advanced', 引珍�
 export type FishingViewKind = (typeof fishingViews)[number];
 export type FishingPreviewKind = (typeof fishingKinds)[number];
 export type FishingCurrency = (typeof fishingCurrencies)[number];
-export type FishingSettingsInput={
-  primaryBaitType?:string;
-  pushRareFish?:boolean;pushFishKing?:boolean;
-  autoChum?:boolean;chumType?:string;chumTier?:number;autoBaitSwitch?:boolean;baitOrder?:string[];
+export type FishingSettingsInput = {
+  primaryBaitType?: string;
+  pushRareFish?: boolean;
+  pushFishKing?: boolean;
+  autoChum?: boolean;
+  chumType?: string;
+  chumTier?: number;
+  autoBaitSwitch?: boolean;
+  baitOrder?: string[];
 };
 export type FishingInput = {
-  settings?:FishingSettingsInput;
+  settings?: FishingSettingsInput;
   view?: FishingViewKind;
   kind?: FishingPreviewKind;
   eventId?: string;
@@ -58,7 +84,7 @@ export type FishingInput = {
   speciesName?: string;
   fishRealm?: number;
   catchId?: string;
-  castId?:string;
+  castId?: string;
   sessionId?: string;
   rodId?: string;
   currency?: FishingCurrency;
@@ -71,7 +97,7 @@ export type FishingInput = {
   page?: number;
   returnPage?: number;
   waterLevel?: number;
-  blessingRealm?:number;
+  blessingRealm?: number;
   hours?: number;
   baitCount?: number;
   chumCount?: number;
@@ -112,7 +138,7 @@ const row = (value: unknown): Record<string, unknown> => {
 };
 const text = (value: unknown): string => (typeof value === 'string' ? value : invalid());
 const integer = (value: unknown, minimum = 0): number => (typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum ? value : invalid());
-const array = <T>(value: unknown, decode: (value: unknown) => T): T[] => (Array.isArray(value) ? value.map(decode) : invalid());
+const array = <T>(value: unknown, decode: (value: unknown, index: number) => T): T[] => (Array.isArray(value) ? value.map(decode) : invalid());
 
 export function validFishingReference(ref: string, kind: 'y' | 'z' = 'y'): boolean {
   return ref.length <= 64 && /^r1_[1-9a-z][0-9a-z]*_[yz]_[1-9a-z][0-9a-z]*_[0-9a-f]{24}$/.test(ref) && ref.split('_', 3)[2] === kind;
@@ -123,7 +149,9 @@ export function validFishingEventID(value: string): boolean {
 }
 
 function fishingCalendarDate(value: string): Date | undefined {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) { return undefined; }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
   const date = new Date(value + 'T00:00:00.000Z');
 
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? date : undefined;
@@ -171,11 +199,11 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
   if (!rulesVersion.trim() || !view.trim() || !title.trim()) {
     return invalid();
   }
-  const sections = array(data.sections, value => {
+  const sections = array(data.sections, (value, index) => {
     const section = row(value);
     const actions = absent(section.actions) ? [] : array(section.actions, action);
 
-    if (actions.length > (view === 'blessing' ? 4 : 3)) {
+    if (actions.length > (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3)) {
       return invalid();
     }
 
@@ -210,7 +238,9 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
     const maxRows = view === 'blessing' || inventoryTabs ? 3 : 2;
     const maxColumns = view === 'blessing' ? 4 : 6;
 
-    if (rows.length > maxRows || rows.some(row => row.length > maxColumns) || (inventoryTabs && rows.flat().length > 12)) { return invalid(); }
+    if (rows.length > maxRows || rows.some(row => row.length > maxColumns) || (inventoryTabs && rows.flat().length > 12)) {
+      return invalid();
+    }
     result.navRows = rows;
   }
 

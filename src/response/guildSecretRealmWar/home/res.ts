@@ -2,7 +2,7 @@ import { useMessage } from '@src/utils/useMessage';
 import { parseBackendSecretRealmHome } from '@src/api/bot/guild-secret-realm-war';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { FormatGui } from '@src/utils/messageHelper';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
@@ -50,8 +50,11 @@ export default onResponse(selects, async e => {
   if (display.settledOwnedText !== null) {
     md.addNewline().addText(`上期战果：${display.settledOwnedText}`).addNewline().addText(`可领灵晶：${display.rewardText}`);
     if (display.canPromptClaim) {
-      md.addNewline().addText('输入 /灵脉攻防战领取奖励 领取本期奖励。');
+      md.addNewline();
+      addOptions(md, [{ label: '领取奖励', command: '/灵脉攻防战领取奖励', autoEnter: false }]);
     }
   }
-  void message.send(FormatGui({ isPrivate, bid, title: '灵脉攻防战', content: md, footer: [{ label: '攻防列表', command: '/灵脉攻防战列表 1' }] }));
+  void message.send(
+    FormatGui({ isPrivate, bid, title: '灵脉攻防战', content: md, footer: [{ label: '攻防列表', command: '/灵脉攻防战列表 1', autoEnter: false }] })
+  );
 });

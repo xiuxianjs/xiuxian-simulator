@@ -13,7 +13,13 @@ export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const md = Format.createMarkdown();
   const sendFailure = (text: string) => message.send(
-      FormatGui({ isPrivate: e.isPrivate ?? false, bid, title: '灵脉攻防战', content: md.addText(text), footer: [{ label: '返回', command: '/灵脉攻防战' }] })
+      FormatGui({
+        isPrivate: e.isPrivate ?? false,
+        bid,
+        title: '灵脉攻防战',
+        content: md.addText(text),
+        footer: [{ label: '返回', command: '/灵脉攻防战', autoEnter: false }]
+      })
     );
   let loaded;
 
@@ -30,5 +36,7 @@ export default onResponse(selects, async e => {
     return;
   }
   md.addText(`领取成功：灵晶${loaded.data.spiritCrystal} ｜ 贡献${loaded.data.contribution} ｜ 宗门声望${loaded.data.reputation}`);
-  void message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid, title: '灵脉攻防战', content: md, footer: [{ label: '返回', command: '/灵脉攻防战' }] }));
+  void message.send(
+    FormatGui({ isPrivate: e.isPrivate ?? false, bid, title: '灵脉攻防战', content: md, footer: [{ label: '返回', command: '/灵脉攻防战', autoEnter: false }] })
+  );
 });
