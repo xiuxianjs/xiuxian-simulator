@@ -22,7 +22,7 @@ export default onResponse(selects, async e => {
         bid,
         title: '灵脉攻防战 - 挑战',
         content: md.addText(text),
-        footer: [{ label: '返回', command: '/灵脉攻防战' }]
+        footer: [{ label: '返回', command: '/灵脉攻防战', autoEnter: false }]
       })
     );
   let loaded;
@@ -56,6 +56,12 @@ export default onResponse(selects, async e => {
     md.addNewline().addText(`冻结至：${formatGameTime(r.frozenUntil)}`);
   }
   void message.send(
-    FormatGui({ isPrivate: e.isPrivate ?? false, bid, title: '灵脉攻防战 - 挑战', content: md, footer: [{ label: '返回', command: '/灵脉攻防战' }] })
+    FormatGui({
+      isPrivate: e.isPrivate ?? false,
+      bid,
+      title: '灵脉攻防战 - 挑战',
+      content: md,
+      footer: [{ label: '返回', command: '/灵脉攻防战', autoEnter: false }]
+    })
   );
 });

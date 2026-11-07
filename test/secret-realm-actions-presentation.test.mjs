@@ -22,6 +22,7 @@ const output=goTestFixture(['test','./internal/httpapi','-run','^TestRobotBusine
 const rows=[...output.matchAll(/ROBOT_SECRET_REALM_ACTION_RESPONSE=([^|]+)\|([^|]+)\|(.+)/g)].map(m=>({op:m[1],args:JSON.parse(m[2]),result:JSON.parse(m[3]).data}));
 const flatten=nodes=>nodes.flatMap(n=>Array.isArray(n.value)?flatten(n.value):[n]);
 const textOf=nodes=>flatten(nodes).map(n=>String(n.value??'')).join('');
+const explicitManualLinks=nodes=>nodes.map(node=>({...node,...(Array.isArray(node.value)?{value:explicitManualLinks(node.value)}:{}),...(node.type==='MD.button'?{options:{...node.options,autoEnter:false}}:{})}));
 async function render(name,text){state.sent=[];state.calls=0;state.next=0;const e={name:'message.create',UserId:'player',uid:1,MessageText:text,isPrivate:true};await framework.run(handlers[name], e, ()=>{state.next++});return state.sent;}
 const command=row=>row.op.endsWith('challenge')?`/灵脉攻防战挑战 ${row.args.realmNo} ${row.args.positionNo}`:'/灵脉攻防战领取奖励';
 test('secret realm action bubbles retain win loss freeze reward and original domain error text',async()=>{
@@ -29,7 +30,8 @@ test('secret realm action bubbles retain win loss freeze reward and original dom
   const actual=await render(kind,text);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(actual.length,1);const legacy=await render('old'+kind,text);
   const frozen=row.result.data?.frozenUntil;
   const expectedFrozen=typeof frozen==='string'?new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(frozen)):null;
-  assert.deepEqual(actual,expectedFrozen?JSON.parse(JSON.stringify(legacy).replaceAll(frozen,expectedFrozen)):legacy);
+  assert.deepEqual(actual.map(explicitManualLinks),(expectedFrozen?JSON.parse(JSON.stringify(legacy).replaceAll(frozen,expectedFrozen)):legacy).map(explicitManualLinks));
+  for(const link of flatten(actual[0]).filter(node=>node.type==='MD.button')){assert.equal(link.options.autoEnter,false);assert.equal(link.options.show,undefined);}
   if(row.result.success){const data=row.result.data;if(kind==='challenge'){assert.ok(textOf(actual[0]).includes(data.won?'挑战胜利，已占领该位置。':'挑战失败。'));assert.equal(textOf(actual[0]).includes('冻结至：'),typeof data.frozenUntil==='string');assert.equal(textOf(actual[0]).includes('本周首次有效占领：贡献 +30（已到账）'),data.participationContribution===30);}else assert.ok(textOf(actual[0]).includes(`领取成功：灵晶${data.spiritCrystal} ｜ 贡献${data.contribution} ｜ 宗门声望${data.reputation}`));}
  }
 });

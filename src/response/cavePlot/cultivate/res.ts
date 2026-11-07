@@ -63,6 +63,7 @@ export default onResponse(selects, async e => {
       isPrivate,
       message,
       plots: presentBackendCavePlots(overview.plots),
+      batchActions: overview.batchActions,
       cultivationCostText: overview.cultivationCostText,
       leadText: result.message,
       page: cavePageForPlot(

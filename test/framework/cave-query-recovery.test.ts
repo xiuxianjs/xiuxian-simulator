@@ -45,7 +45,7 @@ const growingPlot = { ...plot, plotIndex: 1, abnormalFlags: 0, abnormalStateCoun
 for (const isPrivate of [false, true]) for (const text of ['/灵田', '/灵田 操作']) {
   test(`灵田一键加速紧接一键打理且没有旧入口 ${text} private=${isPrivate}`, async t => {
     const data = { access: { canUseCave: true, hasCavePlot: true, lockedMessage: '', realmName: '元婴' },
-      overview: { ...overview, plots: [growingPlot, plot] } };
+      overview: { ...overview, plots: [growingPlot, plot], batchActions: { canAccelerate: true, canRipen: true } } };
     const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
     const event = isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' });
     const result = await app.runHandler(own, event);
@@ -58,26 +58,60 @@ for (const isPrivate of [false, true]) for (const text of ['/灵田', '/灵田 �
 
     assert.ok(tendIndex >= 0);
     assert.deepEqual(markdown.value[tendIndex + 1], { type: 'MD.button', value: '‹一键加速›', options: { data: '/一键加速', autoEnter: false } });
+    assert.deepEqual(markdown.value[tendIndex + 2], { type: 'MD.button', value: '‹一键催熟›', options: { data: '/一键催熟', autoEnter: false } });
     const view = inspectMessage(sent.nodes);
 
     assert.equal(view.commands.filter(command => command === '/一键加速').length, 1);
+    assert.equal(view.commands.filter(command => command === '/一键催熟').length, 1);
     assert.ok(!view.commands.includes('/一键灵田加速'));
-    assert.ok(view.commands.includes('/一键灵田催熟'));
+    assert.ok(!view.commands.includes('/一键灵田催熟'));
+    assert.ok(view.commands.includes('/浇灌 2'));
+    for (const command of ['/一键浇灌', '/一键除虫', '/一键除草']) assert.ok(!view.commands.includes(command));
   });
 }
 
-for (const canAccelerate of [false, true]) {
-  test(`灵田按自身作物能力展示一键加速 canAccelerate=${canAccelerate}`, async t => {
+const emptyPlot = { ...growingPlot, seedName: '', cropName: '', matureAt: null, remainingSeconds: 0, capabilities: [{ kind: 'plant' }] };
+const maturePlot = { ...growingPlot, isMature: true, remainingSeconds: 0, capabilities: [{ kind: 'harvest' }] };
+const cropStates = [
+  { name: '尚无地块', plots: [], plantedCount: 0, matureCount: 0, canAccelerate: false, canRipen: false },
+  { name: '已开垦但未播种', plots: [emptyPlot], plantedCount: 0, matureCount: 0, canAccelerate: false, canRipen: false },
+  { name: '仅有锁定地块', plots: [{ ...emptyPlot, plotState: 'locked', capabilities: [] }], plantedCount: 0, matureCount: 0, canAccelerate: false, canRipen: false },
+  { name: '作物生长中且两种可用', plots: [growingPlot], plantedCount: 1, matureCount: 0, canAccelerate: true, canRipen: true },
+  { name: '仅有成熟作物', plots: [maturePlot], plantedCount: 1, matureCount: 1, canAccelerate: false, canRipen: false },
+  { name: '普通加速用尽仍能催熟', plots: [growingPlot], plantedCount: 1, matureCount: 0, canAccelerate: false, canRipen: true },
+  { name: '催熟冷却但仍能加速', plots: [growingPlot], plantedCount: 1, matureCount: 0, canAccelerate: true, canRipen: false },
+  { name: '种植中但次数库存均不可用', plots: [growingPlot], plantedCount: 1, matureCount: 0, canAccelerate: false, canRipen: false }
+];
+
+test('旧服务未提供批量资格时不根据作物名猜测余次', async t => {
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    access: { canUseCave: true, hasCavePlot: true, lockedMessage: '', realmName: '元婴' },
+    overview: { ...overview, plots: [growingPlot] }
+  }));
+  const result = await app.runHandler(own, app.events.privateMessage({ text: '/灵田', platform: 'qq-bot' }));
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.ok(view.commands.includes('/灵田加速 1'));
+  assert.ok(!view.commands.includes('/一键加速'));
+  assert.ok(!view.commands.includes('/一键催熟'));
+});
+
+for (const text of ['/灵田', '/灵田 操作']) for (const state of cropStates) {
+  test(`${text} 按服务端目标次数资格展示一键加速和一键催熟 · ${state.name}`, async t => {
     const data = { access: { canUseCave: true, hasCavePlot: true, lockedMessage: '', realmName: '元婴' },
-      overview: { ...overview, plots: canAccelerate ? [growingPlot] : [] } };
-    const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
-    const result = await app.runHandler(own, app.events.privateMessage({ text: '/灵田', platform: 'qq-bot' }));
+      overview: { ...overview, plots: state.plots, plantedCount: state.plantedCount, matureCount: state.matureCount,
+        batchActions: { canAccelerate: state.canAccelerate, canRipen: state.canRipen } } };
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+    const result = await app.runHandler(own, app.events.privateMessage({ text, platform: 'qq-bot' }));
     const sent = result.messages[0];
     const view = inspectMessage(sent.nodes);
 
+    assert.deepEqual(result.errors, []);
+    assert.equal(requests.length, 1);
+    assert.ok(requests[0].path.endsWith('/cave.view'));
     assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
-    assert.equal(view.commands.includes('/一键加速'), canAccelerate);
-    assert.ok(!view.commands.includes('/一键打理灵田'));
-    assert.ok(view.commands.includes('/一键灵田催熟'));
+    assert.equal(view.commands.includes('/一键加速'), state.canAccelerate);
+    assert.equal(view.commands.includes('/一键催熟'), state.canRipen);
+    assert.ok(!view.commands.includes('/一键灵田催熟'));
+    assert.equal(view.commands.includes('/一键打理灵田'), state.matureCount > 0);
   });
 }

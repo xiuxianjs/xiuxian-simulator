@@ -29,6 +29,7 @@ export interface CaveOverviewFormation {
 }
 
 export interface CaveOverviewQueryData {
+  batchActions?: { canAccelerate: boolean; canRipen: boolean };
   cultivationCostText?: string;
   plots: CaveOverviewPlot[];
   maxPlots: number;

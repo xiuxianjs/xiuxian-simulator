@@ -39,7 +39,7 @@ export function parseCaveBatchAcceleration(messageText: string) {
   const text = messageText.trim().replace(/^[!！/#＃]/, '');
 
   if (/^一键(?:灵田)?催熟$/.test(text)) {
-    return { title: '一键灵田催熟', accelerator: 'ripen', count: '1' };
+    return { title: '一键催熟', accelerator: 'ripen', count: '1' };
   }
   const match = text.match(/^一键(?:灵田)?加速(?:[ \t]+(?:(灵石|小绿瓶)(?:[ \t]+(\d+))?|(\d+)))?$/);
 

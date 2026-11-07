@@ -117,6 +117,14 @@ export function parseBackendCaveOverview(value: unknown): CaveOverviewQueryData 
   const data = record(value);
 
   return {
+    batchActions:
+      data.batchActions === undefined
+        ? undefined
+        : (() => {
+            const actions = record(data.batchActions);
+
+            return { canAccelerate: boolean(actions.canAccelerate), canRipen: boolean(actions.canRipen) };
+          })(),
     plots: array(data.plots).map(plot),
     maxPlots: number(data.maxPlots),
     cultivationCostText: data.cultivationCostText === undefined ? undefined : text(data.cultivationCostText),

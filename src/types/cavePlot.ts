@@ -19,6 +19,7 @@ export type CavePlantSeedOption = {
 export type CavePlotOverviewItem = {
   plotIndex: number;
   plotState: CavePlotState;
+  hasCrop?: boolean;
   title: string;
   detail: string;
   actionLabel?: string;

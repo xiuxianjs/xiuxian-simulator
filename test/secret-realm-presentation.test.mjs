@@ -22,17 +22,31 @@ const output=goTestFixture(['test','./internal/httpapi','-run','^TestRobotBusine
 const rows=[...output.matchAll(/ROBOT_SECRET_REALM_RESPONSE=([^|]+)\|([^|]+)\|(.+)/g)].map(m=>({op:m[1],args:JSON.parse(m[2]),result:JSON.parse(m[3]).data}));
 const flatten=nodes=>nodes.flatMap(n=>Array.isArray(n.value)?flatten(n.value):[n]);
 const textOf=nodes=>flatten(nodes).map(n=>String(n.value??'')).join('');
+const explicitManualLinks=nodes=>nodes.map(node=>({...node,...(Array.isArray(node.value)?{value:explicitManualLinks(node.value)}:{}),...(node.type==='MD.button'?{options:{...node.options,autoEnter:false}}:{})}));
 async function render(name,text){state.sent=[];state.calls=0;state.next=0;const e={name:'message.create',UserId:'player',uid:1,MessageText:text,isPrivate:true};await framework.run(handlers[name], e, ()=>{state.next++});return state.sent;}
 const command=row=>row.op.endsWith('home')?'/灵脉攻防战':row.op.endsWith('list')?`/灵脉攻防战列表 ${row.args.page}`:row.args.realmNo===null?'/灵脉攻防战查看':`/灵脉攻防战查看 ${row.args.realmNo} ${row.args.page}`;
-test('secret realm read bubbles match original active settled nonmember list positions and failure rendering',async()=>{
+test('secret realm read bubbles preserve facts and render real manual links across active settled nonmember list positions and failures',async()=>{
  for(const row of rows){
   if(row.result.branch==='middleware'||[row.args.page,row.args.realmNo].some(v=>v&&String(Number(v)).includes('e')))continue;
   const kind=row.op.slice('secret-realm.'.length),text=command(row);state.result=row.result;
   if(row.result.success){state.legacy={code:'OK',data:kind==='home'?row.result.data:kind==='list'?{items:row.result.data}:{positions:row.result.data}};}
   else if(kind==='view'&&(row.args.realmNo===null||row.args.realmNo==='0')){state.legacy={code:'NEED_REALM_NO'};}
   else{state.legacy={code:'LOAD_FAILED',data:{message:row.result.middleware.replies.at(-1).text}};}
-  const actual=await render(kind,text);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(actual.length,1);assert.deepEqual(actual,await render('old'+kind,text));
-  if(row.result.success&&kind==='home'){assert.ok(textOf(actual[0]).includes(`状态：${row.result.data.display.statusLabel}`));assert.equal(textOf(actual[0]).includes('领取本期奖励。'),row.result.data.display.canPromptClaim);}
+  const actual=await render(kind,text);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(actual.length,1);
+  if(!row.result.success){assert.deepEqual(actual.map(explicitManualLinks),(await render('old'+kind,text)).map(explicitManualLinks));continue;}
+  const shown=textOf(actual[0]);const links=flatten(actual[0]).filter(n=>n.type==='MD.button');const commands=links.map(n=>n.options.data);
+  for(const link of links){assert.notEqual(link.options.autoEnter,true);assert.equal(link.options.show,undefined);}
+  if(kind==='home'){
+   const data=row.result.data;const display=data.display;for(const fact of [`状态：${display.statusLabel}`,`开放：${data.activeStart} ~ ${data.activeEnd}`,display.participationNotice,display.membershipNotice])if(fact)assert.ok(shown.includes(fact));
+   if(data.isActive)assert.ok(shown.includes(`攻击次数：${display.attackRemaining}/${data.maxAttack}`));
+   if(display.activeOwnedText!==null)for(const fact of [`本期战果：${display.activeOwnedText}`,`灵脉加持：${display.outputMultiplierText}倍`,'惠及宗门挖矿灵石、灵田普通材料收成、打坐／闭关修为；原有秘境收益加成保留。'])assert.ok(shown.includes(fact));
+   if(display.settledOwnedText!==null)for(const fact of [`上期战果：${display.settledOwnedText}`,`可领灵晶：${display.rewardText}`])assert.ok(shown.includes(fact));
+   assert.equal(commands.includes('/灵脉攻防战领取奖励'),display.canPromptClaim);assert.ok(commands.includes('/灵脉攻防战列表 1'));
+  }else if(kind==='list'){
+   for(const item of row.result.data){assert.ok(shown.includes(item.name));assert.ok(shown.includes(`类型：${item.tier}`));assert.ok(shown.includes(`领先：${item.winnerGuildName||'无人占领'} ${typeof item.winnerPoints==='number'?item.winnerPoints:0}分`));assert.ok(commands.includes(`/灵脉攻防战查看 ${item.realmNo} 1`));}
+  }else{
+   for(const item of row.result.data){assert.ok(shown.includes(`${item.positionNo}号位`));assert.ok(shown.includes(`积分：${item.positionPoints}分`));assert.ok(shown.includes(`占领：${item.occupiedUserName||`NPC#${item.npcId}`}`));assert.ok(commands.includes(`/灵脉攻防战挑战 ${Number(row.args.realmNo)} ${item.positionNo}`));}
+  }
  }
 });
 test('secret realm invalid DTO and transport failure stay in original feedback bubble without next or another API',async()=>{
