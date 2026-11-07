@@ -46,7 +46,7 @@ export async function presentPaymentCheckout(
       isPrivate,
       bid,
       title: '订单待支付',
-      // QQ 内的支付链接按钮无法完成付款，保留独立二维码图片入口。
+      // 请勿使用 QQ 扫码或在 QQ 内打开链接，两种方式均无法完成付款。
       content: Format.createMarkdown().addBlockquote(
         createQuoteMarkdown(
           [

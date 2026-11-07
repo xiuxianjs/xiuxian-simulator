@@ -1,14 +1,14 @@
-import { getCommandBusinessErrorMessage } from '@src/utils/commandError';
-import { isPrivateEvent } from '@src/utils/privateEvent';
-import { Format, logger, onResponse, useEvent } from 'alemonjs';
-import { useMessage } from '@src/utils/useMessage';
-import { runRobotBusiness } from '@src/response/robotBusiness';
-import { selects } from '@src/response/config';
-import { parseBackendRechargeRights } from '@src/api/bot/recharge-rights-queries';
-import { getPaymentOrders, getPaymentOrder } from '@src/api/bot/payment-orders';
-import { CheckoutPromotionDecodeError, getBackendNormalPaymentSettlement, parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
 import { requestBackend } from '@src/api/bot/client';
+import { getPaymentOrder, getPaymentOrders } from '@src/api/bot/payment-orders';
+import { parseBackendRechargeRights } from '@src/api/bot/recharge-rights-queries';
+import { CheckoutPromotionDecodeError, getBackendNormalPaymentSettlement, parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
+import { selects } from '@src/response/config';
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { getCommandBusinessErrorMessage } from '@src/utils/commandError';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { isPrivateEvent } from '@src/utils/privateEvent';
+import { useMessage } from '@src/utils/useMessage';
+import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { sendPaymentQr } from '../paymentQr';
 import { buildRechargeSuccessContent } from '../paymentView';
 
@@ -121,7 +121,7 @@ export default onResponse(selects, async e => {
             bid,
             title: '继续支付',
             content: checkoutContent,
-            // QQ 内的支付链接按钮无法完成付款，继续支付只补发原订单二维码。
+            // 请勿使用 QQ 扫码或在 QQ 内打开链接。继续支付只补发原订单二维码。
             footer
           })
         );

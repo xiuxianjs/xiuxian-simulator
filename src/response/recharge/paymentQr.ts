@@ -9,7 +9,7 @@ type PaymentMessage = Pick<ReturnType<typeof useMessage>[0], 'send'>;
 
 export async function sendPaymentQr(message: PaymentMessage, checkout: BackendSponsorCheckout) {
   const { orderNo, payAmount } = checkout.order;
-  // QQ 内打开收银台链接无法完成付款。链接仅用于生成二维码，勿恢复 QQ 链接按钮。
+  // 请勿使用 QQ 扫码或在 QQ 内打开链接。链接仅用于生成二维码，勿恢复 QQ 链接按钮。
   const qr = await QRCode.toBuffer(checkout.payUrl, { width: 300, margin: 1 });
   const sendImage = async (image: Buffer | string) => {
     const receipts = await message.send({ format: Format.create().addImage(image) });
