@@ -1,5 +1,4 @@
 // Frozen complete production handler before narrow guide balance reads; unrelated browse branch retained as oracle.
-import { useMessage } from '@src/utils/useMessage';
 import { createBackendRequestContext } from '@src/api/bot/context';
 import App from '@src/response-apps/market/list/app';
 import { selects } from '@src/response/config';
@@ -13,6 +12,7 @@ import {
 } from '@src/response/market/command';
 import { formatNumber } from '@src/utils/formatHelper';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse } from 'alemonjs';
 
 const appendMarketCurrencyText = (md: ReturnType<typeof Format.createMarkdown>, spiritsCrystal: number) => {
@@ -26,9 +26,9 @@ const appendQuotaText = (md: ReturnType<typeof Format.createMarkdown>, quota?: {
   }
 
   if (quota.remaining <= 0) {
-    md.addText(`今日额度已用完（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日已限额（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   } else {
-    md.addText(`今日剩余额度：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日限额：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   }
   md.addNewline();
 };
@@ -80,14 +80,14 @@ export default onResponse(selects, async e => {
   const uid = typeof e.uid === 'number' ? e.uid : null;
   const result = uid
     ? await App({
-        bid,
-        uid,
-        categoryKey: parsed.categoryKey,
-        keyword: parsed.keyword,
-        sort: parsed.sort,
-        page: parsed.page,
-        request: createBackendRequestContext(e)
-      })
+      bid,
+      uid,
+      categoryKey: parsed.categoryKey,
+      keyword: parsed.keyword,
+      sort: parsed.sort,
+      page: parsed.page,
+      request: createBackendRequestContext(e)
+    })
     : { code: 'LOAD_FAILED' as const, data: { message: '查看珍宝楼失败，请稍后再试' } };
 
   if (result.code === 'LOAD_FAILED') {

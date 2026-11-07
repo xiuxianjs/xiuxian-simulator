@@ -1,8 +1,8 @@
-import { commandText } from '@src/utils/commandPrefix';
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseRobotActivityHub } from '@src/api/bot/activity-hub';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
+import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { commandText } from '@src/utils/commandPrefix';
 import { presentationCommandFilter } from '@src/utils/featureVisibility';
 import { formatGameTime, parseGameTime } from '@src/utils/gameTime';
 import { FormatGui } from '@src/utils/messageHelper';
@@ -23,18 +23,18 @@ const PERSONAL_ROWS = [
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
   { label: '上古遗珍', command: '/上古遗珍', introduction: '每日免费探索，收集宝物与碎片' },
   { label: '宝物', command: '/宝物', introduction: '查看与培养宝物，提升鸿蒙气运' },
-  { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，修行任务与签到' },
   { label: '通天塔', command: '/通天塔', introduction: '登塔闯关，挑战更高层' },
   { label: '镇妖塔', command: '/妖塔', introduction: '逐层镇妖，磨砺战力' },
   { label: '登天梯', command: '/登天梯', introduction: '挑战天骄，争夺排名' },
-  { label: '悬赏', command: '/悬赏榜', introduction: '接取悬赏，追缉目标' },
   { label: '劫云榜', command: '/劫云榜', introduction: '观望道友渡劫，参与劫云互动' },
-  { label: '稻草人', command: '/挑战稻草人', introduction: '测试伤害，检验战力' },
+  { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，修行任务与签到' },
   { label: '邀请奖励', command: '/邀请奖励', introduction: '邀请道友，查看邀请奖励' },
+  { label: '稻草人', command: '/挑战稻草人', introduction: '测试伤害，检验战力' },
+  { label: '悬赏', command: '/悬赏榜', introduction: '接取悬赏，追缉目标' },
+  { label: '杀神榜', command: '/杀神榜', introduction: '群雄争锋，查看杀神排名' },
   // { label: '小店', command: '/小店', introduction: '逛逛道友小店' }, // 小店下架
   { label: '珍宝楼', command: '/珍宝楼', introduction: '道友摆摊，交易珍宝' },
-  { label: '杀神榜', command: '/杀神榜', introduction: '群雄争锋，查看杀神排名' },
-  { label: '人气榜', command: '/人气排行榜', introduction: '道友点赞，人气争锋' }
+  { label: '风云榜', command: '/排行榜', introduction: '唯有吾，敢称天下第一' }
 ];
 
 const GUILD_ROWS = [

@@ -1,10 +1,10 @@
-import { useMessage } from '@src/utils/useMessage';
 import { parseRobotMarketBrowse, parseRobotMarketFishDetail } from '@src/api/bot/market-robot-query';
-import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { appendMarketCommandGuide, createMarketCommandBar, getMarketEmptyText, parseMarketCommand, shouldQueryMarket } from '@src/response/market/command';
+import { runRobotBusiness } from '@src/response/robotBusiness';
 import { formatNumber } from '@src/utils/formatHelper';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
 const appendMarketCurrencyText = (md: ReturnType<typeof Format.createMarkdown>, spiritsCrystal: number) => {
@@ -18,9 +18,9 @@ const appendQuotaText = (md: ReturnType<typeof Format.createMarkdown>, quota?: {
   }
 
   if (quota.remaining <= 0) {
-    md.addText(`今日额度已用完（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日已限额（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   } else {
-    md.addText(`今日剩余额度：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日限额：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   }
   md.addNewline();
 };
@@ -49,19 +49,27 @@ export default onResponse(selects, async e => {
     }
     try {
       const result = await runRobotBusiness(
-        e, 'market.fish-detail', { listingId }, data => parseRobotMarketFishDetail(data, listingId), next,
-        async reply => { await sendDetail(Format.createMarkdown().addText(reply.text)); }
+        e,
+        'market.fish-detail',
+        { listingId },
+        data => parseRobotMarketFishDetail(data, listingId),
+        next,
+        async reply => {
+          await sendDetail(Format.createMarkdown().addText(reply.text));
+        }
       );
 
       if (!result.handled) {
         const fish = result.data;
         const weight = `${Math.trunc(fish.weightG / 1000)}.${String(fish.weightG % 1000).padStart(3, '0')} kg`;
-        const content = Format.createMarkdown().addBlockquote(createQuoteMarkdown([
-          `【${listingId}】${fish.itemName} #${fish.catchId}`,
-          `境界：${fish.fishRealmName}`,
-          `重量：${weight}`,
-          `单价：${fish.unitPriceAmount} ${fish.currencyName}  卖家：${fish.sellerName}`
-        ]));
+        const content = Format.createMarkdown().addBlockquote(
+          createQuoteMarkdown([
+            `【${listingId}】${fish.itemName} #${fish.catchId}`,
+            `境界：${fish.fishRealmName}`,
+            `重量：${weight}`,
+            `单价：${fish.unitPriceAmount} ${fish.currencyName}  卖家：${fish.sellerName}`
+          ])
+        );
 
         await sendDetail(content);
       }

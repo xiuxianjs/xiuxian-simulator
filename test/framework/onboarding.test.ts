@@ -402,6 +402,31 @@ test('注册成功只发送一个序章气泡，保留道号与继续/跳过入�
   assert.equal(requests.length, 1);
 });
 
+test('角色已建档但引导待补时发送恢复按钮', async t => {
+  const text = '存档已保留。暂时无法完成新手引导初始化，可再次重试。';
+  const { app, requests } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, undefined, [{
+      title: '角色已创建',
+      heading: '', advice: [],
+      text,
+      blocks: [{ text, quoted: true }],
+      buttons: [{ label: '重试初始化', command: '/我是' }, { label: '查看角色', command: '/我' }]
+    }])
+  );
+  const run = await app.runHandler(startHandler, app.events.groupMessage({ text: '/我是 青禾 女', platform: 'qq-bot' }));
+  assert.equal(run.messages.length, 1);
+  const sent = run.messages[0];
+  assert.equal(run.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.match(sent.text, /角色已创建/);
+  assert.match(sent.text, /存档已保留/);
+  const nodes = JSON.stringify(sent.nodes);
+  assert.match(nodes, /重试初始化/);
+  assert.match(nodes, /"\/我是"/);
+  assert.match(nodes, /查看角色/);
+  assert.match(nodes, /"\/我"/);
+  assert.equal(requests.length, 1);
+});
+
 test('精简按钮文案后的操作回执降级仍保留完整指令', async t => {
   const { app, requests } = await gameFixture(t, () => { throw new Error('Rendering must not execute gameplay'); });
   let count = 0;

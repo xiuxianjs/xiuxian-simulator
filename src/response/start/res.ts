@@ -3,6 +3,7 @@ import { invalidateEventBackendRobotIdentity } from '@src/api/bot/identity';
 import { parseBackendRegistration } from '@src/api/bot/registration';
 import { GUIDE_ACTION_BAR, NEWCOMER_PROLOGUE } from '@src/constants/newcomerGuide';
 import { selects } from '@src/response/config';
+import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
@@ -36,7 +37,7 @@ export default onResponse(selects, async e => {
   let result;
 
   try {
-    const response = await runRobotBusiness(e, 'account.register', { region: e.GuildId ?? e.ChannelId ?? '' }, parseBackendRegistration, parentNext, reply => feedback(reply.title, reply.text)
+    const response = await runRobotBusiness(e, 'account.register', { region: e.GuildId ?? e.ChannelId ?? '' }, parseBackendRegistration, parentNext, reply => reply.buttons.length ? sendMiddlewareReply(e, reply, 'footer', true) : feedback(reply.title, reply.text)
     );
 
     if (response.handled) {

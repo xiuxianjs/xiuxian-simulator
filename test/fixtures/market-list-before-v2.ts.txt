@@ -26,9 +26,9 @@ const appendQuotaText = (md: ReturnType<typeof Format.createMarkdown>, quota?: {
   }
 
   if (quota.remaining <= 0) {
-    md.addText(`今日额度已用完（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日已限额（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   } else {
-    md.addText(`今日剩余额度：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
+    md.addText(`今日限额：${formatNumber(quota.remaining)}（${formatNumber(quota.dailyUsed)}/${formatNumber(quota.dailyLimit)}）`);
   }
   md.addNewline();
 };
