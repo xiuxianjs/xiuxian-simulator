@@ -1,14 +1,12 @@
-import QRCode from 'qrcode';
-import { Format, logger, ResultCode, type Next } from 'alemonjs';
-import { requestRobotBusiness } from '@src/api/bot/robot-business';
 import { parseRobotNormalPaymentState } from '@src/api/bot/normal-payment';
+import { requestRobotBusiness } from '@src/api/bot/robot-business';
 import type { BackendSponsorCheckout } from '@src/api/bot/sponsor-payment';
+import { finishRobotBusiness } from '@src/response/robotBusiness';
 import type { GameEvent } from '@src/types/event';
-import PayQrCode from '@src/img/views/PayQrCode';
-import { renderCachedImage } from '@src/utils/imageRender';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
-import { finishRobotBusiness } from '@src/response/robotBusiness';
+import { Format, logger, ResultCode, type Next } from 'alemonjs';
+import { sendPaymentQr } from './paymentQr';
 import { buildRechargeSuccessContent } from './paymentView';
 
 const POLL_INTERVAL_MS = 10 * 1000;
@@ -48,46 +46,32 @@ export async function presentPaymentCheckout(
       isPrivate,
       bid,
       title: '订单待支付',
-      keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link', autoEnter: false }]],
+      // QQ 内的支付链接按钮无法完成付款，保留独立二维码图片入口。
       content: Format.createMarkdown().addBlockquote(
         createQuoteMarkdown(
           [
             `商品：${packageName}`,
             `金额：¥${yuan}`,
             `订单号：${orderNo}`,
+            '说明：请使用下方支付二维码。',
             ...(checkout.promotionTexts ? ['本订单返利参与说明', ...checkout.promotionTexts] : [])
           ],
           [
             { label: '查询支付结果', command: `/查询充值订单 ${orderNo}`, autoEnter: false },
-            { label: '恢复支付页面', command: `/继续支付 ${orderNo}`, autoEnter: false }
+            { label: '恢复支付二维码', command: `/继续支付 ${orderNo}`, autoEnter: false }
           ]
         )
       ),
       footer: navigation
     })
   );
-  let qrCodeBuffer: Buffer;
-
   try {
-    qrCodeBuffer = await QRCode.toBuffer(checkout.payUrl, { width: 300, margin: 1 });
+    await sendPaymentQr(client, checkout);
   } catch {
-    await feedback(`订单已创建，但二维码生成失败。订单号：${orderNo}，请从我的订单恢复支付页面。`);
+    await feedback(`订单已创建，但支付二维码未确认送达。订单号：${orderNo}，请从我的订单恢复支付二维码。`);
 
     return;
   }
-  const qrCodeDataUrl = `data:image/png;base64,${qrCodeBuffer.toString('base64')}`;
-  const payImg = await renderCachedImage(PayQrCode, { qrCodeDataUrl, packageName, yuan, orderNo, theme: 'default' }, 'panel:recharge:pay');
-
-  if (!payImg || typeof payImg === 'boolean') {
-    await feedback(`订单已创建，但支付图片生成失败。订单号：${orderNo}，请从我的订单恢复支付页面。`);
-
-    return;
-  }
-
-  const payFormat = Format.create();
-
-  payFormat.addImage(payImg);
-  await message.send({ format: payFormat });
 
   let pollCount = 0;
   const maxPolls = Math.ceil(TIMEOUT_MS / POLL_INTERVAL_MS);

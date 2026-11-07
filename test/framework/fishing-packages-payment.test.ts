@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import QRCode from 'qrcode';
 import { after, afterEach, beforeEach, mock, test } from 'node:test';
 import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
@@ -424,6 +425,7 @@ test('FP订单兼容无普通套餐ID，原下单回显金额并发送与日礼�
   assert.ok(page.text.includes(orderNo)); assert.ok(page.text.includes('¥6.00'));
   for (const command of [`/查询充值订单 ${orderNo}`, `/继续支付 ${orderNo}`]) { assert.ok(page.commands.includes(command)); }
   assert.ok(JSON.stringify(result.messages[1].nodes).includes('fishing-pay.png'));
+  assert.ok(!JSON.stringify(result.messages[0].nodes).includes(checkout.payUrl));
   assert.equal(requests.length, 1); assert.deepEqual(requests[0].body.arguments, { sku: 'steady_6' });
 });
 
@@ -442,12 +444,14 @@ test('已知原订单但收银台字段缺失时不丢单号、不再提示尚�
   assert.ok(!page.text.includes('预览')); assert.equal(requests.length, 1);
 });
 
-test('支付图片失败保留已建订单与查询恢复，不再次创建', async t => {
+test('支付面板生成失败时发送原订单二维码，不再次创建', async t => {
   t.mock.method(ImageCache.prototype, 'getOrCreate', async () => null);
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, checkout));
-  const pages = sent(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 礼包购买 steady_6', platform: 'qq-bot' })), 2);
-  assert.ok(pages[1].text.includes('支付图片生成失败'));
-  assert.ok(pages[1].commands.includes(`/查询充值订单 ${orderNo}`)); assert.ok(pages[1].commands.includes(`/继续支付 ${orderNo}`));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 礼包购买 steady_6', platform: 'qq-bot' }));
+  const [page] = sent(result, 2);
+  assert.ok(page.commands.includes(`/查询充值订单 ${orderNo}`)); assert.ok(page.commands.includes(`/继续支付 ${orderNo}`));
+  const qr = await QRCode.toBuffer(checkout.payUrl, { width: 300, margin: 4 });
+  assert.ok(result.messages[1].nodes.some(node => node.type === 'Image' && node.value === `base64://${qr.toString('base64')}`));
   assert.equal(requests.length, 1);
 });
 

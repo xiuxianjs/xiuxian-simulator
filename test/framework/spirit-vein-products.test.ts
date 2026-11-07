@@ -155,7 +155,8 @@ test('确认礼包正式路由到独立免费确认动作，不落入探索确�
 
 for (const mode of ['packages', 'error', 'image-fallback'] as const) {
   test(`旧充值${mode}分支全部蓝链手动发送`, async t => {
-    t.mock.method(ImageCache.prototype, 'getOrCreate', async () => null as never);
+    t.mock.timers.enable({ apis: ['setInterval'] });
+    t.mock.method(ImageCache.prototype, 'getOrCreate', async () => null);
     const { app } = await gameFixture(t, request => {
       if (mode === 'error') throw new Error('模拟业务接口响应失败');
       return businessEnvelope(request.bid, mode === 'packages'
@@ -165,7 +166,7 @@ for (const mode of ['packages', 'error', 'image-fallback'] as const) {
     const result = await app.runHandler(pay, app.events.privateMessage({ text: '/充值购买 1', platform: 'qq-bot' }));
     assert.equal(result.messages.length, mode === 'image-fallback' ? 2 : 1);
     for (const message of result.messages) view({ ...result, messages: [message] });
-    if (mode === 'image-fallback') assert.match(inspectMessage(result.messages[1].nodes).text, /支付图片生成失败/);
+    if (mode === 'image-fallback') assert.ok(result.messages[1].nodes.some(node => node.type === 'Image' && node.value.startsWith('base64://')));
   });
 }
 

@@ -1,7 +1,6 @@
 import { getCommandBusinessErrorMessage } from '@src/utils/commandError';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
-import QRCode from 'qrcode';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
@@ -10,8 +9,7 @@ import { getPaymentOrders, getPaymentOrder } from '@src/api/bot/payment-orders';
 import { CheckoutPromotionDecodeError, getBackendNormalPaymentSettlement, parseBackendNormalCheckout } from '@src/api/bot/sponsor-payment';
 import { requestBackend } from '@src/api/bot/client';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
-import { renderCachedImage } from '@src/utils/imageRender';
-import PayQrCode from '@src/img/views/PayQrCode';
+import { sendPaymentQr } from '../paymentQr';
 import { buildRechargeSuccessContent } from '../paymentView';
 
 const statusText = (status: string) => ({
@@ -108,7 +106,10 @@ export default onResponse(selects, async e => {
         if (checkout.order.orderNo !== orderNo) {
           throw new Error('原订单收银台回执不一致');
         }
-        const checkoutContent = Format.createMarkdown().addText(`商品：${checkout.packageName} · 原订单：${orderNo}`);
+        const checkoutContent = Format.createMarkdown()
+          .addText(`商品：${checkout.packageName} · 原订单：${orderNo}`)
+          .addNewline()
+          .addText('说明：请使用下方支付二维码。');
 
         if (checkout.promotionTexts) {
           checkoutContent.addNewline().addBlockquote(createQuoteMarkdown(['本订单返利参与说明', ...checkout.promotionTexts]));
@@ -120,29 +121,15 @@ export default onResponse(selects, async e => {
             bid,
             title: '继续支付',
             content: checkoutContent,
-            keyboard: [[{ label: '打开支付页面', command: checkout.payUrl, type: 'link', autoEnter: false }]],
+            // QQ 内的支付链接按钮无法完成付款，继续支付只补发原订单二维码。
             footer
           })
         );
-        const buffer = await QRCode.toBuffer(checkout.payUrl, { width: 300, margin: 1 });
-        const img = await renderCachedImage(
-          PayQrCode,
-          {
-            qrCodeDataUrl: `data:image/png;base64,${buffer.toString('base64')}`,
-            packageName: checkout.packageName,
-            yuan: (checkout.order.payAmount / 100).toFixed(2),
-            orderNo,
-            theme: 'default'
-          },
-          'panel:recharge:pay'
-        );
-
-        if (!img || typeof img === 'boolean') {
-          await send('原订单支付图片暂未生成，请稍后从我的订单重试。');
-
-          return;
+        try {
+          await sendPaymentQr(message, checkout);
+        } catch {
+          await send(`原订单 ${orderNo} 的支付二维码未确认送达，请从我的订单重试。`);
         }
-        await message.send({ format: Format.create().addImage(img) });
       }
 
       return;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
+import QRCode from 'qrcode';
 import { after, before, mock, test } from 'node:test';
-import { ResultCode, shutdownLogger } from 'alemonjs';
+import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import recharge from '../../src/response/recharge/info/res';
 import pay from '../../src/response/recharge/pay/res';
@@ -343,6 +344,28 @@ for (const mode of ['create', 'continue'] as const) {
     });
   }
 }
+
+test('继续支付的面板被拒收后补发原订单二维码并检查回执', async t => {
+  t.mock.method(ImageCache.prototype, 'getOrCreate', async () => 'https://offline.example.test/pay.png');
+  const orderNo = 'TP-original';
+  const checkout = { order: { orderNo, payAmount: 3000, status: 'PENDING' }, packageName: '每周30元礼包', payUrl: 'https://payment.example.test/original', promotionTexts: frozen };
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('membership.rights')) { return businessEnvelope(request.bid, rights); }
+    return request.path.endsWith('/checkout') ? checkout : checkout.order;
+  });
+  let attempts = 0;
+  app.actions.on('message.send', () => [createResult(++attempts === 3 ? ResultCode.Fail : ResultCode.Ok, 'Offline delivery', {})]);
+  const result = await app.runHandler(orders, app.events.privateMessage({ text: `/继续支付 ${orderNo}`, platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 4);
+  assert.ok(!JSON.stringify(result.messages.slice(0, 2)).includes(checkout.payUrl));
+  assert.equal(result.actions[result.messages[2].actionIndex].results?.[0].code, ResultCode.Fail);
+  assert.equal(result.actions[result.messages[3].actionIndex].results?.[0].code, ResultCode.Ok);
+  const qr = await QRCode.toBuffer(checkout.payUrl, { width: 300, margin: 4 });
+  assert.ok(result.messages[3].nodes.some(node => node.type === 'Image' && node.value === `base64://${qr.toString('base64')}`));
+  assert.equal(requests.filter(request => request.path.endsWith('/checkout')).length, 1);
+  assert.ok(!requests.some(request => request.path.endsWith('normal.payment-create')));
+});
 
 test('周礼包已完成订单只渲染真实回执，币种不重复', async t => {
   const orderNo = `TP${'c'.repeat(32)}`;
