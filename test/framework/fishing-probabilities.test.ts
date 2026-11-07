@@ -59,12 +59,13 @@ for (const isPrivate of [false, true]) {
     const page = inspectMessage(opened.messages[0].nodes);
     for (const item of response.sections.flatMap(item => item.lines)) assert.ok(page.text.includes(item));
     const control = flatten(opened.messages[0].nodes).find(node => node.type === 'MD.blockquote' &&
-      flatten([node]).some(leaf => leaf.type === 'MD.text' && String(leaf.value).includes('当前钓力：')));
+      flatten([node]).some(leaf => leaf.type === 'MD.bold' && String(leaf.value).startsWith('当前钓力：')));
     assert.ok(control);
     for (const line of response.sections.at(-1)!.lines) assert.ok(inspectMessage([control]).text.includes(line));
     const bold = flatten(opened.messages[0].nodes).filter(node => node.type === 'MD.bold').map(node => node.value);
+    assert.equal(bold.filter(value => value === response.sections.at(-1)!.lines[0]).length, 1);
     for (const title of ['渔获与杂获', '鱼的境界', '鱼的稀有度']) assert.equal(bold.filter(value => value === title).length, 1);
-    for (const plain of ['当前配置', '渔获中鱼的境界分布', '渔获中鱼的稀有度分布']) assert.ok(!bold.includes(plain));
+    for (const plain of ['当前配置', '渔获中鱼的境界分布', '渔获中鱼的稀有度分布', ...response.sections.at(-1)!.lines.slice(1)]) assert.ok(!bold.includes(plain));
     assert.ok(page.commands.includes('/垂钓'));
     assert.ok(!/上古|龙鲤|奇遇/.test(page.text));
     for (const result of [home, opened]) {

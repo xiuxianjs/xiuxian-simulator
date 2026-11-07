@@ -133,7 +133,11 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       if (index) {
         target.addNewline();
       }
-      text(target, line);
+      if (data.view === 'probabilities' && line.startsWith('当前钓力：')) {
+        target.addBold(line);
+      } else {
+        text(target, line);
+      }
       if (inline && section.actions[index]) {
         buttons(target, [section.actions[index]]);
       }
