@@ -34,15 +34,23 @@ export default onResponse(selects, async event => {
     ? [{ label: '返回渔获', command: '/储物袋 渔获', autoEnter: false }]
     : [{ label: '返回垂钓', command: '/垂钓', autoEnter: false }];
   let checkoutOrderNo: string | undefined;
-  const recoverCheckout = () => send(errorBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: '垂钓 · 原订单待核对',
-    reason: checkoutOrderNo
-      ? `原订单 ${checkoutOrderNo} 的支付信息暂未核实，请查询或恢复此订单，不要重复购买。`
-      : '支付请求结果尚未确认，请先在我的订单核对；如已有订单请继续原订单，不要重复购买。',
-    actions: checkoutOrderNo ? [
-      { label: '查询原订单', command: `/查询充值订单 ${checkoutOrderNo}`, autoEnter: false },
-      { label: '恢复原订单', command: `/继续支付 ${checkoutOrderNo}`, autoEnter: false }
-    ] : [{ label: '我的订单', command: '/我的订单', autoEnter: false }],
-    footer: [{ label: '返回礼包', command: '/垂钓 礼包', autoEnter: false }] }));
+  const recoverCheckout = () => send(
+      errorBubble({
+        bid: event.UserId,
+        isPrivate: isPrivateEvent(event),
+        title: '垂钓 · 原订单待核对',
+        reason: checkoutOrderNo
+          ? `原订单 ${checkoutOrderNo} 的支付信息暂未核实，请查询或恢复此订单，不要重复购买。`
+          : '支付请求结果尚未确认，请先在我的订单核对；如已有订单请继续原订单，不要重复购买。',
+        actions: checkoutOrderNo
+          ? [
+              { label: '查询原订单', command: `/查询充值订单 ${checkoutOrderNo}`, autoEnter: false },
+              { label: '恢复原订单', command: `/继续支付 ${checkoutOrderNo}`, autoEnter: false }
+            ]
+          : [{ label: '我的订单', command: '/我的订单', autoEnter: false }],
+        footer: [{ label: '返回礼包', command: '/垂钓 礼包', autoEnter: false }]
+      })
+    );
 
   if ('error' in parsed) {
     await send(errorBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: '垂钓 · 未完成', reason: `说明：${parsed.error}`, footer: back }));
@@ -52,12 +60,17 @@ export default onResponse(selects, async event => {
   try {
     if (parsed.operation === 'fishing.pack-checkout') {
       if (!isPrivateEvent(event)) {
-        await send(errorBubble({ bid: event.UserId, isPrivate: false, title: '垂钓 · 礼包支付', reason: '订单及支付详情仅支持私聊，请在私聊中购买。', footer: back }));
+        await send(
+          errorBubble({ bid: event.UserId, isPrivate: false, title: '垂钓 · 礼包支付', reason: '订单及支付详情仅支持私聊，请在私聊中购买。', footer: back })
+        );
 
         return;
       }
       const result = await runRobotBusiness(
-        event, parsed.operation, parsed.input, value => {
+        event,
+        parsed.operation,
+        parsed.input,
+        value => {
           const order = value && typeof value === 'object' ? (value as { order?: { orderNo?: unknown } }).order : undefined;
 
           if (typeof order?.orderNo === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(order.orderNo)) {
@@ -65,11 +78,15 @@ export default onResponse(selects, async event => {
           }
 
           return parseBackendNormalCheckout(value);
-        }, next, undefined,
+        },
+        next,
+        undefined,
         createBackendRequestContext(event, parsed.operation),
         async error => {
-          const details = error instanceof SDKError && error.details && typeof error.details === 'object'
-            ? error.details as { orderNo?: unknown; recoverable?: unknown } : undefined;
+          const details =
+            error instanceof SDKError && error.details && typeof error.details === 'object'
+              ? (error.details as { orderNo?: unknown; recoverable?: unknown })
+              : undefined;
 
           if (details?.recoverable !== true || typeof details.orderNo !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(details.orderNo)) {
             return false;
@@ -84,15 +101,36 @@ export default onResponse(selects, async event => {
       if (!result.handled) {
         const checkout = result.data;
 
-        const navigation = [{ label: '返回礼包', command: '/垂钓 礼包', autoEnter: false }, { label: '我的订单', command: '/我的订单', autoEnter: false }];
+        const navigation = [
+          { label: '返回礼包', command: '/垂钓 礼包', autoEnter: false },
+          { label: '我的订单', command: '/我的订单', autoEnter: false }
+        ];
 
-        await presentPaymentCheckout(event, checkout, next, async text => {
-          await send(buildBubble({ bid: event.UserId, isPrivate: true, title: '垂钓 · 原订单待核对',
-            sections: [{ lines: [text], actions: [
-              { label: '查询原订单', command: `/查询充值订单 ${checkout.order.orderNo}`, autoEnter: false },
-              { label: '恢复原订单', command: `/继续支付 ${checkout.order.orderNo}`, autoEnter: false }
-            ] }], footer: navigation }));
-        }, navigation);
+        await presentPaymentCheckout(
+          event,
+          checkout,
+          next,
+          async text => {
+            await send(
+              buildBubble({
+                bid: event.UserId,
+                isPrivate: true,
+                title: '垂钓 · 原订单待核对',
+                sections: [
+                  {
+                    lines: [text],
+                    actions: [
+                      { label: '查询原订单', command: `/查询充值订单 ${checkout.order.orderNo}`, autoEnter: false },
+                      { label: '恢复原订单', command: `/继续支付 ${checkout.order.orderNo}`, autoEnter: false }
+                    ]
+                  }
+                ],
+                footer: navigation
+              })
+            );
+          },
+          navigation
+        );
       }
 
       return;
@@ -117,9 +155,7 @@ export default onResponse(selects, async event => {
         for (const tip of reply.advice) {
           sections.push({ lines: [tip.description], actions: actions([{ label: tip.command, command: tip.command }]) });
         }
-        await send(
-          buildBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: reply.title || '垂钓 · 未完成', sections, footer: back })
-        );
+        await send(buildBubble({ bid: event.UserId, isPrivate: isPrivateEvent(event), title: reply.title || '垂钓 · 未完成', sections, footer: back }));
       }),
       request,
       async error => {
@@ -132,13 +168,15 @@ export default onResponse(selects, async event => {
         ) {
           return false;
         }
-        await send(buildBubble({
-          bid: event.UserId,
-          isPrivate: isPrivateEvent(event),
-          title: '洞府垂钓',
-          sections: [{ lines: [error.message] }],
-          footer: back
-        }));
+        await send(
+          buildBubble({
+            bid: event.UserId,
+            isPrivate: isPrivateEvent(event),
+            title: '洞府垂钓',
+            sections: [{ lines: [error.message] }],
+            footer: back
+          })
+        );
 
         return true;
       }
@@ -157,14 +195,31 @@ export default onResponse(selects, async event => {
     if (parsed.operation === 'fishing.daily-supply') {
       const original = parsed.input.date === undefined ? undefined : event.MessageText?.trim();
 
-      await send(errorBubble({
-        bid: event.UserId,
-        isPrivate: isPrivateEvent(event),
-        title: '每日补给 · 未完成',
-        reason: original ? '说明：领取结果待核对，可查看补给记录或重试原领取。' : '说明：暂未获取每日补给，请稍后刷新。',
-        actions: original ? [{ label: '重试原领取', command: original, autoEnter: false }] : undefined,
-        footer: [{ label: '查看每日补给', command: '/垂钓 每日补给', autoEnter: false }, ...back]
-      }));
+      await send(
+        errorBubble({
+          bid: event.UserId,
+          isPrivate: isPrivateEvent(event),
+          title: '每日补给 · 未完成',
+          reason: original ? '说明：领取结果待核对，可查看补给记录或重试原领取。' : '说明：暂未获取每日补给，请稍后刷新。',
+          actions: original ? [{ label: '重试原领取', command: original, autoEnter: false }] : undefined,
+          footer: [{ label: '查看每日补给', command: '/垂钓 每日补给', autoEnter: false }, ...back]
+        })
+      );
+
+      return;
+    }
+    if (parsed.operation === 'fishing.query' || parsed.operation === 'fishing.preview') {
+      const isPreview = parsed.operation === 'fishing.preview';
+
+      await send(
+        errorBubble({
+          bid: event.UserId,
+          isPrivate: isPrivateEvent(event),
+          title: isPreview ? '垂钓 · 预览未完成' : '垂钓 · 查询未完成',
+          reason: isPreview ? '说明：暂未取得本次预览，请稍后重新发起原操作，收到新预览后再确认。' : '说明：本次查询未能显示，请稍后重试原查询。',
+          footer: back
+        })
+      );
 
       return;
     }
@@ -177,19 +232,17 @@ export default onResponse(selects, async event => {
         title: '垂钓 · 结果待核对',
         reason: original
           ? '说明：原确认结果尚未核实，请重试同一引用或核对原操作；不要重新购买或重复扣料。'
-            : parsed.operation === 'fishing.contest-claim'
-              ? '说明：周赛领奖结果尚未核实，请查看该周原奖励状态，不要重新计算或重复领取。'
+          : parsed.operation === 'fishing.contest-claim'
+            ? '说明：周赛领奖结果尚未核实，请查看该周原奖励状态，不要重新计算或重复领取。'
             : parsed.operation === 'fishing.start-current'
-            ? '说明：开钓结果尚未核实，请先查看当前垂钓状态，不要重复开始。'
-            : parsed.operation === 'fishing.stop-current'
-              ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'
-              : parsed.operation === 'fishing.configure'
-                ? parsed.input.kind === 'rod-switch'
-                  ? '说明：换竿结果尚未核实，请先查看当前钓具。'
-                  : '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
-            : parsed.operation === 'fishing.purchase'
-              ? '说明：购买结果尚未核实，请先核对余额与已有物资，不要重复购买。'
-              : '说明：请求暂未完成，请稍后重新查看；未取得原预览时不能确认。',
+              ? '说明：开钓结果尚未核实，请先查看当前垂钓状态，不要重复开始。'
+              : parsed.operation === 'fishing.stop-current'
+                ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'
+                : parsed.operation === 'fishing.configure'
+                  ? parsed.input.kind === 'rod-switch'
+                    ? '说明：换竿结果尚未核实，请先查看当前钓具。'
+                    : '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
+                  : '说明：购买结果尚未核实，请先核对余额与已有物资，不要重复购买。',
         actions: original ? [{ label: '重试原确认', command: `/垂钓 确认 ${original}`, autoEnter: false }] : undefined,
         footer: back
       })

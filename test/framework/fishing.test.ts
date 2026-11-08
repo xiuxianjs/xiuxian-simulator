@@ -162,6 +162,20 @@ test('DTO拒绝跨主体引用、超长动作、超页实例以及损坏数字',
   assert.equal(parsed.operation, 'fishing.confirm');
 });
 
+test('查询和预览响应未通过校验时分别提示重试原操作', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, base({ rulesVersion: '' })));
+  const run = async (text: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' })), text);
+
+  const query = await run('/垂钓');
+  assert.match(query.text, /查询未完成.*重试原查询/s);
+  assert.doesNotMatch(query.text, /预览|确认/);
+
+  const preview = await run('/垂钓 建塘');
+  assert.match(preview.text, /预览未完成.*收到新预览后再确认/s);
+  assert.ok(preview.commands.every(command => !command.startsWith('/垂钓 确认')));
+  assert.deepEqual(requests.map(request => request.path.split('/').at(-1)), ['fishing.query', 'fishing.preview']);
+});
+
 test('提交回执发送失败后只提供原引用重试，不重建新预览', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, base({ view: 'receipt', status: 'completed', operationId: 'original' })));
   let sent = 0;

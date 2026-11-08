@@ -1,3 +1,4 @@
+import { setTimeout as delay } from 'node:timers/promises';
 import { beginGamePresentation } from '@src/utils/gamePresentation';
 import type { GameEvent } from '../../types/event';
 import { measureTransportStageSync } from '../../utils/transportTiming';
@@ -593,7 +594,7 @@ export async function requestRobotBusiness<T>(
   if (operation === 'daily-fortune.claim' && event.Target?.scope === 'group') {
     input.channelId = event.Target.targetId;
   }
-  const result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {
+  const parameters = {
     path: { operation },
     body: { ...input, arguments: args },
     ...writeContext(
@@ -613,7 +614,35 @@ export async function requestRobotBusiness<T>(
                   : undefined
             ))
     )
-  });
+  };
+
+  let result: unknown;
+
+  try {
+    result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', parameters);
+  } catch (error) {
+    const recoverable = operation === 'skill-books.batch-decompose' || (operation === 'cave.accelerate' && args.mode === 'all' && args.accelerator === 'ripen');
+
+    if (!recoverable || !(error instanceof BackendAPIError) || (error.code !== 'SDK_TIMEOUT' && error.status !== 504)) {
+      throw error;
+    }
+    // Only query the original operation. The write route is never called again.
+    for (const wait of [0, 500, 1500]) {
+      if (wait) {
+        await delay(wait);
+      }
+      try {
+        result = await requestBackend(event.UserId, 'post_v2_robot_business_receipt', parameters);
+
+        return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
+      } catch (lookupError) {
+        if (!(lookupError instanceof BackendAPIError) || lookupError.code !== 'ROBOT_RECEIPT_NOT_READY') {
+          break;
+        }
+      }
+    }
+    throw new BackendAPIError('暂未查到本次回执。', 'ROBOT_RECEIPT_UNAVAILABLE');
+  }
 
   return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
 }

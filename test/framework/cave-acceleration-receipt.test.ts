@@ -131,3 +131,20 @@ for (const [text, available] of methods) {
     });
   }
 }
+
+test('一键催熟保留已结算回执，即使附带面板格式错误', async t => {
+  const message = '本次已确认成功1块，合计消耗33灵石。';
+  const { app, requests } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, { mode: 'command', result: { message, overview: { ...overview, plots: null } } })
+  );
+  const result = await app.runHandler(action, app.events.groupMessage({ text: '/一键催熟', platform: 'qq-bot' }));
+  assert.equal(requests.length, 1);
+  assert.equal(result.messages.length, 1);
+  const sent = result.messages[0];
+  const view = inspectMessage(sent.nodes);
+  assert.ok(view.text.includes(message));
+  assert.ok(view.text.includes('灵田面板刷新失败'));
+  assert.ok(!view.text.includes('结果未获完整确认'));
+  assert.ok(view.commands.includes('/灵田'));
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+});

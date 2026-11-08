@@ -1,3 +1,4 @@
+import { logger } from 'alemonjs';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import type { RobotMiddlewareReply } from './middleware-entry';
 import { parseTreasureEffects, type TreasureEffectNotice } from './treasure-effects';
@@ -91,19 +92,44 @@ export async function executeBackendCaveCommand(bid: string, uid: number, body: 
   return parseBackendCaveCommand(data);
 }
 export function parseBackendCaveCommand(value: unknown) {
+  return parseCaveCommand(value, false);
+}
+
+export function parseCaveActionReceipt(value: unknown) {
+  return parseCaveCommand(value, true);
+}
+
+function parseCaveCommand(value: unknown, preserveReceiptOnOverviewError: boolean) {
   const data = record(value);
 
   if (typeof data.message !== 'string' || (data.needsSeedSelection !== undefined && typeof data.needsSeedSelection !== 'boolean')) {
     throw new Error('灵田操作聚合响应不完整');
   }
 
+  let snapshotError = typeof data.snapshotError === 'string' ? data.snapshotError : null;
+  let overview: ReturnType<typeof parseBackendCaveOverview> | null = null;
+
+  if (data.overview) {
+    try {
+      overview = parseBackendCaveOverview(data.overview);
+    } catch (error) {
+      if (!preserveReceiptOnOverviewError) {
+        throw error;
+      }
+      logger.warn('灵田操作回执已收到，面板解析失败', error);
+      if (!snapshotError?.trim()) {
+        snapshotError = '灵田面板刷新失败。';
+      }
+    }
+  }
+
   return {
     treasureEffects: parseTreasureEffects(data.treasureEffects),
     message: data.message,
     ownerUid: typeof data.ownerUid === 'number' ? data.ownerUid : null,
-    snapshotError: typeof data.snapshotError === 'string' ? data.snapshotError : null,
+    snapshotError,
     needsSeedSelection: data.needsSeedSelection === true,
-    overview: data.overview ? parseBackendCaveOverview(data.overview) : null,
+    overview,
     visit: data.visit ? parseBackendCaveVisit(data.visit) : null,
     options: data.options ? plantOptions(data.options) : null
   };

@@ -1,3 +1,4 @@
+import { BackendAPIError } from '@src/api/bot/client';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveAccelerationReceiptTips } from '@src/response/caveRecovery';
@@ -205,6 +206,11 @@ export default onResponse(selects, async e => {
       )
     });
   } catch (error) {
+    if (error instanceof BackendAPIError && error.code === 'ROBOT_RECEIPT_UNAVAILABLE') {
+      await sendCaveCommandFallback({ message: error.message, snapshotError: null }, bid, isPrivate, message, title);
+
+      return;
+    }
     logger.error(title + '失败:', error);
     await fallback({ message: title + '结果未获完整确认，请先核对当前灵田与原回执。', snapshotError: null });
   }

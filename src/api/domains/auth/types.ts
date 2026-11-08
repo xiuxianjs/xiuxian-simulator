@@ -6,6 +6,7 @@ import type { Schemas } from '../../schemas/index.js';
 
 export interface AuthOperations {
   post_v2_robot_business_operation: AuthOperations['post_robot_business_operation'];
+  post_v2_robot_business_receipt: AuthOperations['post_robot_business_operation'];
   post_v2_robot_home_overview: AuthOperations['post_robot_home_overview'];
   post_robot_business_operation: {
     path: { operation: import('../../bot/robot-business').RobotBusinessOperation };

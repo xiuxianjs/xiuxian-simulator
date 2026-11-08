@@ -1,3 +1,4 @@
+import { BackendAPIError } from '@src/api/bot/client';
 import { displayCommandText, hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { parseRobotSkillBookBatchQuery, parseBackendSkillBookBatchDecompose } from '@src/api/bot/skill-book-batch-decompose';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -164,7 +165,22 @@ const response = onResponse(selects, async e => {
               subscribe.cancel(sub);
             },
             executeFeedback
-          ).catch(async () => {
+          ).catch(async error => {
+            if (error instanceof BackendAPIError && error.code === 'ROBOT_RECEIPT_UNAVAILABLE') {
+              await sendMiddlewareReply(
+                event,
+                {
+                  title: '功法分解',
+                  heading: '',
+                  text: error.message,
+                  buttons: [{ label: '查看储物袋', command: '/储物袋 功法' }],
+                  advice: []
+                },
+                'footer'
+              );
+
+              return { handled: true as const };
+            }
             await executeFeedback({ title: '', heading: '', text: '功法分解结果未获完整确认，请先核对背包、经验材料与原回执。', buttons: [], advice: [] });
 
             return { handled: true as const };

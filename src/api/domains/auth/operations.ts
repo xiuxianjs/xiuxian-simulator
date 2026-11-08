@@ -1,20 +1,35 @@
 // HTTP metadata aligned with Go docs/openapi.yaml; keep DTOs separately reviewed and verify with yarn test:contracts.
 import { robotBusinessV1Operations, robotBusinessV2Operations } from './business-operations.js';
 
+const robotBusinessV2Definition = {
+  method: 'POST',
+  path: '/api/v2/robot/business/{operation}',
+  security: [{ RobotBearer: [], RobotBid: [] }],
+  requestContentType: 'application/json',
+  bodyRequired: true,
+  responseKind: 'json',
+  responseEnvelope: true,
+  pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false, schema: { type: 'string', enum: robotBusinessV2Operations } }],
+  queryParams: [],
+  headerParams: [
+    { name: 'Idempotency-Key', required: true, style: 'simple', explode: false },
+    { name: 'X-Request-ID', required: false, style: 'simple', explode: false }
+  ]
+} as const;
+
 export const authOperationDefinitions = {
-  post_v2_robot_business_operation: {
-    method: 'POST',
-    path: '/api/v2/robot/business/{operation}',
-    security: [{ RobotBearer: [], RobotBid: [] }],
-    requestContentType: 'application/json',
-    bodyRequired: true,
-    responseKind: 'json',
-    responseEnvelope: true,
-    pathParams: [{ name: 'operation', required: true, style: 'simple', explode: false, schema: { type: 'string', enum: robotBusinessV2Operations } }],
-    queryParams: [],
-    headerParams: [
-      { name: 'Idempotency-Key', required: true, style: 'simple', explode: false },
-      { name: 'X-Request-ID', required: false, style: 'simple', explode: false }
+  post_v2_robot_business_operation: robotBusinessV2Definition,
+  post_v2_robot_business_receipt: {
+    ...robotBusinessV2Definition,
+    path: '/api/v2/robot/business/{operation}/receipt',
+    pathParams: [
+      {
+        name: 'operation',
+        required: true,
+        style: 'simple',
+        explode: false,
+        schema: { type: 'string', enum: ['cave.accelerate', 'skill-books.batch-decompose'] }
+      }
     ]
   },
   post_v2_robot_home_overview: {

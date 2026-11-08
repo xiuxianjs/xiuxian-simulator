@@ -1,5 +1,5 @@
 import { parseBackendCaveAccelerationPreview } from './cave-plot-actions';
-import { parseBackendCaveCommand, parseBackendCavePlantQuery } from './cave-command';
+import { parseBackendCaveCommand, parseBackendCavePlantQuery, parseCaveActionReceipt } from './cave-command';
 
 export function caveCultivateArguments(text: string) {
   if (/^(?:[!！/#＃])?(?:开垦所有|一键开垦)\s*$/.test(text)) {
@@ -105,7 +105,7 @@ export function parseRobotCaveAction(value: unknown) {
   const data = value as Record<string, unknown>;
 
   if (data.mode === 'command') {
-    return { mode: 'command' as const, result: parseBackendCaveCommand(data.result) };
+    return { mode: 'command' as const, result: parseCaveActionReceipt(data.result) };
   }
   if (data.mode === 'preview') {
     return { mode: 'preview' as const, preview: parseBackendCaveAccelerationPreview(data.preview) };
