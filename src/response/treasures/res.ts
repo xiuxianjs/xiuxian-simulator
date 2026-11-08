@@ -12,6 +12,8 @@ import {
   parseDailyPackFreePreview,
   parseDailyPackFreeReceipt,
   validTreasureConfirmationRef,
+  isActualExplorationPityRulesVersion,
+  mythicDispersionRulesVersion,
   type OwnedTreasure,
   type TreasureOverview,
   type TreasurePreviewKind
@@ -555,10 +557,10 @@ export default onResponse(selects, async event => {
       }
       if (args[0] === '概率') {
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
-        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029'].includes(
+        const byMode = ['treasure-v7-v5-shape12-20261029', 'treasure-v8-first-guards-20261029', 'treasure-v10-exploration-pity-20261029', mythicDispersionRulesVersion].includes(
           data.rulesVersion ?? ''
         );
-        const actualPity = data.rulesVersion === 'treasure-v10-exploration-pity-20261029';
+        const actualPity = isActualExplorationPityRulesVersion(data.rulesVersion);
         const highPity = data.pity.filter(item => item.rarity >= 4);
 
         if (
@@ -568,7 +570,8 @@ export default onResponse(selects, async event => {
             'treasure-v7-v5-shape12-20261029',
             'treasure-v8-first-guards-20261029',
             'treasure-v9-first-guards-merge-20261029',
-            'treasure-v10-exploration-pity-20261029'
+            'treasure-v10-exploration-pity-20261029',
+            mythicDispersionRulesVersion
           ].includes(data.rulesVersion ?? '') ||
           rates.length !== 3 ||
           new Set(rates.map(rate => rate.rarity)).size !== 3 ||
@@ -594,7 +597,7 @@ export default onResponse(selects, async event => {
           content.addText('综合概率').addNewline();
           content.addText(`${actualPity ? '非保底基础整品概率' : '单抽出整品概率'}${probability(data.shapeRates.singleComplete)}`).addNewline();
           content.addText(actualPity ? '十连至少一件整品' : '十连至少出一件整品').addNewline();
-          if (data.poolVersion === 'treasure-36-maxed-v3') {
+          if (data.poolVersion === 'treasure-36-maxed-v3' || data.poolVersion === 'treasure-36-dispersion-v4') {
             content.addText('已满品宝物的抽取概率大幅降低').addNewline();
           }
           if (actualPity) {
@@ -727,7 +730,7 @@ export default onResponse(selects, async event => {
         }
         content
           .addBold(
-            `${data.rulesVersion === 'treasure-v10-exploration-pity-20261029' ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
+            `${isActualExplorationPityRulesVersion(data.rulesVersion) ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
           )
           .addNewline()
           .addNewline();

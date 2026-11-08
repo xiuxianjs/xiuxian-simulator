@@ -1,5 +1,8 @@
 import { BackendAPIError } from './client';
 
+export const mythicDispersionRulesVersion = 'treasure-v11-mythic-dispersion-20261108';
+export const isActualExplorationPityRulesVersion = (value: unknown) => value === 'treasure-v10-exploration-pity-20261029' || value === mythicDispersionRulesVersion;
+
 function invalid(): never {
   throw new BackendAPIError('宝物业务响应不完整', 'SDK_INVALID_RESPONSE');
 }
@@ -307,15 +310,35 @@ export function parseRelicsOverview(value: unknown) {
     },
     pity: array(item.pity, value => {
       const p = row(value);
+      const parsedRarity = rarity(p.rarity);
+      const hardPity = integer(p.hardPity);
+      const dispersion = p.dispersionStage === undefined ? undefined : integer(p.dispersionStage);
+
+      if (
+        item.rulesVersion === mythicDispersionRulesVersion &&
+        (dispersion === undefined ||
+          dispersion > 2 ||
+          (parsedRarity !== 6 && dispersion !== 0) ||
+          p.softPityStart !== (dispersion === 1 ? 80 : dispersion === 2 ? 50 : 0) ||
+          p.softPityEnd !== (dispersion === 1 ? 90 : dispersion === 2 ? 60 : 0) ||
+          p.effectiveHardPity !== (dispersion === 1 ? 90 : dispersion === 2 ? 60 : hardPity) ||
+          number(p.nextProbability) > 1)
+      ) {
+        return invalid();
+      }
 
       return {
-        rarity: rarity(p.rarity),
+        rarity: parsedRarity,
         name: text(p.name),
         counter: integer(p.counter),
-        hardPity: integer(p.hardPity),
+        hardPity,
         nextProbability: number(p.nextProbability),
         ...(p.conditionalProbability === undefined ? {} : { conditionalProbability: number(p.conditionalProbability) }),
-        ...(p.scope === undefined ? {} : { scope: text(p.scope) })
+        ...(p.scope === undefined ? {} : { scope: text(p.scope) }),
+        ...(dispersion === undefined ? {} : { dispersionStage: dispersion }),
+        ...(p.softPityStart === undefined ? {} : { softPityStart: integer(p.softPityStart) }),
+        ...(p.softPityEnd === undefined ? {} : { softPityEnd: integer(p.softPityEnd) }),
+        ...(p.effectiveHardPity === undefined ? {} : { effectiveHardPity: integer(p.effectiveHardPity) })
       };
     }),
     wholeRates: array(item.wholeRates, value => {
@@ -475,8 +498,8 @@ export function parseTreasureReceipt(value: unknown) {
   if (item.kind === 'explore') {
     const count = integer(result.count);
     const expandedPool =
-      (result.poolVersion === 'treasure-36-v2' || result.poolVersion === 'treasure-36-maxed-v3') &&
-      result.rulesVersion === 'treasure-v10-exploration-pity-20261029';
+      ((result.poolVersion === 'treasure-36-v2' || result.poolVersion === 'treasure-36-maxed-v3') && isActualExplorationPityRulesVersion(result.rulesVersion)) ||
+      (result.poolVersion === 'treasure-36-dispersion-v4' && result.rulesVersion === mythicDispersionRulesVersion);
 
     if (result.poolVersion !== undefined && result.poolVersion !== 'treasure-24-v1' && !expandedPool) {
       return invalid();
@@ -492,7 +515,8 @@ export function parseTreasureReceipt(value: unknown) {
         'treasure-v7-v5-shape12-20261029',
         'treasure-v8-first-guards-20261029',
         'treasure-v9-first-guards-merge-20261029',
-        'treasure-v10-exploration-pity-20261029'
+        'treasure-v10-exploration-pity-20261029',
+        mythicDispersionRulesVersion
       ].includes(String(result.rulesVersion))
     ) {
       if (result.experienceGranted !== count * 100) {
