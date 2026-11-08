@@ -75,7 +75,7 @@ test('guild directory keeps active titles, default intro, eligibility and two ov
     if (raw.result.total === 0) { assert.ok(text.includes('当前还没有任何宗门创建')); continue; }
     for (const guild of raw.result.guilds) {
       assert.ok(text.includes(`${guild.name} #${guild.id}`));
-      assert.ok(text.includes(`等级：${guild.levelName ?? '无'} · 人数：${guild.memberCount}`));
+      assert.ok(text.includes(`等级：${guild.level === null ? '无' : guild.level + '级'} · 人数：${guild.memberCount}`));
       assert.ok(text.includes(`简介：${guild.name}，欢迎加入`));
       assert.equal(buttons.includes(`/加入宗门 ${guild.id}`), raw.canCreateOrApplyGuild);
     }

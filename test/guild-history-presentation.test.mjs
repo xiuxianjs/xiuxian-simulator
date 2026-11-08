@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 const state = globalThis.__guildHistoryPresentation = { raw: null, sent: [], calls: 0 };
 const framework = createPresentationHarness(state);
 const bundle = await build({
-  stdin: { contents: `export {default as logs} from './src/response/guild/viewLogs/res.ts';export {default as apps} from './src/response/guild/myApplications/res.ts';`, resolveDir: process.cwd() },
+  stdin: { contents: `export {default as logs} from './src/response/guild/viewLogs/res.ts';export {default as apps} from './src/response/guild/myApplications/res.ts';export {formatGameTime} from './src/utils/gameTime.ts';`, resolveDir: process.cwd() },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'ranking-query-seam', setup(builder) {
     builder.onResolve({ filter: /^alemonjs$/ }, () => ({ path: pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href, external: true }));
@@ -41,7 +41,7 @@ test('guild logs preserve guild title, persisted dates, ordering and paging butt
  for(const row of receipts.filter(r=>r.op==='guild.logs'&&r.result.success)){
   const d=row.result.data,nodes=await render('logs','/宗门日志 99',d),text=textOf(nodes);
   assert.ok(text.includes('【'+d.guildName+'】宗门日志'));
-  for(const log of d.logs){assert.ok(text.includes(log.content));assert.ok(text.includes('时间：'+log.formattedTime));}
+  for(const log of d.logs){assert.ok(text.includes(log.content));assert.ok(text.includes('时间：'+handlers.formatGameTime(log.createdAt)));}
   if(d.logs.length)assert.ok(text.includes(`第${d.page}/${d.totalPages}页 · 共${d.total}条`));
  }
 });
@@ -50,7 +50,7 @@ test('own applications preserve membership, empty state and quoted cancel contro
   const d=row.result.data,nodes=await render('apps','/我的申请',d),text=textOf(nodes);
   if(d.hasGuild){assert.ok(text.includes(`您已是【${d.guildNameText}】的成员`));assert.ok(commands(nodes).includes('/我的宗门'));}
   else if(!d.applications.length){assert.ok(text.includes('您还没有申请加入任何宗门'));assert.ok(commands(nodes).includes('/宗门列表'));}
-  else{assert.ok(text.includes(`待审核：${d.applications.length}条`));for(const app of d.applications){assert.ok(text.includes(`${app.guildNameText} #${app.id} · ${app.statusText}`));assert.ok(text.includes(app.createdDateText));assert.equal(commands(nodes).includes('/取消宗门申请 '+app.id),app.canCancel);}}
+  else{assert.ok(text.includes(`待审核：${d.applications.length}条`));for(const app of d.applications){assert.ok(text.includes(`${app.guildNameText} #${app.id} · ${app.statusText}`));assert.ok(text.includes('申请时间：'+handlers.formatGameTime(app.createdAt)));assert.equal(commands(nodes).includes('/取消宗门申请 '+app.id),app.canCancel);}}
  }
 });
 test('guild log failures retain unheaded original feedback without extra API',async()=>{

@@ -41,7 +41,7 @@ test('member list preserves titles, deputy, leave dates, activity and self contr
  for(const row of receipts.filter(r=>r.op==='guild.members'&&r.result.success)){
   const d=row.result.data,nodes=await render('members','/宗门成员列表',d),text=textOf(nodes);
   assert.ok(text.includes(`宗门成员 · ${d.guildName}`));
-  for(const m of d.members){assert.ok(text.includes(`日活：${m.dailyActivity} · 周活：${m.weeklyActivity}`));assert.equal(commands(nodes).includes('/查看信息 '+m.userId),m.userId!==1);assert.ok(text.includes(`${m.isDeputy?'代理宗主':m.roleName} · ${m.userName} #${m.userId}`));if(m.isOnLeave)assert.ok(text.includes('请假至'));}
+  for(const m of d.members){assert.ok(text.includes(`日活：${m.dailyActivity} · 周活：${m.weeklyActivity}`));assert.equal(commands(nodes).includes('/查看信息 '+m.userId),m.userId!==1);assert.ok(text.includes(`${m.isDeputy?'代理宗主':m.roleName??'弟子'} · ${m.name===null?'未知':m.name+'（'+(m.realmName??'未知')+'）'} #${m.userId}`));if(m.isOnLeave)assert.ok(text.includes('请假至'));}
   assert.ok(commands(nodes).includes('/我的宗门'));assert.ok(commands(nodes).includes('/飞信 宗门'));
  }
 });
