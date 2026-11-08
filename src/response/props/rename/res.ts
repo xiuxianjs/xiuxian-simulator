@@ -2,6 +2,7 @@ import { useMessage } from '@src/utils/useMessage';
 import { validateBackendPlayerProfileAction } from '@src/api/bot/player-profile-action';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
+import { displayCommandText } from '@src/utils/commandPrefix';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
@@ -65,7 +66,9 @@ export default onResponse(selects, async e => {
       parsed.type === 'signature'
         ? data.cleared
           ? '签名已清空'
-          : `签名已更新为：${data.value}`
+          : isPrivate
+            ? `签名已更新为：${data.value}`
+            : `签名已更新，可私聊发送 ${displayCommandText('/我的资料')} 查看。`
         : parsed.type === 'gender'
           ? `性别已更改为：${data.value}`
           : `改名成功，道号已更新为：${data.value}`;

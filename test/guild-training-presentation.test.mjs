@@ -45,7 +45,7 @@ test('training state retains resources, locked guidance and all permission-based
   assert.ok(text.includes(`宗门：${raw.guildName} · ${raw.guildLevel}级`));assert.ok(text.includes(`宗门声望：${raw.prestige} ｜ 宗门灵石：${raw.spiritStone}`));assert.ok(text.includes(`个人贡献点：${raw.contributionPoints}`));
   if(!raw.unlocked){assert.ok(text.includes('宗门达到2级后，方可开启团队战阵与个人战备。'));assert.ok(!buttons.some(b=>b.startsWith('/宗门战备 团队')));continue;}
   for(const [branch,lines] of [['团队',raw.team],['个人',raw.personal]])for(const line of lines){assert.ok(text.includes(`${line.name}：${line.level}/${line.maxLevel}`));assert.ok(text.includes(`效果：${line.effectText}`));const command='/宗门战备 '+branch+' '+line.key,available=branch==='团队'?!!(line.nextCostPrestige&&line.nextCostSpiritStone&&raw.canUpgradeTeam):!!line.nextCostContribution;assert.equal(buttons.includes(command),available);}
-  for(const command of ['/宗门主线','/灵脉攻防战','/宗门大比'])assert.ok(buttons.includes(command));assert.ok(text.includes('生效范围：宗门主线、灵脉攻防战、宗门大比。'));
+  for(const command of ['/宗门主线','/灵脉攻防战'])assert.ok(buttons.includes(command));assert.ok(text.includes('生效范围：宗门主线、灵脉攻防战。'));
  }
 });
 test('team and personal upgrade receipts retain effects, costs and branch-specific remaining resources',async()=>{

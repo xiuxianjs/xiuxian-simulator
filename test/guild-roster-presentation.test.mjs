@@ -40,17 +40,17 @@ const receipts=[...output.matchAll(/ROBOT_GUILD_ROSTER_RESPONSE=([^|]+)\|([^|]+)
 test('member list preserves titles, deputy, leave dates, activity and self controls',async()=>{
  for(const row of receipts.filter(r=>r.op==='guild.members'&&r.result.success)){
   const d=row.result.data,nodes=await render('members','/宗门成员列表',d),text=textOf(nodes);
-  assert.ok(text.includes('【'+d.guildName+'】成员列表'));
-  for(const m of d.members){assert.ok(text.includes(`ID:${m.userId}  日活:${m.dailyActivity}  周活:${m.weeklyActivity}`));assert.equal(commands(nodes).includes('/查看信息 '+m.userId),m.userId!==1);if(m.isDeputy)assert.ok(text.includes('【代理宗主】'));if(m.isOnLeave)assert.ok(text.includes('请假至'));}
+  assert.ok(text.includes(`宗门成员 · ${d.guildName}`));
+  for(const m of d.members){assert.ok(text.includes(`日活：${m.dailyActivity} · 周活：${m.weeklyActivity}`));assert.equal(commands(nodes).includes('/查看信息 '+m.userId),m.userId!==1);assert.ok(text.includes(`${m.isDeputy?'代理宗主':m.roleName} · ${m.userName} #${m.userId}`));if(m.isOnLeave)assert.ok(text.includes('请假至'));}
   assert.ok(commands(nodes).includes('/我的宗门'));assert.ok(commands(nodes).includes('/飞信 宗门'));
  }
 });
 test('review list preserves empty state, unknown names and applicant buttons inside quotes',async()=>{
  for(const row of receipts.filter(r=>r.op==='guild.review-applications'&&r.result.success)){
   const d=row.result.data,nodes=await render('review','/宗门审核',d),text=textOf(nodes);
-  assert.ok(text.includes('📋 宗门审核'));assert.ok(text.includes('【'+(d.guildName??'')+'】'));
-  if(!d.total)assert.ok(text.includes('暂无待审核的申请'));
-  else for(const a of d.applications){assert.ok(text.includes(`【${a.userId}】【${a.realmName??'未知'}】${a.userName??'未知'}`));assert.ok(commands(nodes).includes('/宗门审核同意 '+a.userId));assert.ok(commands(nodes).includes('/宗门审核拒绝 '+a.userId));}
+  if(!d.total){assert.ok(text.includes('📋 宗门审核'));assert.ok(text.includes('【'+(d.guildName??'')+'】'));assert.ok(text.includes('暂无待审核的申请'));}
+  else {assert.ok(text.includes(`宗门审核 · ${d.guildName??''}`));}
+  for(const a of d.applications){assert.ok(text.includes(`${a.userName??'未知'} #${a.userId}`));assert.ok(text.includes(`境界：${a.realmName??'未知'}`));assert.ok(commands(nodes).includes('/宗门审核同意 '+a.userId));assert.ok(commands(nodes).includes('/宗门审核拒绝 '+a.userId));}
  }
 });
 test('roster failure bubbles preserve bold headings, role text and no-guild footer',async()=>{

@@ -10,7 +10,7 @@ export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const bid = e.UserId;
   const isPrivate = e.isPrivate ?? false;
-  const match = (e.MessageText?.trim() ?? '').match(/^[!！/#＃]?添加精华\s+(.+)$/);
+  const match = (e.MessageText?.trim() ?? '').match(/^[!！/#＃]?添加精华\s+([\s\S]+)$/);
   const args = { content: match ? match[1].trim() : null };
   const send = (text: string) => message.send(FormatGui({ isPrivate, bid, title: '', content: Format.createMarkdown().addText(text) }));
 
@@ -34,10 +34,10 @@ export default onResponse(selects, async e => {
 
       md.addText('使用方法：添加精华 内容');
       md.addNewline();
-      md.addText('说明：精华内容不能超过50字');
+      md.addText('说明：精华内容不能超过50字，常用汉字、字母、数字和空格各算1，😀算2。');
       md.addNewline();
       md.addText('权限：长老及以上职位');
-      void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
+      void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '填写内容', command: '/添加精华 ', autoEnter: false }] }));
 
       return;
     }

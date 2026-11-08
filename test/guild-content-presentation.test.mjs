@@ -52,7 +52,7 @@ test('guild essence empty and clamped pages preserve creators and original navig
   assert.ok(textOf(nodes).includes(`【${d.guildName}】宗门精华`));
   if(!d.items.length){assert.ok(textOf(nodes).includes('暂无精华内容'));assert.ok(commands(nodes).includes('/添加精华'));}
   else{
-   assert.ok(textOf(nodes).includes(`第 ${d.page}/${d.totalPages} 页，共 ${d.total} 条精华`));
+   assert.ok(textOf(nodes).includes(`第${d.page}/${d.totalPages}页 · 共${d.total}条`));
    for(const item of d.items){assert.ok(textOf(nodes).includes(item.content));assert.ok(textOf(nodes).includes('创建者：'+(item.creatorName??'未知')));assert.ok(commands(nodes).includes('/移除精华 '+item.id));}
   }
  }

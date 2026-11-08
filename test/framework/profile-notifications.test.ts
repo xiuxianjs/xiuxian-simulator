@@ -145,7 +145,7 @@ test('非QQ平台的月卡用户保留普通道号', async t => {
 });
 
 for (const privateChat of [false, true]) {
-  test(`资料暂不展示个性签名（${privateChat ? '私聊' : '群聊'}）`, async t => {
+  test(`个性签名仅在私聊资料展示（${privateChat ? '私聊' : '群聊'}）`, async t => {
     const signature = '仙之巅傲世间，有我柠檬才有天！';
     const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
       profile: { ...profile, user: { ...profile.user, signature } },
@@ -156,6 +156,14 @@ for (const privateChat of [false, true]) {
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
-    assert.ok(!inspectMessage(result.messages[0].nodes).text.includes(signature));
+    const view = inspectMessage(result.messages[0].nodes);
+    assert.equal(view.text.includes(signature), privateChat);
+    assert.equal(view.text.includes('个性签名：'), privateChat);
+    const editButton = result.messages[0].nodes
+      .flatMap(node => node.type === 'Markdown' ? node.value : [])
+      .find(node => node.type === 'MD.button' && node.options?.data === '/改签名 ');
+    assert.ok(editButton?.type === 'MD.button');
+    assert.equal(editButton.options?.autoEnter, false);
+    if (privateChat) assert.match(view.text, /上限：50字.*保存前需通过 AI 审核/);
   });
 }

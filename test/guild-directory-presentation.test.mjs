@@ -55,7 +55,7 @@ test('guild home keeps no-membership guidance, permission buttons and all origin
         assert.equal(buttons.includes('/解散宗门'), leader);
         if (!manager) assert.ok(text.includes('宗门事务由宗主、副宗主与长老主持。'));
       } else if (section === ' 活动') {
-        for (const command of ['/宗门主线', '/宗门大比', '/灵脉攻防战', '/宗门成员列表']) assert.ok(buttons.includes(command));
+        for (const command of ['/宗门主线', '/灵脉攻防战', '/宗门成员列表']) assert.ok(buttons.includes(command));
       } else {
         assert.ok(text.includes('灵石：1200/1000')); assert.ok(text.includes('声望：250/200'));
         assert.ok(text.includes('历史称号、当前称号'));
@@ -74,7 +74,8 @@ test('guild directory keeps active titles, default intro, eligibility and two ov
     assert.equal(buttons.includes('/创建宗门'), raw.canCreateOrApplyGuild);
     if (raw.result.total === 0) { assert.ok(text.includes('当前还没有任何宗门创建')); continue; }
     for (const guild of raw.result.guilds) {
-      assert.ok(text.includes(`【${guild.id}】${guild.name}-1级-${guild.memberCount}人`));
+      assert.ok(text.includes(`${guild.name} #${guild.id}`));
+      assert.ok(text.includes(`等级：${guild.levelName ?? '无'} · 人数：${guild.memberCount}`));
       assert.ok(text.includes(`简介：${guild.name}，欢迎加入`));
       assert.equal(buttons.includes(`/加入宗门 ${guild.id}`), raw.canCreateOrApplyGuild);
     }

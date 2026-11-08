@@ -46,11 +46,11 @@ test('available packets keep original amount, remaining time, claim buttons and 
       if (!row.result.success) { assert.ok(text.includes(raw.text)); continue; }
       if (!raw.packets.length) { assert.ok(text.includes('没有可领红包。')); assert.ok(buttons.includes('/发红包')); assert.ok(buttons.includes('/我发的红包')); continue; }
       const totalPages = Math.ceil(raw.packets.length / 5);
-      assert.ok(text.includes(`【${raw.guildName || '未知宗门'}】宗门红包`));
       if (page > totalPages) { assert.ok(text.includes(`页码超出范围：总页数为 ${totalPages} 页`)); assert.ok(!buttons.some(b => b.startsWith('/领红包 '))); continue; }
+      assert.ok(text.includes(`宗门红包 · ${raw.guildName || '未知宗门'}`));
       for (const packet of raw.packets.slice(0, 5)) {
-        assert.ok(text.includes(`【${packet.id}】 ${packet.currencyName}`)); assert.ok(text.includes(`（剩余${packet.remaining}）`));
-        if (packet.expiresAt) assert.ok(text.includes(`⏳${packet.remainingTimeText}`));
+        assert.ok(text.includes(`${packet.currencyName} #${packet.id}`)); assert.ok(text.includes(`每份：×${packet.perAmount} · 剩余份数：${packet.remaining}`));
+        if (packet.expiresAt) assert.ok(text.includes(`剩余时间：${packet.remainingTimeText}`));
         assert.ok(buttons.includes(`/领红包 ${packet.id}`));
       }
     }
@@ -65,9 +65,11 @@ test('sent packets keep statuses, recycle amounts and five-row pagination', asyn
       if (!raw.packets.length) { assert.ok(text.includes('你还没有发过红包。')); continue; }
       const totalPages = Math.ceil(raw.packets.length / 5);
       if (page > totalPages) { assert.ok(text.includes(`页码超出范围：总页数为 ${totalPages} 页`)); continue; }
-      assert.ok(text.includes(`【${raw.guildName || '未知宗门'}】我发的红包`));
+      assert.ok(text.includes(`我发的红包 · ${raw.guildName || '未知宗门'}`));
       for (const packet of raw.packets.slice((page - 1) * 5, page * 5)) {
-        assert.ok(text.includes(`【${packet.id}】${packet.currencyName}×${packet.perAmount} ${packet.claimedCount}/${packet.packetCount}份 ${packet.statusText}`));
+        assert.ok(text.includes(`${packet.currencyName}红包 #${packet.id}`));
+        assert.ok(text.includes(`每份：×${packet.perAmount} · 进度：${packet.claimedCount}/${packet.packetCount}份`));
+        assert.ok(text.includes(`状态：${packet.statusText}`));
         assert.equal(buttons.includes(`/回收红包 ${packet.id}`), packet.canRecycle);
         if (packet.canRecycle) assert.ok(text.includes(`回收 ${packet.recycleAmount}${packet.currencyName}`));
       }

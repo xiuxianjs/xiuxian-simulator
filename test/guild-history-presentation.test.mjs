@@ -42,7 +42,7 @@ test('guild logs preserve guild title, persisted dates, ordering and paging butt
   const d=row.result.data,nodes=await render('logs','/宗门日志 99',d),text=textOf(nodes);
   assert.ok(text.includes('【'+d.guildName+'】宗门日志'));
   for(const log of d.logs){assert.ok(text.includes(log.content));assert.ok(text.includes('时间：'+log.formattedTime));}
-  if(d.logs.length)assert.ok(text.includes(`第 ${d.page}/${d.totalPages} 页，共 ${d.total} 条日志`));
+  if(d.logs.length)assert.ok(text.includes(`第${d.page}/${d.totalPages}页 · 共${d.total}条`));
  }
 });
 test('own applications preserve membership, empty state and quoted cancel controls',async()=>{
@@ -50,7 +50,7 @@ test('own applications preserve membership, empty state and quoted cancel contro
   const d=row.result.data,nodes=await render('apps','/我的申请',d),text=textOf(nodes);
   if(d.hasGuild){assert.ok(text.includes(`您已是【${d.guildNameText}】的成员`));assert.ok(commands(nodes).includes('/我的宗门'));}
   else if(!d.applications.length){assert.ok(text.includes('您还没有申请加入任何宗门'));assert.ok(commands(nodes).includes('/宗门列表'));}
-  else{assert.ok(text.includes(`共有 ${d.applications.length} 条待审核申请`));for(const app of d.applications){assert.ok(text.includes(`【${app.guildNameText}】 - ${app.statusText}`));assert.ok(text.includes(app.createdDateText));assert.equal(commands(nodes).includes('/取消宗门申请 '+app.id),app.canCancel);}}
+  else{assert.ok(text.includes(`待审核：${d.applications.length}条`));for(const app of d.applications){assert.ok(text.includes(`${app.guildNameText} #${app.id} · ${app.statusText}`));assert.ok(text.includes(app.createdDateText));assert.equal(commands(nodes).includes('/取消宗门申请 '+app.id),app.canCancel);}}
  }
 });
 test('guild log failures retain unheaded original feedback without extra API',async()=>{

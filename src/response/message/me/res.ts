@@ -1,4 +1,4 @@
-import { commandText } from '@src/utils/commandPrefix';
+import { commandText, displayCommandText } from '@src/utils/commandPrefix';
 import { getRobotHomeOverview } from '@src/api/bot/robot-business';
 import type { HomeNotificationItem, HomeNotificationType } from '@src/api/schemas/home-notification-query';
 import App from '@src/response-apps/message/me/app';
@@ -179,8 +179,12 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               contentMd.addNewline();
             }
 
-            // 个性签名先不在「我的资料」展示：群聊回复对全群可见，待签名展示方案确认后再恢复。
-            // 服务端仍返回 profile.signature，/改签名 功能不受影响。
+            if (isPrivate) {
+              contentMd.addText(`个性签名：${data.profile.signature || '未设置'}`);
+              contentMd.addNewline();
+              contentMd.addText(`上限：50字，常用汉字、字母、数字和空格各算1，😀算2。保存前需通过 AI 审核。单独发送 ${displayCommandText('/改签名')} 可清空。`);
+              contentMd.addNewline();
+            }
             contentMd.addNewline();
 
             contentMd.addText(`战力：${data.stats.combatPower} ✊`);
@@ -221,12 +225,12 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
 
             const footer = [
               ...(data.actions.isNewcomer ? [[{ label: '新人狂欢', command: '/新人狂欢' }]] : []),
-              ...(!isEarlyStarter
+              ...(!isEarlyStarter || isPrivate
                 ? [
                     [
                       // { label: '主题', command: '/我的主题' }, // 主题切换下架
-                      { label: '改签名', command: '/改签名 新内容' },
-                      { label: '改称号', command: '/我的称号' }
+                      { label: '改签名（最多50字）', command: '/改签名 ', autoEnter: false },
+                      ...(!isEarlyStarter ? [{ label: '改称号', command: '/我的称号' }] : [])
                     ]
                   ]
                 : []),
