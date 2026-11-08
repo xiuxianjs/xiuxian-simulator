@@ -65,7 +65,7 @@ test('guild home keeps no-membership guidance, permission buttons and all origin
     }
   }
 });
-test('guild directory keeps active titles, default intro, eligibility and two overflow bubbles', async () => {
+test('guild directory keeps active titles, optional intro, eligibility and two overflow bubbles', async () => {
   for (const row of receipts.filter(r => r.op === 'guild.list')) {
     const raw = row.result.success ? row.result.data : row.result.middleware.replies.at(-1);
     const nodes = await render('directory', '/宗门列表 99', raw, !row.result.success), text = textOf(nodes), buttons = commands(nodes);
@@ -76,7 +76,8 @@ test('guild directory keeps active titles, default intro, eligibility and two ov
     for (const guild of raw.result.guilds) {
       assert.ok(text.includes(`${guild.name} #${guild.id}`));
       assert.ok(text.includes(`等级：${guild.level === null ? '无' : guild.level + '级'} · 人数：${guild.memberCount}`));
-      assert.ok(text.includes(`简介：${guild.name}，欢迎加入`));
+      if (guild.intro?.trim()) assert.ok(nodes.some(node => node.type === 'MD.text' && node.value === guild.intro));
+      else assert.ok(!text.includes(`${guild.name}，欢迎加入`));
       assert.equal(buttons.includes(`/加入宗门 ${guild.id}`), raw.canCreateOrApplyGuild);
     }
     assert.ok(!text.includes('历史称号')); assert.ok(buttons.includes('/我的申请'));

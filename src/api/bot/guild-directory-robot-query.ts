@@ -11,7 +11,7 @@ export function parseRobotGuildList(value: unknown) {
   }
 
   return {
-    result: data.result === null ? null : parseBackendGuilds(data.result),
+    result: data.result === null ? null : parseBackendGuilds(data.result, false),
     canCreateOrApplyGuild: data.canCreateOrApplyGuild,
     redirected: data.redirected
   };

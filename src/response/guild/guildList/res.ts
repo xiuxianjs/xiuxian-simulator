@@ -110,12 +110,11 @@ function handleGuildListDisplay(result: any, message: any, bid: string | undefin
     // 构建宗门列表显示（列表条目：对象行 + 事实行 + 入宗按钮）
     const items = result.guilds.map((guild: any) => {
       const titles = guild.titles?.filter((t: string) => t?.trim()).map((t: string) => t.trim()) ?? [];
-      const lines = [
-        `等级：${guild.levelName ?? '无'} · 人数：${guild.memberCount}`,
-        `称号：${titles.length > 0 ? titles.join('、') : '无'}`,
-        `简介：${guild.intro}`
-      ];
+      const lines = [`等级：${guild.levelName ?? '无'} · 人数：${guild.memberCount}`, `称号：${titles.length > 0 ? titles.join('、') : '无'}`];
 
+      if (guild.intro.trim()) {
+        lines.push(guild.intro);
+      }
       if (guild.minRealmName) {
         lines.push(`入宗要求：${guild.minRealmName}及以上`);
       }

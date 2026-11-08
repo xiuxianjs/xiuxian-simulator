@@ -37,12 +37,13 @@ const commands = nodes => nodes.filter(node => ['MD.button', 'Button'].includes(
 
 const output=goTestFixture(['test','./internal/httpapi','-run','^TestRobotBusinessGuildContentPagingRefreshAndReplay$','-v','-count=1'], {cwd:fileURLToPath(new URL('../../xiuxian-game-server/',import.meta.url)),encoding:'utf8',maxBuffer:4*1024*1024});
 const receipts=[...output.matchAll(/ROBOT_GUILD_CONTENT_RESPONSE=([^|]+)\|([^|]+)\|(.+)/g)].map(m=>({op:m[1],result:JSON.parse(m[3]).data}));
-test('guild notice and intro retain null fallback, empty text and return buttons',async()=>{
+test('guild notice and intro show existing content without placeholders and retain return buttons',async()=>{
  for(const name of ['notice','intro'])for(const row of receipts.filter(r=>r.op==='guild.'+name&&r.result.success)){
   const d=row.result.data,nodes=await render(name,name==='notice'?'/宗门公告':'/宗门简介',d);
   assert.ok(textOf(nodes).includes(`【${d.guildName??''}】宗门${name==='notice'?'公告':'简介'}`));
-  assert.ok(textOf(nodes).includes(d[name]??(name==='notice'?'暂无公告':'暂无简介')));
-  if(d[name]==='')assert.ok(!textOf(nodes).includes('暂无公告'));
+  if(d[name]?.trim())assert.ok(nodes.some(node=>node.type==='MD.text'&&node.value===d[name]));
+  else assert.ok(!nodes.some(node=>node.type==='MD.text'&&String(node.value).trim()));
+  assert.doesNotMatch(textOf(nodes),/暂无简介|暂无公告/);
   assert.ok(commands(nodes).includes('/我的宗门'));
  }
 });

@@ -48,38 +48,35 @@ for (const isPrivate of [false, true]) {
         assert.equal(result.messages.length, 1);
         const message = result.messages[0];
         const view = inspectMessage(message.nodes);
-        for (const name of ['我的洞府', '修行静室', '炼丹室', '灵药园', '锻造坊', '护府阵法']) assert.ok(view.text.includes(name), name);
-        for (const entry of ['/打坐', '/我的境界', '/经络', '/我的锻造', '/锻造图纸', '/锻造委托', '/洞府阵法']) assert.ok(view.commands.includes(entry), entry);
+        for (const name of ['我的洞府', '修行静室', '炼丹室', '灵药园', '锻造坊', '护府阵法', '灵塘']) assert.ok(view.text.includes(name), name);
+        for (const entry of ['/打坐', '/我的锻造', '/锻造图纸', '/锻造委托', '/洞府阵法']) assert.ok(view.commands.includes(entry), entry);
         const roomBlocks = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.blockquote') : []);
-        assert.equal(roomBlocks.length, 5, '每个房间只占一个引用块');
-        for (const [index, name] of ['修行静室', '炼丹室', '灵药园', '锻造坊', '护府阵法'].entries()) {
+        assert.equal(roomBlocks.length, 6, '每个房间只占一个引用块');
+        for (const [index, name] of ['修行静室', '炼丹室', '灵药园', '锻造坊', '护府阵法', '灵塘'].entries()) {
           const block = roomBlocks[index];
           assert.ok(block.type === 'MD.blockquote' && Array.isArray(block.value));
-          assert.ok(inspectMessage([{ type: 'Markdown', value: block.value }]).text.startsWith(`【${name}`));
+          assert.ok(inspectMessage([{ type: 'Markdown', value: block.value }]).text.startsWith(name));
           assert.ok(!block.value.some(child => child.type === 'MD.blockquote'), '房间内部不再嵌套引用块');
         }
         assert.doesNotMatch(view.text, /在此打理|查看锻造职业、图纸与委托|查看阵法与当前效果/);
         for (const entry of ['/我', '/属性面板', '/查看主线', '/我的活动', '/商店']) assert.ok(view.commands.includes(entry), entry);
         assert.ok(view.commands.includes('/垂钓'));
-        const fishingButtons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.button' && child.options?.data === '/垂钓') : []);
+        const fishingButtons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.flatMap(child => child.type === 'MD.blockquote' && Array.isArray(child.value) ? child.value : []).filter(child => child.type === 'MD.button' && child.options?.data === '/垂钓') : []);
         assert.equal(fishingButtons.length, 1);
         assert.ok(fishingButtons.every(button => button.type === 'MD.button' && button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
 
         if (state === 'joined') {
-          for (const text of ['37 / 200', '炼制次数：11', '测试丹炉', '已开垦：2块', '当前可开垦：1块', '每块开垦消耗：测试材料']) assert.ok(view.text.includes(text), text);
-          for (const entry of ['/炼丹 丹方', '/炼丹 天工', '/物品详情 测试丹炉', '/灵田']) assert.ok(view.commands.includes(entry), entry);
-          const markdown = message.nodes.find(node => node.type === 'Markdown');
-          assert.ok(markdown && Array.isArray(markdown.value));
-          const toolQuote = markdown.value.find(node => node.type === 'MD.blockquote' && JSON.stringify(node).includes('测试丹炉'));
-          assert.ok(toolQuote?.type === 'MD.blockquote' && Array.isArray(toolQuote.value));
-          assert.ok(inspectMessage([{ type: 'Markdown', value: [toolQuote] }]).commands.includes('/炼丹 天工'));
-          assert.ok(inspectMessage([{ type: 'Markdown', value: [toolQuote] }]).commands.includes('/物品详情 测试丹炉'));
+          for (const text of ['37 / 200', '已开垦：2块']) assert.ok(view.text.includes(text), text);
+          for (const entry of ['/炼丹 丹方', '/炼丹 天工', '/灵田']) assert.equal(view.commands.filter(command => command === entry).length, 1);
+          assert.doesNotMatch(view.text, /炼制次数|测试丹炉|每块开垦消耗/);
         } else {
           assert.ok(view.commands.includes('/炼丹 入门'));
           assert.ok(view.commands.includes('/加入灵药师'));
           assert.ok(!view.commands.includes('/炼丹师进阶 确认'));
           if (state === 'guide') assert.ok(!view.text.includes('准备丹炉'));
         }
+        for (const entry of ['/我的境界', '/经络', '/天书']) assert.ok(!view.commands.includes(entry), entry);
+        for (const entry of ['/炼丹 入门', '/加入灵药师', '/我的锻造']) assert.ok(view.commands.filter(command => command === entry).length <= 1, entry);
         assert.equal(message.target?.targetId, isPrivate ? event.UserId : event.ChannelId);
         assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
       });
@@ -100,7 +97,8 @@ for (const isPrivate of [false, true]) {
     assert.ok(view.text.includes('我的洞府'));
     for (const text of ['炼丹师', '灵药师', '锻造坊', '护府阵法', '服务端锁定']) assert.ok(!view.text.includes(text), text);
     for (const command of ['/炼丹 入门', '/加入灵药师', '/我的锻造', '/洞府阵法', '/经络']) assert.ok(!view.commands.includes(command));
-    for (const command of ['/打坐', '/我的境界', '/天书']) assert.ok(view.commands.includes(command));
+    assert.ok(view.commands.includes('/打坐'));
+    for (const command of ['/我的境界', '/天书']) assert.ok(!view.commands.includes(command));
   });
 
   test(`职业入口保留原面板、灵田入口独立经营 private=${isPrivate}`, async t => {
@@ -179,7 +177,7 @@ test('洞府垂钓入口沿用已配置前缀且不增加RPC查询', async t => 
   const message = result.messages[0];
   const view = inspectMessage(message.nodes);
   assert.ok(view.commands.includes('**垂钓'));
-  const buttons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.button' && child.options?.data === '**垂钓') : []);
+  const buttons = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.flatMap(child => child.type === 'MD.blockquote' && Array.isArray(child.value) ? child.value : []).filter(child => child.type === 'MD.button' && child.options?.data === '**垂钓') : []);
   assert.equal(buttons.length, 1);
   assert.ok(buttons.every(button => button.type === 'MD.button' && button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
 });

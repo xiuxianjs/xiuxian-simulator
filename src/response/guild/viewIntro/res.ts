@@ -33,9 +33,10 @@ export default onResponse(selects, async e => {
     md.addNewline();
 
     md.addButton(markdownButtonLabel('返回'), { data: commandText('我的宗门') });
-    md.addNewline();
-
-    md.addText(result.data.intro ?? '暂无简介');
+    if (result.data.intro?.trim()) {
+      md.addNewline();
+      md.addText(result.data.intro);
+    }
 
     void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
   } catch (error) {

@@ -201,8 +201,8 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
 
     return { title: `【${guildName}】宗门志`, header, content: md, footer: back };
   }
-  if (guild.notice) {
-    quote([`📢 ${guild.notice}`]);
+  if (guild.notice?.trim()) {
+    quote([guild.notice]);
   }
   md.addBold(`【${guildName}】 ${guild.level}级(ID:${membership.guildId})`);
   if (permissions.upgrade) {

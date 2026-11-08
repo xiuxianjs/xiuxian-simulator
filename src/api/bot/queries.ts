@@ -446,7 +446,7 @@ export async function getBackendGuilds(bid: string | undefined, page: number, pa
   return parseBackendGuilds(await requestBackend(identity(bid), 'get_guilds', { query: { page, pageSize } }));
 }
 
-export function parseBackendGuilds(value: unknown) {
+export function parseBackendGuilds(value: unknown, fallbackIntro = true) {
   const data = record(value);
 
   return {
@@ -459,7 +459,7 @@ export function parseBackendGuilds(value: unknown) {
       return {
         id: integer(row.id),
         name,
-        intro: row.intro === null ? `${name}，欢迎加入` : text(row.intro),
+        intro: row.intro === null ? (fallbackIntro ? `${name}，欢迎加入` : '') : text(row.intro),
         memberCount: integer(row.memberCount),
         levelId: integer(row.levelId),
         levelName: row.level === null ? undefined : `${integer(row.level)}级`,
