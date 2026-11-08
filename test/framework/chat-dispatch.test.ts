@@ -216,3 +216,28 @@ test('一个场景领取挂起或失败不阻塞另一场景的轮询', async t 
   t.mock.timers.tick(125); await settle(); assert.equal(privateCalls, 2); assert.equal(groups, 3);
   t.mock.timers.tick(125); await settle(); assert.equal(privateCalls, 2); assert.equal(groups, 4);
 });
+
+test('服务端限流提示仅延后对应 bot 和场景，SSE 不提前重试', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const calls: string[] = [];
+  const dispatcher = new MultiScopeDispatcher(() => ['slow', 'ready'], async (bot, scope = 'c2c') => {
+    calls.push(`${bot}:${scope}`);
+    if (bot === 'slow' && scope === 'c2c') return { claim: null, pending: true, retryAfterMs: 700 };
+    return { claim: null, pending: false };
+  });
+  t.after(() => dispatcher.stop());
+
+  await dispatcher.dispatch();
+  t.mock.timers.tick(125);
+  await dispatcher.dispatch();
+  assert.equal(calls.filter(key => key === 'slow:c2c').length, 1);
+  assert.equal(calls.filter(key => key === 'ready:c2c').length, 2);
+  assert.equal(calls.filter(key => key === 'slow:group').length, 2);
+
+  t.mock.timers.tick(574);
+  await settle();
+  assert.equal(calls.filter(key => key === 'slow:c2c').length, 1);
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(calls.filter(key => key === 'slow:c2c').length, 2);
+});

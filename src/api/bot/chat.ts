@@ -45,7 +45,7 @@ async function post<T>(path: string, data: unknown): Promise<T> {
 export const rememberChatContact = (botId: string, openId: string, bid: string) => post('contact', { botId, openId, bid });
 export const claimChatNotice = (botId: string) => post<ChatClaim | null>('claim', { botId });
 export type ChatScope = 'c2c' | 'group';
-export const claimNextChatNotice = (botId: string, scope: ChatScope = 'c2c') => post<{ claim: ChatClaim | null; pending: boolean }>('claim-next', { botId, scopes: [scope] });
+export const claimNextChatNotice = (botId: string, scope: ChatScope = 'c2c') => post<{ claim: ChatClaim | null; pending: boolean; retryAfterMs?: number }>('claim-next', { botId, scopes: [scope] });
 export const finishChatNotice = (receipt: ChatReceipt) => post('receipt', receipt);
 
 export type ChatContact = { botId: string; openId: string; relationState: 0 | 1 | 2 | 3; relationAt: number; groupSeen: boolean; enabled: boolean };

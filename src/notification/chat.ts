@@ -64,6 +64,7 @@ class ChatNoticeLane {
   private requested = false;
   private retryNotBefore = 0;
   private timer?: ReturnType<typeof setTimeout>;
+  private readonly claimNotBefore = new Map<string, number>();
   private readonly inFlight = new Map<string, number>();
   private readonly receiptWaits = new Set<() => void>();
 
@@ -106,14 +107,30 @@ class ChatNoticeLane {
         if (this.stopped) {
           break;
         }
+        const notBefore = this.claimNotBefore.get(botId);
+
+        if (notBefore !== undefined && notBefore > Date.now()) {
+          delay = Math.min(delay, notBefore - startedAt);
+          continue;
+        }
+        this.claimNotBefore.delete(botId);
         if ((this.inFlight.get(botId) ?? 0) >= 32) {
-          delay = 125;
+          delay = Math.min(delay, 125);
           continue;
         }
         const next = await this.claim(botId);
 
         if (next.pending) {
-          delay = 125;
+          const retry = next.retryAfterMs;
+
+          if (retry !== undefined && Number.isFinite(retry) && retry > 0) {
+            const notBefore = Date.now() + retry;
+
+            this.claimNotBefore.set(botId, notBefore);
+            delay = Math.min(delay, notBefore - startedAt);
+          } else {
+            delay = Math.min(delay, 125);
+          }
         }
         if (!next.claim) {
           continue;
@@ -141,7 +158,7 @@ class ChatNoticeLane {
             this.timer = undefined;
             void this.dispatch();
           },
-          Math.max(0, this.retryNotBefore - Date.now(), (this.requested ? 125 : delay) - (Date.now() - startedAt))
+          Math.max(0, this.retryNotBefore - Date.now(), (this.requested ? Math.min(125, delay) : delay) - (Date.now() - startedAt))
         );
         this.timer.unref?.();
       }
