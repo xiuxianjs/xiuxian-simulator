@@ -1,5 +1,6 @@
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import App, { MORE_PAGE_SIZE, parseMoreNavigation } from '@src/response-apps/more/app';
+import { COMMAND_CATALOG } from '@src/response-apps/more/commandCatalog';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { getAppConfig } from '@src/utils/appConfig';
@@ -9,9 +10,42 @@ import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
+const COMMAND_TABLE_PAGE_SIZE = 10;
+const COMMAND_TABLE_ENTRY = '/更多 指令大全';
+const COMMAND_TABLE_HEADER = '| 功能类型 | 指令 | 参数 | 作用 |\n| --- | --- | --- | --- |';
+
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const bid = e.UserId;
+  const selection = parseMoreNavigation(e.MessageText ?? '');
+
+  if (selection.category === '指令大全') {
+    const count = COMMAND_CATALOG.length;
+    const total = Math.max(1, Math.ceil(count / COMMAND_TABLE_PAGE_SIZE));
+    const current = Math.min(selection.page, total);
+    const start = (current - 1) * COMMAND_TABLE_PAGE_SIZE;
+    const rows = COMMAND_CATALOG.slice(start, start + COMMAND_TABLE_PAGE_SIZE).map(([category, commands, parameters, description]) => {
+      const commandCell = commands.map(command => `\`${command}\``).join('、');
+      const parameterCell = parameters ? `\`${parameters}\`` : '—';
+
+      return `| ${category} | ${commandCell} | ${parameterCell} | ${description} |`;
+    });
+    const table = [COMMAND_TABLE_HEADER, ...rows].join('\n');
+
+    await message.send(
+      FormatGui({
+        isPrivate: e.isPrivate ?? false,
+        bid,
+        title: '指令大全',
+        content: Format.createMarkdown().addNewline().addText(table).addNewline(),
+        nav: { current, total, count, command: `${COMMAND_TABLE_ENTRY} {page}` },
+        footer: [{ label: '返回更多', command: '/更多' }],
+        bar: false
+      })
+    );
+
+    return;
+  }
   const [, parentNext] = useEvent();
   let access;
 
@@ -31,7 +65,6 @@ export default onResponse(selects, async e => {
   }
   const visibleCommands = access.registered ? [...access.moreVisibleCommands, ...access.foldVisibleCommands] : access.moreVisibleCommands;
   const { categories } = App(visibleCommands).data;
-  const selection = parseMoreNavigation(e.MessageText ?? '');
   const category = categories.find(item => item.name === selection.category);
   const md = Format.createMarkdown();
 
@@ -48,6 +81,7 @@ export default onResponse(selects, async e => {
       md.addText('此处暂无可阅名目，请择下方入口。');
       md.addNewline();
     }
+    addEntry('指令大全', '查阅指令、参数与用途', COMMAND_TABLE_ENTRY);
     for (const item of categories.filter(item => !item.parent)) {
       addEntry(item.displayName ?? item.name, item.description, `/更多 ${item.name}`);
     }
