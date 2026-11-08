@@ -632,7 +632,7 @@ export async function requestRobotBusiness<T>(
         await delay(wait);
       }
       try {
-        result = await requestBackend(event.UserId, 'post_v2_robot_business_receipt', parameters);
+        result = await requestBackend(event.UserId, 'post_v2_robot_business_receipt', { ...parameters, timeoutMs: 1500 });
 
         return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
       } catch (lookupError) {

@@ -148,3 +148,31 @@ test('一键催熟保留已结算回执，即使附带面板格式错误', async
   assert.ok(view.commands.includes('/灵田'));
   assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
 });
+
+test('一键催熟超时后只按原编号查询回执', async t => {
+  const message = '本次已确认成功1块，合计消耗33灵石。';
+  let reads = 0;
+  const { app, requests } = await gameFixture(t, request => {
+    if (!request.path.endsWith('/receipt')) {
+      return { code: 'GATEWAY_TIMEOUT', message: 'timeout' };
+    }
+    if (++reads === 1) {
+      return { code: 'ROBOT_RECEIPT_NOT_READY', message: '暂未查到回执' };
+    }
+    return businessEnvelope(request.bid, { mode: 'command', result: { message, overview: { plots: null } } });
+  }, request => !request.path.endsWith('/receipt') ? 504 : reads === 0 ? 404 : 200);
+  const result = await app.runHandler(action, app.events.groupMessage({ text: '/一键催熟', platform: 'qq-bot' }));
+  assert.equal(requests.length, 3);
+  const [write, ...lookups] = requests;
+  assert.ok(write.path.endsWith('/cave.accelerate'));
+  assert.ok(write.idempotencyKey);
+  for (const lookup of lookups) {
+    assert.equal(lookup.path, write.path + '/receipt');
+    assert.equal(lookup.idempotencyKey, write.idempotencyKey);
+    assert.deepEqual(lookup.body, write.body);
+  }
+  assert.equal(result.messages.length, 1);
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.ok(inspectMessage(sent.nodes).text.includes(message));
+});

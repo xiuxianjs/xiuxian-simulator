@@ -103,3 +103,31 @@ for (const isPrivate of [false, true]) for (const mode of ['choose', 'all', 'int
   assert.equal(follow.actions[follow.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
  }
 });
+
+for (const found of [true, false]) test(`分解提交超时后只查原回执 found=${found}`, async t => {
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('-query')) return businessEnvelope(request.bid, preview);
+    if (request.path.endsWith('/receipt')) {
+      return found ? businessEnvelope(request.bid, receipt) : { code: 'ROBOT_RECEIPT_NOT_READY', message: '暂未查到回执' };
+    }
+    return { code: 'GATEWAY_TIMEOUT', message: 'timeout' };
+  }, request => request.path.endsWith('-query') ? 200 : request.path.endsWith('/receipt') ? found ? 200 : 404 : 504);
+  await app.runHandler(batch, app.events.groupMessage({ text: '/一键分解功法 下品', platform: 'qq-bot' }));
+  const result = await app.dispatch(app.events.groupMessage({ text: '/确认分解', platform: 'qq-bot' }));
+  assert.equal(requests.length, found ? 3 : 5);
+  const [, write, ...lookups] = requests;
+  assert.ok(write.path.endsWith('/skill-books.batch-decompose'));
+  assert.ok(write.idempotencyKey);
+  for (const lookup of lookups) {
+    assert.equal(lookup.path, write.path + '/receipt');
+    assert.equal(lookup.idempotencyKey, write.idempotencyKey);
+    assert.deepEqual(lookup.body, write.body);
+  }
+  assert.equal(result.messages.length, 1);
+  const sent = result.messages[0];
+  const view = inspectMessage(sent.nodes);
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.ok(view.text.includes(found ? '功法残页 x4' : '暂未查到本次回执。'), view.text);
+  assert.ok(!view.text.includes('未获完整确认'));
+  noWrites(view.commands);
+});
