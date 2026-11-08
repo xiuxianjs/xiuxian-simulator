@@ -186,6 +186,7 @@ export type RobotBusinessOperation =
   | 'storage.props'
   | 'storage.materials'
   | 'notifications.history'
+  | 'notifications.history-delivered'
   | 'realm.overview'
   | 'soul-artifacts.wash'
   | 'soul-artifacts.wash-prepare-reference'

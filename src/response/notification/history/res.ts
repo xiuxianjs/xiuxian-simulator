@@ -1,15 +1,17 @@
-import { commandText } from '@src/utils/commandPrefix';
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
-import { isPrivateEvent } from '@src/utils/privateEvent';
+import { createBackendRequestContext } from '@src/api/bot/context';
+import { parseNotificationHistory } from '@src/api/bot/notification-history-queries';
+import { requestRobotBusiness } from '@src/api/bot/robot-business';
 import { fishingBossNoticeCommand, fishingNotificationLayout, notificationTextLayout } from '@src/notification/presentation';
+import { selects } from '@src/response/config';
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { commandText } from '@src/utils/commandPrefix';
 import { flyMailQuote, flyMailViewCommand, parseFlyMailNotice } from '@src/utils/flyMailPresentation';
 import { formatGameTime } from '@src/utils/gameTime';
-import { useMessage } from '@src/utils/useMessage';
-import { runRobotBusiness } from '@src/response/robotBusiness';
-import { parseNotificationHistory } from '@src/api/bot/notification-history-queries';
-import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
-import { Format, logger, onResponse, useEvent } from 'alemonjs';
+import { isPrivateEvent } from '@src/utils/privateEvent';
+import { useMessage } from '@src/utils/useMessage';
+import { Format, logger, onResponse, ResultCode, useEvent } from 'alemonjs';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -21,8 +23,8 @@ export default onResponse(selects, async e => {
     return parentNext();
   }
   const page = Number(match[1] ?? 1);
-  const footer = [{ label: '返回主页', command: '/我', autoEnter: false }];
-  let hasNext = false;
+  let nav: Parameters<typeof FormatGui>[0]['nav'];
+  const displayedIds: string[] = [];
 
   try {
     const response = await runRobotBusiness(
@@ -33,7 +35,7 @@ export default onResponse(selects, async e => {
       parentNext,
       async reply => {
         md.addText(reply.text);
-        await message.send(FormatGui({ isPrivate: isPrivateEvent(e), bid: e.UserId, title: reply.title, content: md, footer }));
+        await message.send(FormatGui({ isPrivate: isPrivateEvent(e), bid: e.UserId, title: reply.title, content: md }));
       }
     );
 
@@ -42,7 +44,7 @@ export default onResponse(selects, async e => {
     }
     const result = response.data;
 
-    hasNext = result.hasNext;
+    nav = { current: result.page, total: result.totalPages, hasNext: result.hasNext, command: '/我的通知 {page}', autoEnter: false };
 
     if (result.items.length === 0) {
       md.addText('本页暂无通知');
@@ -79,19 +81,40 @@ export default onResponse(selects, async e => {
         quote.addNewline().addButton(markdownButtonLabel('查看奇遇'), { data: commandText(encounterCommand), autoEnter: false });
       }
       md.addBlockquote(quote).addNewline();
+      if (item.text !== '通知内容暂不可用' && !item.text.includes('〔非文本')) {
+        displayedIds.push(item.id);
+      }
     }
   } catch (error) {
+    displayedIds.length = 0;
     logger.error('通知记录查询失败', error);
     md.addText('通知记录暂时无法加载，请稍后再试。');
   }
-  await message.send(
+  const receipts = await message.send(
     FormatGui({
       isPrivate: isPrivateEvent(e),
       bid: e.UserId,
       title: '我的通知',
       content: md,
-      footer,
-      nav: { current: page, hasNext, command: '/我的通知 {page}', autoEnter: false }
+      nav
     })
   );
+
+  if (displayedIds.length && receipts.length && receipts.every(receipt => receipt.code === ResultCode.Ok)) {
+    try {
+      const receipt = await requestRobotBusiness(
+        e,
+        'notifications.history-delivered',
+        { eventIds: displayedIds },
+        data => data,
+        createBackendRequestContext(e, 'notifications.history-delivered')
+      );
+
+      if (!receipt.success || receipt.branch !== 'business') {
+        logger.warn('通知历史送达回执未确认');
+      }
+    } catch (error) {
+      logger.error('通知历史送达回执失败', error);
+    }
+  }
 });

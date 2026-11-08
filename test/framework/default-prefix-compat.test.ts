@@ -27,8 +27,8 @@ const team = { teamId: 8, exists: true, leaderName: '清风', memberCount: 1, ma
 const fishing = { rulesVersion: 'prefix-fixture', view: 'overview', title: '洞府垂钓', status: 'idle',
   sections: [{ title: '', id: '', suffix: '', lines: ['尚未垂钓'], actions: [] }], footer: [{ label: '帮助', command: '/垂钓 帮助' }] };
 const entries = [
-  { command: '洞府', state: 'realm0', op: 'profession.dashboard', input: {}, data: dashboard(0), text: '修行静室' },
-  { command: '洞府', state: 'realm9', op: 'profession.dashboard', input: {}, data: dashboard(9), text: '炼丹室' },
+  { command: '洞府', state: 'realm0', op: 'profession.dashboard', input: { includeMeditationPreference: true }, data: dashboard(0), text: '修行静室' },
+  { command: '洞府', state: 'realm9', op: 'profession.dashboard', input: { includeMeditationPreference: true }, data: dashboard(9), text: '炼丹室' },
   { command: '我的队伍', state: 'no-team', op: 'teams.overview', input: {}, data: { access: { ok: true, realmName: '炼气九层' }, team: null }, text: '你还没有加入任何队伍' },
   { command: '我的队伍', state: 'joined', op: 'teams.overview', input: {}, data: { access: { ok: true, realmName: '炼气九层' }, team }, text: '清风' },
   { command: '垂钓', state: 'idle', op: 'fishing.query', input: { view: 'overview' }, data: fishing, text: '洞府垂钓' }

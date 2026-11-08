@@ -5,3 +5,5 @@
 改前实机截图与改后示意图保存在仓库外 `bubble-style-mockups/cave-home-before-after.png`。
 
 灵塘调整前后局部示意图见仓库外 `bubble-style-mockups/cave-home-spirit-pond.png`。
+
+闭关自动加速从「我的设置」移至修行静室，状态与打坐、切换按钮同处一个引用块。切换回执返回洞府。旧服务端或偏好不可读时显示暂不可读取，保留打坐入口。局部对照图见仓库外 `bubble-style-mockups/cave-home-auto-boost.png`。

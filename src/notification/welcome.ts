@@ -60,11 +60,9 @@ export function buildNotificationWelcome(event: WelcomeEvent): ReturnType<typeof
 
   if (friend) {
     quote.addText('欢迎来到修仙世界。').addNewline();
-    quote.addText('初来乍到可踏入仙途，已有角色可查看主页。').addNewline();
+    quote.addText('初来乍到可踏入仙途。').addNewline();
     quote
       .addButton(markdownButtonLabel('踏入仙途'), { data: commandText('踏入仙途') })
-      .addText(' ')
-      .addButton(markdownButtonLabel('我的主页'), { data: commandText('我') })
       .addText(' ')
       .addButton(markdownButtonLabel('帮助'), { data: commandText('修仙帮助') })
       .addButton(markdownButtonLabel('登录'), { data: commandText('登录') });

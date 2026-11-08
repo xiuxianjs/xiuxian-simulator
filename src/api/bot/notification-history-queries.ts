@@ -18,7 +18,8 @@ export function parseNotificationHistory(data: unknown, page: number): Notificat
   if (
     !record(data) ||
     !Number.isSafeInteger(data.page) ||
-    data.page !== page ||
+    (data.totalPages !== undefined && (typeof data.totalPages !== 'number' || !Number.isSafeInteger(data.totalPages) || data.totalPages < 1)) ||
+    data.page !== (typeof data.totalPages === 'number' ? Math.min(page, data.totalPages) : page) ||
     typeof data.hasNext !== 'boolean' ||
     !Array.isArray(data.items) ||
     data.items.length > 5 ||

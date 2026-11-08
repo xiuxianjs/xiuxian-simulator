@@ -181,12 +181,31 @@ export const FormatGui = (params: {
 }) => {
   const format = Format.create();
   const { isPrivate, bid, mention = true, title, header, content, nav, footer, keyboard, bar } = params;
+  const bottomBar =
+    bar === false
+      ? []
+      : (bar ?? [
+          { label: '我', command: '我' },
+          { label: '战', command: '属性面板' },
+          { label: '本', command: '查看主线' },
+          { label: '动', command: '我的活动' },
+          { label: '店', command: '商店' }
+        ]);
+  // The bar already carries the home action; keep it out of secondary rows.
+  const homeCommand = commandText('我');
+  const barHasHome = bottomBar.slice(0, 5).some(button => (!button.type || button.type === 'command') && commandText(button.command ?? '') === homeCommand);
+  const keepAction = (button: GuiButton) => !barHasHome || (button.type !== undefined && button.type !== 'command') || !button.command || commandText(button.command) !== homeCommand;
+  const actionRows = (rows?: GuiFooter) => rows
+      ? normalizeFooterRows(rows)
+          .map(row => row.filter(keepAction))
+          .filter(row => row.length > 0)
+      : [];
   // 返回类按钮统一放页脚首行（2026-11-01 定案），头部只保留筛选/新建/跳转类入口。
   const isBackLabel = (button: GuiButton) => button.label.includes('返回');
-  const requestedHeader = header ?? [];
+  const requestedHeader = (header ?? []).filter(keepAction);
   const backButtons = requestedHeader.filter(isBackLabel);
   const headerButtons = requestedHeader.filter(button => !isBackLabel(button));
-  const footerRows = footer && footer.length > 0 ? normalizeFooterRows(footer) : [];
+  const footerRows = actionRows(footer);
 
   if (backButtons.length > 0) {
     const existingCommands = new Set(
@@ -289,7 +308,7 @@ export const FormatGui = (params: {
   // const mdBar = Format.createMarkdown();
 
   const bt = Format.createButtonGroup();
-  const keyboardRows = keyboard ? normalizeFooterRows(keyboard) : [];
+  const keyboardRows = actionRows(keyboard);
 
   keyboardRows.forEach(row => {
     bt.addRow();
@@ -297,16 +316,6 @@ export const FormatGui = (params: {
       bt.addButton(btn.label, (btn.type ?? 'command') === 'command' ? commandText(btn.command ?? '') : (btn.command ?? ''), { type: btn.type ?? 'command' });
     });
   });
-  const bottomBar =
-    bar === false
-      ? []
-      : (bar ?? [
-          { label: '我', command: '我' },
-          { label: '战', command: '属性面板' },
-          { label: '本', command: '查看主线' },
-          { label: '动', command: '我的活动' },
-          { label: '店', command: '商店' }
-        ]);
 
   if (bottomBar.length > 0) {
     bt.addRow();

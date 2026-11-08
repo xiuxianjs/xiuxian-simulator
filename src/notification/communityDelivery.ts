@@ -67,7 +67,6 @@ export function buildCommunityBatch(batch: CommunityBatch) {
     quote.addNewline();
     addOptions(quote, [
       { label: '踏入仙途', command: '/踏入仙途' },
-      { label: '我的主页', command: '/我' },
       { label: '玩法大厅', command: '/我的活动' }
     ]);
     quote.addNewline();

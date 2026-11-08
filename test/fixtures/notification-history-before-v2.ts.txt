@@ -10,7 +10,6 @@ export default onResponse(selects, async e => {
   const md = Format.createMarkdown();
   const match = (e.MessageText ?? '').trim().match(/^[!！/#＃]?(?:我的通知|通知记录)(?:\s+(\d+))?$/);
   const page = Number(match?.[1] ?? 1);
-  const footer = [{ label: '返回主页', command: '/我' }];
 
   if (!match || !Number.isSafeInteger(page) || page < 1) {
     md.addText('请输入 /我的通知 或 /我的通知 页码');
@@ -42,5 +41,5 @@ export default onResponse(selects, async e => {
       md.addText('通知记录暂时无法加载，请稍后再试。');
     }
   }
-  await message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: `我的通知 · 第 ${page} 页`, content: md, footer }));
+  await message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: `我的通知 · 第 ${page} 页`, content: md }));
 });

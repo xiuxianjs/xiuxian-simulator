@@ -16,12 +16,14 @@ const bundle=await build({stdin:{contents:`export {default as current} from './s
  b.onResolve({filter:/^old-history$/},()=>({path:'old',namespace:'legacy'}));
  b.onLoad({filter:/.*/,namespace:'legacy'},()=>({loader:'ts',contents:readFileSync(new URL('./fixtures/notification-history-before-v2.ts.txt',import.meta.url),'utf8'),resolveDir:process.cwd()}));
  b.onResolve({filter:/^alemonjs$/},()=>({path:pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href,external:true}));
- b.onResolve({filter:/^@src\/(utils\/useMessage|response\/(config|robotBusiness))$/},a=>({path:a.path,namespace:'seam'}));
+ b.onResolve({filter:/^@src\/(utils\/useMessage|api\/bot\/robot-business|response\/(config|robotBusiness))$/},a=>({path:a.path,namespace:'seam'}));
  b.onResolve({filter:/^\.\/client$/},()=>({path:'client',namespace:'seam'}));
  b.onLoad({filter:/.*/,namespace:'seam'},()=>({contents:`
  export const selects=['message.create','private.message.create','interaction.create','private.interaction.create'];
  export const requestBackend=async()=>{const s=globalThis.__notificationHistory;if(!s.kind.startsWith('old'))throw new Error('supplementary API');s.legacyCalls++;if(s.row.status!==200)throw new Error(s.row.v1.error.message);return s.row.v1.data};
  export { useMessage } from 'alemonjs';
+ export const requestRobotBusiness=async(_event,operation)=>{assertDeliveryOperation(operation);return {success:true,branch:'business',data:{confirmed:true}}};
+ function assertDeliveryOperation(operation){if(operation!=='notifications.history-delivered')throw new Error('unexpected operation')};
  export const runRobotBusiness=async(e,op,args,decode,next,feedback)=>{const s=globalThis.__notificationHistory;s.calls.push({op,args});if(s.transport)throw new Error('transport');const r=s.row.result;if(r.branch==='middleware'){e.__res=r;next();return{handled:true}}if(!r.success){await feedback(r.middleware.replies.at(-1));return{handled:true}}return{handled:false,data:decode(r.data)}};
  `}));
 }}]});

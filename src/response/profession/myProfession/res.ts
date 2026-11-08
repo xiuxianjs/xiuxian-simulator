@@ -22,17 +22,24 @@ export default onResponse(selects, async e => {
 
   try {
     const [, next] = useEvent();
-    const response = await runRobotBusiness(e, 'profession.dashboard', {}, parseProfessionDashboard, next, async reply => {
-      await message.send(
-        FormatGui({
-          isPrivate,
-          bid,
-          title: isCaveHome ? '我的洞府' : reply.title,
-          content: Format.createMarkdown().addText(reply.text),
-          footer: reply.buttons.length ? reply.buttons : undefined
-        })
-      );
-    });
+    const response = await runRobotBusiness(
+      e,
+      'profession.dashboard',
+      isCaveHome ? { includeMeditationPreference: true } : {},
+      parseProfessionDashboard,
+      next,
+      async reply => {
+        await message.send(
+          FormatGui({
+            isPrivate,
+            bid,
+            title: isCaveHome ? '我的洞府' : reply.title,
+            content: Format.createMarkdown().addText(reply.text),
+            footer: reply.buttons.length ? reply.buttons : undefined
+          })
+        );
+      }
+    );
 
     if (response.handled) {
       return;
@@ -46,8 +53,18 @@ export default onResponse(selects, async e => {
     const showHerbalist = allowed('herbalist');
 
     if (isCaveHome) {
-      const { alchemy, lingzhi } = result.data;
-      const rooms: BubbleSection[] = [{ title: '修行静室', lines: [], actions: [{ label: '打坐', command: '/打坐' }] }];
+      const { alchemy, lingzhi, meditationAutoBoost } = result.data;
+      const nextBoostState = meditationAutoBoost ? '关闭' : '开启';
+      const rooms: BubbleSection[] = [
+        {
+          title: '修行静室',
+          lines: [`闭关自动加速：${meditationAutoBoost === undefined ? '暂不可读取' : meditationAutoBoost ? '开启' : '关闭'}`],
+          actions: [
+            { label: '打坐', command: '/打坐' },
+            ...(meditationAutoBoost === undefined ? [] : [{ label: `${nextBoostState}自动加速`, command: `/配置闭关自动加速 ${nextBoostState}` }])
+          ]
+        }
+      ];
 
       if (showAlchemy) {
         rooms.push({

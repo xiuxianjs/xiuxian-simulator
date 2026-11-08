@@ -73,7 +73,7 @@ test('单人欢迎提及真实成员，新老玩家与玩法入口在同一引�
   assert.match(view.text, /愿你在此结识同道，共赴仙途/);
   assert.doesNotMatch(view.text, /欢迎 1 位|新玩家|帮助查看|礼包|UID|登录/);
   assert.deepEqual(quote.filter(node => node.type === 'MD.mention').map(node => node.value), ['new-member']);
-  assert.deepEqual(view.commands, ['/踏入仙途', '/我', '/我的活动', '/配置群欢迎 关闭']);
+  assert.deepEqual(view.commands, ['/踏入仙途', '/我的活动', '/配置群欢迎 关闭']);
   assert.ok(quote.filter(node => node.type === 'MD.button').every(node => !node.options?.autoEnter));
   assert.deepEqual(receipts.get(value.eventId), { route: 'group', reason: 'sent' });
   assert.deepEqual(finished, [{ eventId: value.eventId, retry: false }]);

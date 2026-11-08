@@ -8,6 +8,7 @@ export interface ProfessionDashboardEquipment {
 }
 
 export interface ProfessionDashboardQueryData {
+  meditationAutoBoost?: boolean;
   access: {
     features?: Record<string, FeatureAccess>;
     canUseProfessionAndCave: boolean;

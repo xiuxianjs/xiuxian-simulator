@@ -1,5 +1,3 @@
-import { commandText } from '@src/utils/commandPrefix';
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import App from '@src/response-apps/message/config/meditationAutoBoost/app';
 import { selects } from '@src/response/config';
@@ -33,8 +31,13 @@ export default onResponse(selects, async e => {
       quote.addText(getCommandErrorMessage(error));
     }
   }
-  quote.addNewline().addButton(markdownButtonLabel('我的设置'), { data: commandText('我的设置') });
   await message.send(
-    FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: '闭关自动加速', content: Format.createMarkdown().addBlockquote(quote) })
+    FormatGui({
+      isPrivate: e.isPrivate ?? false,
+      bid: e.UserId,
+      title: '闭关自动加速',
+      content: Format.createMarkdown().addBlockquote(quote),
+      footer: [{ label: '返回洞府', command: '/我的洞府' }]
+    })
   );
 });

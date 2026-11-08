@@ -103,6 +103,7 @@ export function parseProfessionDashboard(value: unknown): ProfessionDashboardQue
   const lingzhi = record(data.lingzhi);
 
   return {
+    ...(data.meditationAutoBoost === undefined ? {} : { meditationAutoBoost: boolean(data.meditationAutoBoost) }),
     access: {
       features: parseFeatureAccess(access.features),
       canUseProfessionAndCave: boolean(access.canUseProfessionAndCave),

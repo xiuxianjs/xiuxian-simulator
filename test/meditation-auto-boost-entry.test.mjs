@@ -41,19 +41,17 @@ async function render(handler, text, enabled) {
   return state.sent[0];
 }
 for (const enabled of [false,true]) {
-  test(`settings shows saved automatic boost ${enabled} and opposite action`, async()=>{
+  test(`settings omits automatic boost ${enabled}`, async()=>{
     const page=await render('settings','/我的设置',enabled);
     assert.deepEqual(state.calls,[{op:'settings.overview',args:{includeGroup:false}}]);
-    assert.ok(JSON.stringify(page.content).includes(`闭关自动加速：${enabled?'开启':'关闭'}`));
-    assert.ok(buttons(page.content).some(b=>b.options.data===`/配置闭关自动加速 ${enabled?'关闭':'开启'}`));
-    for(const value of ['下次闭关','出关结算费用','灵石不足'])assert.ok(JSON.stringify(page.content).includes(value));
+    assert.ok(!JSON.stringify(page.content).includes('闭关自动加速'));
   });
   test(`toggle ${enabled} saves one player preference and explains next session`,async()=>{
     const page=await render('toggle',`/配置闭关自动加速 ${enabled?'开启':'关闭'}`,!enabled);
     assert.deepEqual(state.calls,[{op:'settings.meditation-auto-boost',args:{value:enabled}}]);
     assert.ok(JSON.stringify(page.content).includes(`闭关自动加速已${enabled?'开启':'关闭'}`));
     assert.ok(JSON.stringify(page.content).includes('本轮闭关不受影响'));
-    assert.ok(buttons(page.content).some(b=>b.options.data==='/我的设置'));
+    assert.deepEqual(page.footer,[{label:'返回洞府',command:'/我的洞府'}]);
   });
 }
 test('invalid switch does not save or start paid meditation',async()=>{

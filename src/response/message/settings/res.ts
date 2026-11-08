@@ -67,12 +67,6 @@ export default onResponse(selects, async e => {
     setting('秘境战法', isAuto ? '自动' : '手动', isAuto ? '挑战后自动战斗至通关或失败。' : '每层手动确认继续挑战，可随时撤退保全收益。', [
       { label: isAuto ? '改为手动' : '改为自动', command: isAuto ? '/配置秘境模式 手动' : '/配置秘境模式 自动' }
     ]);
-    setting(
-      '闭关自动加速',
-      config.meditationAutoBoost ? '开启' : '关闭',
-      '默认关闭。开启后，下次闭关自动使用灵石提升修炼效率；出关结算费用，灵石不足时按普通修炼计算。',
-      [{ label: config.meditationAutoBoost ? '关闭' : '开启', command: `/配置闭关自动加速 ${config.meditationAutoBoost ? '关闭' : '开启'}` }]
-    );
     setting('组队精力', noMentalInTeam ? '不消耗' : '正常消耗', '不消耗精力时，不获得收益、不消耗次数；单人挑战仍按原规则结算。', [
       { label: noMentalInTeam ? '正常消耗' : '不消耗', command: noMentalInTeam ? '/配置组队精力 消耗' : '/配置组队精力 不消耗' }
     ]);

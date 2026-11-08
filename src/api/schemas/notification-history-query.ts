@@ -14,6 +14,7 @@ export interface NotificationHistoryItem {
  */
 export interface NotificationHistoryQueryData {
   page: number;
+  totalPages?: number;
   hasNext: boolean;
   nextCursor?: string;
   items: NotificationHistoryItem[];

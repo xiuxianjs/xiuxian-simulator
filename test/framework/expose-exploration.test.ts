@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import axios from 'axios';
-import { Expose, shutdownLogger } from 'alemonjs';
-import { createTestApp } from 'alemonjs/testing';
+import { Expose, ResultCode, shutdownLogger } from 'alemonjs';
+import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { goTestFixture } from '../helpers/go-fixture.mjs';
+import exploration from '../../src/response/seclusion/info/res';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 
 after(() => shutdownLogger());
@@ -58,4 +59,28 @@ test('探索连锁任务读取 Go 服务端真实预览', async t => {
   const result = await app.invoke(app.events.privateMessage({ platform: 'qq-bot', userId: 'player' }), () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', 'execute_task_exploration', { taskInput: '探索秘境' }), 'ai-plugin');
   assert.equal(result.value.ok, true, JSON.stringify(result.value));
   if (result.value.ok) { assert.equal((result.value.data as any).result.status.availableDungeons[0].name, '桃花镇'); assert.equal((result.value.data as any).taskContinuation.outcome, 'next'); }
+});
+
+test('探索秘境将服务端事实与同页操作放在引用块，主页只由底栏提供', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } } });
+  t.after(() => app.dispose());
+  for (const [key, text] of [['view', '/探索秘境'], ['start', '/探索秘境 桃花镇 4']] as const) {
+    const row = fixtures.find(item => item.key === key);
+    assert.ok(row);
+    const request = t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(row.envelope) }) }));
+    const run = await app.runHandler(exploration, app.events.privateMessage({ platform: 'qq-bot', userId: 'player', text }));
+    request.mock.restore();
+    assert.deepEqual(run.errors, []);
+    assert.equal(run.messages.length, 1);
+    const message = run.messages[0];
+    assert.equal(run.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.equal(view.commands.filter(command => command === '/我').length, 1);
+    assert.doesNotMatch(view.text, /我的主页|返回主页/);
+    const quote = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).find(node => node.type === 'MD.blockquote');
+    assert.ok(quote && Array.isArray(quote.value));
+    const block = inspectMessage([{ type: 'Markdown', value: quote.value }]);
+    assert.ok(block.commands.includes(key === 'view' ? '/查看秘境' : '/返程'));
+    if (key === 'start') assert.match(block.text, /消耗：精力 24/);
+  }
 });

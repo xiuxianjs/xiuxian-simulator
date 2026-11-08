@@ -114,11 +114,14 @@ test('通知历史每条独立引用块，保留空行、北京时间与原文�
     { id: 'one', time: '2026-10-21T00:00:00Z', text: '【物品交付更新】\n\n普通打劫战报#42\n物品：待交付\n\n查看战报：/争夺战报 42', delivery: '已发送至私聊' },
     { id: 'two', time: '2026-10-20T00:00:00Z', text: '旧通知第一行\n旧通知第二行', delivery: '等待发送，内容可先查阅' }
   ];
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { items, page: 2, hasNext: true }));
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('/notifications.history-delivered') ? { confirmed: true } : { items, page: 2, totalPages: 3, hasNext: true }));
   const result = await app.runHandler(notificationHistory, app.events.privateMessage({ text: '/我的通知 2', platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 2);
   assert.equal(requests[0].path, '/api/v2/robot/business/notifications.history');
+  assert.equal(requests[1].path, '/api/v2/robot/business/notifications.history-delivered');
+  assert.deepEqual(requests[1].body.arguments, { eventIds: ['one', 'two'] });
+  assert.notEqual(requests[0].idempotencyKey, requests[1].idempotencyKey);
   const message = result.messages[0];
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const quotes = quoteLines(message.nodes);
@@ -127,6 +130,9 @@ test('通知历史每条独立引用块，保留空行、北京时间与原文�
     ['【1】物品交付更新', '时间：2026-10-21 08:00:00', '', '普通打劫战报#42', '物品：待交付', '', '查看战报：/争夺战报 42'],
     ['【2】修仙 · 通知', '时间：2026-10-20 08:00:00', '', '旧通知第一行', '旧通知第二行']
   ]);
+  assert.match(inspectMessage(message.nodes).text, /第2\/3页/);
+  assert.doesNotMatch(inspectMessage(message.nodes).text, /返回主页/);
+  assert.ok(message.commands.includes('/我'));
   assert.ok(message.commands.includes('/我的通知 1'));
   assert.ok(message.commands.includes('/我的通知 3'));
 });

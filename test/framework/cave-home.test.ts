@@ -36,7 +36,7 @@ for (const isPrivate of [false, true]) {
   for (const command of ['/我的洞府', '/洞府']) {
     for (const state of ['joined', 'guide', 'unjoined'] as const) {
       test(`洞府融合职业并保留真实交互 ${command} ${state} private=${isPrivate}`, async t => {
-        const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, professionData(state)));
+        const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { ...professionData(state), meditationAutoBoost: state === 'joined' }));
         await app.mount({ responseRouter: router });
         const event = isPrivate
           ? app.events.privateMessage({ text: command, platform: 'qq-bot' })
@@ -44,7 +44,7 @@ for (const isPrivate of [false, true]) {
         const result = await app.dispatch(event);
         assert.equal(requests.length, 1);
         assert.equal(requests[0].path, '/api/v2/robot/business/profession.dashboard');
-        assert.deepEqual(requests[0].body.arguments, {});
+        assert.deepEqual(requests[0].body.arguments, { includeMeditationPreference: true });
         assert.equal(result.messages.length, 1);
         const message = result.messages[0];
         const view = inspectMessage(message.nodes);
@@ -58,6 +58,11 @@ for (const isPrivate of [false, true]) {
           assert.ok(inspectMessage([{ type: 'Markdown', value: block.value }]).text.startsWith(name));
           assert.ok(!block.value.some(child => child.type === 'MD.blockquote'), '房间内部不再嵌套引用块');
         }
+        const studio = roomBlocks[0];
+        assert.ok(Array.isArray(studio.value));
+        const studioView = inspectMessage([{ type: 'Markdown', value: studio.value }]);
+        assert.match(studioView.text, new RegExp(`闭关自动加速：${state === 'joined' ? '开启' : '关闭'}`));
+        assert.deepEqual(studioView.commands, ['/打坐', `/配置闭关自动加速 ${state === 'joined' ? '关闭' : '开启'}`]);
         assert.doesNotMatch(view.text, /在此打理|查看锻造职业、图纸与委托|查看阵法与当前效果/);
         for (const entry of ['/我', '/属性面板', '/查看主线', '/我的活动', '/商店']) assert.ok(view.commands.includes(entry), entry);
         assert.ok(view.commands.includes('/垂钓'));

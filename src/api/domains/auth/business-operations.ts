@@ -322,6 +322,7 @@ const robotBusinessOperations = [
   'notifications.group-disable',
   'notifications.group-enable',
   'notifications.history',
+  'notifications.history-delivered',
   'onboarding.action',
   'onboarding.exit',
   'onboarding.view',

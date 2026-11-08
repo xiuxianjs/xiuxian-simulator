@@ -1,3 +1,4 @@
+import { section } from '@src/response/presentation';
 import { getCommandErrorMessage } from '@src/utils/commandError';
 import { parseBackendRealmAccess } from '@src/api/bot/realm-access-queries';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
@@ -37,7 +38,7 @@ export default onResponse(selects, async e => {
       return;
     }
     const resolved = await business.load();
-    const soulNavigation = [...(resolved.access.canUseSoulPath ? [{ label: '元婴道途', command: '/元婴道途' }] : []), { label: '我的主页', command: '/我' }];
+    const soulNavigation = resolved.access.canUseSoulPath ? [{ label: '元婴道途', command: '/元婴道途' }] : [];
     const uid = e.uid as number;
     const appResult = await App({ load: () => Promise.resolve(resolved.result), bid, uid, request: createBackendRequestContext(e) });
 
@@ -65,11 +66,11 @@ export default onResponse(selects, async e => {
 
     // 精力退还（不足1小时）
     if (view.kind === 'refunded') {
-      md.addText(view.introText);
-      md.addNewline();
-      md.addText(result.refundedSpirit === undefined ? '💫 精力已退还' : `💫 精力退回 ${result.refundedSpirit}`);
-      md.addNewline();
-      md.addText('此次探索秘境无任何收获。');
+      md.addBlockquote(
+        section({
+          lines: [view.introText, result.refundedSpirit === undefined ? '状态：精力已退还' : `精力退回：${result.refundedSpirit}`, '收益：本次探索无收获']
+        })
+      );
 
       appendTreasureEffects(md, result.treasureEffects);
       if (result.presenceText) {
@@ -93,48 +94,25 @@ export default onResponse(selects, async e => {
     // 有奖励的结算
     const rewards = result.rewards!;
 
-    md.addText(view.introText);
+    const lines = [
+      view.introText,
+      ...(view.penaltyText ? [view.penaltyText] : []),
+      result.normalExperienceGained !== undefined
+        ? `获得修为：${result.normalExperienceGained}`
+        : result.creditedExperience === undefined
+          ? '修为：已结算'
+          : `修为入账：${result.creditedExperience}`,
+      `灵石：+${rewards.spiritStone}`,
+      ...(result.refundedSpirit ? [`精力退回：${result.refundedSpirit}`] : []),
+      ...(view.showHuanHunDan ? [`精力丹：×${rewards.huanHunDan}`] : []),
+      ...(view.showYangShenDan ? [`元力丹：×${rewards.yangShenDan}`] : []),
+      ...(view.showRareDrops ? rewards.rareDrops.map(drop => `掉落：${drop.name} ×${drop.quantity}`) : [])
+    ];
 
-    if (view.penaltyText) {
-      md.addNewline();
-      md.addText(view.penaltyText);
-    }
-
-    md.addNewline();
-    md.addNewline();
-    md.addText('📦 此行收获：').addNewline();
-    md.addText(result.normalExperienceGained !== undefined
-      ? `获得修为：${result.normalExperienceGained}`
-      : result.creditedExperience === undefined ? '修为已结算' : `修为入账：${result.creditedExperience}`).addNewline();
-    md.addText(`  灵石 +${rewards.spiritStone}`);
-    if (result.refundedSpirit) {
-      md.addNewline().addText(`精力退回 ${result.refundedSpirit}`);
-    }
-
-    if (view.showHuanHunDan) {
-      md.addNewline();
-      md.addText(`  精力丹 ×${rewards.huanHunDan}`);
-    }
-
-    if (view.showYangShenDan) {
-      md.addNewline();
-      md.addText(`  元力丹 ×${rewards.yangShenDan}`);
-    }
-
-    if (view.showRareDrops) {
-      md.addNewline();
-      md.addNewline();
-      md.addText('🎒 此行寻获：');
-
-      for (const drop of rewards.rareDrops) {
-        md.addNewline();
-        md.addText(`  ${drop.name} ×${drop.quantity}`);
-      }
-    }
-
+    md.addBlockquote(section({ lines }));
     appendTreasureEffects(md, result.treasureEffects);
     if (result.materialProgressPercent !== undefined) {
-      md.addNewline().addText(`🌿 采集积累 ${result.materialProgressPercent.toFixed(1)}%`);
+      md.addNewline().addText(`采集积累：${result.materialProgressPercent.toFixed(1)}%`);
     }
     if (result.presenceText) {
       md.addNewline();
