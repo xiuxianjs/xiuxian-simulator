@@ -301,18 +301,19 @@ export function PanelFooterBar({ text }: { text: React.ReactNode }) {
   );
 }
 
-/** 头部：头像 + 道号 + UID + 境界 + 右侧自定义区 */
+/** 头部：头像 + 道号 + 玩家标识 + 境界 + 右侧自定义区 */
 export interface PanelHeaderProps {
   avatarURL?: string;
   daoName: string;
   uid: number;
+  mid?: string;
   realmName: string;
   rightLabel?: string;
   rightMain?: React.ReactNode;
   rightSub?: React.ReactNode;
 }
 
-export function PanelHeader({ avatarURL, daoName, uid, realmName, rightLabel, rightMain, rightSub }: PanelHeaderProps) {
+export function PanelHeader({ avatarURL, daoName, uid, mid, realmName, rightLabel, rightMain, rightSub }: PanelHeaderProps) {
   const T = React.useContext(ThemeContext);
 
   return (
@@ -359,7 +360,7 @@ export function PanelHeader({ avatarURL, daoName, uid, realmName, rightLabel, ri
           {daoName}
         </span>
         <span className={classNames('text-[14px]')} style={{ color: T.inkDark }}>
-          UID {uid}
+          {mid ? `MID ${mid}` : `UID ${uid}`}
         </span>
         <span
           className={classNames('rounded-[4px] px-[9px] py-[2px] text-[14px] font-bold tracking-[1px]')}
@@ -391,6 +392,7 @@ export interface PanelHeroHeaderProps {
   avatarURL?: string;
   daoName: string;
   uid: number;
+  mid?: string;
   realmName: string;
   initialText?: string;
   avatarBadgeNode?: React.ReactNode;
@@ -398,7 +400,7 @@ export interface PanelHeroHeaderProps {
   rightNode?: React.ReactNode;
 }
 
-export function PanelHeroHeader({ avatarURL, daoName, uid, realmName, initialText, avatarBadgeNode, metaNode, rightNode }: PanelHeroHeaderProps) {
+export function PanelHeroHeader({ avatarURL, daoName, uid, mid, realmName, initialText, avatarBadgeNode, metaNode, rightNode }: PanelHeroHeaderProps) {
   const T = React.useContext(ThemeContext);
 
   return (
@@ -458,7 +460,7 @@ export function PanelHeroHeader({ avatarURL, daoName, uid, realmName, initialTex
           {daoName}
         </span>
         <span className={classNames('text-[18px]')} style={{ color: T.inkDark }}>
-          UID {uid}
+          {mid ? `MID ${mid}` : `UID ${uid}`}
         </span>
         <span
           className={classNames('rounded-[4px] px-[9px] py-[2px] text-[16px] font-bold tracking-[1px]')}

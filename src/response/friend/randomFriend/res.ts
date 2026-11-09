@@ -44,14 +44,14 @@ export default onResponse(selects, async e => {
       return;
     }
 
-    const { uid: targetUid, name } = result.data.player;
+    const { uid: targetUid, mid, name } = result.data.player;
     const realmName = result.data.player.realmName ?? '无境界';
     const activeTitle = result.data.player.activeTitle ?? '无';
 
     {
       const md = Format.createMarkdown();
 
-      md.addText(`UID: ${targetUid} `);
+      md.addText(mid ? `MID：${mid} ` : `UID: ${targetUid} `);
       md.addButton(markdownButtonLabel('结交'), { data: commandText(`结交 ${targetUid}`) });
       md.addText(' ');
       md.addButton(markdownButtonLabel('查看'), { data: commandText(`查看信息 ${targetUid}`) });

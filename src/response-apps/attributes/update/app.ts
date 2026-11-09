@@ -11,6 +11,7 @@ export interface AttributePanelAppData {
   resourceRecovery?: ResourceRecoverySummary;
   daoName: string;
   uid: number;
+  mid?: string;
   realmName: string;
   maxAttributeBonus: number;
   strength: number;

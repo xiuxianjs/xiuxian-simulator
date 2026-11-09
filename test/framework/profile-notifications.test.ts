@@ -108,7 +108,7 @@ for (const privateChat of [false, true]) {
       const nodes = JSON.stringify(result.messages[0].nodes);
       // QQ 官方 Markdown 只支持标题/样式/链接/图片/列表/引用/分割线，公式会原样显示为乱码。
       assert.doesNotMatch(nodes, /textcolor|\\\\color\{|\\\\text\{/, nodes);
-      assert.match(view.text, /UID: 1 /);
+      assert.match(view.text, /UID：1 /);
       assert.match(view.text, /道号：测试道友/);
       assert.ok(view.commands.includes('/改名 测试道友'));
       assert.equal(requests.length, 1);
@@ -170,3 +170,23 @@ for (const privateChat of [false, true]) {
     });
   }
 }
+
+test('主页优先展示 MID，未绑定时回退 UID，交互按钮使用数字 UID', async t => {
+  let mid: string | undefined = 'QX000888';
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
+    profile: { ...profile, user: { ...profile.user, mid } },
+    notifications: [], atmosphere: { text: null, kind: 'none' }
+  }));
+  for (const expected of ['MID：QX000888', 'UID：1']) {
+    const result = await app.runHandler(handler, app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(result.messages[0].nodes);
+    assert.ok(view.text.indexOf('道号：测试道友') < view.text.indexOf(expected));
+    assert.ok(view.text.indexOf(expected) < view.text.indexOf('境界：炼气'));
+    if (mid) assert.doesNotMatch(view.text, /UID：1/);
+    assert.ok(view.commands.includes('/拜师 1'));
+    mid = undefined;
+  }
+});

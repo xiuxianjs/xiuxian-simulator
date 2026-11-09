@@ -45,8 +45,10 @@ export default onResponse(selects, async e => {
       result.received.forEach((proposal, index) => {
         md.addText(`【${index + 1}】${proposal.fromName}`);
         md.addNewline();
+        const identifier = proposal.fromMid ? `MID：${proposal.fromMid}` : `UID：${proposal.fromUserId}`;
+
         md.addBlockquote(
-          addOptions(Format.createMarkdown().addText(`UID：${proposal.fromUserId}`).addNewline().addText(`${proposal.fromRealm}`), [
+          addOptions(Format.createMarkdown().addText(identifier).addNewline().addText(`${proposal.fromRealm}`), [
             { label: '同意收徒', command: `/同意拜师 ${proposal.fromUserId}` }
           ])
         );

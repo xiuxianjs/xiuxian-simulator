@@ -144,7 +144,11 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               contentMd.addNewline();
             }
 
-            contentMd.addText(`UID: ${data.profile.uid} `);
+            // QQ 官方 Markdown 不支持 LaTeX 公式，月卡彩色道号会原样显示为 $\color{...}$ 乱码，统一按普通文本展示。
+            contentMd.addText(`道号：${data.profile.name} `);
+            addOptions(contentMd, [{ label: '改名', command: `/改名 ${data.actions.renameValue}` }]);
+
+            contentMd.addText(data.profile.mid ? `MID：${data.profile.mid} ` : `UID：${data.profile.uid} `);
 
             const socialButtons: { label: string; command: string }[] = [];
 
@@ -161,13 +165,9 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
             appendButtons(contentMd, socialButtons);
             contentMd.addNewline();
 
-            // QQ 官方 Markdown 不支持 LaTeX 公式，月卡彩色道号会原样显示为 $\color{...}$ 乱码，统一按普通文本展示。
-            contentMd.addText(`道号：${data.profile.name} `);
             if (data.actions.canUseFifthLayerFeature) {
               socialButtons.push({ label: '结交', command: `/结交 ${data.actions.socialTargetUid}` });
             }
-
-            addOptions(contentMd, [{ label: '改名', command: `/改名 ${data.actions.renameValue}` }]);
 
             contentMd.addText(`性别：${data.profile.genderText} `);
             appendButtons(contentMd, [{ label: '改性', command: `/改性 ${data.profile.nextGenderText}` }]);

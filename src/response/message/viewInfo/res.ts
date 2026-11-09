@@ -58,7 +58,7 @@ export default onResponse(selects, async e => {
       md.addNewline();
       md.addText(`称号：${profile.activeTitle}`);
       md.addNewline();
-      md.addText(`UID：${profile.uid}`);
+      md.addText(profile.mid ? `MID：${profile.mid}` : `UID：${profile.uid}`);
       md.addNewline();
       md.addText(`境界：${profile.realmName}`);
       md.addNewline();
@@ -101,7 +101,7 @@ export default onResponse(selects, async e => {
     md.addNewline();
     md.addText(`称号：${profile.activeTitle}`);
     md.addNewline();
-    md.addText(`UID：${profile.uid}`);
+    md.addText(profile.mid ? `MID：${profile.mid}` : `UID：${profile.uid}`);
     md.addNewline();
     md.addText(`境界：${profile.realmName}`);
     md.addNewline();

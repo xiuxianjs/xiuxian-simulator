@@ -3,7 +3,7 @@ import type { SpiritRootView } from '../bot/spirit-root';
 export interface PublicPlayerProfileQueryData {
   found: boolean;
   hideProfile: boolean;
-  profile: { uid: number; name: string; activeTitle: string; realmName: string } | null;
+  profile: { uid: number; mid?: string; name: string; activeTitle: string; realmName: string } | null;
   cave?: {
     relation: 'self' | 'companion' | 'friend' | 'stranger';
     relationLabel: string;

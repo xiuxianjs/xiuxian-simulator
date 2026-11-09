@@ -41,7 +41,13 @@ export function parseBackendRandomFriend(value: unknown): RandomFriendQueryData 
     if (typeof row.uid !== 'number' || !Number.isSafeInteger(row.uid) || row.uid < 1 || typeof row.name !== 'string') {
       throw new Error('随机道友信息字段不完整');
     }
-    player = { uid: row.uid, name: row.name, realmName: nullableText(row.realmName), activeTitle: nullableText(row.activeTitle) };
+    player = {
+      uid: row.uid,
+      ...(typeof row.mid === 'string' ? { mid: row.mid } : {}),
+      name: row.name,
+      realmName: nullableText(row.realmName),
+      activeTitle: nullableText(row.activeTitle)
+    };
   }
 
   return { access: { ok: access.ok, realmName: nullableText(access.realmName) }, player };

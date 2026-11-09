@@ -18,6 +18,7 @@ export type PlayerProfileQueryData = {
   found: boolean;
   user: {
     id: number;
+    mid?: string;
     name: string | null;
     gender: number | null;
     signature: string | null;

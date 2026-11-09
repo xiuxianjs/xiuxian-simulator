@@ -18,6 +18,7 @@ export type MeHomeData = {
   atmosphere: { text: string | null; kind: 'absence' | 'ambience' | 'none' };
   profile: {
     uid: number;
+    mid?: string;
     name: string;
     hasMonthCard: boolean;
     title: string;
@@ -100,6 +101,7 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
         atmosphere: overview.atmosphere!,
         profile: {
           uid: user.id,
+          mid: user.mid,
           name: profileName,
           hasMonthCard: facts.homeView.hasMonthCard === true,
           title: facts.title?.name ?? '无',

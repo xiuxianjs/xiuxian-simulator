@@ -70,13 +70,14 @@ function listCommand(page: number | string, filter: Pick<PublicTribulationQuery,
 // 榜单与观望详情的互动风险均与操作按钮放在同一气泡块。
 function eventSection(event: PublicTribulationEvent, detail = false, viewerId?: number): TribulationPanel['sections'][number] {
   const own = viewerId === event.playerId;
+  const identifier = event.mid ? `MID ${event.mid}` : `UID ${event.playerId}`;
   const participationOpen = event.participationOpen && !own;
   const interactionOpen = event.interactionOpen && !own;
 
   return {
     lines: [
       ...(detail
-        ? [`${event.name} · UID ${event.playerId}`, `${event.currentRealm} → ${event.targetRealm} · ${event.tribulationName}`, statuses[event.status]]
+        ? [`${event.name} · ${identifier}`, `${event.currentRealm} → ${event.targetRealm} · ${event.tribulationName}`, statuses[event.status]]
         : [
             `【${event.tribulationName}】${event.name}`,
             `${event.currentRealm} → ${event.targetRealm} · ${event.status === 'charging' ? '待落雷' : event.status === 'preparing' ? '待开劫' : statuses[event.status]}`

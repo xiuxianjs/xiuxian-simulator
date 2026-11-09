@@ -11,6 +11,7 @@ export interface AttributePanelData {
   avatarURL?: string;
   daoName: string;
   uid: number;
+  mid?: string;
   realmName: string;
   maxAttributeBonus: number;
   strength: number;
@@ -181,6 +182,7 @@ export default function AttributePanel({ data }: Props) {
         avatarURL={d.avatarURL}
         daoName={d.daoName}
         uid={d.uid}
+        mid={d.mid}
         realmName={d.realmName}
         rightNode={
           <div

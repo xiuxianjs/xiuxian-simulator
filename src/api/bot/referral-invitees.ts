@@ -5,6 +5,7 @@ export interface ReferralNextReward {
   rewards: string[];
 }
 export interface ReferralInvitee {
+  mid?: string;
   userId: number;
   name: string;
   realmName: string;

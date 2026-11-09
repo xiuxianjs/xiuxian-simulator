@@ -25,7 +25,13 @@ function profile(value: unknown): PublicPlayerProfileQueryData['profile'] {
     throw new Error('查看信息资料数据不完整');
   }
 
-  return { uid: data.uid, name: data.name, activeTitle: data.activeTitle, realmName: data.realmName };
+  return {
+    uid: data.uid,
+    ...(typeof data.mid === 'string' ? { mid: data.mid } : {}),
+    name: data.name,
+    activeTitle: data.activeTitle,
+    realmName: data.realmName
+  };
 }
 
 function cave(value: unknown): NonNullable<PublicPlayerProfileQueryData['cave']> {

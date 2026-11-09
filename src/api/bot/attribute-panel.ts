@@ -7,6 +7,7 @@ export type BackendAttributePanel = {
   resourceRecovery?: ResourceRecoverySummary;
   daoName: string;
   uid: number;
+  mid?: string;
   realmName: string;
   maxAttributeBonus: number;
   strength: number;
@@ -92,6 +93,7 @@ export function parseAttributePanel(value: unknown, uid: number): BackendAttribu
   const output: BackendAttributePanel = {
     daoName: data.daoName,
     uid,
+    ...(typeof data.mid === 'string' ? { mid: data.mid } : {}),
     realmName: data.realmName,
     theme: data.theme === null ? null : record(data.theme),
     access: { canUseMeridian: access.canUseMeridian, canUseSoulArtifact: access.canUseSoulArtifact, canUseSoulPath: access.canUseSoulPath },

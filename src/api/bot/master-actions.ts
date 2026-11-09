@@ -4,7 +4,7 @@ import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 type ActionResult = { message: string; treasureEffects?: TreasureEffectNotice[] };
-type Proposal = { id: number; fromUserId: number; fromName: string; fromRealm: string; createdAt: string | Date };
+type Proposal = { id: number; fromUserId: number; fromMid?: string; fromName: string; fromRealm: string; createdAt: string | Date };
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -119,7 +119,7 @@ export function parseMasterInteraction(value: unknown, action: '传功' | '赐�
   if (result.message !== action) {
     return result;
   }
-  const lines = [`${action}成功。`, `徒弟 UID：${discipleId}`];
+  const lines = [`${action}成功。`, typeof raw.discipleMid === 'string' && raw.discipleMid ? `徒弟 MID：${raw.discipleMid}` : `徒弟 UID：${discipleId}`];
 
   if (Number.isSafeInteger(raw.rewardExperience) && (raw.rewardExperience as number) > 0) {
     lines.push(`基础修为奖励：${raw.rewardExperience}（实际到账受境界修为上限限制）`);

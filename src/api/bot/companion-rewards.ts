@@ -11,15 +11,17 @@ function partner(value: unknown) {
     throw new Error('道侣代领响应不完整');
   }
 
-  return row;
+  const identifier = typeof row.partnerMid === 'string' && row.partnerMid ? `MID ${row.partnerMid}` : `UID ${row.partnerId}`;
+
+  return { row, identifier };
 }
 
 export function parseCompanionDailyReward(value: unknown): string[] {
-  const row = partner(value);
+  const { row, identifier } = partner(value);
   const daily = parseDailyCheckIn(row.dailyCheckIn);
 
   return [
-    `已为道侣 ${row.partnerName}（UID ${row.partnerId}）完成日常签到`,
+    `已为道侣 ${row.partnerName}（${identifier}）完成日常签到`,
     `对方本月累计签到：${daily.accumulatedDays} 天`,
     ...daily.issued.map(reward => `${reward.name} ×${reward.amount}`),
     '奖励已发放至道侣账户'
@@ -27,11 +29,11 @@ export function parseCompanionDailyReward(value: unknown): string[] {
 }
 
 export function parseCompanionMonthCardReward(value: unknown): string[] {
-  const row = partner(value);
+  const { row, identifier } = partner(value);
   const claim = parseMonthCardClaimResult(row.monthCard);
 
   return [
-    `已为道侣 ${row.partnerName}（UID ${row.partnerId}）领取 ${claim.days} 天月卡奖励`,
+    `已为道侣 ${row.partnerName}（${identifier}）领取 ${claim.days} 天月卡奖励`,
     `灵晶 ×${claim.rewards.spiritCrystal}`,
     `精力丹 ×${claim.rewards.mentalPill}`,
     `元力丹 ×${claim.rewards.qiPill}`,

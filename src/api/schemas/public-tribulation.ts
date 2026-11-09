@@ -2,6 +2,7 @@ import { formatGameDate } from '@src/utils/gameTime';
 export type PublicTribulationEvent = {
   eventId: number;
   playerId: number;
+  mid?: string;
   name: string;
   currentRealm: string;
   targetRealm: string;
@@ -48,6 +49,7 @@ export function parsePublicTribulationEvent(data: unknown): PublicTribulationEve
   return {
     eventId: value.eventId as number,
     playerId: value.playerId as number,
+    ...(typeof value.mid === 'string' ? { mid: value.mid } : {}),
     name: value.name as string,
     currentRealm: value.currentRealm as string,
     targetRealm: value.targetRealm as string,

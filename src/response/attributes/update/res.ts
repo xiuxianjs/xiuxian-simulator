@@ -73,7 +73,7 @@ const response = onResponse(selects, async e => {
   const contentMd = Format.createMarkdown();
 
   contentMd.addText(`境界：${d.realmName}`).addNewline();
-  contentMd.addText(`UID: ${d.uid}`).addNewline();
+  contentMd.addText(d.mid ? `MID：${d.mid}` : `UID: ${d.uid}`).addNewline();
   contentMd.addText(`战力：${d.combatPower}`).addNewline().addNewline();
   contentMd.addBold(`自由属性${d.maxAttributeBonus ? ` · 上限加成 ${d.maxAttributeBonus > 0 ? '+' : ''}${d.maxAttributeBonus}%` : ''}`).addNewline();
   const attributes = [
