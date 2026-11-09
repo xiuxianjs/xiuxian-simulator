@@ -1,6 +1,13 @@
 import { parseRobotMarketBrowse, parseRobotMarketFishDetail } from '@src/api/bot/market-robot-query';
 import { selects } from '@src/response/config';
-import { appendMarketCommandGuide, createMarketCommandBar, getMarketEmptyText, parseMarketCommand, shouldQueryMarket } from '@src/response/market/command';
+import {
+  appendMarketCommandGuide,
+  createMarketCommandBar,
+  getMarketEmptyText,
+  marketSearchCommand,
+  parseMarketCommand,
+  shouldQueryMarket
+} from '@src/response/market/command';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { formatNumber } from '@src/utils/formatHelper';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
@@ -86,7 +93,8 @@ export default onResponse(selects, async e => {
     return;
   }
 
-  const footer = createMarketCommandBar(parsed).map(row => row.map(button => ({ ...button, autoEnter: false })));
+  const commandBar = (reference?: string) => createMarketCommandBar(parsed, reference).map(row => row.map(button => ({ ...button, autoEnter: false })));
+  const fallbackFooter = commandBar();
   const view = shouldQueryMarket(parsed) ? 'browse' : 'guide';
   const sendFailure = (text: string) => message.send(
       FormatGui({
@@ -94,7 +102,7 @@ export default onResponse(selects, async e => {
         bid,
         title: parsed.title,
         content: Format.createMarkdown().addText(text),
-        footer
+        footer: fallbackFooter
       })
     );
   let loaded;
@@ -110,6 +118,7 @@ export default onResponse(selects, async e => {
               categoryType: parsed.categoryKey?.type ?? '',
               categorySubtype: parsed.categoryKey?.subtype ?? '',
               keyword: parsed.keyword ?? '',
+              ...(parsed.searchReference ? { searchReference: parsed.searchReference } : {}),
               sort: parsed.sort ?? 'latest',
               page: String(parsed.page)
             }
@@ -150,7 +159,7 @@ export default onResponse(selects, async e => {
         bid,
         title: parsed.title,
         content: contentMd,
-        footer
+        footer: fallbackFooter
       })
     );
 
@@ -158,6 +167,9 @@ export default onResponse(selects, async e => {
   }
 
   const data = loaded.data;
+  const reference = parsed.mode === 'search' ? data.searchReference : undefined;
+  const footer = commandBar(reference);
+  const pageCommand = parsed.mode === 'search' ? reference && marketSearchCommand(reference, parsed.sortCN, '{page}') : parsed.pageCommand;
   const contentMd = Format.createMarkdown();
 
   appendMarketCurrencyText(contentMd, data.spiritsCrystal);
@@ -165,6 +177,9 @@ export default onResponse(selects, async e => {
   contentMd.addNewline();
 
   appendMarketCommandGuide(contentMd, parsed);
+  if (parsed.mode === 'search' && !reference && data.pagination.totalPages > 1) {
+    contentMd.addText('搜索翻页暂不可用，请重新输入关键词。');
+  }
   contentMd.addNewline();
   contentMd.addNewline();
 
@@ -232,13 +247,15 @@ export default onResponse(selects, async e => {
       bid,
       title: parsed.title,
       content: contentMd,
-      nav: {
-        current: data.pagination.currentPage,
-        total: data.pagination.totalPages,
-        count: data.pagination.total,
-        command: parsed.pageCommand,
-        autoEnter: false
-      },
+      nav: pageCommand
+        ? {
+            current: data.pagination.currentPage,
+            total: data.pagination.totalPages,
+            count: data.pagination.total,
+            command: pageCommand,
+            autoEnter: false
+          }
+        : undefined,
       footer
     })
   );

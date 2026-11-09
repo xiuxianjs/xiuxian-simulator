@@ -3,9 +3,15 @@ import { FormatGui } from './messageHelper';
 import { createOnlineUrl } from './onlineUrl';
 
 const categories = ['道具', '材料', '装备', '天工', '功法', '本命', '秘境', '凶兽', '货币'];
+const publicSubCategories: Record<string, readonly string[]> = {
+  道具: ['丹药', '丹方', '其它', '礼物'],
+  材料: ['草药', '其它'],
+  装备: ['武器', '衣服', '鞋', '头饰', '羽翼'],
+  功法: ['战技', '被动技', '神通']
+};
 const usage = '用法：/图鉴 [分类] [子分类]；/图鉴详情 <分类> <编号>。';
 
-type EncyclopediaTarget = { category?: string; subCategory?: string; entryId?: number; legacyPage?: boolean };
+type EncyclopediaTarget = { category?: string; subCategory?: string; entryId?: number; legacyPage?: boolean; chooseSubCategory?: boolean };
 
 export function encyclopediaUrl(target: EncyclopediaTarget = {}): string {
   const url = createOnlineUrl('/components/encyclopedia');
@@ -54,7 +60,13 @@ export function parseEncyclopediaLinkCommand(text: string, detail = false): Ency
     return usage;
   }
 
-  return { category, subCategory: args[1], legacyPage };
+  const subCategory = args[1];
+
+  if (subCategory && !publicSubCategories[category]?.includes(subCategory)) {
+    return { category, legacyPage, chooseSubCategory: true };
+  }
+
+  return { category, subCategory, legacyPage };
 }
 
 /** Public query links use the same native link buttons as battle memories. */
@@ -71,6 +83,10 @@ export function EncyclopediaFormatGui(params: { text: string; detail?: boolean; 
   if (valid && target.legacyPage) {
     content.addNewline();
     content.addText('旧页码参数不再使用，请在网页图鉴内继续浏览。');
+  }
+  if (valid && target.chooseSubCategory) {
+    content.addNewline();
+    content.addText('请在网页图鉴内选择可用子分类。');
   }
 
   return FormatGui({

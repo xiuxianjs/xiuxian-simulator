@@ -11,6 +11,7 @@ import challengeDungeon from '../../src/response/dungeon/enter/res';
 import catalogDungeon from '../../src/response/dungeon/list/res';
 import detailDungeon from '../../src/response/dungeon/detail/res';
 import catalogStory from '../../src/response/storyline/list/res';
+import selectSeclusion from '../../src/response/seclusion/info/res';
 import { businessEnvelope, gameFixture } from './fixture';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
@@ -39,11 +40,27 @@ const cases = [
   { handler: sweepDungeon, command: '/扫荡免费秘境', reason: '当前没有可用的秘境免费次数', commands: ['/查看秘境'] },
   { handler: sweepDungeon, command: '/扫荡秘境 幽谷 5', reason: '精力不足（当前 1，需要 3）', commands: ['/我的信息', '/储物袋 道具 丹药'] },
   { handler: challengeDungeon, command: '/秘境挑战 幽谷', reason: '该秘境最低需要2人', commands: ['/我的队伍'] },
+  { handler: challengeDungeon, command: '/秘境挑战 幽谷', reason: '未找到秘境「幽谷」', commands: ['/查看秘境'] },
   { handler: challengeDungeon, command: '/秘境挑战 幽谷', reason: '队伍成员境界不足', commands: ['/我的队伍'] },
   { handler: challengeDungeon, command: '/秘境挑战 幽谷', reason: '队伍成员境界超过秘境上限', commands: ['/我的队伍'] },
   { handler: sweepDungeon, command: '/扫荡秘境 幽谷 2', reason: '扫荡次数仅支持 1、5、10', commands: ['/查看秘境'] },
   { handler: challengeDungeon, command: '/秘境挑战', reason: '请输入秘境名称', commands: ['/查看秘境'] }
 ];
+
+test('旧探索业务结果的查找失败不复述秘境名称', async t => {
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    code: 'DUNGEON_NOT_FOUND',
+    access: { canUseSoulPath: false },
+    data: { message: '未找到秘境「回显占位词」或境界不足' }
+  }));
+  const result = await app.runHandler(selectSeclusion, app.events.groupMessage({ text: '/探索秘境 回显占位词', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /未找到匹配秘境或境界不足/);
+  assert.doesNotMatch(view.text, /回显占位词/);
+  assert.ok(view.commands.every(command => !command.includes('回显占位词')));
+});
 
 for (const entry of cases) {
   for (const privateChat of [false, true]) {
@@ -75,7 +92,9 @@ for (const entry of cases) {
         assert.equal(result.messages.length, 1);
         const message = result.messages[0];
         const view = inspectMessage(message.nodes);
-        assert.ok(view.text.includes(entry.reason));
+        const shown = entry.reason.startsWith('未找到秘境「') ? '未找到匹配秘境' : entry.reason;
+        assert.ok(view.text.includes(shown));
+        if (shown !== entry.reason) assert.doesNotMatch(view.text, /幽谷/);
         assert.doesNotMatch(view.text, /建议：/);
         for (const command of entry.commands) assert.ok(view.commands.includes(command), JSON.stringify(view));
         assert.ok(!view.commands.some(command => /^\/(主线挑战|主线扫荡|秘境挑战|扫荡秘境|退出队伍|服用 精力丹)(\s|$)/.test(command)));
@@ -229,7 +248,8 @@ for (const won of [false, true]) {
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);
     assert.ok(view.text.includes('精力 -3'));
-    assert.equal(view.commands.includes('/秘境挑战 幽谷'), won);
+    assert.ok(!view.commands.includes('/秘境挑战 幽谷'));
+    assert.equal(view.commands.includes('/秘境挑战 #1'), won);
     if (!won) assert.ok(view.commands.includes('/我的功法'));
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   });

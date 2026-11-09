@@ -16,6 +16,7 @@ import compatibility from './mwBan';
 import { sendShortcut } from './task/views';
 import { withBusinessRecovery } from './businessRecovery';
 import type { BusinessFeedbackRenderer } from './feedbackRenderer';
+import { cleanLegacyInputFeedback } from './legacyInputFeedback';
 
 export async function runRobotBusiness<T>(
   event: GameEvent,
@@ -42,7 +43,7 @@ export async function runRobotBusiness<T>(
   try {
     result = await requestRobotBusiness(event, operation, args, decode, request);
   } catch (error) {
-    if (handleRequestError && await handleRequestError(error)) {
+    if (handleRequestError && (await handleRequestError(error))) {
       return { handled: true };
     }
     const text = getCommandBusinessErrorMessage(error);
@@ -55,12 +56,17 @@ export async function runRobotBusiness<T>(
     const reply = withTribulationRecovery(
       operation,
       args,
-      withBountyContinuation(operation, args, withBusinessRecovery(operation, { title: '操作未完成', heading: '', text, buttons: [], advice: [] }))
+      withBountyContinuation(
+        operation,
+        args,
+        withBusinessRecovery(operation, cleanLegacyInputFeedback(operation, { title: '操作未完成', heading: '', text, buttons: [], advice: [] }))
+      )
     );
 
     if (
       renderFeedback &&
-      (['tribulation.command', 'tribulation.public'].includes(operation) ||
+      (operation.startsWith('flymail.') ||
+        ['tribulation.command', 'tribulation.public'].includes(operation) ||
         ((operation === 'recharge.periodic-packs' || operation === 'recharge.periodic-pack-reset') && renderFeedback.preservesAdvice) ||
         ((operation.startsWith('treasures.') || operation === 'ancient-relics.overview' || operation === 'spirit-vein.overview') &&
           renderFeedback.preservesAdvice) ||
@@ -80,7 +86,7 @@ export async function runRobotBusiness<T>(
     result.middleware.replies[index] = withTribulationRecovery(
       operation,
       args,
-      withBountyContinuation(operation, args, withBusinessRecovery(operation, result.middleware.replies[index]))
+      withBountyContinuation(operation, args, withBusinessRecovery(operation, cleanLegacyInputFeedback(operation, result.middleware.replies[index])))
     );
   }
 

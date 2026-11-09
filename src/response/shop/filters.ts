@@ -1,6 +1,7 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseShopListArgs } from '@src/api/bot/catalog-query-reuse';
+import { isSearchReference } from '@src/utils/searchReference';
 import { toCurrencyName } from '@src/constants';
 import { Format } from 'alemonjs';
 import { SHOP_META } from './meta';
@@ -27,8 +28,11 @@ export interface ShopFilters {
 export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
   const tokens = text.trim().split(/\s+/);
   const searchIndex = tokens.indexOf('搜索');
+  const referenceIndex = tokens.indexOf('搜索续');
   let keyword: string | undefined;
   let pageToken: string | undefined;
+  let searchReference: string | undefined;
+  let error: string | undefined;
 
   if (searchIndex >= 0) {
     if (tokens.length > searchIndex + 2 && /^\d+$/.test(tokens.at(-1) ?? '')) {
@@ -36,6 +40,15 @@ export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
     }
     keyword = tokens.splice(searchIndex + 1).join(' ');
     tokens.pop();
+  } else if (referenceIndex >= 0) {
+    const [, reference, page] = tokens.splice(referenceIndex);
+
+    if (isSearchReference(reference) && /^[1-9]\d{0,15}$/.test(page ?? '') && Number.isSafeInteger(Number(page))) {
+      searchReference = reference;
+      pageToken = page;
+    } else {
+      error = '搜索已失效，请重新输入关键词';
+    }
   }
   const parsed = parseShopListArgs(tokens.join(' '), defaultShopCode);
 
@@ -45,7 +58,6 @@ export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
   const filters: ShopFilters = {};
   let categoryLabel = '全部';
   let secondaryLabel: string | undefined;
-  let error: string | undefined;
 
   const categoryIndex = tokens.indexOf('筛选');
   const primary = tokens[categoryIndex + 1];
@@ -89,7 +101,7 @@ export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
     error = '请先选择币种，再按价格排序';
   }
 
-  return { ...parsed, filters, categoryLabel, secondaryLabel, error };
+  return { ...parsed, filters, categoryLabel, secondaryLabel, searchReference, error };
 }
 
 type ShopSelection = ReturnType<typeof parseShopBrowseCommand>;
@@ -109,8 +121,8 @@ export function buildShopBrowseCommand(selection: ShopSelection, patch: Partial<
   if (next.filters.sort) {
     tokens.push(next.filters.sort === 'price_asc' ? '价格升序' : '价格降序');
   }
-  if (next.filters.keyword) {
-    tokens.push('搜索', next.filters.keyword);
+  if (next.searchReference) {
+    tokens.push('搜索续', next.searchReference);
   }
 
   return [...tokens, String(page)].join(' ');
@@ -118,12 +130,9 @@ export function buildShopBrowseCommand(selection: ShopSelection, patch: Partial<
 
 export function appendShopSearch(md: ReturnType<typeof Format.createMarkdown>, selection: ShopSelection) {
   md.addButton(markdownButtonLabel('搜索'), {
-    data: commandText(buildShopBrowseCommand(selection, { filters: { ...selection.filters, keyword: undefined } }).replace(/ 1$/, ' 搜索 ')),
+    data: commandText(buildShopBrowseCommand(selection, { searchReference: undefined }).replace(/ 1$/, ' 搜索 ')),
     autoEnter: false
   });
-  if (selection.filters.keyword) {
-    md.addText(` ${selection.filters.keyword}`);
-  }
   md.addNewline();
 }
 

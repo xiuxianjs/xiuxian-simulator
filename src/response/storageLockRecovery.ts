@@ -42,7 +42,7 @@ export function storageLockRecoveryTips(operation: string, text: string): Recove
       { label: '核对持有功法', command: '/储物袋 功法', description: '已学习功法无需在这里修改锁定；核对未学习实例与当前状态，不自动卸下、分解或重复学习' }
     ];
   }
-  if (/不存在|不属于你|未找到名为|可能原因|已被锁定|未被锁定|物品已锁定|物品未锁定/.test(text)) {
+  if (/不存在|不属于你|未找到名为|未找到匹配物品|可能原因|已被锁定|未被锁定|物品已锁定|物品未锁定/.test(text)) {
     return [
       {
         label: '核对当前物品状态',

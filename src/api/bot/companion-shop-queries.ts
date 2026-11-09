@@ -1,3 +1,4 @@
+import { isSearchReference } from '@src/utils/searchReference';
 import { exactInteger } from '../core/exact-json';
 import { getCurrentEvent } from 'alemonjs';
 import { getEventCatalog, reportCatalogReuse } from './catalog-query-reuse';
@@ -123,7 +124,9 @@ export function decodeShopData(data: Record<string, unknown>) {
     }))
   };
 
-  return { access: facts.access, currencies: facts.currencies, result };
+  const searchReference = isSearchReference(data.searchReference) ? data.searchReference : undefined;
+
+  return { access: facts.access, currencies: facts.currencies, result, ...(searchReference ? { searchReference } : {}) };
 }
 
 function isExactBalance(value: unknown): boolean {

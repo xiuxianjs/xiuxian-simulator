@@ -81,9 +81,10 @@ for (const entry of partials) for (const isPrivate of [false, true]) {
   });
 }
 
-for (const harvest of [false, true]) for (const isPrivate of [false, true]) {
-  test(`正常照料保留已完成记录，代收割后不再推荐重放 harvest=${harvest} private=${isPrivate}`, async t => {
-    const lines = ['浇灌：2 项', '除虫：0 项', '除草：1 项', ...(harvest ? [
+for (const receipt of ['none', 'legacy', 'summary']) for (const isPrivate of [false, true]) {
+  const harvest = receipt !== 'none';
+  test(`正常照料保留已完成记录，代收割后不再推荐重放 receipt=${receipt} private=${isPrivate}`, async t => {
+    const lines = ['浇灌：2 项', '除虫：0 项', '除草：1 项', ...(receipt === 'summary' ? ['结果：收割 1 块灵田', '收获：凝气草 ×3', '经验：灵植经验 +5', '照料：完美 1 块'] : harvest ? [
       '收割完成，获得 凝气草 x3，灵植经验 5，本轮种植：完美照料1块。'
     ] : []), '收获归道侣所有'];
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { message: lines.join('\n') }));

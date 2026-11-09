@@ -5,7 +5,7 @@ import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/market/list/res';
 import myListings from '../../src/response/market/my/res';
-import { createMarketCommandBar, parseMarketCommand } from '../../src/response/market/command';
+import { createMarketCommandBar, marketSearchCommand, parseMarketCommand } from '../../src/response/market/command';
 import { createGameRouter } from '../../src/router';
 import type { MarketBrowseItem } from '../../src/api/schemas/market-browse-query';
 import { businessEnvelope, gameFixture } from './fixture';
@@ -30,6 +30,39 @@ const item: MarketBrowseItem = {
   purchaseUnavailableReason: null, upgradeHint: '', attributeAvailable: false, attributes: null, attributeView: null,
   createdAt: '2026-10-22T09:00:00+08:00', expiresAt: null
 };
+
+test('搜索无结果时可见回复不复述关键词', async t => {
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, browse()));
+  const result = await app.runHandler(handler, app.events.groupMessage({ text: '/珍宝楼 搜索 回显占位词', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /未找到匹配结果/);
+  assert.doesNotMatch(view.text, /回显占位词/);
+  assert.ok(view.commands.every(command => !command.includes('回显占位词')));
+  assert.equal((requests[0].body.arguments as Record<string, unknown>).keyword, '回显占位词');
+});
+
+test('旧服务端缺少搜索编号时保留结果并安全退出翻页', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, browse(1, [item])));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/珍宝楼 搜索 回显占位词', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /培元丹/);
+  assert.match(view.text, /搜索翻页暂不可用/);
+  assert.ok(view.commands.every(command => !command.includes('回显占位词') && !command.startsWith('/珍宝楼 续 ')));
+});
+
+test('珍宝楼搜索续查命令在最大支持页码下符合 QQ 字符预算', () => {
+  const ref = 'r1_3w5e11264sgsf_ms_m12345678_0123456789abcdef01234567';
+  const command = marketSearchCommand(ref, '价格降序', Number.MAX_SAFE_INTEGER);
+  assert.equal([...command].length, 80);
+  assert.equal(Buffer.byteLength(command, 'utf8'), 88);
+  const parsed = parseMarketCommand(command);
+  assert.equal(parsed?.searchReference, ref);
+  assert.equal(parsed?.page, Number.MAX_SAFE_INTEGER);
+});
 
 for (const privateChat of [true, false]) {
   test(`普通、分类和搜索默认按最新查询，气泡只保留四行控件（${privateChat ? '私聊' : '群聊'}）`, async t => {
@@ -56,24 +89,35 @@ for (const privateChat of [true, false]) {
 }
 
 test('主动排序保留分类或关键词，翻页保留排序，切换分类重置为最新', async t => {
-  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, browse(Number((r.body.arguments as Record<string, unknown>).page), [item])));
+  const ref = 'r1_1_ms_m1234567_0123456789abcdef01234567';
+  const { app, requests } = await gameFixture(t, r => {
+    const args = r.body.arguments as Record<string, unknown>;
+    return businessEnvelope(r.bid, {
+      ...browse(Number(args.page), [item]),
+      ...(args.keyword || args.searchReference ? { searchReference: ref } : {})
+    });
+  });
   const render = async (text: string) => {
     const result = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     return result.messages[0];
   };
-  for (const initial of ['/珍宝楼 筛选 道具 丹药', '/珍宝楼 搜索 培元丹']) {
+  for (const initial of ['/珍宝楼 筛选 道具 丹药', '/珍宝楼 搜索 回显占位词']) {
     const first = await render(initial);
+    assert.ok(inspectMessage(first.nodes).commands.every(command => !command.includes('回显占位词') && [...command].length <= 80));
     const controls = first.nodes.flatMap(n => n.type === 'Markdown' ? n.value : []);
     const sort = controls.find(n => n.type === 'MD.button' && n.value === '‹价格降序›');
     assert.ok(sort?.type === 'MD.button' && sort.options?.data);
     const sorted = await render(sort.options.data);
     const args = requests.at(-1)?.body.arguments as Record<string, unknown>;
     assert.equal(args.sort, 'price_desc');
-    if (initial.includes('搜索')) assert.equal(args.keyword, '培元丹');
+    if (initial.includes('搜索')) {
+      assert.equal(args.keyword, '');
+      assert.equal(args.searchReference, ref);
+    }
     else { assert.equal(args.categoryType, 'prop'); assert.equal(args.categorySubtype, 'pill'); }
-    const pageCommand = inspectMessage(sorted.nodes).commands.find(c => c.endsWith('价格降序 2')); assert.ok(pageCommand);
+    const pageCommand = inspectMessage(sorted.nodes).commands.find(c => c.endsWith(initial.includes('搜索') ? ' 2 2' : '价格降序 2')); assert.ok(pageCommand);
     await render(pageCommand);
     assert.deepEqual(requests.at(-1)?.body.arguments, { ...args, page: '2' });
     const material = sorted.nodes.flatMap(n => n.type === 'Markdown' ? n.value : []).find(n => n.type === 'MD.button' && n.value === '‹材料›');

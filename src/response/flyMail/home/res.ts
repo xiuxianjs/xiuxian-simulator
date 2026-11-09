@@ -41,6 +41,8 @@ const SCOPE_TABS = [
   { scope: 'team', label: '队伍', command: '/飞信 队伍' }
 ];
 
+const HOME_FEEDBACK = new Set(['飞信暂不可用', '飞信查看参数无效', '飞信会话参数无效', '会话不可用，请返回好友飞信']);
+
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const [, next] = useEvent();
@@ -59,6 +61,10 @@ export default onResponse(selects, async e => {
   }
 
   const label = SCOPE_LABEL[parsed.scope];
+  const refreshCommand = (parsed.conversationId ? `/飞信 会话 ${parsed.conversationId} {page}` : SCOPE_NAV_COMMAND[parsed.scope]).replace(
+    '{page}',
+    String(parsed.page)
+  );
   const header = SCOPE_TABS.map(tab => ({ label: tab.label, selected: tab.scope === parsed.scope, command: tab.command }));
   let response;
 
@@ -76,13 +82,21 @@ export default onResponse(selects, async e => {
       data => (parsed.scope === 'friend' ? parseRobotFriendInbox(data, parsed.conversationId) : parseRobotFlyMailHome(data, parsed.scope)),
       next,
       async reply => {
+        const requiredRealm = '炼气二层';
+        const locked = reply.text.startsWith(`${requiredRealm}及以上方可开启该功能`);
+        const text = locked ? `${requiredRealm}及以上方可查看该飞信。` : HOME_FEEDBACK.has(reply.text) ? reply.text : '飞信暂不可用，请稍后刷新。';
+
         await message.send(
           FormatGui({
             isPrivate,
             bid,
             header,
-            content: Format.createMarkdown().addText(label).addNewline().addText(reply.text),
-            footer: [...reply.buttons, { label: '刷新', command: e.MessageText }]
+            content: Format.createMarkdown().addText(label).addNewline().addText(text),
+            footer: [
+              ...(locked ? [{ label: '我的境界', command: '/我的境界' }] : []),
+              ...(text === '会话不可用，请返回好友飞信' || text === '飞信会话参数无效' ? [{ label: '返回飞信', command: '/飞信' }] : []),
+              { label: '刷新', command: refreshCommand }
+            ]
           })
         );
       }
@@ -94,7 +108,7 @@ export default onResponse(selects, async e => {
         bid,
         header,
         content: Format.createMarkdown().addText(label).addNewline().addText('飞信暂不可用，请稍后刷新。'),
-        footer: [{ label: '刷新', command: e.MessageText }]
+        footer: [{ label: '刷新', command: refreshCommand }]
       })
     );
 
@@ -131,7 +145,7 @@ export default onResponse(selects, async e => {
       md.addBlockquote(
         section({
           title: item.title ?? item.targetName,
-          lines: [`时间：${flyMailTime(item.lastMessageAt)}`, item.preview],
+          lines: [`时间：${flyMailTime(item.lastMessageAt)}`, item.previewReviewed ? item.preview : '正文暂不可展示。'],
           actions: [
             { label: '打开会话', command: `/飞信 会话 ${item.id}` },
             { label: '回复', command: flyMailDraft('friend', item.targetUid) }

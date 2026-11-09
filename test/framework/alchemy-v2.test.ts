@@ -102,7 +102,7 @@ test('炼丹路由接收带确认参数的按钮命令', async t => {
 
 test('确认通信异常保留原操作供恢复，不引导创建新炼制', async t => {
   const { app, requests } = await gameFixture(t, () => ({ code: 'INTERNAL', message: 'internal failure' }), 500);
-  const command = '/炼丹 确认 stable-intent';
+  const command = '/炼丹 确认 r1_1_a_m1234567_0123456789abcdef01234567';
   const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
   assert.equal(requests.length, 1);
   const message = result.messages[0];
@@ -110,6 +110,32 @@ test('确认通信异常保留原操作供恢复，不引导创建新炼制', as
   assert.match(message.text, /结果暂未确认/);
   assert.ok(message.commands.includes(command));
   assert.ok(!message.commands.includes('/炼丹'));
+});
+
+test('炼丹确认通信异常不会把自由文本写进重试按钮', async t => {
+  const { app } = await gameFixture(t, () => ({ code: 'INTERNAL', message: 'internal failure' }), 500);
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/炼丹 确认 回显占位词', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.doesNotMatch(message.text, /回显占位词/);
+  assert.ok(message.commands.every(command => !command.includes('回显占位词')));
+});
+
+test('炼丹旧版 b3 凭据只在完整的 80 字符指令下生成重试按钮', async t => {
+  const { app } = await gameFixture(t, () => ({ code: 'INTERNAL', message: 'internal failure' }), 500);
+  const raw = Buffer.alloc(52);
+  raw.set([3, 1]);
+  for (const offset of [2, 10, 18]) raw.writeBigUInt64BE(1n, offset);
+  raw.writeUInt16BE(1000, 26);
+  raw.fill(0xab, 28);
+  const full = `/炼丹 确认 b3.${raw.toString('base64url')}`;
+  assert.equal([...full].length, 80);
+  for (const command of [full, full.slice(0, -1)]) {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.equal(message.commands.includes(command), command === full);
+  }
 });
 
 test('天工操作续接原丹方和炉数，且不串玩家导航', async t => {

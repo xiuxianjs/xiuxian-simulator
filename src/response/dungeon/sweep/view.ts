@@ -2,7 +2,8 @@ import type { DungeonSweep } from '@src/api/bot/dungeon-sweep';
 import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import { displayCurrencyText } from '@src/constants/currency';
 
-type ParsedCommand = { ok: true; dungeonName: string; times: number } | { ok: false; isCommand: boolean; message: string };
+type ParsedCommand =
+  { ok: true; dungeonName: string; times: number } | { ok: true; dungeonId: number; times: number } | { ok: false; isCommand: boolean; message: string };
 export function parseSweepCommand(text: string): ParsedCommand {
   const cleaned = (text ?? '').trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
 
@@ -24,10 +25,16 @@ export function parseSweepCommand(text: string): ParsedCommand {
     return { ok: false, isCommand: true, message: '扫荡次数仅支持 1、5、10' };
   }
 
+  if (/^#\d+$/.test(dungeonName)) {
+    const dungeonId = Number(dungeonName.slice(1));
+
+    return Number.isSafeInteger(dungeonId) && dungeonId > 0 ? { ok: true, dungeonId, times } : { ok: false, isCommand: true, message: '秘境编号无效' };
+  }
+
   return { ok: true, dungeonName, times };
 }
 export interface SweepData {
-  experienceBonusText?:string;
+  experienceBonusText?: string;
   treasureEffects?: TreasureEffectNotice[];
   dungeonName: string;
   times: number;

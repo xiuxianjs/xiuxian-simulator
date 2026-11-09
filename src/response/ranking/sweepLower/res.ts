@@ -20,10 +20,11 @@ export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
+  const args = rankingSweepArguments(e.MessageText || '');
   let result: ReturnType<typeof parseRobotTowerSweep>;
 
   try {
-    const loaded = await runRobotBusiness(e, 'ranking.sweep', rankingSweepArguments(e.MessageText || ''), parseRobotTowerSweep, next, async reply => {
+    const loaded = await runRobotBusiness(e, 'ranking.sweep', args, parseRobotTowerSweep, next, async reply => {
       await message.send(FormatGui({ isPrivate, bid, title: '', content: Format.createMarkdown().addText(reply.text), footer: undefined }));
     });
 
@@ -95,8 +96,10 @@ export default onResponse(selects, async e => {
 
   {
     const md = Format.createMarkdown();
-    const experienceText = result.data.normalExperienceGained === undefined
-      ? `${result.data.experienceGained}${result.data.experienceBonusText}` : String(result.data.normalExperienceGained);
+    const experienceText =
+      result.data.normalExperienceGained === undefined
+        ? `${result.data.experienceGained}${result.data.experienceBonusText}`
+        : String(result.data.normalExperienceGained);
 
     md.addBold('通天塔 · 扫荡').addNewline().addNewline();
     md.addBlockquote(
@@ -113,7 +116,7 @@ export default onResponse(selects, async e => {
         title: '',
         content: md,
         footer: [
-          { label: '继续扫', command: e.MessageText },
+          { label: '继续扫', command: `/扫荡排名 ${args.rankArg} ${args.countArg}` },
           { label: '扫荡', command: '/扫荡排名' }
         ]
       })

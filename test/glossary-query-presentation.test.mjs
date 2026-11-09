@@ -44,7 +44,7 @@ test('glossary browse and fuzzy pages retain 30-character summaries and same-quo
 test('glossary category menu and invalid category retain original fixed choices and guidance',async()=>{
  for(const row of receipts.filter(r=>r.op==='glossary.category'&&!r.result.data.page)){
   const nodes=await render(row),policy=row.result.data.policy;
-  if(row.args.category)assert.ok(textOf(nodes).includes(`❌ 未知分类「${row.args.category}」`));else assert.ok(textOf(nodes).includes('📂 选择要浏览的词典分类：'));
+  if(row.args.category){assert.ok(textOf(nodes).includes("请选择下方可用分类"));assert.ok(!textOf(nodes).includes(row.args.category));}else assert.ok(textOf(nodes).includes('📂 选择要浏览的词典分类：'));
   for(const category of policy.categories)assert.ok(commands(nodes).includes(`/词典分类 ${category}`));
  }
 });

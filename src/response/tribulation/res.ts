@@ -13,7 +13,8 @@ import { renderTribulationPanel } from './render';
 export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const [message] = useMessage();
-  const reference = (e.MessageText ?? '').trim().match(/^[/#!！＃]?(?:渡劫开劫|心魔回答)\s+(r1_[a-z0-9]+_[th]_[a-z0-9]+_[a-f0-9]{24})$/)?.[1];
+  const referenceCommand = (e.MessageText ?? '').trim().match(/^[/#!！＃]?(渡劫开劫|心魔回答)\s+(r1_[a-z0-9]{1,13}_[th]_[a-z0-9]{1,13}_[a-f0-9]{24})$/);
+  const reference = referenceCommand?.[2];
   const command = reference ? { kind: 'reference', reference } : parseTribulationCommand(e.MessageText ?? '');
 
   if (!command) {
@@ -57,7 +58,7 @@ export default onResponse(selects, async e => {
               {
                 lines: [error instanceof BackendAPIError ? error.message : '结果暂未确认，请查看状态或重试原指令。'],
                 buttons: [
-                  { label: '重试原确认', command: e.MessageText ?? '' },
+                  { label: '重试原确认', command: `/${referenceCommand[1]} ${reference}` },
                   { label: '我的劫云', command: '/我的渡劫' }
                 ]
               }

@@ -9,7 +9,7 @@ import { businessEnvelope, gameFixture } from './fixture';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
-const notice = { messageId: 3, conversationId: 41, scope: 'friend', senderUid: 5, senderName: '清霜', content: '秘境见', createdAt: '2026-10-20T09:00:00+08:00' };
+const notice = { contentReviewed: true, senderNameReviewed: true, messageId: 3, conversationId: 41, scope: 'friend', senderUid: 5, senderName: '清霜', content: '秘境见', createdAt: '2026-10-20T09:00:00+08:00' };
 
 test('收到飞信按各自范围回复，按钮在正文后且仅预填，旧载荷不猜目标', async t => {
   const app = createTestApp(); t.after(() => app.dispose());
@@ -75,4 +75,41 @@ test('旧管理员告警在管理员私聊历史中也不再展开他人的通�
  const result=await app.runHandler(historyHandler,app.events.privateMessage({text:'/我的通知',platform:'qq-bot'}));
  assert.deepEqual(result.errors,[]);assert.equal(result.messages.length,1);
  const view=inspectMessage(result.messages[0].nodes);assert.match(view.text,/已停用/);assert.doesNotMatch(view.text,/秘密|清霜|秘境见/);assert.ok(!view.commands.some(c=>c.startsWith('/发')||c.startsWith('/飞信')));
+});
+
+test('缺少审核标记的结构化旧通知只显示固定提示，保留查看会话入口', async t => {
+  const legacy = { ...notice, contentReviewed: undefined, senderName: '旧名称占位词', content: '旧正文占位词' };
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, { page: 1, hasNext: false, items: [
+    { id: 'flymail.message:3:received:1', time: notice.createdAt, text: legacy.content, delivery: '历史记录', flymail: legacy }
+  ] }));
+  const event = app.events.privateMessage({ text: '/我的通知', platform: 'qq-bot' });
+  const history = await app.runHandler(historyHandler, event);
+  const push = await app.runHandler(async () => {
+    const data = flyMailNoticeData(legacy, 1);
+    assert.ok(data);
+    const [message] = useMessage();
+    await message.send(data);
+  }, event);
+  for (const result of [history, push]) {
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.match(view.text, /你有飞信记录，请查看飞信/);
+    assert.doesNotMatch(view.text, /旧名称占位词|旧正文占位词/);
+    assert.deepEqual(view.commands.filter(command => command.startsWith('/飞信') || command.startsWith('/发')), ['/飞信 会话 41']);
+  }
+});
+
+test('飞信正文已审核时仍独立检查通知中的发件人名称', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, { page: 1, hasNext: false, items: [
+    { id: 'flymail.message:3:received:1', time: notice.createdAt, text: '', delivery: '历史记录',
+      flymail: { ...notice, senderNameReviewed: undefined, senderName: '旧道号占位词' } }
+  ] }));
+  const result = await app.runHandler(historyHandler, app.events.privateMessage({ text: '/我的通知', platform: 'qq-bot' }));
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(sent.nodes);
+  assert.match(view.text, /道友（UID 5）/);
+  assert.match(view.text, /秘境见/);
+  assert.doesNotMatch(view.text, /旧道号占位词/);
 });

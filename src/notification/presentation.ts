@@ -162,9 +162,6 @@ function notificationActions(source: string, text: string): Action[] {
       { label: '悬赏榜', command: '/悬赏榜' }
     ];
   }
-  if (source.startsWith('flymail.')) {
-    return [{ label: '查看飞信', command: '/飞信' }];
-  }
 
   return [];
 }
@@ -191,6 +188,13 @@ export function fishingNotificationLayout(text: string, castId?: unknown) {
 
 /** 兼容旧纯文本通知；已有 Markdown/图片等富内容保留原样，飞信继续使用专用展示。 */
 export function notificationNoticeData(data: DataEnums[], source = '', fishingReference?: unknown): DataEnums[] {
+  if (source.startsWith('flymail.')) {
+    return noticeBubble({
+      title: '飞信',
+      lines: ['你有飞信记录，请查看飞信。'],
+      actions: [{ label: '查看飞信', command: '/飞信' }]
+    }).format.value;
+  }
   if (!data.length || data.some(block => block.type !== 'Text' && block.type !== 'Mention')) {
     return data;
   }
@@ -207,7 +211,9 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingRe
   const fishingNotice = Boolean(fishing) || encounter;
   const command = encounter ? fishingBossNoticeCommand(fishingReference) : fishing?.reportCommand;
   const actions = fishingNotice
-    ? (command ? [{ label: encounter ? '查看奇遇' : '查看战报', command, autoEnter: false }] : [])
+    ? command
+      ? [{ label: encounter ? '查看奇遇' : '查看战报', command, autoEnter: false }]
+      : []
     : notificationActions(source, text);
   const { title, lines } = fishing ?? notificationTextLayout(text);
   const built = noticeBubble({
@@ -222,7 +228,9 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingRe
 
 /** 与服务端 notificationCategory 的分类前缀保持一致；未知来源归入 other。 */
 export function notificationSettingsData(data: DataEnums[], source = ''): DataEnums[] {
-  if (source === fishingBossNotificationSource) { return data; }
+  if (source === fishingBossNotificationSource) {
+    return data;
+  }
   const categories: Record<string, string> = {
     meditation: '闭关',
     exploration: '秘境探索',

@@ -8,6 +8,7 @@ export interface GuildUpgradeView {
   spiritStoneMissing: number;
   status: 'ready' | 'blocked' | 'unavailable';
   reason: string;
+  miningQuota?: { current: number; target: number };
 }
 
 export interface GuildHomeMembership {

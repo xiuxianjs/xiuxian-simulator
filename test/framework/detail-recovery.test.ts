@@ -74,7 +74,10 @@ for (const isPrivate of [false, true]) for (const mode of ['empty-name', 'empty-
       assert.ok(view.text.includes('原模板面板'));
       assert.ok(view.commands.includes('/查看主线'));
     } else assert.ok(view.commands.includes('/储物袋'));
-    if (mode === 'empty-name') assert.ok(view.text.includes('未找到名为「同名」'));
+    if (mode === 'empty-name') {
+      assert.match(view.text, /未找到匹配结果/);
+      assert.doesNotMatch(view.text, /同名/);
+    }
     if (mode === 'empty-id') { assert.ok(view.text.includes('未找到装备模板（编号 99）')); assert.ok(!view.text.includes('名为「装备 99」')); }
     if (mode === 'no-input') assert.ok(view.text.includes('请输入物品名称'));
     if (mode === 'collision') {

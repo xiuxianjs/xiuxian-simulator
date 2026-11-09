@@ -37,3 +37,20 @@ for (const isPrivate of [false, true]) for (const [reason, expectedCommand, expe
 ]) test(`known cave refusal stays ahead of unknown-result fallback ${reason} private=${isPrivate}`, async t => {
  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{ title: '', heading: '', text: reason, buttons: [], advice: [] }])); const text = '/灵田加速 2 灵石 1'; const result = await app.runHandler(action, isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' })); const view = inspectMessage(result.messages[0].nodes); assert.equal(requests.length, 1); assert.ok(view.text.includes(reason)); assert.ok(view.text.includes(expectedText)); assert.ok(view.commands.includes(expectedCommand)); assert.ok(!view.text.includes('刷新失败不代表操作回滚')); noWrite(view.commands); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
+
+test('一键收割回执保留按行汇总及返回入口', async t => {
+  const lines = ['结果：收割 5 块灵田', '收获：凝气果 ×15', '返种：凝气树种 ×2', '经验：灵植经验 +100'];
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    mode: 'command',
+    result: { message: lines.join('\n'), overview: null }
+  }));
+  const result = await app.runHandler(action, app.events.groupMessage({ text: '/一键收割', platform: 'qq-bot' }));
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0].path.endsWith('/cave.harvest'));
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  const view = inspectMessage(message.nodes);
+  assert.ok(view.text.includes(lines.map(line => `> ${line}`).join('\n')), view.text);
+  assert.ok(view.commands.includes('/灵田'));
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+});

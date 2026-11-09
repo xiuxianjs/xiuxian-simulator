@@ -55,7 +55,8 @@ test('wins keep personal rewards, first clear, costs and battle buttons',async()
       assert.ok(!textOf(nodes).includes('获得：'));
       assert.ok(commands(nodes).includes('/储物袋 道具 丹药'));
     }
-    assert.equal(commands(nodes).includes('/秘境挑战 试炼'), own.eligible);
+    assert.ok(!commands(nodes).includes('/秘境挑战 试炼'));
+    assert.equal(commands(nodes).includes(`/秘境挑战 #${d.dungeonId}`), own.eligible);
     assert.ok(commands(nodes).includes(`/查看战斗过程 ${d.logId}`));
     assert.ok(commands(nodes).some(c=>c.includes(encodeURIComponent(d.logId))));
   }
@@ -83,7 +84,7 @@ test('silent unmatched input and transport failures end after one attempt',async
   state.transportError=true;
   try{
     const nodes=await render('challenge','/秘境挑战 试炼',{});
-    assert.ok(textOf(nodes).includes('网络超时'));
+    assert.ok(textOf(nodes).includes('秘境挑战结果暂不可确认，请查看秘境'));
     assert.ok(commands(nodes).includes('/我的队伍'));
   }finally{state.transportError=false;}
 });

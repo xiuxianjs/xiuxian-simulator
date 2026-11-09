@@ -32,9 +32,9 @@ export default onResponse(selects, async e => {
   };
 
   if (cleaned === '扫荡免费秘境') {
-    const loaded = await runRobotBusiness(e, 'dungeon.sweep-free', {}, parseRobotDungeonFreeSweep, next, sendFailure).catch(async error => {
+    const loaded = await runRobotBusiness(e, 'dungeon.sweep-free', {}, parseRobotDungeonFreeSweep, next, sendFailure).catch(async () => {
       await sendFailure({
-        text: error instanceof Error ? error.message : '服务暂时不可用，请稍后再试',
+        text: '秘境扫荡结果暂不可确认，请查看秘境。',
         buttons: [{ label: '查看秘境', command: '/查看秘境' }]
       });
 
@@ -56,7 +56,9 @@ export default onResponse(selects, async e => {
 
     for (const item of result.data.sweptDungeons) {
       md.addText(`${item.dungeonName} × ${item.times} | 修为 +${item.totalExp}`);
-      if (item.experienceBonusText?.trim()) { md.addNewline().addText('其中：' + item.experienceBonusText); }
+      if (item.experienceBonusText?.trim()) {
+        md.addNewline().addText('其中：' + item.experienceBonusText);
+      }
       md.addNewline();
       if (item.totalCurrencyText) {
         md.addText(item.totalCurrencyText);
@@ -97,8 +99,8 @@ export default onResponse(selects, async e => {
   }
 
   const sweepArgs = dungeonSweepArguments(e.MessageText || '');
-  const loaded = await runRobotBusiness(e, 'dungeon.sweep', sweepArgs, parseRobotDungeonSweep, next, sendFailure).catch(async error => {
-    await sendFailure({ text: error instanceof Error ? error.message : '服务暂时不可用，请稍后再试', buttons: [] });
+  const loaded = await runRobotBusiness(e, 'dungeon.sweep', sweepArgs, parseRobotDungeonSweep, next, sendFailure).catch(async () => {
+    await sendFailure({ text: '秘境扫荡结果暂不可确认，请查看秘境。', buttons: [] });
 
     return { handled: true as const };
   });
@@ -113,7 +115,9 @@ export default onResponse(selects, async e => {
   const contentMd = Format.createMarkdown();
 
   contentMd.addText(`${d.dungeonName} × ${d.times} | 精力 -${d.totalSpiritCost} | 修为 +${d.totalExp}`);
-  if (d.experienceBonusText?.trim()) { contentMd.addNewline().addText('其中：' + d.experienceBonusText); }
+  if (d.experienceBonusText?.trim()) {
+    contentMd.addNewline().addText('其中：' + d.experienceBonusText);
+  }
   contentMd.addNewline();
 
   if (d.totalCurrencyText) {
@@ -154,7 +158,12 @@ export default onResponse(selects, async e => {
         { label: '副本', command: '/查看主线' }
       ],
       content: contentMd,
-      footer: [...(!partial ? [{ label: '继续扫荡', command: `/扫荡秘境 ${d.dungeonName} ${d.times}` }] : []), { label: '秘境列表', command: '/查看秘境' }]
+      footer: [
+        ...(!partial && result.data.dungeonId && [1, 5, 10].includes(d.times)
+          ? [{ label: '继续扫荡', command: `/扫荡秘境 #${result.data.dungeonId} ${d.times}` }]
+          : []),
+        { label: '秘境列表', command: '/查看秘境' }
+      ]
     })
   );
 });

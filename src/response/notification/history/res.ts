@@ -6,7 +6,7 @@ import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { commandText } from '@src/utils/commandPrefix';
-import { flyMailQuote, flyMailViewCommand, parseFlyMailNotice } from '@src/utils/flyMailPresentation';
+import { flyMailNoticeQuote, flyMailViewCommand, parseFlyMailNotice } from '@src/utils/flyMailPresentation';
 import { formatGameTime } from '@src/utils/gameTime';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
@@ -61,10 +61,14 @@ export default onResponse(selects, async e => {
       const mail = parseFlyMailNotice(item.flymail);
 
       if (mail) {
-        const quote = flyMailQuote(mail, e.uid);
+        const quote = flyMailNoticeQuote(mail, e.uid);
 
         quote.addText(' ').addButton(markdownButtonLabel('查看飞信'), { data: commandText(flyMailViewCommand(mail.scope, mail.conversationId)) });
         md.addBlockquote(quote);
+        continue;
+      }
+      if (item.id.startsWith('flymail.')) {
+        md.addBlockquote(createQuoteMarkdown(['你有飞信记录，请查看飞信。'], [{ label: '查看飞信', command: '/飞信' }]));
         continue;
       }
       const fishingCastId = item.fishingCastId ?? /^fishing\.result:(fc_[0-9a-f]{32}):[1-9]\d*$/.exec(item.id)?.[1];

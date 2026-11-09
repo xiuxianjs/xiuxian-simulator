@@ -26,8 +26,8 @@ export default onResponse(selects, async e => {
   };
   const loaded = await runRobotBusiness(e, 'dungeon.detail', dungeonDetailArguments(e.MessageText || ''), parseRobotDungeonDetail, next, async reply => {
     await sendFailure(reply.text);
-  }).catch(async error => {
-    await sendFailure(error instanceof Error ? error.message : '秘境详情读取失败');
+  }).catch(async () => {
+    await sendFailure('秘境详情暂不可用，请稍后再试。');
 
     return { handled: true as const };
   });

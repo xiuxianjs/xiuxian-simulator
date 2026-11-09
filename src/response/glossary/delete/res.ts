@@ -35,7 +35,7 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addText(`✅ 词条「${keyword}」已删除`);
+  md.addText('✅ 词条已删除');
 
   void message.send(
     FormatGui({

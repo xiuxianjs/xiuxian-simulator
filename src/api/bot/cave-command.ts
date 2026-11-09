@@ -1,3 +1,4 @@
+import { section } from '@src/response/presentation';
 import { logger } from 'alemonjs';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import type { RobotMiddlewareReply } from './middleware-entry';
@@ -143,7 +144,13 @@ export function sendCaveCommandFallback(
   title: string,
   advice: RobotMiddlewareReply['advice'] = []
 ) {
-  const md = Format.createMarkdown().addText(result.message);
+  const md = Format.createMarkdown();
+
+  if (result.message.includes('\n')) {
+    md.addBlockquote(section({ lines: result.message.split('\n') }));
+  } else {
+    md.addText(result.message);
+  }
 
   appendTreasureEffects(md, result.treasureEffects);
   if (result.snapshotError) {

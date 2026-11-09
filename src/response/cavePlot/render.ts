@@ -1,3 +1,4 @@
+import { section } from '@src/response/presentation';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveRecoveryTips } from '@src/response/caveRecovery';
@@ -143,7 +144,11 @@ function buildSelfCavePlotContent(
   }
 
   if (leadText) {
-    md.addText(leadText);
+    if (leadText.includes('\n')) {
+      md.addBlockquote(section({ lines: leadText.split('\n') }));
+    } else {
+      md.addText(leadText);
+    }
     appendTreasureEffects(md, treasureEffects);
     appendMiddlewareAdvice(md, advice);
 
@@ -477,7 +482,11 @@ export function sendVisitedCavePlotPage(options: SendVisitedCavePlotPageOptions)
   const footerButtons = footer?.slice(0, 3) ?? [];
 
   if (leadText) {
-    md.addText(leadText);
+    if (leadText.includes('\n')) {
+      md.addBlockquote(section({ lines: leadText.split('\n') }));
+    } else {
+      md.addText(leadText);
+    }
     appendTreasureEffects(md, options.treasureEffects);
     md.addNewline();
     md.addNewline();

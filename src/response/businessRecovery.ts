@@ -232,7 +232,7 @@ export function withBusinessRecovery(operation: RobotBusinessOperation, reply: R
         { label: '前往商店', command: '/商店 万宝楼', description: '查询当前是否出售需要的道具' },
         { label: '前往珍宝楼', command: '/珍宝楼', description: '查询其他道友是否上架了需要的道具' }
       ];
-    } else if (/未找到.*对应的道具|不是可消耗的道具/.test(text)) {
+    } else if (/未找到.*对应的道具|未找到匹配道具|不是可消耗的道具/.test(text)) {
       tips = [{ label: '查看储物袋', command: '/储物袋 道具', description: '核对可用道具的完整名称，再按名称使用' }];
     } else if (/筑基丹.*炼气/.test(text)) {
       tips = [{ label: '查看境界', command: '/我的信息', description: '核对当前境界，满足提示中的服用条件后再使用' }];

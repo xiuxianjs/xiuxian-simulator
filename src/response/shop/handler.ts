@@ -160,6 +160,7 @@ export const createShopListHandler = (shopCode?: string) => {
           page,
           shopCode: activeShopCode,
           currencyCode,
+          ...(!parsed.error && parsed.searchReference ? { searchReference: parsed.searchReference } : {}),
           ...(!parsed.error && Object.values(parsed.filters).some(value => value !== undefined) ? { filters: parsed.filters } : {})
         },
         (value: any) => decodeShopData(value)
@@ -193,14 +194,19 @@ export const createShopListHandler = (shopCode?: string) => {
       'response.build',
       () => {
         const access = shopQuery.access;
+        const searching = Boolean(parsed.filters.keyword ?? parsed.searchReference);
+        const selection = { ...parsed, searchReference: searching ? shopQuery.searchReference : undefined };
         const renderCurrency = (md: ReturnType<typeof Format.createMarkdown>) => {
           appendCurrencyCardToMd(md, shopQuery.currencies, { hideZero: true });
           if (!shopQuery.access.deniedReason) {
             appendShopSearch(md, parsed);
+            if (searching && !selection.searchReference) {
+              md.addText('搜索续查暂不可用，请重新输入关键词。').addNewline();
+            }
           }
         };
-        const shopHeader = getShopHeader(access, parsed);
-        const categoryFooter = createShopCategoryFooter(parsed);
+        const shopHeader = getShopHeader(access, selection);
+        const categoryFooter = createShopCategoryFooter(selection);
         const accessDeniedReason = access.deniedReason;
         const meta = activeShopCode ? SHOP_META[activeShopCode] : undefined;
 
@@ -297,7 +303,7 @@ export const createShopListHandler = (shopCode?: string) => {
           contentMd.addBlockquote(createQuoteMarkdown(lines, shopBtns));
         });
 
-        const pageCmd = buildShopBrowseCommand(parsed, {}, '{page}');
+        const pageCmd = buildShopBrowseCommand(selection, {}, '{page}');
 
         return FormatGui({
           isPrivate: e.isPrivate ?? false,
@@ -306,11 +312,14 @@ export const createShopListHandler = (shopCode?: string) => {
           header: shopHeader,
           content: contentMd,
           footer: categoryFooter,
-          nav: {
-            current: result.pagination.currentPage,
-            total: result.pagination.totalPages,
-            command: pageCmd
-          }
+          nav:
+            !searching || selection.searchReference
+              ? {
+                  current: result.pagination.currentPage,
+                  total: result.pagination.totalPages,
+                  command: pageCmd
+                }
+              : undefined
         });
       },
       e

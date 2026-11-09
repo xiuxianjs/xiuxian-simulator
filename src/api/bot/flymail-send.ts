@@ -84,7 +84,7 @@ export function parseRobotFlyMailSend(value: unknown) {
       if (!history.list.length || history.list.some(item => item.conversationId !== conversationId)) {
         throw new Error('飞信会话数据不完整');
       }
-      chat = { targetUid, history, ...(typeof view.title === 'string' ? { title: view.title } : {}) };
+      chat = { targetUid, history, title: history.namesReviewed && typeof view.title === 'string' ? view.title : `道友（UID ${targetUid}）` };
     }
   } catch {
     // Do not expose records from an invalid conversation or invite a duplicate send.

@@ -58,7 +58,9 @@ test('同对象固定 2s 窗口不被新消息续期，不同机器人和群不�
 test('飞信每批最多 5 条，处理中最多 32 条，剩余留在服务端且全部独立 ack', async t => {
   const app = fixture(t);
   const queue = Array.from({ length: 35 }, (_, i) => ({ eventId: `flymail.message:${i + 1}:received:7`, recipientUserId: 7, recipientBid: 'recipient', payload: {
-    version: 1, recipientUserId: 7, source: 'flymail.message.received', data: [{ type: 'Text', value: `正文${i + 1}结束` }]
+    version: 1, recipientUserId: 7, source: 'flymail.message.received', data: [{ type: 'Text', value: `正文${i + 1}结束` }],
+    flymail: { contentReviewed: true, scope: 'friend', messageId: i + 1, conversationId: 41, senderUid: 2,
+      senderName: '道友', content: `正文${i + 1}结束`, createdAt: '2026-10-20T09:00:00+08:00' }
   } }));
   let release!: () => void;
   const blocked = new Promise<void>(resolve => { release = resolve; });

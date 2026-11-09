@@ -1,3 +1,4 @@
+import { hasReviewedNames } from '@src/response/reviewedNames';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
@@ -103,7 +104,22 @@ export default onResponse(selects, async e => {
 
   try {
     if (isList) {
-      const response = await runRobotBusiness(e, 'battle-templates.list', {}, parseBattleTemplates, parentNext, feedback);
+      const response = await runRobotBusiness(
+        e,
+        'battle-templates.list',
+        {},
+        data => {
+          const result = parseBattleTemplates(data);
+
+          if (hasReviewedNames(data)) {
+            return result;
+          }
+
+          return { ...result, templates: result.templates.map(row => ({ ...row, name: `战斗模板${row.slot}` })) };
+        },
+        parentNext,
+        feedback
+      );
 
       if (response.handled) {
         return;
@@ -122,7 +138,11 @@ export default onResponse(selects, async e => {
         e,
         'battle-templates.save',
         { slotText: saveMatch[2], name: name ?? null },
-        data => parseBattleTemplateSave(data, slot),
+        data => {
+          const result = parseBattleTemplateSave(data, slot);
+
+          return hasReviewedNames(data) ? result : { ...result, name: `战斗模板${result.slot}` };
+        },
         parentNext,
         feedback
       );
@@ -153,7 +173,11 @@ export default onResponse(selects, async e => {
         e,
         'battle-templates.apply',
         { slotText: applyMatch[2], name: null },
-        data => parseBattleTemplateApply(data, slot),
+        data => {
+          const result = parseBattleTemplateApply(data, slot);
+
+          return hasReviewedNames(data) ? result : { ...result, name: `战斗模板${result.slot}` };
+        },
         parentNext,
         feedback
       );

@@ -4,7 +4,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { parseAlchemyV2Reply } from '@src/api/bot/alchemy-v2';
 import { getCommandErrorMessage } from '@src/utils/commandError';
-import { normalizeAlchemyCommand } from './commands';
+import { alchemyRetryCommand, normalizeAlchemyCommand } from './commands';
 
 // Navigation only: never retain a confirmation token or authoritative game state.
 const previewTargets = new Map<string, { command: string; expires: number }>();
@@ -47,6 +47,7 @@ export default onResponse(selects, async event => {
     }
   } catch (error) {
     const confirmation = /^\/炼丹 确认 \S+$/.test(event.MessageText ?? '');
+    const retry = alchemyRetryCommand(event.MessageText ?? '');
 
     await sendMiddlewareReply(
       event,
@@ -54,7 +55,7 @@ export default onResponse(selects, async event => {
         title: '炼丹',
         heading: '',
         text: confirmation ? '本次操作结果暂未确认。请重试原操作核对结果；若已完成，将返回原回执，不会重复扣料或扣款。' : getCommandErrorMessage(error),
-        buttons: confirmation ? [{ label: '重试原操作', command: event.MessageText }] : [{ label: '返回炼丹', command: '/炼丹' }],
+        buttons: retry ? [{ label: '重试原操作', command: retry }] : confirmation ? [] : [{ label: '返回炼丹', command: '/炼丹' }],
         advice: []
       },
       'footer'

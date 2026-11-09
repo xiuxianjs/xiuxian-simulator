@@ -21,6 +21,27 @@ export const alchemyRoutes = [
   '炼丹'
 ];
 
+export function alchemyRetryCommand(command: string): string | undefined {
+  const token = /^\/炼丹 确认 (\S+)$/.exec(command)?.[1];
+
+  if (!token || [...command].length > 80) {
+    return;
+  }
+  if (/^r1_[0-9a-z]{1,13}_a_[0-9a-z]{1,13}_[a-f0-9]{24}$/.test(token)) {
+    return command;
+  }
+  const match = /^b([13])\.([A-Za-z0-9_-]+)$/.exec(token);
+
+  if (match) {
+    const [, version, encoded] = match;
+    const data = Buffer.from(encoded, 'base64url');
+
+    if (data.length === (version === '3' ? 52 : 50) && data[0] === Number(version) && data.toString('base64url') === encoded) {
+      return command;
+    }
+  }
+}
+
 export function normalizeAlchemyCommand(text: string): string {
   const words = text
     .trim()

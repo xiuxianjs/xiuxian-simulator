@@ -11,10 +11,10 @@ import { businessEnvelope, gameFixture } from './fixture';
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
 
-const base = { scope: 'friend', page: 1, total: 0, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [], list: [] };
-const summary = (id: number) => ({ id, targetUid: id + 100, targetName: `道友${id}`, title: id === 41 ? "道友41（MID QX000888）" : `道友${id}（UID ${id + 100}）`, preview: `会话${id}最新摘要`, lastMessageAt: '2026-10-20T09:00:00+08:00' });
+const base = { namesReviewed: true, scope: 'friend', page: 1, total: 0, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [], list: [] };
+const summary = (id: number) => ({ id, targetUid: id + 100, targetName: `道友${id}`, title: id === 41 ? "道友41（MID QX000888）" : `道友${id}（UID ${id + 100}）`, previewReviewed: true, preview: `会话${id}最新摘要`, lastMessageAt: '2026-10-20T09:00:00+08:00' });
 const inbox = (page = 1) => ({ ...base, page, total: 6, totalPage: 2, view: 'conversations', conversation: null, conversations: (page === 1 ? [41, 42, 43, 44, 45] : [46]).map(summary) });
-const message = (id: number, scope = 'friend') => ({ kind: 'message', id, scope, senderUid: id % 2 ? 141 : 1, senderName: id % 2 ? '道友41' : '我', content: `会话41记录${id}`, createdAt: '2026-10-20T09:00:00+08:00', conversationId: 41, title: '' });
+const message = (id: number, scope = 'friend') => ({ kind: 'message', contentReviewed: true, id, scope, senderUid: id % 2 ? 141 : 1, senderName: id % 2 ? '道友41' : '我', content: `会话41记录${id}`, createdAt: '2026-10-20T09:00:00+08:00', conversationId: 41, title: '' });
 const thread = (page = 1) => ({ ...base, page, total: 6, totalPage: 2, view: 'messages', conversation: { id: 41, targetUid: 141, targetName: '道友41', title: '道友41（MID QX000888）' }, conversations: [], list: (page === 1 ? [6, 5, 4, 3, 2] : [1]).map(id => message(id)) });
 
 for (const privateChat of [true]) {
@@ -113,4 +113,88 @@ test('群内屏蔽设置不查询或展示飞信联系人',async t=>{
  const result=await app.runHandler(muteHandler,app.events.groupMessage({text:'/飞信禁言 141',platform:'qq-bot'}));
  assert.deepEqual(result.errors,[]);assert.equal(requests.length,0);assert.equal(result.messages.length,1);
  const view=inspectMessage(result.messages[0].nodes);assert.match(view.text,/私聊机器人/);assert.doesNotMatch(view.text,/141/);assert.deepEqual(view.commands,[]);
+});
+
+test('旧飞信会话预览和详情隐藏无审核标记的正文', async t => {
+  const { app } = await gameFixture(t, r => {
+    const args = r.body.arguments as Record<string, unknown>;
+    if (args.view === 'messages') {
+      return businessEnvelope(r.bid, { ...thread(), list: [{ ...message(2), contentReviewed: undefined, content: '旧正文占位词' }] });
+    }
+    return businessEnvelope(r.bid, { ...inbox(), conversations: [{ ...summary(41), previewReviewed: undefined, preview: '旧预览占位词' }] });
+  });
+  for (const command of ['/飞信', '/飞信 会话 41']) {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+    const sent = result.messages[0];
+    assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(sent.nodes);
+    assert.match(view.text, /正文暂不可展示/);
+    assert.doesNotMatch(view.text, /旧正文占位词|旧预览占位词/);
+    assert.ok(view.commands.includes(command === '/飞信' ? '/飞信 会话 41' : '/飞信'));
+  }
+});
+
+test('旧好友会话回执只用已校验编号展示联系人', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, {
+    ...inbox(), namesReviewed: undefined, conversations: [{ ...summary(41), targetName: '旧道号占位词', title: '旧标题占位词' }]
+  }));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/飞信', platform: 'qq-bot' }));
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(sent.nodes);
+  assert.match(view.text, /道友（UID 141）/);
+  assert.doesNotMatch(view.text, /旧道号占位词|旧标题占位词/);
+  assert.ok(view.commands.includes('/飞信 会话 41'));
+});
+
+test('飞信屏蔽回执不展示旧道号、自由文本或服务器按钮', async t => {
+  const { app } = await gameFixture(t, r => {
+    const args = r.body.arguments as Record<string, unknown>;
+    return args.targetUid === '141'
+      ? businessEnvelope(r.bid, { outcome: 'updated', targetName: '旧道号占位词', realmName: null })
+      : businessEnvelope(r.bid, undefined, [{
+        title: '旧标题占位词', heading: '', text: '旧失败占位词', advice: [],
+        buttons: [{ label: '旧标签占位词', command: '/飞信解除 旧指令占位词' }]
+      }]);
+  });
+
+  for (const [command, pattern, buttons] of [
+    ['/飞信禁言 141', /已屏蔽该玩家的飞信/, ['/飞信解除 141', '/飞信']],
+    ['/飞信解除 141', /已解除对该玩家的飞信屏蔽/, ['/飞信']],
+    ['/飞信禁言 142', /飞信屏蔽操作未完成/, ['/飞信']]
+  ] as const) {
+    const result = await app.runHandler(muteHandler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+    const sent = result.messages[0];
+    assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(sent.nodes);
+    assert.match(view.text, pattern);
+    assert.doesNotMatch(view.text, /占位词/);
+    assert.ok(view.commands.every(command => !command.includes('占位词')));
+    assert.deepEqual(view.commands.filter(command => command.startsWith('/飞信')), buttons);
+  }
+});
+
+test('飞信查看拒绝使用固定提示和当前会话刷新按钮', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, undefined, [{
+    title: '旧标题占位词', heading: '', text: '会话不存在：旧正文占位词', advice: [],
+    buttons: [{ label: '旧按钮占位词', command: '/飞信 旧参数占位词' }]
+  }]));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/飞信 会话 41', platform: 'qq-bot' }));
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(sent.nodes);
+  assert.match(view.text, /飞信暂不可用，请稍后刷新/);
+  assert.doesNotMatch(view.text, /占位词/);
+  assert.ok(view.commands.includes('/飞信 会话 41 1'));
+});
+
+test('旧 HTTP 错误也走飞信回执过滤', async t => {
+  const { app } = await gameFixture(t, () => ({ code: 'INVALID_ARGUMENT', message: '会话不存在：旧 HTTP 占位词' }), 400);
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/飞信 会话 41', platform: 'qq-bot' }));
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(sent.nodes);
+  assert.match(view.text, /飞信暂不可用，请稍后刷新/);
+  assert.doesNotMatch(view.text, /旧 HTTP 占位词/);
+  assert.ok(view.commands.includes('/飞信 会话 41 1'));
 });

@@ -189,7 +189,7 @@ test('私聊飞信保留原始正文和回复，不再构造管理员订阅告�
   t.after(() => app.dispose());
   const handler = onResponse('private.message.create', async () => {
     const [message] = useMessage();
-    const data = flyMailNoticeData({ scope: 'guild', messageId: 1, conversationId: 41, senderUid: 2,
+    const data = flyMailNoticeData({ scope: 'guild', messageId: 1, conversationId: 41, senderUid: 2, contentReviewed: true, senderNameReviewed: true,
       senderName: '道友', content: '秘密正文，原样展示。\n第二行。', createdAt: '2026-10-20T09:00:00+08:00' }, 1);
     assert.ok(data);
     await message.send({ format: data });
@@ -202,4 +202,19 @@ test('私聊飞信保留原始正文和回复，不再构造管理员订阅告�
   assert.ok(quote.some(node => node.type === 'MD.text' && node.value === '秘密正文，原样展示。\n第二行。'));
   assert.ok(message.commands.includes('/发宗门飞信 '));
   assert.doesNotMatch(message.text, /订阅群|未确认送达/);
+});
+
+test('旧飞信通知历史只显示固定提示和查看入口', async t => {
+  const items = [{
+    id: 'flymail.message:1:received:2', time: '2026-11-10T00:00:00Z', delivery: '历史记录',
+    text: '【回显标题占位词】\n\n回显正文占位词'
+  }];
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, { items, page: 1, hasNext: false }));
+  const result = await app.runHandler(notificationHistory, app.events.privateMessage({ text: '/我的通知', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /你有飞信记录，请查看飞信/);
+  assert.doesNotMatch(view.text, /回显标题占位词|回显正文占位词/);
+  assert.ok(view.commands.includes('/飞信'));
 });

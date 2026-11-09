@@ -19,6 +19,23 @@ const cases = [
   { args: ['本命', '101'], suffix: '本命 101', reason: '分类: 本命\n该本命物正在珍宝楼上架中，无法锁定', expected: '/我的上架', text: '是否下架由你决定' },
   { args: ['同名'], suffix: '同名', reason: '按名称操作失败\n\n重复提醒', expected: '/储物袋', text: '前段完成不会因后段异常而回滚' }
 ];
+
+test('旧锁定回执中的自定义分类不会进入正文、引用或按钮', async t => {
+  const reason = '❌ 锁定失败\n\n分类: 装备-回显占位词\n物品ID 101 不存在';
+  const button = { label: '储物袋回显占位词', command: '/储物袋 装备 回显占位词' };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{
+    title: '', heading: '', text: reason, quote: reason,
+    blocks: [{ text: reason, quoted: true, inlineButtons: [button] }], buttons: [button], advice: []
+  }]));
+  const result = await app.runHandler(lock, app.events.groupMessage({ text: '/锁定 装备-回显占位词 101', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /物品ID 101 不存在/);
+  assert.doesNotMatch(view.text, /回显占位词/);
+  assert.ok(view.commands.includes('/储物袋 装备'));
+  assert.ok(view.commands.every(command => !command.includes('回显占位词')));
+});
 for (const handler of [lock, unlock]) for (const entry of cases) for (const isPrivate of [false, true]) for (const mode of ['http', 'feedback']) {
   const word = handler === lock ? '锁定' : '解锁';
   test(`${word} ${entry.suffix} ${mode} private=${isPrivate} ${entry.reason}`, async t => {

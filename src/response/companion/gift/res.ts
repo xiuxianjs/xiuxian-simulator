@@ -274,7 +274,7 @@ export default onResponse(selects, async e => {
     if (!friendResult.giftExists) {
       const errMd = Format.createMarkdown();
 
-      errMd.addText(`未找到礼物「${giftName}」`);
+      errMd.addText('未找到匹配礼物');
 
       void message.send(FormatGui({ isPrivate, bid, title: '赠送礼物', content: errMd }));
 

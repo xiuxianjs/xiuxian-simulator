@@ -78,7 +78,7 @@ export function catalogRequestFromMessage(text: string, kind: CatalogKind | unde
   } else if (kind === 'shop' && /^(!|！|\/|#|＃)?商店(?:\s|$)/.test(text.trim())) {
     // Filtered robot queries use their authoritative business response, never
     // the legacy unfiltered command-entry projection.
-    if (/(?:^|\s)(筛选|搜索|可购|全部状态|默认排序|价格升序|价格降序)(?:\s|$)/.test(text)) {
+    if (/(?:^|\s)(筛选|搜索|搜索续|可购|全部状态|默认排序|价格升序|价格降序)(?:\s|$)/.test(text)) {
       return;
     }
     const { page, shopCode, currencyCode } = parseShopListArgs(text.trim());

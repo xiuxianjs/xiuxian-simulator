@@ -38,7 +38,7 @@ export function friendRecoveryTips(operation: string, text: string): RecoveryTip
         }
       ];
     }
-    if (/未找到名为|该用户不存在|不能拉黑自己|使用方法：拉黑/.test(text)) {
+    if (/未找到名为|未找到匹配玩家|该用户不存在|不能拉黑自己|使用方法：拉黑/.test(text)) {
       return [
         {
           label: '核对玩家完整道号',

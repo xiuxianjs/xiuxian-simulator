@@ -1,3 +1,4 @@
+import { hasReviewedNames } from '@src/response/reviewedNames';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
@@ -33,13 +34,26 @@ export default onResponse(selects, async e => {
     if (!Number.isFinite(themeId)) {
       throw new Error('主题编号超出可查询范围');
     }
-    const response = await runRobotBusiness(e, 'themes.activate', { themeId }, data => validateBackendActivatedTheme(data, themeId), next);
+    const response = await runRobotBusiness(
+      e,
+      'themes.activate',
+      { themeId },
+      data => ({ ...validateBackendActivatedTheme(data, themeId), namesReviewed: hasReviewedNames(data) }),
+      next
+    );
 
     if (response.handled) {
       return;
     }
     const result = response.data;
-    const msg = result.outcome === 'activated' ? `已切换到主题「${result.name}」` : result.outcome === 'not_found' ? '主题不存在或无权访问' : '切换失败';
+    const msg =
+      result.outcome === 'activated'
+        ? result.namesReviewed
+          ? `已切换到主题「${result.name}」`
+          : '已切换主题'
+        : result.outcome === 'not_found'
+          ? '主题不存在或无权访问'
+          : '切换失败';
 
     md.addText(msg);
     md.addNewline();

@@ -1299,9 +1299,9 @@ export function createGameRouter() {
                   path: '比试',
                   schema: {
                     args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-                    usage: '/比试 <UID|@道友>'
+                    usage: '/比试 [UID|@道友]'
                   },
-                  description: '与指定目标进行比试，支持直接输入 UID，或通过 @ 自动识别对方。'
+                  description: '与指定道友比试，找不到目标时推荐同境界道友。'
                 },
                 '切磋',
                 '比斗',
@@ -1318,9 +1318,9 @@ export function createGameRouter() {
                 path: '打劫',
                 schema: {
                   args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-                  usage: '/打劫 <UID|@道友>'
+                  usage: '/打劫 [UID|@道友]'
                 },
-                description: '对指定目标发起打劫，支持直接输入 UID，或通过 @ 自动识别对方。'
+                description: '对指定道友发起打劫，找不到目标时推荐同境界道友。'
               },
               () => import('@src/response/robbery/res')
             );

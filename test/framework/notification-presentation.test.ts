@@ -92,7 +92,12 @@ test('纯文本通知实际发送 Markdown，业务入口与原文保留在同�
       const quote = quotes[0];
       if (quote.type !== 'MD.blockquote' || !Array.isArray(quote.value)) throw new Error('Expected structured quote');
       const view = inspectMessage([{ type: 'Markdown', value: quote.value }]);
-      for (const line of text.split('\n')) assert.ok(view.text.includes(line), source);
+      if (source === 'flymail.message.received') {
+        assert.match(view.text, /你有飞信记录，请查看飞信/);
+        assert.ok(!view.text.includes(text));
+      } else {
+        for (const line of text.split('\n')) assert.ok(view.text.includes(line), source);
+      }
       if (command) assert.ok(view.commands.includes(command), source);
       assert.ok(!view.commands.includes('/通知设置'), source);
       assert.ok(!view.commands.some(value => value.startsWith('/反击')), source);

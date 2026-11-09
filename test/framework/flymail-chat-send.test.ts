@@ -8,10 +8,10 @@ import { businessEnvelope, gameFixture } from './fixture';
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
 
-const item = (id: number, senderUid: number, senderName: string, content: string) => ({ kind: 'message', id, scope: 'friend', senderUid, senderName, content, createdAt: `2026-10-20T11:51:0${id}+08:00`, conversationId: 41, title: '' });
+const item = (id: number, senderUid: number, senderName: string, content: string) => ({ kind: 'message', contentReviewed: true, id, scope: 'friend', senderUid, senderName, content, createdAt: `2026-10-20T11:51:0${id}+08:00`, conversationId: 41, title: '' });
 const sent = () => ({ success: true, message: '好友飞信发送成功，收件人：柳如烟', chat: {
   conversationId: 41, targetUid: 1000005, title: '柳如烟（MID QX000888）',
-  history: { scope: 'friend', page: 1, total: 3, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [],
+  history: { namesReviewed: true, scope: 'friend', page: 1, total: 3, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [],
     list: [item(3, 1, '韩立', '在吗在吗'), item(2, 1000005, '柳如烟', '你好'), item(1, 1, '韩立', '你好哟')] }
 } });
 
@@ -109,16 +109,18 @@ test('发送接口中断只引导查看，不暴露异常也不提供重复发�
   assert.deepEqual(view.commands, ['/飞信']);
 });
 
-test('明确拒绝保留原收件人与正文，收信人屏蔽时不提供解除操作', async t => {
+test('明确拒绝只保留原收件人，收信人屏蔽时不提供解除操作', async t => {
   let blocked = false;
   const { app } = await gameFixture(t, r => businessEnvelope(r.bid, undefined, [{ title: '飞信', heading: '',
-    text: blocked ? '对方已禁言你的飞信' : '内容长度不能超过200个字符', advice: [],
+    text: blocked ? '对方已禁言你的飞信' : '内容包含违规词汇，请修改后重试', advice: [],
     buttons: blocked ? [] : [{ label: '重新编辑', command: '/发飞信 5 原正文' }]
   }]));
   const result = await app.runHandler(handler, app.events.privateMessage({ text: '/发飞信 5 原正文', platform: 'qq-bot' }));
   assert.equal(result.messages.length, 1);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
-  assert.ok(inspectMessage(result.messages[0].nodes).commands.includes('/发飞信 5 原正文'));
+  const rejected = inspectMessage(result.messages[0].nodes);
+  assert.deepEqual(rejected.commands, ['/发飞信 5 ', '/飞信']);
+  assert.doesNotMatch(rejected.text, /原正文/);
   blocked = true;
   const refused = await app.runHandler(handler, app.events.privateMessage({ text: '/发飞信 5 原正文', platform: 'qq-bot' }));
   assert.equal(refused.messages.length, 1);
@@ -126,6 +128,18 @@ test('明确拒绝保留原收件人与正文，收信人屏蔽时不提供解�
   const view = inspectMessage(refused.messages[0].nodes);
   assert.match(view.text, /对方已屏蔽你的飞信/);
   assert.deepEqual(view.commands, ['/飞信']);
+});
+
+test('被拒绝的会话回复保留会话编号并移除旧服务端附带的正文', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, undefined, [{
+    title: '飞信', heading: '', text: '内容包含违规词汇，请修改后重试', advice: [],
+    buttons: [{ label: '重新编辑', command: '/发队伍飞信 [会话:41] 原正文' }]
+  }]));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/发队伍飞信 [会话:41] 原正文', platform: 'qq-bot' }));
+  assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.deepEqual(view.commands, ['/发队伍飞信 [会话:41] ', '/飞信 队伍']);
+  assert.doesNotMatch(view.text, /原正文/);
 });
 
  test('群内发送回显只确认操作，不展开历史或预填正文', async t => {
@@ -144,3 +158,35 @@ test('超长飞信编辑按钮保留收件人但不携带被截断的正文', as
   assert.ok(commands.includes('/发飞信 5 '));
   assert.ok(commands.every(command => [...command].length <= 80));
 });
+
+test('旧发信回执只展示有审核标记的正文', async t => {
+  const payload = sent();
+  payload.chat.history.list[1] = { ...payload.chat.history.list[1], contentReviewed: false, content: '旧正文占位词' };
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, payload));
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/发飞信 1000005 在吗在吗', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /在吗在吗/);
+  assert.match(view.text, /正文暂不可展示/);
+  assert.doesNotMatch(view.text, /旧正文占位词/);
+});
+
+for (const [reason, editable] of [
+  ['飞信内容未通过审核，请修改后重试', true],
+  ['飞信内容未通过审核：旧正文占位词', false]
+] as const) {
+  test(`发信审核回执只展示固定提示（${editable ? '现行' : '旧版'}）`, async t => {
+    const { app } = await gameFixture(t, r => businessEnvelope(r.bid, undefined, [{
+      title: '飞信', heading: '', text: reason, advice: [],
+      buttons: [{ label: '重新编辑', command: '/发飞信 5 旧正文占位词' }]
+    }]));
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: '/发飞信 5 旧正文占位词', platform: 'qq-bot' }));
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.match(view.text, editable ? /飞信内容未通过审核，请修改后重试/ : /飞信操作未完成/);
+    assert.doesNotMatch(view.text, /旧正文占位词/);
+    assert.deepEqual(view.commands, editable ? ['/发飞信 5 ', '/飞信'] : ['/飞信']);
+  });
+}

@@ -22,13 +22,14 @@ export default onResponse(selects, async e => {
   const isPrivate = e.isPrivate ?? false;
   const [, next] = useEvent();
 
-  const { keyword, page } = parseQueryParams(e.MessageText ?? '');
+  const { keyword, page, searchReference } = parseQueryParams(e.MessageText ?? '');
+  const searching = Boolean(keyword ?? searchReference);
 
   const loaded = await runRobotBusiness(
     e,
     'glossary.query',
-    { keyword: keyword ?? '', category: '', page },
-    value => parseRobotGlossaryView(value, keyword ? 'search' : 'browse'),
+    { keyword: keyword ?? '', category: '', page, ...(searchReference ? { searchReference } : {}) },
+    value => parseRobotGlossaryView(value, searching ? 'search' : 'browse'),
     next
   );
 
@@ -38,7 +39,7 @@ export default onResponse(selects, async e => {
   const view = loaded.data;
 
   // ── 情况1: /词典 → 主页（最近词条列表） ──
-  if (!keyword) {
+  if (!searching) {
     const result = view.page!;
     const policy = view.policy!;
     const md = Format.createMarkdown();
@@ -138,7 +139,7 @@ export default onResponse(selects, async e => {
   if (result.entries.length === 0) {
     const md = Format.createMarkdown();
 
-    md.addText(`未找到「${keyword}」相关词条`);
+    md.addText('未找到匹配结果');
     md.addNewline();
     md.addNewline();
     md.addText('💡 你可以录入该词条，贡献你的修仙知识~');
@@ -162,7 +163,10 @@ export default onResponse(selects, async e => {
 
   const md = Format.createMarkdown();
 
-  md.addText(`🔍 搜索「${keyword}」：`);
+  md.addText('词典搜索');
+  if (!view.searchReference && result.totalPages > 1) {
+    md.addNewline().addText('搜索翻页暂不可用，请重新输入关键词。');
+  }
   md.addNewline();
   md.addNewline();
 
@@ -189,12 +193,14 @@ export default onResponse(selects, async e => {
         { label: '申请编辑', command: '/申请词典编辑权限' },
         { label: '录入词典', command: '/录入词典' }
       ],
-      nav: {
-        current: result.currentPage,
-        total: result.totalPages,
-        count: result.total,
-        command: `/词典 ${keyword} p{page}`
-      }
+      nav: view.searchReference
+        ? {
+            current: result.currentPage,
+            total: result.totalPages,
+            count: result.total,
+            command: `/词典 续查 ${view.searchReference} p{page}`
+          }
+        : undefined
     })
   );
 });

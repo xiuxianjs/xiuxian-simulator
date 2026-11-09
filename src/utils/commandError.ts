@@ -4,6 +4,7 @@ import { SDKError } from '../api/core/error';
 // Exact, reviewed availability reasons only. Arbitrary 503 diagnostics may
 // contain SQL, credentials or infrastructure details and must remain private.
 const publicAvailabilityReasons = new Set([
+  '词典内容审核暂不可用，请稍后再试',
   '宝物系统数据结构尚未升级，请先执行宝物系统迁移',
   '宝物旧规则账户尚未完成迁移，请先核对旧计数与资产，未自动重置保底',
   '灵脉租契数据结构尚未升级，请执行宝物系统迁移',

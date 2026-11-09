@@ -30,19 +30,27 @@ export function flyMailTime(value: GameTimeInput, now: GameTimeInput = Date.now(
   return time.format(time.isSame(current, 'day') ? 'HH:mm' : time.year() === current.year() ? 'MM-DD HH:mm' : 'YYYY-MM-DD HH:mm');
 }
 
-type MailMessage = { scope: FlyMailScope; senderUid: number; senderName: string; content: string; createdAt: GameTimeInput; conversationId: number };
+type MailMessage = {
+  scope: FlyMailScope;
+  senderUid: number;
+  senderName: string;
+  content: string;
+  contentReviewed?: boolean;
+  createdAt: GameTimeInput;
+  conversationId: number;
+};
 export function flyMailQuote(item: MailMessage, viewerUid?: number) {
   const own = item.senderUid === viewerUid;
   const label = ['master', 'guild', 'team'].includes(item.scope) ? `回复${flyMailLabels[item.scope].replace('飞信', '')}` : '回复';
 
   return createQuoteMarkdown(
-    [`${own ? '我' : item.senderName} · ${flyMailTime(item.createdAt)}`, '', item.content],
+    [`${own ? '我' : item.senderName} · ${flyMailTime(item.createdAt)}`, '', item.contentReviewed === true ? item.content : '正文暂不可展示。'],
     !own && item.senderUid > 0 && item.conversationId > 0 ? [{ label, command: flyMailDraft(item.scope, item.senderUid) }] : []
   );
 }
 
-// Additive outbox metadata. Legacy records without it remain readable as text.
-export type FlyMailNotice = MailMessage & { messageId: number };
+// The sender-side review marker is absent from legacy outbox records.
+export type FlyMailNotice = MailMessage & { messageId: number; senderNameReviewed?: boolean };
 export function parseFlyMailNotice(raw: unknown): FlyMailNotice | undefined {
   if (!raw || typeof raw !== 'object') {
     return;
@@ -63,6 +71,12 @@ export function parseFlyMailNotice(raw: unknown): FlyMailNotice | undefined {
 
   return item as unknown as FlyMailNotice;
 }
+export function flyMailNoticeQuote(item: FlyMailNotice, viewerUid: number | undefined) {
+  return item.contentReviewed === true
+    ? flyMailQuote({ ...item, senderName: item.senderNameReviewed === true ? item.senderName : `道友（UID ${item.senderUid}）` }, viewerUid)
+    : createQuoteMarkdown(['你有飞信记录，请查看飞信。']);
+}
+
 export function flyMailNoticeData(raw: unknown, viewerUid: number) {
   const item = parseFlyMailNotice(raw);
 
@@ -74,7 +88,7 @@ export function flyMailNoticeData(raw: unknown, viewerUid: number) {
     mention: false,
     bar: false,
     title: flyMailLabels[item.scope],
-    content: Format.createMarkdown().addBlockquote(flyMailQuote(item, viewerUid)),
+    content: Format.createMarkdown().addBlockquote(flyMailNoticeQuote(item, viewerUid)),
     footer: [{ label: item.scope === 'friend' ? '查看会话' : '查看飞信', command: flyMailViewCommand(item.scope, item.conversationId) }]
   }).format.value;
 }

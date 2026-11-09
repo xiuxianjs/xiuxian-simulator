@@ -22,7 +22,16 @@ export default onResponse(selects, async e => {
   const isPrivate = e.isPrivate ?? false;
   const [, next] = useEvent();
   const renderFeedback = async (reply: Parameters<typeof glossaryFeedbackMessage>[1]) => {
-    await message.send(glossaryFeedbackMessage(e, reply));
+    const safeText = (text: string) => (/词条(?:名称|内容)包含违禁词/.test(text) ? '词条内容未通过审核，请修改后重试' : text);
+
+    await message.send(
+      glossaryFeedbackMessage(e, {
+        ...reply,
+        text: safeText(reply.text),
+        blocks: reply.blocks?.map(block => ({ ...block, text: safeText(block.text) })),
+        buttons: reply.buttons.filter(button => ['/词典', '/录入词典', '/申请词典编辑权限'].includes(button.command))
+      })
+    );
   };
 
   const parsed = parseCreateParams(e.MessageText ?? '');
@@ -83,19 +92,11 @@ export default onResponse(selects, async e => {
   const result = loaded.data.result;
   const md = Format.createMarkdown();
 
-  if (result.isNew) {
-    md.addText(`✅ 词条「${parsed.keyword}」创建成功`);
-    md.addNewline();
-    md.addText(`分类：${result.category}`);
-    md.addNewline();
-    md.addText(`今日已录入：${result.used!}/${result.dailyLimit!}`);
-  } else {
-    md.addText(`✅ 词条「${parsed.keyword}」更新成功`);
-    md.addNewline();
-    md.addText(`分类：${result.category}`);
-    md.addNewline();
-    md.addText(`今日已录入：${result.used!}/${result.dailyLimit!}`);
-  }
+  md.addText(result.isNew ? '✅ 词条创建成功' : '✅ 词条更新成功');
+  md.addNewline();
+  md.addText(`分类：${result.category}`);
+  md.addNewline();
+  md.addText(`今日已录入：${result.used!}/${result.dailyLimit!}`);
 
   void message.send(
     FormatGui({
@@ -104,7 +105,6 @@ export default onResponse(selects, async e => {
       title: '词典',
       content: md,
       footer: [
-        { label: '查看词条', command: `/词典 ${parsed.keyword}` },
         { label: '返回词典', command: '/词典' },
         { label: '继续录入', command: '/录入词典' }
       ]

@@ -20,6 +20,7 @@ const product = {
   grantCurrencyCode: null, grantCurrencyName: null, requiredRealmId: null, requiredRealmName: null,
   requiredStars: null, lockReason: null, nextPurchaseAt: null, discountPriceAmount: null, discountLabel: null, discountRate: null
 };
+const searchReference = '0123456789abcdef01234567';
 const shop = (page = 1, empty = false) => ({
   access: { hasCompanion: false, isFoundationRealm: false, canUseReputationShop: false, visibleShopCodes: ['WANBAOLOU', 'CHECKIN'], deniedReason: null },
   currencies: { spiritStone: 1000, spiritsCrystal: 5, spiritsMilk: 0, signInCoin: 0, towerScore: 0, reputation: 0, tongxin: 0, greenBottle: 0 },
@@ -28,7 +29,7 @@ const shop = (page = 1, empty = false) => ({
 
 for (const privateChat of [true, false]) {
   test(`万宝楼真实气泡提供组合筛选，下一页保留条件（${privateChat ? '私聊' : '群聊'}）`, async t => {
-    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, shop(Number((r.body.arguments as Record<string, unknown>).page))));
+    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { ...shop(Number((r.body.arguments as Record<string, unknown>).page)), searchReference }));
     const command = '/商店 万宝楼 灵石 筛选 道具 丹药 可购 价格升序 搜索 培元丹 1';
     const event = privateChat ? app.events.privateMessage({ text: command, platform: 'qq-bot' }) : app.events.groupMessage({ text: command, platform: 'qq-bot' });
     const result = await app.runHandler(handler, event);
@@ -42,7 +43,8 @@ for (const privateChat of [true, false]) {
     assert.ok(view.commands.includes('/购买 301'));
     assert.ok(view.commands.includes('/物品详情 物品 38'));
     assert.ok(!view.commands.some(command => /筛选 鱼类(?:\s|$)/.test(command)));
-    const pageCommand = command.replace(/ 1$/, ' 2');
+    const pageCommand = command.replace('搜索 培元丹 1', `搜索续 ${searchReference} 2`);
+    assert.ok(view.commands.every(c => !c.includes('培元丹')));
     assert.ok(view.commands.includes(pageCommand));
     const material = view.commands.find(c => c.includes('筛选 材料 ')); assert.ok(material);
     assert.equal(parseShopBrowseCommand(material).secondaryLabel, undefined);
@@ -51,7 +53,10 @@ for (const privateChat of [true, false]) {
     assert.equal(next.messages.length, 1);
     assert.equal(next.actions[next.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     assert.equal(requests.length, 2);
-    assert.deepEqual(requests[1].body.arguments, { ...(requests[0].body.arguments as object), page: 2 });
+    assert.deepEqual(requests[1].body.arguments, {
+      page: 2, shopCode: 'WANBAOLOU', currencyCode: 'SPIRIT_STONE', searchReference,
+      filters: { category: 'prop', subtype: 'pill', availableOnly: true, sort: 'price_asc' }
+    });
   });
 }
 
@@ -81,15 +86,21 @@ test('关键词不误识别币种或页码，组合命令往返一致且不复�
   const selection = parseShopBrowseCommand('/商店 万宝楼 灵石 筛选 材料 经验材料 价格降序 搜索 灵晶 100 3');
   assert.equal(selection.page, 3); assert.equal(selection.currencyCode, 'SPIRIT_STONE');
   assert.equal(selection.filters.keyword, '灵晶 100'); assert.equal(selection.filters.subtype, 'exp');
-  assert.deepEqual(parseShopBrowseCommand(buildShopBrowseCommand(selection, {}, 3)), selection);
-  assert.equal(catalogRequestFromMessage(buildShopBrowseCommand(selection), 'shop'), undefined);
+  const continued = { ...selection, searchReference, filters: { ...selection.filters, keyword: undefined } };
+  const nextCommand = buildShopBrowseCommand(continued, {}, 3);
+  assert.deepEqual(parseShopBrowseCommand(nextCommand), { ...continued, filters: { category: 'material', subtype: 'exp', sort: 'price_desc' } });
+  assert.equal(catalogRequestFromMessage(nextCommand, 'shop'), undefined);
+  const longest = buildShopBrowseCommand({ ...continued, filters: { ...continued.filters, availableOnly: true } }, {}, Number.MAX_SAFE_INTEGER);
+  assert.equal([...longest].length, 75);
+  assert.equal(Buffer.byteLength(longest, 'utf8'), 123);
+  assert.equal(parseShopBrowseCommand(longest).page, Number.MAX_SAFE_INTEGER);
   assert.ok(catalogRequestFromMessage('/商店 万宝楼 灵石 2', 'shop'));
   assert.equal(parseShopBrowseCommand('/商店 万宝楼 价格升序').error, '请先选择币种，再按价格排序');
   assert.equal(parseShopBrowseCommand('/商店 万宝楼 搜索 100').filters.keyword, '100');
 });
 
 test('点击搜索保留当前分类，搜索结果切换分类和翻页均保留关键词', async t => {
-  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, shop(Number((r.body.arguments as Record<string, unknown>).page))));
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { ...shop(Number((r.body.arguments as Record<string, unknown>).page)), searchReference }));
   const render = async (text: string) => {
     const result = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
     assert.equal(result.messages.length, 1);
@@ -107,14 +118,14 @@ test('点击搜索保留当前分类，搜索结果切换分类和翻页均保�
   const controls = found.nodes.flatMap(n => n.type === 'Markdown' ? n.value : []);
   const labels = controls.flatMap(n => n.type === 'MD.button' && /^‹(?:搜索|▸?(?:全部|道具|材料|装备|天工|功法|本命))›$/.test(n.value) ? [n.value] : []);
   assert.deepEqual(labels.slice(0, 8), ['‹搜索›', '‹全部›', '‹▸道具›', '‹材料›', '‹装备›', '‹天工›', '‹功法›', '‹本命›']);
-  const nextPage = inspectMessage(found.nodes).commands.find(c => c === '/商店 万宝楼 筛选 道具 搜索 培元丹 2');
+  const nextPage = inspectMessage(found.nodes).commands.find(c => c === `/商店 万宝楼 筛选 道具 搜索续 ${searchReference} 2`);
   assert.ok(nextPage);
   await render(nextPage);
-  assert.deepEqual(requests.at(-1)?.body.arguments, { page: 2, shopCode: 'WANBAOLOU', filters: { category: 'prop', keyword: '培元丹' } });
+  assert.deepEqual(requests.at(-1)?.body.arguments, { page: 2, shopCode: 'WANBAOLOU', searchReference, filters: { category: 'prop' } });
   const material = controls.find(n => n.type === 'MD.button' && n.value === '‹材料›');
   assert.ok(material?.type === 'MD.button' && material.options?.data);
   await render(material.options.data);
-  assert.deepEqual(requests.at(-1)?.body.arguments, { page: 1, shopCode: 'WANBAOLOU', filters: { category: 'material', keyword: '培元丹' } });
+  assert.deepEqual(requests.at(-1)?.body.arguments, { page: 1, shopCode: 'WANBAOLOU', searchReference, filters: { category: 'material' } });
 });
 
 test('其他货币商店保留原请求，物品分类使用当前商店', async t => {
@@ -131,7 +142,7 @@ test('其他货币商店保留原请求，物品分类使用当前商店', async
 
 test('header 货币商店、footer 物品分类独立组合，切换和搜索不串店', async t => {
   const visibleShopCodes = ['WANBAOLOU', 'CHECKIN', 'TOWER_SCORE', 'DAOLV', 'SHENQI', 'REPUTATION'];
-  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { ...shop(), access: { ...shop().access, visibleShopCodes } }));
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { ...shop(), searchReference, access: { ...shop().access, visibleShopCodes } }));
   const render = async (text: string) => {
     const result = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
     assert.equal(result.messages.length, 1);
@@ -156,10 +167,10 @@ test('header 货币商店、footer 物品分类独立组合，切换和搜索不
     const material = nodes.find(n => n.type === 'MD.button' && n.value === '‹材料›');
     assert.ok(material?.type === 'MD.button' && material.options?.data);
     const selected = parseShopBrowseCommand(material.options.data);
-    assert.equal(selected.shopCode, code); assert.equal(selected.filters.category, 'material'); assert.equal(selected.filters.keyword, '培元丹');
+    assert.equal(selected.shopCode, code); assert.equal(selected.filters.category, 'material'); assert.equal(selected.searchReference, searchReference);
     const currency = nodes.find(n => n.type === 'MD.button' && n.value === `‹${code === 'CHECKIN' ? '▸' : ''}签到›`);
     assert.ok(currency?.type === 'MD.button' && currency.options?.data);
     const switched = parseShopBrowseCommand(currency.options.data);
-    assert.equal(switched.shopCode, 'CHECKIN'); assert.equal(switched.filters.category, 'prop'); assert.equal(switched.filters.keyword, '培元丹');
+    assert.equal(switched.shopCode, 'CHECKIN'); assert.equal(switched.filters.category, 'prop'); assert.equal(switched.searchReference, searchReference);
   }
 });

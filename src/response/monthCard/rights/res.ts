@@ -25,6 +25,7 @@ export default onResponse(selects, async e => {
   const isPrivate = isPrivateEvent(e);
   const rawDetail = e.MessageText.trim().replace(/^[/#＃!！]?我的权益\s*/, '');
   const detail = rawDetail.replace(/\s+\d+$/, '');
+  let refreshCommand = ['灵脉租契', '月卡', '月卡日历', '金手指'].includes(detail) ? `/我的权益 ${detail}` : '/我的权益';
   const footer = manual([
     { label: '返回权益', command: '/我的权益' },
     { label: '充值', command: '/充值' }
@@ -48,6 +49,7 @@ export default onResponse(selects, async e => {
 
         return;
       }
+      refreshCommand = `/我的权益 灵脉租契日历 ${page}`;
       const loaded = await runRobotBusiness(e, 'spirit-vein.calendar', { page }, parseSpiritVeinCalendar, next, reply => send('灵脉租契收益日历', Format.createMarkdown().addText(reply.text))
       );
 
@@ -284,7 +286,7 @@ export default onResponse(selects, async e => {
         title: '我的权益',
         content: Format.createMarkdown().addText(detail.startsWith('灵脉租契') ? '灵脉租契权益暂未获取，请稍后重试。' : '权益暂未获取。'),
         footer: manual([
-          { label: '刷新', command: e.MessageText },
+          { label: '刷新', command: refreshCommand },
           { label: '我的订单', command: '/我的订单' }
         ])
       })

@@ -40,7 +40,9 @@ test('SSE 飞信按固定窗口推送，普通消息认领阻塞时也不等待�
       if (body.lane === 'flymail' && pending) {
         pending = false;
         data = { event: { eventId: 'flymail.message:9:received:7', recipientUserId: 7, recipientBid: 'recipient', payload: {
-          version: 1, recipientUserId: 7, source: 'flymail.message.received', data: [{ type: 'Text', value: '实时飞信内容' }]
+          version: 1, recipientUserId: 7, source: 'flymail.message.received', data: [{ type: 'Text', value: '实时飞信内容' }],
+          flymail: { contentReviewed: true, scope: 'friend', messageId: 9, conversationId: 41, senderUid: 2,
+            senderName: '道友', content: '实时飞信内容', createdAt: '2026-10-20T09:00:00+08:00' }
         } } };
       } else data = { event: null };
     } else if (path.endsWith('/ack')) {

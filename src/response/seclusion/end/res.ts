@@ -7,6 +7,7 @@ import { useMessage } from '@src/utils/useMessage';
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parseSeclusionEnd } from '@src/api/bot/seclusion-end';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
+import { dungeonExperienceBonusLines } from '@src/response/dungeon/experienceBonus';
 /**
  * 返程指令处理器
  * 指令：/返程
@@ -102,6 +103,7 @@ export default onResponse(selects, async e => {
         : result.creditedExperience === undefined
           ? '修为：已结算'
           : `修为入账：${result.creditedExperience}`,
+      ...dungeonExperienceBonusLines(view.expBonusText),
       `灵石：+${rewards.spiritStone}`,
       ...(result.refundedSpirit ? [`精力退回：${result.refundedSpirit}`] : []),
       ...(view.showHuanHunDan ? [`精力丹：×${rewards.huanHunDan}`] : []),

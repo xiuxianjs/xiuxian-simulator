@@ -55,7 +55,10 @@ for (const entry of cases) for (const isPrivate of [false, true]) for (const mod
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);
-    assert.ok(view.text.includes(entry.reason));
+    const shown = entry.reason.startsWith('无效的货币类型：') ? '请选择货币类型：贡献点 / 灵晶 / 灵石'
+      : entry.reason.startsWith('无效的份数：') ? '请选择份数：5 / 10 / 15 / 20 / 25 / 30' : entry.reason;
+    assert.ok(view.text.includes(shown));
+    if (shown !== entry.reason) assert.ok(!view.text.includes(entry.reason));
     assert.ok(view.text.includes(entry.text), view.text);
     assert.ok(view.commands.includes(entry.expected));
     if (entry.reason.includes('宗门资源不足')) {

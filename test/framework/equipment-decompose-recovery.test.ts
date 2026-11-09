@@ -29,7 +29,9 @@ for (const entry of cases) for (const isPrivate of [false, true]) for (const mod
     assert.ok(requests[0].path.endsWith('/' + entry.operation));
     assert.deepEqual(requests[0].body.arguments, entry.args);
     assert.ok(requests[0].idempotencyKey);
-    assert.ok(view.text.includes(entry.reason));
+    const shown = entry.reason.startsWith('无效的品级：') ? '请选择有效的装备品级' : entry.reason;
+    assert.ok(view.text.includes(shown));
+    if (shown !== entry.reason) assert.doesNotMatch(view.text, /无效的品级：不存在/);
     assert.ok(view.text.includes(entry.text), view.text);
     assert.ok(view.commands.includes(entry.expected));
     assert.ok(!view.commands.includes('/确认分解'));

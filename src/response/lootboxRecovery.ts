@@ -33,7 +33,7 @@ export function lootboxRecoveryTips(operation: string, text: string): RecoveryTi
       }
     ];
   }
-  if (/未找到名为|你没有【|数量不足/.test(text)) {
+  if (/未找到名为|未找到匹配礼盒|你没有【|数量不足/.test(text)) {
     return [
       {
         label: '刷新当前礼盒',

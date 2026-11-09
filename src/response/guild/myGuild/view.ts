@@ -42,6 +42,7 @@ export function buildGuildHomePage(data: GuildHomeQueryData, section?: GuildHome
         ? [`状态：${cost?.reason ?? '升级条件暂不可用，请稍后查看'}`]
         : [
             `等级：${cost.currentLevel} → ${cost.targetLevel}`,
+            ...(kind === 'vein' && cost.miningQuota ? [`灵石收益：采矿每小时基础入池 ${cost.miningQuota.current} → ${cost.miningQuota.target} 灵石`] : []),
             `消耗：宗门声望${cost.prestigeCost} · 当前${guild.prestige}`,
             `消耗：宗门灵石${cost.spiritStoneCost} · 当前${guild.spiritStone}`,
             ...(cost.prestigeMissing || cost.spiritStoneMissing

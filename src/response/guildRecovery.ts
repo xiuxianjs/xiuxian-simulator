@@ -110,7 +110,7 @@ export function guildRecoveryTips(operation: string, text: string): RecoveryTip[
         { label: '先核对已发记录', command: '/我发的红包', description: '先确认此前是否已发送成功，再决定是否调整份数与每份金额；不因请求失败自动重复发送' }
       ];
     }
-    if (/无效的(?:货币类型|份数|金额)|红包货币、份数或金额无效/.test(text)) {
+    if (/(?:无效的|请选择)(?:货币类型|份数|金额)|红包货币、份数或金额无效/.test(text)) {
       return [{ label: '查看发红包用法', command: '/发红包', description: '核对当前支持的货币、份数和每份金额及总额；从用法重新选择，不直接使用无效参数发送' }];
     }
     if (/红包尚未过期/.test(text)) {
@@ -334,7 +334,7 @@ export function guildRecoveryTips(operation: string, text: string): RecoveryTip[
       }
     ];
   }
-  if (/职位(?:【.*】)?不存在/.test(text)) {
+  if (/职位(?:【.*】)?不存在|未找到匹配职位/.test(text)) {
     return [{ label: '查看当前可用职位', command: '/宗门改职', description: '从当前可用职位和成员选择有效职务名称，不继续提交不存在的职位' }];
   }
 

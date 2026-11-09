@@ -5,7 +5,7 @@ export function dungeonChallengeArguments(text: string) {
   const parsed = parseDungeonCommand(text);
 
   if (parsed.ok) {
-    return { mode: 'challenge', dungeonName: parsed.dungeonName };
+    return 'dungeonId' in parsed ? { mode: 'challenge', dungeonId: parsed.dungeonId } : { mode: 'challenge', dungeonName: parsed.dungeonName };
   }
 
   return { mode: parsed.isCommand ? 'usage' : 'no_match' };

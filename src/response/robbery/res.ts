@@ -1,3 +1,4 @@
+import { parsePVPTargetSuggestions, pvpTargetSuggestionsBubble } from '@src/response/pvpTargetSuggestions';
 import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
@@ -46,7 +47,14 @@ export default onResponse(selects, async e => {
     let response;
 
     try {
-      response = await runRobotBusiness(e, 'pvp.robbery', { target }, parseBackendRobbery, next, sendFailure);
+      response = await runRobotBusiness(
+        e,
+        'pvp.robbery',
+        { target, suggestTargets: true },
+        data => parsePVPTargetSuggestions(data, parseBackendRobbery),
+        next,
+        sendFailure
+      );
     } catch (error) {
       await sendFailure({ title: '', text: error instanceof Error ? error.message : '打劫失败，请稍后再试', buttons: [] });
 
@@ -56,7 +64,12 @@ export default onResponse(selects, async e => {
     if (response.handled) {
       return;
     }
-    const result = response.data;
+    if (response.data.mode === 'suggestions') {
+      await message.send(pvpTargetSuggestionsBubble(e, '打劫', response.data.ids, response.data.reason));
+
+      return;
+    }
+    const result = response.data.battle;
     const pk = parsePKReceipt(result);
     const won = pk?.won ?? result.winner === 'A';
     // 战斗完成，展示结果
@@ -100,7 +113,9 @@ export default onResponse(selects, async e => {
     const experience = result.normalExperienceGained ?? result.experience;
     const koiNote = fishingBlessingNote(result.bonusText);
 
-    if (!won && koiNote) { rewards.push('其中：' + koiNote); }
+    if (!won && koiNote) {
+      rewards.push('其中：' + koiNote);
+    }
 
     if (result.normalExperienceGained !== undefined || experience > 0) {
       rewards.push(`修为 +${experience}`);

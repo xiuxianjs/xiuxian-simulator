@@ -50,8 +50,9 @@ test('相邻按钮紧贴，正文空格、分行、引用和原始输入均保�
 test('只有显式当前 tab 带尖头，分类切换保留真实命令与搜索条件', async t => {
   const app = createTestApp();
   t.after(() => app.dispose());
+  const searchReference = '0123456789abcdef01234567';
   for (const category of ['道具', '材料']) {
-    const selection = parseShopBrowseCommand(`/商店 万宝楼 筛选 ${category} 搜索 培元丹 2`);
+    const selection = parseShopBrowseCommand(`/商店 万宝楼 筛选 ${category} 搜索续 ${searchReference} 2`);
     const footer = createShopCategoryFooter(selection);
     assert.deepEqual(footer.filter(button => button.selected).map(button => button.label), [category]);
     const handler = onResponse(['private.message.create'], async () => {
@@ -75,6 +76,6 @@ test('只有显式当前 tab 带尖头，分类切换保留真实命令与搜索
     assert.ok(text.includes(`‹▸${category}›`));
     assert.doesNotMatch(text, /▸(?:返回|领取|取消)/);
     assert.ok(message.commands.includes('/储物袋 道具 礼物'));
-    assert.ok(message.commands.includes(`/商店 万宝楼 筛选 ${category} 搜索 培元丹 1`));
+    assert.ok(message.commands.includes(`/商店 万宝楼 筛选 ${category} 搜索续 ${searchReference} 1`));
   }
 });

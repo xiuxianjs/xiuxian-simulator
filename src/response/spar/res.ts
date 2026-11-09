@@ -1,3 +1,4 @@
+import { parsePVPTargetSuggestions, pvpTargetSuggestionsBubble } from '@src/response/pvpTargetSuggestions';
 import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
@@ -63,8 +64,8 @@ export default onResponse(selects, async e => {
     result = await runRobotBusiness(
       e,
       'pvp.spar',
-      { targetUid: Number.isFinite(UID) ? String(UID) : null, targetBid: targetBid ?? null, ...(batch ? { batch: true } : {}) },
-      parseRobotSpar,
+      { targetUid: Number.isFinite(UID) ? String(UID) : null, targetBid: targetBid ?? null, ...(batch ? { batch: true } : { suggestTargets: true }) },
+      data => parsePVPTargetSuggestions(data, parseRobotSpar),
       next,
       async reply => {
         await sendFailure(reply);
@@ -79,7 +80,15 @@ export default onResponse(selects, async e => {
     return;
   }
 
-  UID = result.data.targetUid;
+  if (result.data.mode === 'suggestions') {
+    await message.send(pvpTargetSuggestionsBubble(e, '比试', result.data.ids, result.data.reason));
+
+    return;
+  }
+
+  const data = result.data.battle;
+
+  UID = data.targetUid;
   const mdStart = Format.createMarkdown();
 
   mdStart.addText('比试开始...');
@@ -87,15 +96,15 @@ export default onResponse(selects, async e => {
 
   // 将旧式组件转为 md 内容（内联构建）
   const md = Format.createMarkdown();
-  const sideACount = result.data.battleResult.finalState.sideA.length;
-  const sideBCount = result.data.battleResult.finalState.sideB.length;
+  const sideACount = data.battleResult.finalState.sideA.length;
+  const sideBCount = data.battleResult.finalState.sideB.length;
   const isTeamBattle = sideACount > 1 || sideBCount > 1;
-  const showWave = result.data.battleResult.totalWaves > 1;
+  const showWave = data.battleResult.totalWaves > 1;
 
   md.addText(`${command}结果`);
   if (batch) {
     md.addNewline();
-    md.addText(`实际结算：${result.data.settledCount}次（共用一场战斗结果）`);
+    md.addText(`实际结算：${data.settledCount}次（共用一场战斗结果）`);
   }
   md.addNewline();
   md.addNewline();
@@ -103,31 +112,28 @@ export default onResponse(selects, async e => {
     Format.createMarkdown()
       .addText(`战斗类型：${sideACount}v${sideBCount}${isTeamBattle ? ' （队伍战）' : ''}`)
       .addNewline()
-      .addText(`胜利方：${result.data.battleResult.winner === 'A' ? '你方' : result.data.battleResult.winner === 'B' ? '对方' : '平局'}`)
+      .addText(`胜利方：${data.battleResult.winner === 'A' ? '你方' : data.battleResult.winner === 'B' ? '对方' : '平局'}`)
       .addNewline()
-      .addText(`总回合数：${result.data.battleResult.totalRounds}`)
+      .addText(`总回合数：${data.battleResult.totalRounds}`)
   );
   if (showWave) {
-    md.addBlockquote(Format.createMarkdown().addText(`总波次：${result.data.battleResult.totalWaves}`));
+    md.addBlockquote(Format.createMarkdown().addText(`总波次：${data.battleResult.totalWaves}`));
   }
-  md.addBlockquote(
-    Format.createMarkdown().addText(`消耗元力：${result.data.hpCost}`).addNewline().addText(`今日次数：${result.data.newCount}/${result.data.dailyMax}`)
-  );
+  md.addBlockquote(Format.createMarkdown().addText(`消耗元力：${data.hpCost}`).addNewline().addText(`今日次数：${data.newCount}/${data.dailyMax}`));
 
-  const ordinaryExperience = result.data.normalExperienceGained ?? (batch ? result.data.experience : result.data.expGain);
-  const bonusText = result.data.normalExperienceGained !== undefined || batch
-    ? fishingBlessingSuffix(result.data.expBonusText) : result.data.expBonusText;
+  const ordinaryExperience = data.normalExperienceGained ?? (batch ? data.experience : data.expGain);
+  const bonusText = data.normalExperienceGained !== undefined || batch ? fishingBlessingSuffix(data.expBonusText) : data.expBonusText;
   const experienceText = `${ordinaryExperience}${bonusText}`;
 
   md.addBlockquote(Format.createMarkdown().addText(`修为获得：+${experienceText}`));
 
-  appendTreasureEffects(md, result.data.treasureEffects);
+  appendTreasureEffects(md, data.treasureEffects);
   // 添加查看战斗过程按钮
   md.addNewline();
   // 比试后获取熟练点
-  if (result.data.proficiencyResult?.gained) {
+  if (data.proficiencyResult?.gained) {
     md.addNewline();
-    md.addText(`📖 比试参悟，获得 ${result.data.proficiencyResult.points} 点熟练点`);
+    md.addText(`📖 比试参悟，获得 ${data.proficiencyResult.points} 点熟练点`);
 
     md.addText(' ');
     md.addButton(markdownButtonLabel('功法'), { data: commandText('我的功法') });
@@ -143,11 +149,11 @@ export default onResponse(selects, async e => {
         title: '',
         content: md,
         footer: [
-          { label: '文字记录', command: `/查看战斗过程 ${result.data.logId}` },
+          { label: '文字记录', command: `/查看战斗过程 ${data.logId}` },
           { label: batch ? '继续十连' : '继续比试', command: `/${command} ${UID}` }
         ]
       },
-      [{ id: result.data.logId }]
+      [{ id: data.logId }]
     )
   );
 });

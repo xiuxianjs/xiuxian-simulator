@@ -29,7 +29,7 @@ for (const isPrivate of [false, true]) for (const text of ['/悟道 2abc 物理�
 for (const isPrivate of [false, true]) for (const reason of ['缺少道具：悟道石', '悟道石不足。', '【青莲诀】已无可悟道的属性', '该属性已达到模板约定上限。', '该属性当前值为0，无法悟道。', '未知属性：其他；可选：物理攻击', '系统未配置【悟道石】道具，请联系运营。']) test(`wudao specific refusal ${reason} private=${isPrivate}`, async t => {
  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{ title: '', heading: '悟道', text: reason, buttons: [{ label: '原属性', command: '/悟道 2 物理攻击' }], advice: [] }])); const text = '/悟道 2 其他';
  const result = await app.runHandler(wudao, isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' })); const view = inspectMessage(result.messages[0].nodes);
- assert.equal(requests.length, 1); assert.ok(view.text.includes(reason)); assert.ok(view.commands.includes('/悟道 2')); assert.ok(!view.commands.some(spends));
+ assert.equal(requests.length, 1); assert.ok(view.text.includes(reason.startsWith('未知属性：') ? '请选择可用悟道属性' : reason)); assert.doesNotMatch(view.text, /未知属性：其他/); assert.ok(view.commands.includes('/悟道 2')); assert.ok(!view.commands.some(spends));
  if (reason === '缺少道具：悟道石' || reason === '悟道石不足。') { assert.ok(view.commands.includes('/珍宝楼')); assert.ok(view.text.includes('不保证当前有货')); }
  if (/已无可悟道|模板约定|当前值为0/.test(reason)) assert.ok(view.text.includes('不以提升人物境界或补石代替模板上限'));
  if (reason.startsWith('系统未配置')) { assert.ok(!view.commands.includes('/珍宝楼')); assert.ok(view.text.includes('异常不证明缺石或未消耗')); }

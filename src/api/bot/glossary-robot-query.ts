@@ -1,8 +1,14 @@
 import { parseGlossaryView } from './market-community-views';
+import { isSearchReference } from '@src/utils/searchReference';
 
 /** 解析词典查询参数 */
-export function parseQueryParams(messageText: string) {
+export function parseQueryParams(messageText: string): { keyword: string | null; page: number; searchReference?: string } {
   const raw = (messageText ?? '').trim();
+  const continuation = raw.match(/^(!|！|\/|#|＃)?词典\s+续查\s+(\S+)\s+p([1-9]\d{0,15})$/);
+
+  if (continuation && isSearchReference(continuation[2]) && Number.isSafeInteger(Number(continuation[3]))) {
+    return { keyword: null, page: Number(continuation[3]), searchReference: continuation[2] };
+  }
   const m = raw.match(/^(!|！|\/|#|＃)?词典(?:\s+(.+?))?(?:\s*p(\d+))?$/);
   const keyword = m?.[2]?.trim() ?? null;
   const page = m?.[3] ? Number(m[3]) : 1;
@@ -27,5 +33,7 @@ export function parseRobotGlossaryView(value: unknown, action: 'browse' | 'searc
     throw new Error('词典分页响应不完整');
   }
 
-  return data;
+  const ref = (value as { searchReference?: unknown }).searchReference;
+
+  return { ...data, ...(isSearchReference(ref) ? { searchReference: ref } : {}) };
 }

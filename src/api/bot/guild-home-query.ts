@@ -80,6 +80,8 @@ function parseUpgradeViews(value: unknown): NonNullable<GuildHomeGuild['upgrades
       throw new Error('宗门升级条件无效');
     }
 
+    const miningQuota = row.miningQuota === undefined ? undefined : record(row.miningQuota);
+
     return {
       kind: row.kind as 'level' | 'vein' | 'shop',
       status: row.status as 'ready' | 'blocked' | 'unavailable',
@@ -89,7 +91,8 @@ function parseUpgradeViews(value: unknown): NonNullable<GuildHomeGuild['upgrades
       prestigeCost: number(row.prestigeCost),
       spiritStoneCost: number(row.spiritStoneCost),
       prestigeMissing: number(row.prestigeMissing),
-      spiritStoneMissing: number(row.spiritStoneMissing)
+      spiritStoneMissing: number(row.spiritStoneMissing),
+      ...(miningQuota ? { miningQuota: { current: number(miningQuota.current), target: number(miningQuota.target) } } : {})
     };
   });
 }

@@ -77,7 +77,7 @@ export default onResponse(selects, async e => {
     return;
   }
 
-  const { itemRow, equipRow, professionToolRow, sbRow, name, facts } = result.data;
+  const { itemRow, equipRow, professionToolRow, sbRow, facts } = result.data;
 
   const contentMd = Format.createMarkdown();
 
@@ -102,7 +102,7 @@ export default onResponse(selects, async e => {
 
     buildSkillBookDetail(sb, grade, contentMd, facts.skill_book);
   } else {
-    contentMd.addText(match ? `未找到${match[1]}模板（编号 ${match[2]}）` : `未找到名为「${name}」的物品、装备、天工或功法`);
+    contentMd.addText(match ? `未找到${match[1]}模板（编号 ${match[2]}）` : '未找到匹配结果');
     contentMd.addNewline();
     contentMd.addText('请检查名称是否正确');
     appendMiddlewareAdvice(contentMd, detailRecoveryTips('items.detail', '未找到模板'));

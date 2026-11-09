@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
-import { createTestApp } from 'alemonjs/testing';
+import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import encyclopedia from '../../src/response/encyclopedia/res';
 import detail from '../../src/response/encyclopedia/detail/res';
 import { createLoginReply } from '../../src/response/emailSecurity/login';
@@ -9,6 +9,26 @@ import { sendBattleResult } from '../../src/utils/battleMemoryMessage';
 import { useMessage } from '../../src/utils/useMessage';
 
 after(() => shutdownLogger());
+
+test('图鉴未知或动态子分类留在网页选择，消息和链接不包含输入', async t => {
+  const app = createTestApp({ config: { 'qq-bot': { app_id: '123456' } } });
+  t.after(() => app.dispose());
+  app.actions.on('message.send', () => [createResult(ResultCode.Ok, '已送达', { id: 'receipt' })]);
+  for (const category of ['装备', '天工']) {
+    const result = await app.runHandler(encyclopedia, app.events.privateMessage({ text: `/图鉴 ${category} 回显占位词`, platform: 'qq-bot' }));
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.match(view.text, /请在网页图鉴内选择可用子分类/);
+    assert.doesNotMatch(view.text, /回显占位词/);
+    const links = message.nodes.flatMap(node => node.type === 'BT.group' ? node.value.flatMap(row => row.value) : [])
+      .filter(button => button.options?.type === 'link');
+    assert.equal(links.length, 1);
+    const url = new URL(String(links[0].options?.data));
+    assert.equal(url.searchParams.get('category'), category);
+    assert.equal(url.searchParams.has('subCategory'), false);
+  }
+});
 
 for (const channelMode of [undefined, false, true]) {
   test(`online links preserve business parameters with channel_mode=${channelMode}`, async t => {

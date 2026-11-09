@@ -13,6 +13,7 @@ import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { dungeonNoRewardText } from '@src/response/adventureRecovery';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
+import { dungeonExperienceBonusLines } from '@src/response/dungeon/experienceBonus';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -33,9 +34,9 @@ export default onResponse(selects, async e => {
     parseRobotDungeonChallenge,
     next,
     sendFailure
-  ).catch(async error => {
+  ).catch(async () => {
     await sendFailure({
-      text: error instanceof Error ? error.message : '秘境挑战失败',
+      text: '秘境挑战结果暂不可确认，请查看秘境。',
       buttons: [
         { label: '我的队伍', command: '/我的队伍' },
         { label: '查看秘境', command: '/查看秘境' }
@@ -66,7 +67,9 @@ export default onResponse(selects, async e => {
     } else {
       md.addNewline();
       md.addText(`修为 +${ownReward.normalExperienceGained ?? ownReward.experienceGained}`);
-      if (ownReward.experienceBonusText?.trim()) { md.addNewline().addText('其中：' + ownReward.experienceBonusText); }
+      for (const line of dungeonExperienceBonusLines(ownReward.experienceBonusText)) {
+        md.addNewline().addText(line);
+      }
       const rewards = [...ownReward.currency, ...(ownReward.normalItems ?? ownReward.items)];
 
       if (rewards.length) {
@@ -96,7 +99,7 @@ export default onResponse(selects, async e => {
   }
   const footer = [
     ...(data.logId ? [{ label: '文字记录', command: `/查看战斗过程 ${data.logId}` }] : []),
-    ...(data.won && ownReward?.eligible ? [{ label: '继续挑战', command: `/秘境挑战 ${parsed.dungeonName}` }] : [])
+    ...(data.won && ownReward?.eligible && data.dungeonId > 0 ? [{ label: '继续挑战', command: `/秘境挑战 #${data.dungeonId}` }] : [])
   ];
 
   void message.send(

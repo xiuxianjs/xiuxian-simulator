@@ -36,7 +36,9 @@ for (const entry of cases) for (const isPrivate of [false, true]) for (const mod
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);
-    assert.ok(view.text.includes(entry.reason));
+    const shown = entry.reason.startsWith('未找到名为「') ? '未找到匹配玩家，请检查目标' : entry.reason;
+    assert.ok(view.text.includes(shown));
+    if (shown !== entry.reason) assert.doesNotMatch(view.text, /青云/);
     assert.ok(view.text.includes(entry.text), view.text);
     assert.ok(view.commands.includes(entry.expected));
     assert.ok(!view.commands.some(command => /^\/(?:拉黑|取消拉黑|删除好友|解除道侣)\s/.test(command)));

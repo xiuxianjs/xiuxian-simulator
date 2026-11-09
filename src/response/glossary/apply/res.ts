@@ -33,10 +33,6 @@ export default onResponse(selects, async e => {
 
   md.addText('✅ 词典编辑权限申请已提交');
   md.addNewline();
-  if (parsed.reason) {
-    md.addText(`申请理由：${parsed.reason}`);
-    md.addNewline();
-  }
   md.addText(`如需补充说明，可使用：/申请词典编辑权限 申请理由（最多${GLOSSARY_APPLY_REASON_MAX_LENGTH}字）`);
   md.addNewline();
   md.addText('请等待运营在审核项目中处理，审核通过后即可录入词典。');

@@ -1,3 +1,4 @@
+import { hasReviewedNames } from '@src/response/reviewedNames';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { useMessage } from '@src/utils/useMessage';
@@ -17,12 +18,12 @@ export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const isPrivate = e.isPrivate ?? false;
 
-  const result = await runRobotBusiness(e, 'themes.overview', {}, validateBackendThemes, next);
+  const result = await runRobotBusiness(e, 'themes.overview', {}, data => ({ ...validateBackendThemes(data), namesReviewed: hasReviewedNames(data) }), next);
 
   if (result.handled) {
     return;
   }
-  const { themes, permission: perm } = result.data;
+  const { themes, permission: perm, namesReviewed } = result.data;
 
   const md = Format.createMarkdown();
 
@@ -34,7 +35,8 @@ export default onResponse(selects, async e => {
       const activeTag = t.isActive ? ' ✦' : '';
       const sourceTag = t.source === 'custom' ? '[自]' : '';
 
-      const themeMd = Format.createMarkdown().addText(`【${t.id}】${sourceTag} ${t.name}${activeTag} `);
+      const name = namesReviewed || t.source === 'system' ? t.name : '自定义主题';
+      const themeMd = Format.createMarkdown().addText(`【${t.id}】${sourceTag} ${name}${activeTag} `);
 
       if (t.isActive) {
         themeMd.addText('使用中');

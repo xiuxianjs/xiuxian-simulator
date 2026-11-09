@@ -589,9 +589,14 @@ export async function requestRobotBusiness<T>(
   await beginGamePresentation(event);
   const input = businessInputFromEvent(event);
 
-  // Canonical group identity comes from the native platform target, even when
-  // the platform's ChannelId is absent or represents a different channel.
-  if (operation === 'daily-fortune.claim' && event.Target?.scope === 'group') {
+  // A native group can also carry a private reply address. Keep that
+  // address while using only the native group ID for candidate ordering.
+  const suggestsPVPTargets = (operation === 'pvp.robbery' || operation === 'pvp.spar') && args.suggestTargets === true;
+
+  if (suggestsPVPTargets) {
+    delete input.channelId;
+  }
+  if (event.Target?.scope === 'group' && (suggestsPVPTargets || operation === 'daily-fortune.claim')) {
     input.channelId = event.Target.targetId;
   }
   const parameters = {

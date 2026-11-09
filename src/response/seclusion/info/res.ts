@@ -69,7 +69,9 @@ export default onResponse(selects, async e => {
       return;
     }
     if (result.code !== 'OK') {
-      send('探索秘境 · 未完成', [{ lines: [result.data.message] }]);
+      const text = result.code === 'DUNGEON_NOT_FOUND' ? '未找到匹配秘境或境界不足' : result.data.message;
+
+      send('探索秘境 · 未完成', [{ lines: [text] }]);
 
       return;
     }

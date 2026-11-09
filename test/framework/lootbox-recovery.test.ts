@@ -30,7 +30,9 @@ for (const entry of cases) for (const isPrivate of [false, true]) for (const mod
     assert.ok(requests[0].idempotencyKey);
     assert.equal(result.messages.length, 1);
     const view = inspectMessage(result.messages[0].nodes);
-    assert.ok(view.text.includes(entry.reason));
+    const shown = entry.reason.startsWith('未找到名为【') ? '未找到匹配礼盒' : entry.reason;
+    assert.ok(view.text.includes(shown));
+    if (shown !== entry.reason) assert.doesNotMatch(view.text, /201/);
     assert.ok(view.text.includes(entry.detail), view.text);
     assert.ok(view.commands.includes(entry.expected));
     assert.ok(!view.commands.some(command => /^\/开启礼盒\s/.test(command)));

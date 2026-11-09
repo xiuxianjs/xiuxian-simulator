@@ -71,7 +71,7 @@ export function equipmentRecoveryTips(operation: string, text: string): Recovery
         }
       ];
     }
-    if (/无效的品级|预览失败|状态已变化|确认超时|已取消分解/.test(text)) {
+    if (/无效的品级|请选择有效的装备品级|预览失败|状态已变化|确认超时|已取消分解/.test(text)) {
       return [
         {
           label: '重新查看分解范围',

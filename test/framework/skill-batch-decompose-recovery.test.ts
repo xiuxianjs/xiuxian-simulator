@@ -19,7 +19,7 @@ for (const isPrivate of [false, true]) for (const reason of ['暂无可分解的
   const view = inspectMessage(result.messages[0].nodes);
   assert.equal(requests.length, 1); assert.ok(requests[0].path.endsWith('/skill-books.batch-decompose-query'));
   assert.deepEqual(requests[0].body.arguments, { gradeName: '下品' }); assert.ok(requests[0].idempotencyKey);
-  assert.ok(view.text.includes(reason)); assert.ok(view.text.includes('不自动解锁或换下')); assert.ok(view.text.includes('新预览仍需你确认'));
+  assert.ok(view.text.includes(reason.startsWith('无效的品级：') ? '请选择有效的功法品级' : reason)); assert.doesNotMatch(view.text, /无效的品级：不存在/); assert.ok(view.text.includes('不自动解锁或换下')); assert.ok(view.text.includes('新预览仍需你确认'));
   for (const command of ['/储物袋 功法', '/一键分解功法']) assert.ok(view.commands.includes(command)); noWrites(view.commands);
   assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);

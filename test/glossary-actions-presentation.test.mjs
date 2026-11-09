@@ -30,19 +30,19 @@ async function render(row){
 }
 test('glossary application keeps submitted reason, limit and original footer',async()=>{
  for(const row of receipts.filter(r=>r.op==='glossary.apply'&&r.result.success)){
-  const nodes=await render(row),text=textOf(nodes);assert.ok(text.includes('✅ 词典编辑权限申请已提交'));assert.ok(text.includes(`申请理由：${row.args.reason}`));assert.ok(text.includes('最多100字'));assert.ok(commands(nodes).includes('/词典'));assert.ok(commands(nodes).includes('/录入词典'));
+  const nodes=await render(row),text=textOf(nodes);assert.ok(text.includes('✅ 词典编辑权限申请已提交'));assert.ok(!text.includes(row.args.reason));assert.ok(text.includes('最多100字'));assert.ok(commands(nodes).includes('/词典'));assert.ok(commands(nodes).includes('/录入词典'));
  }
 });
 test('glossary help and create/update keep policy, category, usage and original navigation',async()=>{
  for(const row of receipts.filter(r=>r.op==='glossary.upsert'&&r.result.success)){
   const nodes=await render(row),text=textOf(nodes),data=row.result.data;
   if(data.mode==='help'){assert.ok(text.includes('格式：/录入词典 词条名 内容'));assert.ok(text.includes(`可用分类：${data.view.policy.categories.join('、')}`));assert.ok(text.includes(`今日已录入：${data.view.quota.used}/${data.view.quota.dailyLimit}`));assert.ok(commands(nodes).includes('/词典分类'));}
-  else {assert.ok(text.includes(`✅ 词条「${row.args.keyword}」${data.result.isNew?'创建':'更新'}成功`));assert.ok(text.includes(`分类：${data.result.category}`));assert.ok(text.includes(`今日已录入：${data.result.used}/${data.result.dailyLimit}`));assert.ok(commands(nodes).includes(`/词典 ${row.args.keyword}`));assert.ok(commands(nodes).includes('/录入词典'));}
+  else {assert.ok(text.includes(`✅ 词条${data.result.isNew?'创建':'更新'}成功`));assert.ok(text.includes(`分类：${data.result.category}`));assert.ok(text.includes(`今日已录入：${data.result.used}/${data.result.dailyLimit}`));assert.ok(!commands(nodes).includes(`/词典 ${row.args.keyword}`));assert.ok(commands(nodes).includes('/词典'));assert.ok(commands(nodes).includes('/录入词典'));}
  }
 });
 test('glossary deletion keeps success text and original footer',async()=>{
  for(const row of receipts.filter(r=>r.op==='glossary.delete'&&r.result.success)){
-  const nodes=await render(row);assert.ok(textOf(nodes).includes(`✅ 词条「${row.args.keyword}」已删除`));assert.ok(commands(nodes).includes('/词典'));assert.ok(commands(nodes).includes('/录入词典'));
+  const nodes=await render(row);assert.ok(textOf(nodes).includes('✅ 词条已删除'));assert.ok(commands(nodes).includes('/词典'));assert.ok(commands(nodes).includes('/录入词典'));
  }
 });
 test('all glossary refusals preserve lines, repeat suffix and scoped footer; partial commits explicitly stop',async()=>{

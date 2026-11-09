@@ -5,7 +5,9 @@ export function dungeonSweepArguments(text: string) {
   const parsed = parseSweepCommand(text);
 
   if (parsed.ok) {
-    return { mode: 'sweep', dungeonName: parsed.dungeonName, times: parsed.times };
+    return 'dungeonId' in parsed
+      ? { mode: 'sweep', dungeonId: parsed.dungeonId, times: parsed.times }
+      : { mode: 'sweep', dungeonName: parsed.dungeonName, times: parsed.times };
   }
   if (!parsed.isCommand) {
     return { mode: 'no_match' };
@@ -32,7 +34,9 @@ export function parseRobotDungeonSweep(value: unknown) {
     throw new Error('秘境扫荡响应不完整');
   }
 
-  return { outcome: 'result' as const, data: dungeonSweepView(parseDungeonSweep(result.data)) };
+  const dungeonId = typeof result.dungeonId === 'number' && Number.isSafeInteger(result.dungeonId) && result.dungeonId > 0 ? result.dungeonId : undefined;
+
+  return { outcome: 'result' as const, dungeonId, data: dungeonSweepView(parseDungeonSweep(result.data)) };
 }
 export function parseRobotDungeonFreeSweep(value: unknown) {
   const data = parseDungeonFreeSweep(value);

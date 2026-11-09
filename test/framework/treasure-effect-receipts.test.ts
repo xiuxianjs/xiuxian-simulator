@@ -157,6 +157,7 @@ type Node = { type?: string; value?: unknown; options?: Record<string, unknown> 
 
 const koiText='锦鲤赐福+10';
 const koiScenarios:Scenario[]=[
+  {slug:'koi-exploration',handler:seclusionEnd,command:'/返程',data:{result:{...exploration,normalExperienceGained:110,view:{...exploration.view,expBonusText:koiText},treasureEffects:[jade]},access:emptyRealmAccess},expected:[jade]},
   {slug:'koi-dungeon',handler:dungeonChallenge,command:'/秘境挑战 青云秘境',data:{outcome:'result',data:{...dungeon,won:true,battle:{...battle,Winner:'A'},rewardsByUser:[{...member,eligible:true,experienceGained:130,normalExperienceGained:110,experienceBonusText:koiText,treasureEffects:[jade]}]}},expected:[jade]},
   {slug:'koi-sweep',handler:dungeonSweep,command:'/扫荡秘境 青云秘境 1',data:{outcome:'result',data:{...sweep,totalExp:130,normalExperienceGained:110,experienceBonusText:koiText,treasureEffects:[jade]}},expected:[jade]},
   {slug:'koi-free',handler:dungeonSweep,command:'/扫荡免费秘境',data:{sweptDungeons:[{...sweep,totalExp:130,normalExperienceGained:110,experienceBonusText:koiText}],skippedDungeons:[],totalTimes:1,totalExp:130,normalExperienceGained:110,totalSpiritCost:0,treasureEffects:[jade]},expected:[jade]},
@@ -174,13 +175,71 @@ for(const scenario of koiScenarios){
     const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,scenario.data));
     const result=await app.runHandler(scenario.handler,app.events.privateMessage({text:scenario.command,platform:'qq-bot'}));
     const {view,message}=assertNotices(result,scenario.expected);
-    assert.equal(view.text.split(koiText).length-1,1,'锦鲤说明只出现一次');
+    const blessing = ['koi-dungeon', 'koi-exploration'].includes(scenario.slug) ? '其中：锦鲤赐福额外 +10 修为' : koiText;
+    assert.equal(view.text.split(blessing).length - 1, 1, '锦鲤说明只出现一次');
     assert.match(view.text,/110/);
     assert.doesNotMatch(view.text,/修为 \+130|获得修为130|旧宝物\+20/);
     assert.equal(view.text.split(jade.description).length-1,1);
     previews.push({slug:scenario.slug,title:scenario.slug,command:scenario.command,source:'离线原结算合同+真实处理器',text:view.text,commands:view.commands,nodes:message.nodes});
   });
 }
+const compactBonusNote = '月卡+10 · VIP修为+5 · 锦鲤赐福+2';
+for (const scenario of [
+  {
+    slug: 'compact-dungeon',
+    handler: dungeonChallenge,
+    command: '/秘境挑战 青云秘境',
+    data: {
+      outcome: 'result',
+      data: {
+        ...dungeon,
+        won: true,
+        battle: { ...battle, Winner: 'A' },
+        rewardsByUser: [{ ...member, eligible: true, experienceGained: 137, normalExperienceGained: 117, experienceBonusText: compactBonusNote, treasureEffects: [jade] }]
+      }
+    }
+  },
+  {
+    slug: 'compact-exploration',
+    handler: seclusionEnd,
+    command: '/返程',
+    data: {
+      result: { ...exploration, creditedExperience: 143, normalExperienceGained: 123, view: { ...exploration.view, expBonusText: compactBonusNote + ' · 天赋+4 · 师门赐福+2' }, treasureEffects: [jade] },
+      access: emptyRealmAccess
+    }
+  }
+]) {
+  test(`秘境修为加成合并为一行 ${scenario.slug}`, async t => {
+    const { app } = await gameFixture(t, request => businessEnvelope(request.bid, scenario.data));
+    const result = await app.runHandler(scenario.handler, app.events.privateMessage({ text: scenario.command, platform: 'qq-bot' }));
+    const { view, message } = assertNotices(result, [jade]);
+
+    assert.deepEqual(view.text.split('\n').filter(line => line.includes('其中：')).map(line => line.replace(/^> /, '')), [
+      '其中：月卡 +10 · VIP修为 +5 · 锦鲤赐福 +2' + (scenario.slug === 'compact-exploration' ? ' · 其余 2 项 +6' : '')
+    ]);
+    assert.match(view.text, scenario.slug === 'compact-exploration' ? /123/ : /117/);
+    assert.doesNotMatch(view.text, /灵脉|金手指|道侣同队/);
+    previews.push({ slug: scenario.slug, text: view.text, commands: view.commands, nodes: message.nodes });
+  });
+}
+
+for (const note of ['锦鲤赐福：本次未满 1 点，已计入累积', '锦鲤赐福：修为已达上限，本次额外入账 0 点', '未审核占位文本']) {
+  for (const slug of ['koi-dungeon', 'koi-exploration']) {
+    test(`秘境赐福说明 ${slug} ${note}`, async t => {
+      const scenario = koiScenarios.find(item => item.slug === slug)!;
+      const data = slug === 'koi-dungeon'
+        ? { outcome: 'result', data: { ...dungeon, won: true, battle: { ...battle, Winner: 'A' }, rewardsByUser: [{ ...member, eligible: true, experienceGained: 110, experienceBonusText: note, treasureEffects: [jade] }] } }
+        : { result: { ...exploration, view: { ...exploration.view, expBonusText: note }, treasureEffects: [jade] }, access: emptyRealmAccess };
+      const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+      const result = await app.runHandler(scenario.handler, app.events.privateMessage({ text: scenario.command, platform: 'qq-bot' }));
+      const { view } = assertNotices(result, scenario.expected);
+
+      assert.equal(view.text.includes(note), note.startsWith('锦鲤赐福：'));
+      assert.doesNotMatch(view.text, /额外 \+0/);
+    });
+  }
+}
+
 const nodeText = (node: Node): string => typeof node.value === 'string' ? node.value : Array.isArray(node.value) ? node.value.map(child => nodeText(child as Node)).join('') : '';
 function assertNotices(result: TestRunResult, expected: TreasureEffectNotice[]) {
   assert.deepEqual(result.errors, []);
@@ -346,4 +405,25 @@ test('最终发送规范化只修改蓝链发送协议，保留其他参数和�
   assert.ok(native);
   assert.ok(!JSON.stringify(native).includes('autoEnter'));
   assert.match(JSON.stringify(native), /https:\/\/example.com\/battle/);
+});
+
+test('秘境继续挑战使用服务端编号，按钮再次进入真实处理器', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { outcome: 'result', data: {
+    ...dungeon, dungeonId: 41, won: true, battle: { ...battle, Winner: 'A' },
+    rewardsByUser: [{ ...member, eligible: true, noRewardReason: undefined }]
+  } }));
+  for (const text of ['/秘境挑战 原始秘境占位词', '/秘境挑战 #41']) {
+    const result = await app.runHandler(dungeonChallenge, app.events.groupMessage({ text, platform: 'qq-bot' }));
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.match(view.text, /秘境挑战成功/);
+    assert.doesNotMatch(view.text, /原始秘境占位词/);
+    assert.ok(view.commands.includes('/秘境挑战 #41'));
+    assert.ok(view.commands.every(command => !command.includes('原始秘境占位词')));
+  }
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { mode: 'challenge', dungeonName: '原始秘境占位词' },
+    { mode: 'challenge', dungeonId: 41 }
+  ]);
 });

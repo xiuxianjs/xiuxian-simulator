@@ -1,5 +1,6 @@
 import type { MarketCategoryKey } from '@src/constants/marketCategories';
 import type { MarketBrowseSort as MarketSortKey } from '@src/api/bot/market-browse-query';
+import { isMarketSearchReference } from '@src/utils/searchReference';
 import {
   getMarketSecondaryCategoryKey,
   isMarketFilterPrimaryLabel,
@@ -27,6 +28,7 @@ type ParsedMarketCommandBase = {
 
 export type ParsedMarketCommand = ParsedMarketCommandBase & {
   keyword?: string;
+  searchReference?: string;
   categoryCN?: string;
   categoryKey?: MarketCategoryKey;
   primaryCategoryCN?: FilterPrimaryLabel;
@@ -39,6 +41,7 @@ const MARKET_PREFIX_RE = /^(?:!|！|\/|#|＃)?(?:交易所|珍宝楼)\s*/;
 const MARKET_DISPLAY_NAME = '珍宝楼';
 const MARKET_ENTRY_COMMAND = '/珍宝楼';
 
+// The array order also defines the numeric sort codes in search buttons.
 const SORT_OPTIONS: Array<{ label: SortLabel; key: MarketSortKey; aliases: string[] }> = [
   { label: '最新', key: 'latest', aliases: ['最新'] },
   { label: '价格升序', key: 'price_asc', aliases: ['价格升序'] },
@@ -190,17 +193,12 @@ export const buildMarketCommand = (input: {
 };
 
 const buildPageCommand = (input: {
-  mode: MarketCommandMode;
-  keyword?: string;
+  mode: Exclude<MarketCommandMode, 'search'>;
   primaryCategoryCN?: FilterPrimaryLabel;
   secondaryCategoryCN?: FilterSecondaryLabel;
   sortCN?: string;
 }): string => {
   const sortCN = resolveSortLabel(input.sortCN);
-
-  if (input.mode === 'search') {
-    return input.keyword ? `${MARKET_ENTRY_COMMAND} 搜索 ${input.keyword} ${sortCN} {page}` : `${MARKET_ENTRY_COMMAND} 搜索`;
-  }
 
   if (input.mode === 'filter') {
     if (!input.primaryCategoryCN) {
@@ -219,11 +217,7 @@ const buildPageCommand = (input: {
   return `${MARKET_ENTRY_COMMAND} ${sortCN} {page}`;
 };
 
-const buildTitle = (mode: MarketCommandMode, categoryCN?: string, keyword?: string): string => {
-  if (mode === 'search' && keyword) {
-    return `${MARKET_DISPLAY_NAME}搜索：${keyword}`;
-  }
-
+const buildTitle = (mode: MarketCommandMode, categoryCN?: string): string => {
   if (mode === 'filter' && categoryCN) {
     return categoryCN === '全部' ? `${MARKET_DISPLAY_NAME}筛选` : `${MARKET_DISPLAY_NAME}筛选：${categoryCN}`;
   }
@@ -263,6 +257,23 @@ export const parseMarketCommand = (text: string): ParsedMarketCommand | null => 
   const tokens = argsText.split(/\s+/).filter(Boolean);
   const first = tokens[0];
 
+  if (first === '续' && tokens.length === 4 && isMarketSearchReference(tokens[1]) && /^[0-4]$/.test(tokens[2]) && /^[1-9]\d{0,15}$/.test(tokens[3])) {
+    const sortCN = SORT_OPTIONS[Number(tokens[2])].label;
+    const page = normalizePage(tokens[3]);
+    const searchReference = tokens[1];
+
+    return {
+      mode: 'search',
+      searchReference,
+      sortCN,
+      sort: SORT_LABEL_TO_KEY[sortCN],
+      page,
+      command: marketSearchCommand(searchReference, sortCN, page),
+      pageCommand: marketSearchCommand(searchReference, sortCN, '{page}'),
+      title: buildTitle('search')
+    };
+  }
+
   if (first === '搜索') {
     const working = tokens.slice(1);
     const page = popTrailingPage(working);
@@ -277,8 +288,8 @@ export const parseMarketCommand = (text: string): ParsedMarketCommand | null => 
       page,
       missing: keyword ? undefined : 'keyword',
       command: buildMarketCommand({ mode: 'search', keyword, sortCN, page }),
-      pageCommand: buildPageCommand({ mode: 'search', keyword, sortCN }),
-      title: buildTitle('search', undefined, keyword || undefined)
+      pageCommand: '',
+      title: buildTitle('search')
     };
   }
 
@@ -333,7 +344,7 @@ export const shouldQueryMarket = (parsed: ParsedMarketCommand): boolean => {
   }
 
   if (parsed.mode === 'search') {
-    return Boolean(parsed.keyword);
+    return Boolean(parsed.keyword ?? parsed.searchReference);
   }
 
   if (parsed.mode === 'filter') {
@@ -355,15 +366,24 @@ const buildButtonRow = (labels: readonly string[], buildCommand: (label: string)
   return labels.map(label => ({ label, command: buildCommand(label) }));
 };
 
-export const createMarketCommandBar = (parsed: ParsedMarketCommand): GuiButton[][] => {
-  const sortedCommand = (sortCN: string) => buildMarketCommand({
-      mode: parsed.mode === 'search' && parsed.keyword ? 'search' : parsed.mode === 'filter' && parsed.primaryCategoryCN ? 'filter' : 'browse',
-      keyword: parsed.keyword,
-      primaryCategoryCN: parsed.primaryCategoryCN,
-      secondaryCategoryCN: parsed.secondaryCategoryCN,
-      sortCN,
-      page: 1
-    });
+export const marketSearchCommand = (reference: string, sort: SortLabel, page: number | string): string => {
+  const sortCode = SORT_OPTIONS.findIndex(option => option.label === sort);
+
+  return `${MARKET_ENTRY_COMMAND} 续 ${reference} ${sortCode} ${page}`;
+};
+
+export const createMarketCommandBar = (parsed: ParsedMarketCommand, reference?: string): GuiButton[][] => {
+  const sortedCommand = (sortCN: string) => parsed.mode === 'search'
+      ? reference
+        ? marketSearchCommand(reference, resolveSortLabel(sortCN), 1)
+        : '/珍宝楼 搜索'
+      : buildMarketCommand({
+          mode: parsed.mode === 'filter' && parsed.primaryCategoryCN ? 'filter' : 'browse',
+          primaryCategoryCN: parsed.primaryCategoryCN,
+          secondaryCategoryCN: parsed.secondaryCategoryCN,
+          sortCN,
+          page: 1
+        });
 
   return [
     [
@@ -381,7 +401,7 @@ export const createMarketCommandBar = (parsed: ParsedMarketCommand): GuiButton[]
 export const appendMarketCommandGuide = (md: ReturnType<typeof Format.createMarkdown>, parsed: ParsedMarketCommand) => {
   if (parsed.invalidText) {
     md.addText('未识别该筛选，请选择下方分类。');
-  } else if (parsed.mode === 'search' && !parsed.keyword) {
+  } else if (parsed.mode === 'search' && !shouldQueryMarket(parsed)) {
     md.addText('搜索物品：/珍宝楼 搜索 名称');
   } else if (parsed.mode === 'filter' && !parsed.categoryCN) {
     md.addText('请选择下方分类。');
@@ -389,8 +409,8 @@ export const appendMarketCommandGuide = (md: ReturnType<typeof Format.createMark
 };
 
 export const getMarketEmptyText = (parsed: ParsedMarketCommand): string => {
-  if (parsed.mode === 'search' && parsed.keyword) {
-    return `没有找到与“${parsed.keyword}”相关的上架物品`;
+  if (parsed.mode === 'search' && shouldQueryMarket(parsed)) {
+    return '未找到匹配结果';
   }
 
   if (parsed.mode === 'filter' && parsed.categoryCN) {

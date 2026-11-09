@@ -1,3 +1,4 @@
+import { hasReviewedNames } from '@src/response/reviewedNames';
 import { parseGameTime } from '@src/utils/gameTime';
 import type { FlyMailScope } from '../schemas/fly-mail-query';
 import { requestBackend } from './client';
@@ -72,6 +73,7 @@ export function parseBackendFlyMailHome(data: unknown, scope: FlyMailScope) {
         senderUid: integer(item.senderUid, 0),
         senderName: text(item.senderName),
         content: text(item.content),
+        contentReviewed: item.contentReviewed === true,
         createdAt: createdAt.toDate(),
         conversationId: integer(item.conversationId, 0),
         title: text(item.title)
@@ -87,7 +89,13 @@ export function parseRobotFlyMailHome(data: unknown, scope: FlyMailScope) {
     throw new Error('飞信接口数据不完整');
   }
 
-  return out;
+  const namesReviewed = hasReviewedNames(data);
+
+  return {
+    ...out,
+    namesReviewed,
+    list: namesReviewed ? out.list : out.list.map(item => ({ ...item, senderName: `道友（UID ${item.senderUid}）` }))
+  };
 }
 
 export function parseRobotFriendInbox(data: unknown, conversationId?: number) {
@@ -109,9 +117,10 @@ export function parseRobotFriendInbox(data: unknown, conversationId?: number) {
     return {
       id: integer(item.id, 1),
       targetUid: integer(item.targetUid, 1),
-      targetName: text(item.targetName),
-      ...(typeof item.title === 'string' ? { title: item.title } : {}),
+      targetName: out.namesReviewed ? text(item.targetName) : `道友（UID ${integer(item.targetUid, 1)}）`,
+      ...(out.namesReviewed && typeof item.title === 'string' ? { title: item.title } : {}),
       preview: text(item.preview),
+      previewReviewed: item.previewReviewed === true,
       lastMessageAt: createdAt.toDate()
     };
   });
@@ -123,8 +132,8 @@ export function parseRobotFriendInbox(data: unknown, conversationId?: number) {
     conversation = {
       id: integer(item.id, 1),
       targetUid: integer(item.targetUid, 1),
-      targetName: text(item.targetName),
-      ...(typeof item.title === 'string' ? { title: item.title } : {})
+      targetName: out.namesReviewed ? text(item.targetName) : `道友（UID ${integer(item.targetUid, 1)}）`,
+      ...(out.namesReviewed && typeof item.title === 'string' ? { title: item.title } : {})
     };
     if (conversation.id !== conversationId || out.list.some(item => item.conversationId !== conversationId) || conversations.length) {
       throw new Error('飞信会话数据不完整');

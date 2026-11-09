@@ -97,7 +97,7 @@ const response = onResponse(selects, async e => {
   }
 
   if (result.code === 'NOT_FOUND') {
-    md.addText(`未找到名为【${result.data.nameOrId}】的礼盒`);
+    md.addText('未找到匹配礼盒');
     md.addNewline();
     md.addButton(markdownButtonLabel('我的礼盒'), { data: commandText('储物袋 礼盒'), autoEnter: false });
 
