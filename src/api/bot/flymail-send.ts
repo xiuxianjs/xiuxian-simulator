@@ -59,7 +59,7 @@ export function parseBackendFlyMailSend(value: unknown) {
 // view is unavailable or an older service only returns the confirmation.
 export function parseRobotFlyMailSend(value: unknown) {
   const result = parseBackendFlyMailSend(value);
-  let chat: { targetUid: number; history: ReturnType<typeof parseRobotFlyMailHome> } | undefined;
+  let chat: { targetUid: number; title?: string; history: ReturnType<typeof parseRobotFlyMailHome> } | undefined;
 
   try {
     const data = record(value);
@@ -84,7 +84,7 @@ export function parseRobotFlyMailSend(value: unknown) {
       if (!history.list.length || history.list.some(item => item.conversationId !== conversationId)) {
         throw new Error('飞信会话数据不完整');
       }
-      chat = { targetUid, history };
+      chat = { targetUid, history, ...(typeof view.title === 'string' ? { title: view.title } : {}) };
     }
   } catch {
     // Do not expose records from an invalid conversation or invite a duplicate send.

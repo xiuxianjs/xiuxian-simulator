@@ -103,6 +103,11 @@ export default onResponse(selects, async e => {
   }
   if (result.chat) {
     const md = Format.createMarkdown();
+
+    if (result.chat.title) {
+      md.addText(result.chat.title).addNewline();
+    }
+
     const items = [...result.chat.history.list].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id - b.id);
 
     for (const item of items) {

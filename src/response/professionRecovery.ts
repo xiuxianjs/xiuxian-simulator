@@ -174,13 +174,13 @@ export function professionRecoveryTips(operation: string, text: string): Recover
       ];
     }
     if (/请先完成锻造入门/.test(text)) {
-      return [{ label: '查看锻造指引', command: '/锻造指引', description: '先核对入门境界与免费教学预览，确认完成首件教学作品后再学习和制作普通图纸' }];
+      return [{ label: '查看锻造指引', command: '/锻造指引', description: '先核对入门境界与免费教学预览，完成首件教学作品后按锻造等级解锁普通图纸' }];
     }
     if (/已完成锻造入门|教学制作已完成/.test(text)) {
       return [{ label: '查看已有作品', command: '/锻造作品', description: '先确认入门作品及已发放工具，再从普通图纸继续；不重复确认教学制作' }];
     }
     if (/尚未学习该图纸|尚未掌握约定图纸/.test(text)) {
-      return [{ label: '查看锻造学习状态', command: '/我的锻造', description: '核对当前职业阶段可掌握的图纸；从职业面板刷新学习状态，再重新预览对应图纸' }];
+      return [{ label: '查看锻造学习状态', command: '/我的锻造', description: '核对图纸的锻造等级要求，达到对应等级后重新预览' }];
     }
     if (/职业等级不足|职业经验不足|职业阶段不满足/.test(text)) {
       return [

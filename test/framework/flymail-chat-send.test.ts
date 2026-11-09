@@ -10,7 +10,7 @@ after(async () => { mock.timers.reset(); await shutdownLogger(); });
 
 const item = (id: number, senderUid: number, senderName: string, content: string) => ({ kind: 'message', id, scope: 'friend', senderUid, senderName, content, createdAt: `2026-10-20T11:51:0${id}+08:00`, conversationId: 41, title: '' });
 const sent = () => ({ success: true, message: '好友飞信发送成功，收件人：柳如烟', chat: {
-  conversationId: 41, targetUid: 1000005,
+  conversationId: 41, targetUid: 1000005, title: '柳如烟（MID QX000888）',
   history: { scope: 'friend', page: 1, total: 3, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [],
     list: [item(3, 1, '韩立', '在吗在吗'), item(2, 1000005, '柳如烟', '你好'), item(1, 1, '韩立', '你好哟')] }
 } });
@@ -29,6 +29,7 @@ for (const privateChat of [true]) {
     const message = result.messages[0];
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(message.nodes);
+    assert.match(view.text, /柳如烟（MID QX000888）/);
     assert.doesNotMatch(view.text, /发送成功|返回飞信/);
     assert.deepEqual(view.commands, ['/飞信', '/发飞信 1000005 ', '/发飞信 1000005 ']);
     const quotes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.blockquote') : []);

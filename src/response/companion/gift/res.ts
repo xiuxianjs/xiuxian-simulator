@@ -14,7 +14,7 @@ import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent, useMention } from 'alemonjs';
 
-const directGiftCategories = ['丹药', '道具', '图纸', '丹方', '种子', '道侣道具'];
+const directGiftCategories = ['丹药', '道具', '种子', '道侣道具'];
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -30,13 +30,21 @@ export default onResponse(selects, async e => {
     return next();
   }
 
-  const mentioned = await mention.findOne();
-  const targetBid = mentioned?.count && mentioned.data?.UserId ? mentioned.data.UserId : undefined;
   const parts = text
     .replace(/^[!！/#＃]?赠送/, '')
     .trim()
     .split(/\s+/)
     .filter(Boolean);
+
+  if (['丹方', '图纸', '锻造图纸'].includes(parts[0])) {
+    const content = Format.createMarkdown().addText('丹方和锻造图纸不可赠送');
+
+    await message.send(FormatGui({ isPrivate, bid, title: '赠送礼物', content }));
+
+    return;
+  }
+  const mentioned = await mention.findOne();
+  const targetBid = mentioned?.count && mentioned.data?.UserId ? mentioned.data.UserId : undefined;
   const category = directGiftCategories.includes(parts[0]) || parts[0] === '礼物' ? parts[0] : undefined;
 
   const showTypes = parts.length === 0 || Boolean(category && parts.length === 1);
@@ -107,8 +115,6 @@ export default onResponse(selects, async e => {
     for (const [label, detail, example] of [
       ['丹药', '次品筑基丹、筑基丹', '筑基丹'],
       ['道具', '更名卡、改性卡', '更名卡'],
-      ['图纸', '所有锻造图纸', '玄铁冠锻造图纸'],
-      ['丹方', '背包内实际持有的丹方物品', ''],
       ['种子', '所有种子', '聚灵草种'],
       ['道侣道具', '礼物、誓约道具和纪念品原物', '白首盟书']
     ]) {
@@ -116,7 +122,7 @@ export default onResponse(selects, async e => {
     }
     md.addText('用法：/赠送 类别 名字 UID或@道友 [数量]');
     md.addText('数量默认1，无需同宗门或好友关系。');
-    md.addText('丹方知识不复制；道侣道具转赠不自动触发使用效果。');
+    md.addText('丹方和锻造图纸不可赠送。道侣道具转赠不自动触发使用效果。');
     await message.send(FormatGui({ isPrivate, bid, title: '赠送 · 支持类别', content: md }));
 
     return;
@@ -282,9 +288,6 @@ export default onResponse(selects, async e => {
         if (directCategory) {
           contentMd.addBlockquote(createQuoteMarkdown([`可向任意道友赠送「${giftName}」`, '数量默认1，无需同宗门或好友关系。']));
           contentMd.addText(`用法：/赠送 ${directCategory} ${giftName} UID或@道友 [数量]`);
-          if (directCategory === '丹方') {
-            contentMd.addText('仅转赠背包中的丹方物品，不复制已领悟的丹方知识。');
-          }
           if (directCategory === '道侣道具') {
             contentMd.addText('转赠原物，不自动结契或增加灵契、同心值。');
           }

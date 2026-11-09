@@ -110,16 +110,22 @@ export function parseRobotFriendInbox(data: unknown, conversationId?: number) {
       id: integer(item.id, 1),
       targetUid: integer(item.targetUid, 1),
       targetName: text(item.targetName),
+      ...(typeof item.title === 'string' ? { title: item.title } : {}),
       preview: text(item.preview),
       lastMessageAt: createdAt.toDate()
     };
   });
-  let conversation: { id: number; targetUid: number; targetName: string } | null = null;
+  let conversation: { id: number; targetUid: number; targetName: string; title?: string } | null = null;
 
   if (view === 'messages') {
     const item = record(value.conversation);
 
-    conversation = { id: integer(item.id, 1), targetUid: integer(item.targetUid, 1), targetName: text(item.targetName) };
+    conversation = {
+      id: integer(item.id, 1),
+      targetUid: integer(item.targetUid, 1),
+      targetName: text(item.targetName),
+      ...(typeof item.title === 'string' ? { title: item.title } : {})
+    };
     if (conversation.id !== conversationId || out.list.some(item => item.conversationId !== conversationId) || conversations.length) {
       throw new Error('飞信会话数据不完整');
     }

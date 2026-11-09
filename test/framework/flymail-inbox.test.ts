@@ -12,10 +12,10 @@ before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
 
 const base = { scope: 'friend', page: 1, total: 0, totalPage: 1, access: { allowed: true, realmName: '炼气五层', realmLevel: 5 }, muteList: [], list: [] };
-const summary = (id: number) => ({ id, targetUid: id + 100, targetName: `道友${id}`, preview: `会话${id}最新摘要`, lastMessageAt: '2026-10-20T09:00:00+08:00' });
+const summary = (id: number) => ({ id, targetUid: id + 100, targetName: `道友${id}`, title: id === 41 ? "道友41（MID QX000888）" : `道友${id}（UID ${id + 100}）`, preview: `会话${id}最新摘要`, lastMessageAt: '2026-10-20T09:00:00+08:00' });
 const inbox = (page = 1) => ({ ...base, page, total: 6, totalPage: 2, view: 'conversations', conversation: null, conversations: (page === 1 ? [41, 42, 43, 44, 45] : [46]).map(summary) });
 const message = (id: number, scope = 'friend') => ({ kind: 'message', id, scope, senderUid: id % 2 ? 141 : 1, senderName: id % 2 ? '道友41' : '我', content: `会话41记录${id}`, createdAt: '2026-10-20T09:00:00+08:00', conversationId: 41, title: '' });
-const thread = (page = 1) => ({ ...base, page, total: 6, totalPage: 2, view: 'messages', conversation: { id: 41, targetUid: 141, targetName: '道友41' }, conversations: [], list: (page === 1 ? [6, 5, 4, 3, 2] : [1]).map(id => message(id)) });
+const thread = (page = 1) => ({ ...base, page, total: 6, totalPage: 2, view: 'messages', conversation: { id: 41, targetUid: 141, targetName: '道友41', title: '道友41（MID QX000888）' }, conversations: [], list: (page === 1 ? [6, 5, 4, 3, 2] : [1]).map(id => message(id)) });
 
 for (const privateChat of [true]) {
   test(`好友先列会话，打开后显示独立历史并保留会话分页（${privateChat ? '私聊' : '群聊'}）`, async t => {
@@ -29,6 +29,8 @@ for (const privateChat of [true]) {
     assert.equal(first.actions[first.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(first.messages[0].nodes);
     assert.deepEqual(requests[0].body.arguments, { scope: 'friend', page: '1', view: 'conversations' });
+    assert.match(view.text, /道友41（MID QX000888）/);
+    assert.match(view.text, /道友42（UID 142）/);
     assert.match(view.text, /会话41最新摘要/);
     assert.doesNotMatch(view.text, /会话41记录/);
     assert.ok(view.commands.includes('/飞信 2'));
@@ -39,6 +41,7 @@ for (const privateChat of [true]) {
     assert.equal(detail.actions[detail.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     assert.deepEqual(requests[1].body.arguments, { scope: 'friend', page: '1', view: 'messages', conversationId: '41' });
     const history = inspectMessage(detail.messages[0].nodes);
+    assert.match(history.text, /道友41（MID QX000888）/);
     assert.match(history.text, /会话41记录6/);
     assert.doesNotMatch(history.text, /会话42|最新摘要/);
     assert.ok(history.commands.includes('/飞信'));

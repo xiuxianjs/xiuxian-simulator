@@ -265,10 +265,9 @@ export const companionActions = {
   get_gift_targets: observation<{ giftName: string; category?: string }>(
     '按名称查询可赠送的好友及服务端认可的直接赠送类别；指定 category 时检查该直接赠送类别，不保证有库存或目标资格。查询不赠送物品。',
     'companion.gift',
-    object(
-      { giftName: { type: 'string', minLength: 1, maxLength: 64 }, category: { type: 'string', enum: ['丹药', '道具', '图纸', '丹方', '种子', '道侣道具'] } },
-      ['category']
-    ),
+    object({ giftName: { type: 'string', minLength: 1, maxLength: 64 }, category: { type: 'string', enum: ['丹药', '道具', '种子', '道侣道具'] } }, [
+      'category'
+    ]),
     object(
       {
         giftExists: boolean,
@@ -393,7 +392,7 @@ export const companionActions = {
       {
         targetUid: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
         itemName: { type: 'string', minLength: 1, maxLength: 64 },
-        category: { type: 'string', enum: ['丹药', '道具', '图纸', '丹方', '种子', '道侣道具'] },
+        category: { type: 'string', enum: ['丹药', '道具', '种子', '道侣道具'] },
         quantity: { type: 'integer', minimum: 1, maximum: Number.MAX_SAFE_INTEGER },
         intentId: intentIdSchema,
         taskInput: taskInputSchema

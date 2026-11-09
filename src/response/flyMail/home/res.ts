@@ -121,7 +121,7 @@ export default onResponse(selects, async e => {
     }
   ]);
   if (conversation) {
-    md.addText(conversation.targetName).addNewline();
+    md.addText(conversation.title ?? conversation.targetName).addNewline();
   }
   if (inbox?.view === 'conversations') {
     if (inbox.conversations.length === 0) {
@@ -130,7 +130,7 @@ export default onResponse(selects, async e => {
     for (const item of inbox.conversations) {
       md.addBlockquote(
         section({
-          title: item.targetName,
+          title: item.title ?? item.targetName,
           lines: [`时间：${flyMailTime(item.lastMessageAt)}`, item.preview],
           actions: [
             { label: '打开会话', command: `/飞信 会话 ${item.id}` },

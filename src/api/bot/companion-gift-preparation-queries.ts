@@ -11,10 +11,7 @@ export function parseCompanionGiftTargets(data: unknown, giftName?: string): Com
   if ((giftName === undefined && data.giftExists !== null) || (giftName !== undefined && typeof data.giftExists !== 'boolean')) {
     throw new Error('赠礼名称校验数据不完整');
   }
-  if (
-    data.directCategory !== undefined &&
-    (typeof data.directCategory !== 'string' || !['丹药', '道具', '图纸', '丹方', '种子', '道侣道具'].includes(data.directCategory))
-  ) {
+  if (data.directCategory !== undefined && (typeof data.directCategory !== 'string' || !['丹药', '道具', '种子', '道侣道具'].includes(data.directCategory))) {
     throw new Error('直接赠送类别数据不完整');
   }
   const friends = data.friends.map(friend => {

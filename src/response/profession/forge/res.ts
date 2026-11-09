@@ -191,7 +191,7 @@ export default onResponse(selects, async e => {
             ? [
                 ...r.attributes.filter(a => a.max > 0).map(a => `${a.name}：${a.min}～${a.max}${a.unit}`),
                 `穿戴：${r.requiredRealm}${r.canEquip ? ' ✓' : ' · 未满足'} · ${r.tradeable ? '可交易' : '不可交易'}`,
-                `锻造等级：${r.craftRequiredLevel ?? r.requiredLevel}${r.learned ? '' : ' · 未学习'}`,
+                `锻造等级：${r.craftRequiredLevel ?? r.requiredLevel}${r.learned ? '' : ' · 未解锁'}`,
                 ...(r.earlyCraft ? [`武器可提前制造 · 配方归属${r.requiredLevel}阶，穿戴门槛不变`] : []),
                 ...(r.toolType ? [`工具：${r.toolType} · 品阶 ≥ ${r.toolGrade}`] : []),
                 ...r.materials.flatMap(m => [
@@ -247,12 +247,9 @@ export default onResponse(selects, async e => {
               ]
             : [`入门境界：${v.entryRealm}${v.canJoin ? ' ✓' : ' · 未满足'}`, '免费教学 · 首件署名装备'],
           v.joined
-            ? [
-                ...(v.canAdvance ? [{ label: '确认晋升', command: `/锻造进阶 ${v.level}` }] : []),
-                ...(v.recipes.some(r => !r.learned && (r.craftRequiredLevel ?? r.requiredLevel) <= v.level)
-                  ? [{ label: '学习图纸', command: '/学习锻造图纸' }]
-                  : [])
-              ]
+            ? v.canAdvance
+              ? [{ label: '确认晋升', command: `/锻造进阶 ${v.level}` }]
+              : []
             : v.canJoin
               ? [{ label: '免费入门', command: '/加入锻造师' }]
               : []
@@ -287,6 +284,7 @@ export default onResponse(selects, async e => {
     }
     const { filter, page } = query;
 
+    content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
     title = `锻造图纸 · ${filter === '考核' ? '待考核' : filter}`;
     pageHeader = [
       { label: '全部', selected: filter === '全部', command: '/锻造图纸' },
@@ -626,6 +624,7 @@ export default onResponse(selects, async e => {
         content.addBold('✨ 晋升成功').addNewline();
       } else if (command === '学习锻造图纸') {
         title = '锻造图纸';
+        content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
         content.addText(`掌握图纸：${response.data.recipes.filter(recipe => recipe.learned).length} 张`).addNewline();
       }
       showOverview(response.data, catalogQuery ?? undefined, advancing || command === '学习锻造图纸');
