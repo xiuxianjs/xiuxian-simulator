@@ -7,6 +7,7 @@ import { useMessage } from '@src/utils/useMessage';
  * - /宗门商店自动刷新 8 12 20：设置1-3个整点自动刷新
  */
 
+import { buildBubble, confirmBubble } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { guildAutoRefreshArguments, parseRobotGuildAutoRefresh } from '@src/api/bot/guild-auto-refresh-robot-query';
 import type { GuildShopAutoRefreshData } from '@src/api/schemas/guild-shop-auto-refresh';
@@ -20,6 +21,7 @@ const AUTO_REFRESH_REG = /^(?:[!！/#＃])?宗门商店自动刷新(?:\s+(.+))?$
 
 /** 自动刷新标题 */
 const TITLE = '宗门商店自动刷新';
+const REFRESH_COST = '费用：刷新成功会扣宗门灵石，当天依次扣 500、1,000、2,000，手动与自动共用次数';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -48,6 +50,21 @@ export default onResponse(selects, async e => {
     });
 
     if (loaded.handled) {
+      return;
+    }
+    if (loaded.data.outcome === 'preview') {
+      await message.send(
+        confirmBubble({
+          isPrivate,
+          bid,
+          title: `${TITLE} · 确认设置`,
+          target: [`时间：${formatGuildShopAutoRefreshHours(loaded.data.hours)}`, '有效期：60 秒'],
+          costs: [REFRESH_COST, '结果：每次刷新会重置全体成员兑换记录'],
+          actions: [{ label: '确认开启', command: `/宗门商店自动刷新 确认 ${loaded.data.reference}` }],
+          back: { label: '取消并返回设置', command: '/宗门商店自动刷新' }
+        })
+      );
+
       return;
     }
     if (loaded.data.outcome === 'view') {
@@ -80,57 +97,35 @@ function handleViewAutoRefresh(message: ReturnType<typeof useMessage>[0], bid: s
   let statusText: string;
 
   if (enabled && hours.length > 0) {
-    statusText = `当前状态：已开启，${formatGuildShopAutoRefreshHours(hours)}自动刷新`;
+    statusText = `状态：已开启，${formatGuildShopAutoRefreshHours(hours)}自动刷新`;
   } else {
-    statusText = '当前状态：未开启';
+    statusText = '状态：未开启';
   }
 
   // 判断是否为宗主
   const leader = state.isLeader || state.isViceLeader;
 
-  const md = Format.createMarkdown();
-
-  md.addText(statusText);
-  md.addNewline();
-  md.addNewline();
-
-  if (leader) {
-    if (enabled) {
-      // 开启状态：显示关闭和修改时间按钮
-
-      addOptions(md, [
-        { label: '关闭', command: '/宗门商店自动刷新 关闭' },
-        { label: '改为 8 12 20', command: '/宗门商店自动刷新 8 12 20' }
-      ]);
-    } else {
-      // 关闭状态：显示开启和时间快捷按钮
-
-      addOptions(md, [
-        { label: '开启', command: '/宗门商店自动刷新 开启' },
-        { label: '8 12 20', command: '/宗门商店自动刷新 8 12 20' },
-        { label: '8 20', command: '/宗门商店自动刷新 8 20' },
-        { label: '12 20', command: '/宗门商店自动刷新 12 20' }
-      ]);
-    }
-  }
-
-  md.addText('参数说明：');
-  md.addNewline();
-  md.addText('  开启 - 启用自动刷新');
-  md.addNewline();
-  md.addText('  关闭 - 禁用自动刷新');
-  md.addNewline();
-  md.addText('  1-3个整点(0-23) - 设置每日自动刷新时间');
-  md.addNewline();
-  md.addText('  示例：/宗门商店自动刷新 8 12 20');
-  md.addNewline();
+  const actions = !leader
+    ? []
+    : enabled
+      ? [
+          { label: '关闭', command: '/宗门商店自动刷新 关闭' },
+          { label: '改为 8 12 20', command: '/宗门商店自动刷新 8 12 20' }
+        ]
+      : [
+          { label: '开启', command: '/宗门商店自动刷新 开启' },
+          { label: '8 12 20', command: '/宗门商店自动刷新 8 12 20' },
+          { label: '8 20', command: '/宗门商店自动刷新 8 20' },
+          { label: '12 20', command: '/宗门商店自动刷新 12 20' }
+        ];
 
   void message.send(
-    FormatGui({
+    buildBubble({
       isPrivate,
       bid,
       title: TITLE,
-      content: md
+      sections: [{ lines: [statusText, REFRESH_COST, '时间：可设置 1–3 个整点（0–23）'] }],
+      footer: [actions.slice(0, 2), actions.slice(2)].filter(row => row.length > 0)
     })
   );
 }

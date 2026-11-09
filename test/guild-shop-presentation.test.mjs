@@ -64,7 +64,7 @@ test('refresh keeps receipt with page, while post-commit page failure has no suc
     const nodes = await render('shop', '/宗门商店 刷新', raw, !row.result.success), text = textOf(nodes);
     if (!row.result.success) { assert.ok(text.includes(raw.text)); assert.ok(!text.includes('商店刷新成功')); continue; }
     checkPage(nodes, raw.page);
-    assert.ok(text.includes(`✨ 商店刷新成功，消耗${raw.receipt.cost}宗门灵石，剩余刷新次数：${raw.receipt.remaining}/${raw.page.refreshDailyLimit}`));
+    assert.ok(text.includes(`消耗：${raw.receipt.cost} 宗门灵石 · 今日剩余：${raw.receipt.remaining}/${raw.page.refreshDailyLimit} 次`));
   }
 });
 test('exchange keeps usage and awarded item, prestige, remaining daily count and navigation', async () => {

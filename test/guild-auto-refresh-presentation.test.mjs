@@ -40,7 +40,7 @@ const receipts=[...output.matchAll(/ROBOT_GUILD_AUTO_REFRESH_RESPONSE=([^|]+)\|(
 test('auto-refresh view preserves status, vice-leader choices and parameter help',async()=>{
  for(const row of receipts.filter(r=>r.success&&r.data.outcome==='view')){
   const d=row.data.data,nodes=await render('refresh','/宗门商店自动刷新',row.data);
-  assert.ok(textOf(nodes).includes(d.enabled?'当前状态：已开启':'当前状态：未开启'));assert.ok(textOf(nodes).includes('1-3个整点(0-23)'));
+  assert.ok(textOf(nodes).includes(d.enabled?'状态：已开启':'状态：未开启'));assert.ok(textOf(nodes).includes('1–3 个整点（0–23）'));
   const leader=d.isLeader||d.isViceLeader;
   assert.equal(commands(nodes).includes('/宗门商店自动刷新 '+(d.enabled?'关闭':'开启')),leader);
   if(!leader)assert.ok(!commands(nodes).includes('/宗门商店自动刷新 8 12 20'));

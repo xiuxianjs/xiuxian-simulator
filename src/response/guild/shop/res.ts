@@ -4,11 +4,12 @@ import { useMessage } from '@src/utils/useMessage';
 /**
  * 宗门商店
  * - /宗门商店      ：查看商店
- * - /宗门商店 刷新 ：刷新后以相同排版展示
+ * - /宗门商店 刷新 ：预览本次刷新费用
  */
 
 import { runRobotBusiness } from '@src/response/robotBusiness';
-import { parseRobotGuildShop } from '@src/api/bot/guild-shop-robot-query';
+import { confirmBubble, resultBubble } from '@src/response/presentation';
+import { guildShopRefreshReference, parseRobotGuildShop } from '@src/api/bot/guild-shop-robot-query';
 import { buildGuildShopDisplay } from './view';
 import { selects } from '@src/response/config';
 import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
@@ -25,15 +26,23 @@ export default onResponse(selects, async e => {
   const isPrivate = e.isPrivate ?? false;
   const [, next] = useEvent();
   const rawText = (e.MessageText ?? '').trim();
-  const isRefresh = /^(?:[!！/#＃])?宗门商店\s+刷新$/.test(rawText);
+  const refresh = rawText.match(/^(?:[!！/#＃])?宗门商店\s+刷新(?:\s+(.+))?$/);
+  const reference = refresh?.[1];
+  const isRefresh = refresh !== null;
 
   const sendFailure = async (text: string) => {
     await message.send(FormatGui({ isPrivate, bid, title: '宗门商店', header: SHOP_HEADER, content: Format.createMarkdown().addText(text) }));
   };
+
+  if (reference && !guildShopRefreshReference.test(reference)) {
+    await sendFailure('刷新确认编号无效，请重新发送 /宗门商店 刷新');
+
+    return;
+  }
   const loaded = await runRobotBusiness(
     e,
     isRefresh ? 'guild.shop-refresh' : 'guild.shop',
-    {},
+    isRefresh ? (reference ? { reference } : { preview: true }) : {},
     (value, uid) => parseRobotGuildShop(value, isRefresh, uid),
     next,
     async reply => {
@@ -48,15 +57,48 @@ export default onResponse(selects, async e => {
   if (loaded.handled) {
     return;
   }
-  const refreshReceipt = loaded.data.receipt;
+  const data = loaded.data;
+
+  if (data.outcome === 'preview') {
+    await message.send(
+      confirmBubble({
+        isPrivate,
+        bid,
+        title: '宗门商店 · 确认刷新',
+        target: ['结果：重新上架商品，重置全体成员兑换记录', '有效期：60 秒'],
+        costs: [`消耗：${formatNumber(data.cost)} 宗门灵石`],
+        actions: [{ label: '确认刷新', command: `/宗门商店 刷新 ${data.reference}` }],
+        back: { label: '取消并返回商店', command: '/宗门商店' }
+      })
+    );
+
+    return;
+  }
+  if (data.outcome === 'receipt') {
+    await message.send(
+      resultBubble({
+        isPrivate,
+        bid,
+        title: '宗门商店',
+        status: 'done',
+        lines: ['结果：刷新成功，已记入宗门日志', `消耗：${formatNumber(data.receipt.cost)} 宗门灵石`, `今日剩余：${data.receipt.remaining} 次`],
+        footer: [{ label: '返回商店', command: '/宗门商店' }]
+      })
+    );
+
+    return;
+  }
+  const refreshReceipt = data.receipt;
   const { contributionPoints, shopItems, autoRefreshEnabled, autoRefreshHours, autoRefreshStatusText, refreshDailyLimit, isLeader } = buildGuildShopDisplay(
-    loaded.data.page
+    data.page
   );
 
   const contentMd = Format.createMarkdown();
 
   if (refreshReceipt) {
-    contentMd.addBold(`✨ 商店刷新成功，消耗${refreshReceipt.cost}宗门灵石，剩余刷新次数：${refreshReceipt.remaining}/${refreshDailyLimit}`);
+    contentMd.addBold('结果：刷新成功，已记入宗门日志');
+    contentMd.addNewline();
+    contentMd.addText(`消耗：${formatNumber(refreshReceipt.cost)} 宗门灵石 · 今日剩余：${refreshReceipt.remaining}/${refreshDailyLimit} 次`);
     contentMd.addNewline();
     contentMd.addNewline();
   }

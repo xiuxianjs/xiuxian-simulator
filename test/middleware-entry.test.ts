@@ -1739,7 +1739,7 @@ test('guild automatic shop refresh keeps one API including CAS and leadership fa
   const e=event('/宗门商店自动刷新'+(param?' '+param:''));await dispatchRouterEvent(e,async()=>{throw new Error('guild auto refresh escaped fallback');});
   assert.equal(e.__res,undefined);assert.equal(e.uid,1);assert.deepEqual(calls.map(c=>new URL(c.url).pathname),['/api/v2/robot/business/guild.auto-refresh']);assert.deepEqual(JSON.parse(calls[0].data!).arguments,args);
  }
- assert.deepEqual(guildAutoRefreshArguments('20 8 12'),{mode:'hours',hours:[8,12,20]});
+ assert.deepEqual(guildAutoRefreshArguments('20 8 12'),{mode:'hours',hours:[8,12,20],preview:true});
  assert.deepEqual(guildAutoRefreshArguments('8 8'),{mode:'invalid'});
  assert.throws(()=>parseRobotGuildAutoRefresh({outcome:'set',data:{outcome:'denied'}}));
 });
@@ -1998,7 +1998,7 @@ test('guild shop page, refresh and exchange keep one API for all receipts and ad
   const calls = transport(t, () => response(answer));
   const cases = [
     { op: 'guild.shop', text: '/宗门商店', args: {} },
-    { op: 'guild.shop-refresh', text: '/宗门商店 刷新', args: {} },
+    { op: 'guild.shop-refresh', text: '/宗门商店 刷新', args: { preview: true } },
     { op: 'guild.shop-exchange', text: '/宗门商店兑换 1', args: { itemIndex: 1 } },
     { op: 'guild.shop-exchange', text: '/宗门商店兑换', args: { itemIndex: null } }
   ];
