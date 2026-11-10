@@ -15,6 +15,7 @@ import type { GuiButton } from '@src/utils/messageHelper';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { handleFishingMarketSell } from '@src/response/fishing/marketSell';
+import { section } from '@src/response/presentation';
 
 /**
  * 交易上架指令
@@ -40,22 +41,21 @@ export default onResponse(selects, async e => {
 
   /**
    * 构建"交易上架"分类选择按钮
-   * 原布局：第一行[道具][材料]，第二行[装备][天工]，第三行[功法][本命]，如有二级则第四行为二级按钮
+   * 一级分类每行四键；独立阵盘沿用原单件定价与上架流程。
    */
   const createSellCategoryButtons = (primaryCategory?: '道具' | '材料'): GuiButton[][] => {
     const rows: GuiButton[][] = [
       [
         { label: '道具', command: '/交易上架 道具' },
-        { label: '材料', command: '/交易上架 材料' }
-      ],
-      [
+        { label: '材料', command: '/交易上架 材料' },
         { label: '装备', command: '/交易上架 装备' },
         { label: '天工', command: '/交易上架 天工' }
       ],
       [
         { label: '功法', command: '/交易上架 功法' },
         { label: '本命', command: '/交易上架 本命' },
-        { label: '鱼类', command: '/交易上架 鱼类', autoEnter: false }
+        { label: '鱼类', command: '/交易上架 鱼类', autoEnter: false },
+        { label: '阵盘', command: '/交易上架 阵盘', autoEnter: false }
       ]
     ];
 
@@ -270,6 +270,22 @@ export default onResponse(selects, async e => {
     // 统一物品系统（prop/material）
     if (isUnifiedItemCategory(categoryKey)) {
       formatUnifiedItemToMD(md, { item, displayId, categoryCN });
+
+      return;
+    }
+
+    if (item?.type === 'formationDisc') {
+      const lines = ['数量：1 · 独立实例', '状态：未激活且无洞天冻结、失物托管或在售占用时可上架'];
+
+      if (typeof item.config?.effect === 'string' && item.config.effect) {
+        lines.push(`效果：${item.config.effect}`);
+      }
+      const price = formatPriceInfo(item);
+
+      if (price) {
+        lines.push(`价格：${price.trim()}`);
+      }
+      md.addBlockquote(section({ title: item.name, id: displayId, lines, actions: [{ label: '上架', command: sellCmd, autoEnter: false }] }));
 
       return;
     }

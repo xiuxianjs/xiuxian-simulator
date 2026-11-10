@@ -3,7 +3,7 @@ import { assertMarketPriceRange, parseBackendMarketSellable, type BackendMarketP
 
 /** Original display-only mapping; eligibility and prices remain server-owned. */
 export function presentMarketSellable(page: BackendMarketSellablePage, category: string) {
-  const displayType =
+  const displayType = category === 'formation_disc' ? 'formationDisc' :
     category === 'fish'
       ? 'fish'
       : category === 'equipment'

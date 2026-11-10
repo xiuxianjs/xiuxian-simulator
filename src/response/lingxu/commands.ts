@@ -2,8 +2,8 @@
 export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string } | { error: true };
 
 const shortID = /^[A-Za-z0-9_-]{1,32}$/;
-const region = /^(kan|gen|zhen|xun|li|kun|dui|qian|core)$/;
-const exit = /^(kan|zhen|li|kun|dui)$/;
+const region = /^(?:(kan|gen|zhen|xun|li|kun|dui|qian)(?:_inner)?|core)$/;
+const exit = /^(kan|zhen|li|kun|dui|gen_inner|qian_inner)$/;
 const attitude = /^(战斗|友善|躲避)$/;
 const natural = (value: string | undefined, max: number) => value !== undefined
   && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) <= max;
@@ -35,7 +35,7 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     return words.length === 2 && validLingxuReference(arg) ? { readOnly: false, confirmationCommand: `/${match[1]} 确认 ${arg}` } : error;
   }
   if (match[1] === '阵法师') {
-    if (words.length === 1 && ['图谱', '入门'].includes(action)) {
+    if (words.length === 1 && ['图谱', '入门', '卸下'].includes(action)) {
       return action === '图谱' ? read : write;
     }
     if (action === '阵盘' && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {
@@ -53,7 +53,7 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
   if (words.length === 1 && ['入场', '倾向', '返程设置', '行囊升级'].includes(action)) {
     return read;
   }
-  if (words.length === 1 && ['返程', '隐匿', '继续'].includes(action)) {
+  if (words.length === 1 && ['返程', '隐匿', '继续', '拾取'].includes(action)) {
     return write;
   }
   if (['地图', '行囊', '行记', '提取回执'].includes(action) && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {

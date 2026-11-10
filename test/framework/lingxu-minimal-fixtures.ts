@@ -24,11 +24,11 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天 地图 2',
     page: {
       title: '灵墟洞天 · 地图', privateOnly: true,
-      sections: [{ lines: ['位置：坤·废弃坊市', '地图：八卦九区 · 28条双向通道 · 5个公开出口'] }, { title: '坎·玄泽湿地', lines: ['产出：水生草药、灵液', '出口：坎门 · 到达后另用一轮撤离'], actions: [{ label: '前往', command: '/灵墟洞天 前往 kan' }] }, { title: '归墟核心', lines: ['产出：合法化神材料、古藏与古器材料', '出口：无 · 可经相邻地域返程'], actions: [{ label: '前往', command: '/灵墟洞天 前往 core' }] }],
-      nav: { page: 2, totalPages: 3, total: 9, command: '/灵墟洞天 地图 {page}' },
+      sections: [{ lines: ['位置：坤·废弃坊市', '地图：八卦阴阳17地域 · 44条双向通道 · 7个公开出口'] }, { title: '坎·玄泽湿地', lines: ['产出：水生草药、灵液', '出口：坎门 · 到达后另用一轮撤离'], actions: [{ label: '前往', command: '/灵墟洞天 前往 kan' }] }, { title: '归墟核心', lines: ['产出：合法化神材料、古藏与古器材料', '出口：无 · 可经相邻地域返程'], actions: [{ label: '前往', command: '/灵墟洞天 前往 core' }] }],
+      nav: { page: 2, totalPages: 6, total: 17, command: '/灵墟洞天 地图 {page}' },
       actions: [{ label: '最近出口', command: '/灵墟洞天 返程' }, { label: '返回洞天', command: '/灵墟洞天' }]
     },
-    expected: ['28条双向通道', '第2/3页']
+    expected: ['44条双向通道', '第2/6页']
   },
   {
     command: '/灵墟洞天 行囊',

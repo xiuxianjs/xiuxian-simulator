@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, Router, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
@@ -7,8 +8,11 @@ import { parseLingxuCommand, validLingxuReference } from '../../src/response/lin
 import handler from '../../src/response/lingxu/res';
 import activity from '../../src/response/activity/res';
 import profession from '../../src/response/profession/myProfession/res';
+import marketBrowse from '../../src/response/market/list/res';
+import marketSell from '../../src/response/market/sell/res';
 import { businessEnvelope, gameFixture } from './fixture';
 import { lingxuPages, lingxuRef } from './lingxu-minimal-fixtures';
+import { commandText } from '../../src/utils/commandPrefix';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
@@ -132,6 +136,10 @@ test('a maximum legal short ref, holding and UID fit the complete 80-character b
     assert.ok(parsed && !('error' in parsed));
   }
   assert.deepEqual(parseLingxuCommand('/灵墟洞天 对人 9223372036854775808 战斗'), { error: true });
+  const full = `/灵墟洞天 确认 ${ref}`;
+  assert.equal([...commandText(full, '！'.repeat(14))].length, 80);
+  assert.ok(commandText(full, '！'.repeat(14)).endsWith(ref));
+  assert.throws(() => commandText(full, '！'.repeat(15)), /80/);
 });
 
 test('all MVP fixed options have explicit read/write classification', () => {
@@ -139,6 +147,17 @@ test('all MVP fixed options have explicit read/write classification', () => {
   const write = ['/灵墟洞天 倾向 行动 激进', '/灵墟洞天 倾向 对人 躲避', '/灵墟洞天 倾向 对怪 友善', '/灵墟洞天 对人 123 默认', '/灵墟洞天 返程设置 时长 60', '/灵墟洞天 返程设置 格数 40', '/灵墟洞天 返程设置 物品 herb:1', '/灵墟洞天 返程设置 关闭', '/灵墟洞天 前往 kun', '/灵墟洞天 撤离 zhen', '/灵墟洞天 隐匿', '/灵墟洞天 继续', '/灵墟洞天 保护 lot_1 1', '/阵法师 入门', '/阵法师 装备 disc_1'];
   for (const command of read) assert.deepEqual(parseLingxuCommand(command), { readOnly: true }, command);
   for (const command of write) assert.deepEqual(parseLingxuCommand(command), { readOnly: false }, command);
+});
+
+test('seventeen-region map accepts both rings and only seven actual public exits', () => {
+  for (const key of ['kan', 'gen', 'zhen', 'xun', 'li', 'kun', 'dui', 'qian']) {
+    assert.deepEqual(parseLingxuCommand(`/灵墟洞天 前往 ${key}`), { readOnly: false });
+    assert.deepEqual(parseLingxuCommand(`/灵墟洞天 前往 ${key}_inner`), { readOnly: false });
+  }
+  assert.deepEqual(parseLingxuCommand('/灵墟洞天 前往 core'), { readOnly: false });
+  for (const key of ['kan', 'zhen', 'li', 'kun', 'dui', 'gen_inner', 'qian_inner']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { readOnly: false });
+  for (const key of ['core', 'kan_inner', 'zhen_inner', 'li_inner', 'kun_inner', 'dui_inner', 'xun_inner', 'gen', 'qian', 'xun']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { error: true });
+  for (const command of ['/灵墟洞天 拾取', '/阵法师 卸下']) assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
 });
 
 test('malformed pages, oversize commands, invalid navigation and action overload fail closed', async t => {
@@ -202,4 +221,57 @@ test('profession overview exposes formation profession without inventing its enr
   assert.match(view.text, /可在阵法师页面免费入门/);
   assert.doesNotMatch(view.text, /已入门阵法师|免费获得阵盘/);
   assert.equal(requests.length, 1);
+});
+
+test('formation market filter sends its real category and shows original effect without a fake item-detail command', async t => {
+  const item = { listingId: 51, sellerUserId: 2, sellerName: '清霜', itemCategory: 'formation_disc', itemCategoryLabel: '阵盘', itemType: null, itemSubtype: null, templateItemId: 1, itemName: '道蕴阵盘', quantity: 1, unitPriceAmount: 200, currencyCode: 'SPIRIT_CRYSTAL', currencyName: '灵晶', canPurchase: true, purchaseUnavailableReason: null, upgradeHint: '', attributeAvailable: true, attributes: null, attributeView: { attrText: '双攻+3%；洞天PvE胜利后40%追加一次本地基础掉落', hidden: false }, createdAt: '2026-11-11T09:00:00+08:00', expiresAt: null };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { view: 'browse', spiritsCrystal: 500, quota: { dailyLimit: 10, dailyUsed: 0, remaining: 10 }, items: [item], pagination: { currentPage: 1, totalPages: 1, total: 1 } }));
+  const result = await app.runHandler(marketBrowse, app.events.privateMessage({ text: '/珍宝楼 筛选 阵盘', platform: 'qq-bot' }));
+  const sent = result.messages[0];
+  assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.equal((requests[0].body.arguments as Record<string, unknown>).categoryType, 'formation_disc');
+  assert.ok(sent.text.includes(item.attributeView.attrText));
+  assert.ok(sent.commands.includes('/选购 51'));
+  assert.ok(!sent.commands.some(command => command.startsWith('/物品详情 阵盘')));
+  for (const button of nodes(sent.nodes).filter(node => node.type === 'MD.button')) assert.equal(button.options?.autoEnter, false);
+});
+
+test('formation market listing uses actual instance ID and the original fixed-quantity price flow', async t => {
+  const range = { minPrice: 2, maxPrice: 99999999, referencePrice: 0, source: 'fallback', credibilityReady: true, templateItemId: 1, maxListingQuantity: 1, fixedQuantity: true };
+  const { app, requests } = await gameFixture(t, request => {
+    const args = request.body.arguments as Record<string, unknown>;
+    return businessEnvelope(request.bid, args.mode === 'choose' ? { mode: 'choose' } : args.mode === 'list'
+      ? { mode: 'list', items: [{ category: 'formation_disc', userItemId: 31, templateId: 1, name: '道蕴阵盘', quantity: 1, grade: '入门', realm: '不限境界', typeName: '阵盘', config: { discKey: 'formation.disc.daoyun', effect: '双攻+3%；原洞天完整效果' }, priceRange: range, currentLowestPrice: null }], total: 1, currentPage: 1, pageSize: 10, totalPages: 1 }
+      : { mode: 'start', range, ...(args.firstNumber === null ? {} : { message: '上架成功：道蕴阵盘×1，单价200灵晶', listingId: 51 }) });
+  });
+  const run = async (text: string) => {
+    const result = await app.runHandler(marketSell, app.events.privateMessage({ text, platform: 'qq-bot' }));
+    const sent = result.messages[0];
+    assert.equal(result.actions[sent.actionIndex].results?.[0].code, ResultCode.Ok);
+    for (const button of nodes(sent.nodes).filter(node => node.type === 'MD.button')) assert.equal(button.options?.autoEnter, false);
+    return sent;
+  };
+  assert.ok((await run('/交易上架')).commands.includes('/交易上架 阵盘'));
+  const listed = await run('/交易上架 阵盘');
+  assert.match(listed.text, /道蕴阵盘 #31/);
+  assert.ok(listed.commands.includes('/交易上架 阵盘 31'));
+  assert.ok(listed.text.includes('双攻+3%；原洞天完整效果'));
+  const choosePrice = await run('/交易上架 阵盘 31');
+  assert.ok(choosePrice.commands.includes('/交易上架 阵盘 31 2'));
+  await run('/交易上架 阵盘 31 200');
+  assert.deepEqual(requests.at(-1)?.body.arguments, { mode: 'start', category: 'formation_disc', userItemId: 31, firstNumber: 200, secondNumber: null });
+});
+
+test('actual Go page-builder JSON passes the QQ parser and real handler', { skip: process.env.XIUXIAN_LINGXU_CONTRACT_FIXTURE ? false : 'Set XIUXIAN_LINGXU_CONTRACT_FIXTURE to the Go HTTP test export' }, async t => {
+  const samples = JSON.parse(readFileSync(process.env.XIUXIAN_LINGXU_CONTRACT_FIXTURE!, 'utf8')) as Array<{ command: string; page: unknown }>;
+  assert.ok(samples.length >= 17);
+  for (const sample of samples) {
+    const page = parseLingxuPage(sample.page);
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, sample.page));
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: sample.command, platform: 'qq-bot' }));
+    const view = delivery(result);
+    assert.ok(view.text.includes(page.title));
+    for (const action of [...(page.actions ?? []), ...page.sections.flatMap(section => section.actions ?? [])]) assert.ok(view.commands.includes(action.command));
+    assert.equal(requests[0].body.messageText, sample.command);
+  }
 });

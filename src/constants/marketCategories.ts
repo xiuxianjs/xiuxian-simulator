@@ -9,7 +9,7 @@ import type { ItemSubtype, ItemType } from './itemTypes';
 /**
  * 交易所物品类型（扩展ItemType，包含装备和功法）
  */
-export type MarketItemType = ItemType | 'equipment' | 'profession_tool' | 'skill_book' | 'soul_artifact' | 'fish';
+export type MarketItemType = ItemType | 'equipment' | 'profession_tool' | 'formation_disc' | 'skill_book' | 'soul_artifact' | 'fish';
 
 /**
  * 交易所分类键
@@ -34,6 +34,7 @@ export type MarketCategory = {
  * - displayName: 中文显示名，用于UI展示
  */
 export const MARKET_CATEGORIES: MarketCategory[] = [
+  { key: { type: 'formation_disc' }, displayName: '阵盘', description: '阵法师独立实例阵盘' },
   { key: { type: 'fish' }, displayName: '鱼类', description: '独立编号与精确克重的渔获' },
   // ===== 道具分类 =====
   {
@@ -97,6 +98,7 @@ export const MARKET_CATEGORIES: MarketCategory[] = [
  * 用于解析用户指令
  */
 export const CHINESE_TO_CATEGORY_KEY: Record<string, MarketCategoryKey> = {
+  阵盘: { type: 'formation_disc' },
   鱼类: { type: 'fish' },
   丹药: { type: 'prop', subtype: 'pill' },
   礼物: { type: 'prop', subtype: 'gift' },
@@ -114,6 +116,7 @@ export const CHINESE_TO_CATEGORY_KEY: Record<string, MarketCategoryKey> = {
  * 用于UI展示
  */
 export const CATEGORY_KEY_TO_CHINESE: Record<string, string> = {
+  formation_disc: '阵盘',
   fish: '鱼类',
   'prop:pill': '丹药',
   'prop:gift': '礼物',
@@ -142,7 +145,7 @@ export function getCategoryKeyString(key: MarketCategoryKey): string {
  * 从字符串解析分类键
  */
 export function parseCategoryKeyString(str: string): MarketCategoryKey | null {
-  if (str === 'equipment' || str === 'profession_tool' || str === 'skill_book' || str === 'soul_artifact') {
+  if (str === 'equipment' || str === 'profession_tool' || str === 'formation_disc' || str === 'skill_book' || str === 'soul_artifact') {
     return { type: str };
   }
   const parts = str.split(':');
