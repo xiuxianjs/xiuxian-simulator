@@ -427,3 +427,24 @@ test('秘境继续挑战使用服务端编号，按钮再次进入真实处理�
     { mode: 'challenge', dungeonId: 41 }
   ]);
 });
+
+test('秘境扫荡完整回执发出后，可按服务端编号继续扫荡', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    outcome: 'result',
+    dungeonId: 41,
+    data: { ...sweep, dungeonName: '桃花镇', times: 10, treasureEffects: [jade] }
+  }));
+
+  for (const text of ['/扫荡秘境 桃花镇 10', '/扫荡秘境 #41 10']) {
+    const result = await app.runHandler(dungeonSweep, app.events.groupMessage({ text, platform: 'qq-bot' }));
+    const { view } = assertNotices(result, [jade]);
+
+    assert.match(view.text, /桃花镇 × 10/);
+    assert.ok(view.commands.includes('/扫荡秘境 #41 10'));
+  }
+
+  assert.deepEqual(requests.map(request => request.body.arguments), [
+    { mode: 'sweep', dungeonName: '桃花镇', times: 10 },
+    { mode: 'sweep', dungeonId: 41, times: 10 }
+  ]);
+});

@@ -108,7 +108,7 @@ export default onResponse(selects, async e => {
   if (loaded.handled || loaded.data.outcome === 'no_match') {
     return;
   }
-  const d = loaded.data.data;
+  const { data: d, dungeonId } = loaded.data;
   const partial = typeof sweepArgs.times === 'number' && d.times < sweepArgs.times;
 
   // 构建结算展示
@@ -159,9 +159,7 @@ export default onResponse(selects, async e => {
       ],
       content: contentMd,
       footer: [
-        ...(!partial && result.data.dungeonId && [1, 5, 10].includes(d.times)
-          ? [{ label: '继续扫荡', command: `/扫荡秘境 #${result.data.dungeonId} ${d.times}` }]
-          : []),
+        ...(!partial && dungeonId && [1, 5, 10].includes(d.times) ? [{ label: '继续扫荡', command: `/扫荡秘境 #${dungeonId} ${d.times}` }] : []),
         { label: '秘境列表', command: '/查看秘境' }
       ]
     })
