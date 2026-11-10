@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
+import { AxiosError, type AxiosAdapter } from 'axios';
 import { createClient } from '../src/api/core/client';
 import { backendConnectionPools } from '../src/api/bot/connection-pools';
 
@@ -91,4 +92,56 @@ test('an aborted slow request releases its socket and a later request completes 
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
   }
+});
+
+test('queries retry transient failures once after six seconds with the same request ID', async () => {
+  await Promise.all([502, 503, 504, 'ECONNREFUSED'].map(async failure => {
+    const attempts: { time: number; url?: string; requestId: unknown }[] = [];
+    const adapter: AxiosAdapter = async config => {
+      attempts.push({ time: performance.now(), url: config.url, requestId: config.headers.get('X-Request-ID') });
+      if (attempts.length === 1 && typeof failure === 'string') {
+        throw new AxiosError('Connection refused', failure);
+      }
+      const status = attempts.length === 1 ? Number(failure) : failure === 504 ? 503 : 200;
+      return { status, statusText: '', data: '{"data":{"found":true}}', headers: {}, config };
+    };
+    const client = createClient({
+      baseUrl: 'https://backend.test',
+      identity: { kind: 'robot', bid: 'test-bid', token: 'test-token' },
+      adapter
+    });
+    const result = client.request('getRobotIdentity', { requestId: 'query-trace', timeoutMs: 1000 });
+    if (failure === 504) {
+      await assert.rejects(result, { status: 503 });
+    } else {
+      assert.deepEqual(await result, { found: true });
+    }
+    assert.equal(attempts.length, 2);
+    assert.ok(attempts[1].time - attempts[0].time >= 5950);
+    assert.equal(attempts[1].url, attempts[0].url);
+    assert.deepEqual(attempts.map(attempt => attempt.requestId), ['query-trace', 'query-trace']);
+  }));
+});
+
+test('writes and permanent query errors send once, and a cancelled query skips retry', async () => {
+  const controller = new AbortController();
+  const attempts: string[] = [];
+  const client = createClient({
+    baseUrl: 'https://backend.test',
+    identity: { kind: 'robot', bid: 'test-bid', token: 'test-token' },
+    adapter: async config => {
+      const id = String(config.headers.get('X-Request-ID'));
+      attempts.push(id);
+      if (id === 'cancel') {
+        setTimeout(() => controller.abort(), 20);
+      }
+      return { status: id === 'auth-error' ? 401 : 502, statusText: '', data: '', headers: {}, config };
+    }
+  });
+  await Promise.all([
+    assert.rejects(client.request('post_auth_login', { requestId: 'write', body: { uid: 1, email: 'player@example.test', password: 'example' } }), { status: 502 }),
+    assert.rejects(client.request('getRobotIdentity', { requestId: 'auth-error' }), { status: 401 }),
+    assert.rejects(client.request('getRobotIdentity', { requestId: 'cancel', signal: controller.signal }), { code: 'SDK_ABORTED' })
+  ]);
+  assert.deepEqual(attempts.sort(), ['auth-error', 'cancel', 'write']);
 });
