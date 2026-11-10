@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -74,8 +75,10 @@ export default onResponse(selects, async e => {
   contentMd.addText(`消耗精力：${result.data.totalSpiritCost}`);
   contentMd.addNewline();
 
-  const experienceText = result.data.normalExperienceGained === undefined
-    ? `${result.data.totalExp}${result.data.expBonusText}` : `${result.data.normalExperienceGained}${fishingBlessingSuffix(result.data.expBonusText)}`;
+  const experienceText =
+    result.data.normalExperienceGained === undefined
+      ? `${result.data.totalExp}${result.data.expBonusText}`
+      : `${result.data.normalExperienceGained}${fishingBlessingSuffix(result.data.expBonusText)}`;
 
   contentMd.addText(`获得修为：+${experienceText}`);
   contentMd.addNewline();
@@ -95,10 +98,14 @@ export default onResponse(selects, async e => {
   }
 
   appendTreasureEffects(contentMd, result.data.treasureEffects);
-  if (await sendOnboardingFollowup(e, followup, '主线扫荡', contentMd)) {
+  const checkAfterDelivery = (receipts: Awaited<ReturnType<typeof message.send>>) => {
+    return checkEncounterAfterPanel(e, 'storyline-sweep', message, Promise.resolve(receipts));
+  };
+
+  if (await sendOnboardingFollowup(e, followup, '主线扫荡', contentMd, checkAfterDelivery)) {
     return;
   }
-  void message.send(
+  const sent = message.send(
     FormatGui({
       isPrivate,
       bid,
@@ -112,4 +119,6 @@ export default onResponse(selects, async e => {
       footer: [{ label: `继续扫荡×${times}`, command: `/主线扫荡 ${chapterNumber}-${stageNumber} ${times}` }]
     })
   );
+
+  await checkEncounterAfterPanel(e, 'storyline-sweep', message, sent);
 });

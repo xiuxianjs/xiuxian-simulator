@@ -109,23 +109,26 @@ for (const entry of cases) {
   }
 }
 
+const noDungeonEncounter = { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false };
+
 for (const actual of [2, 5]) {
   test(`秘境扫荡按服务端 ${actual}/5 次保留真实收益并决定是否继续`, async t => {
     const { app, requests } = await gameFixture(t, request =>
-      businessEnvelope(request.bid, {
+      request.path.endsWith('/online-encounter.check') ? businessEnvelope(request.bid, noDungeonEncounter) : businessEnvelope(request.bid, {
         outcome: 'result',
+        dungeonId: 12,
         data: { dungeonName: '幽谷', times: actual, totalSpiritCost: actual * 3, totalExp: actual * 10, currency: [], items: [] }
       })
     );
     const result = await app.runHandler(sweepDungeon, app.events.privateMessage({ text: '/扫荡秘境 幽谷 5', platform: 'qq-bot' }));
-    assert.equal(requests.length, 1);
+    assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/dungeon.sweep', '/api/v2/robot/business/online-encounter.check']);
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);
     assert.ok(view.text.includes(`精力 -${actual * 3}`));
     assert.ok(view.text.includes(`修为 +${actual * 10}`));
     assert.equal(
-      view.commands.some(command => command.startsWith('/扫荡秘境 ')),
+      view.commands.includes('/扫荡秘境 #12 5'),
       actual === 5
     );
     if (actual < 5) {
@@ -139,7 +142,7 @@ for (const actual of [2, 5]) {
 
 test('免费秘境部分成功逐条附建议，不以重试抹掉已结算结果', async t => {
   const { app, requests } = await gameFixture(t, request =>
-    businessEnvelope(request.bid, {
+    request.path.endsWith('/online-encounter.check') ? businessEnvelope(request.bid, noDungeonEncounter) : businessEnvelope(request.bid, {
       sweptDungeons: [{ dungeonName: '溪谷', times: 2, totalSpiritCost: 0, totalExp: 20, currency: [], items: [] }],
       skippedDungeons: [
         { dungeonName: '幽谷', message: '该秘境需要成功通关后才能扫荡' },
@@ -152,7 +155,7 @@ test('免费秘境部分成功逐条附建议，不以重试抹掉已结算结�
     })
   );
   const result = await app.runHandler(sweepDungeon, app.events.groupMessage({ text: '/扫荡免费秘境', platform: 'qq-bot' }));
-  assert.equal(requests.length, 1);
+  assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/dungeon.sweep-free', '/api/v2/robot/business/online-encounter.check']);
   assert.equal(result.messages.length, 1);
   const message = result.messages[0];
   const view = inspectMessage(message.nodes);
@@ -258,7 +261,9 @@ for (const won of [false, true]) {
 for (const won of [false, true]) {
   test(`主线已结算 ${won} 保留消耗和记录，失败附培养建议且不自动重结算`, async t => {
     const { app, requests } = await gameFixture(t, request =>
-      businessEnvelope(request.bid, {
+      request.path.endsWith('/online-encounter.check')
+        ? businessEnvelope(request.bid, { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false })
+        : businessEnvelope(request.bid, {
         sessionId: 'battle-1',
         finished: true,
         winner: won ? 'A' : 'B',
@@ -280,7 +285,7 @@ for (const won of [false, true]) {
       })
     );
     const result = await app.runHandler(challengeStory, app.events.privateMessage({ text: '/主线挑战 1-1', platform: 'qq-bot' }));
-    assert.equal(requests.length, 1);
+    assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/storyline.challenge', '/api/v2/robot/business/online-encounter.check']);
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);

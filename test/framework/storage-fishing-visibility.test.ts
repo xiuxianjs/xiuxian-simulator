@@ -36,6 +36,10 @@ for (const [catalogueName, fixed, canonical] of [
         return { gateVersion: 1, features: { inventory: true, profile: true, activities: true, shop: true,
           fishing: true, 'fishing-build': state === '高境界已开塘' } };
       }
+      if (request.path.endsWith('/online-encounter.check')) {
+        assert.deepEqual(request.body.arguments, { panel: 'bag' });
+        return businessEnvelope(request.bid, { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false });
+      }
       assert.ok(request.path.endsWith('/storage.menu'));
       return businessEnvelope(request.bid, { message: '' });
     });
@@ -47,8 +51,7 @@ for (const [catalogueName, fixed, canonical] of [
       sent();
       return [createResult(ResultCode.Ok, 'Offline delivery', { id: 'bag-capture' })];
     });
-    // The real legacy handler uses void send. Keep this test execution alive
-    // until its real asynchronous filter/HTTP/send finishes; do not mock policy.
+    // Wait for the actual platform delivery in the same framework event.
     const capture = onResponse(menu.select, async event => {
       assert.equal(typeof menu.current, 'function');
       if (typeof menu.current !== 'function') { throw new Error('Storage handler shape changed'); }

@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { storageBagRecoveryTips } from '@src/response/storageBagRecovery';
@@ -57,7 +58,7 @@ const response = onResponse(selects, async e => {
 
   md.addBlockquote(Format.createMarkdown().addText(result.data.message));
 
-  void message.send(
+  const sent = message.send(
     FormatGui({
       isPrivate,
       bid,
@@ -66,6 +67,8 @@ const response = onResponse(selects, async e => {
       footer: createPrimaryTabsBar()
     })
   );
+
+  await checkEncounterAfterPanel(e, 'bag', message, sent);
 });
 
 export default response;

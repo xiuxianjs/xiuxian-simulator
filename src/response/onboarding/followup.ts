@@ -14,7 +14,13 @@ import { section } from '../presentation';
 // Optional guidance travels with the committed business response. This renderer
 // cannot request or settle gameplay. Active milestone views attach their
 // existing Context; completed return views stay outside the teaching Context.
-export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBusinessFollowup, title: string, receipt: FormatMarkDown): Promise<boolean> {
+export async function sendOnboardingFollowup(
+  event: GameEvent,
+  followup: RobotBusinessFollowup,
+  title: string,
+  receipt: FormatMarkDown,
+  afterDelivery?: Parameters<typeof sendTeachingMessage>[3]
+): Promise<boolean> {
   const directory = followup.onboarding?.branchMenu ? createOnboardingMenu(followup.onboarding, event) : undefined;
   const view = directory?.view ?? followup.onboarding;
 
@@ -58,18 +64,23 @@ export async function sendOnboardingFollowup(event: GameEvent, followup: RobotBu
   if (native) {
     bubble.format.addButtonGroup(onboardingKeyboard(buttons));
   }
-  await sendTeachingMessage(event, bubble, [
-    title,
-    markdownToPlainText(receipt.value.value),
-    ...lines,
-    ...(!pending && view.branchMenu
-      ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
-      : []),
-    ...(!pending ? (view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`) : []),
-    ...menuPageFallback(directory),
-    '可选指令：',
-    ...buttons.flat().map(button => (button.label.includes(button.command) ? button.label : `${button.label} · ${button.command}`))
-  ]);
+  await sendTeachingMessage(
+    event,
+    bubble,
+    [
+      title,
+      markdownToPlainText(receipt.value.value),
+      ...lines,
+      ...(!pending && view.branchMenu
+        ? [...view.branchMenu.lines, ...view.branchMenu.items.map(item => `${item.name}：${item.description} · ${item.command}`)]
+        : []),
+      ...(!pending ? (view.entries ?? []).map(entry => `${entry.label} · ${entry.command}`) : []),
+      ...menuPageFallback(directory),
+      '可选指令：',
+      ...buttons.flat().map(button => (button.label.includes(button.command) ? button.label : `${button.label} · ${button.command}`))
+    ],
+    afterDelivery
+  );
 
   return true;
 }

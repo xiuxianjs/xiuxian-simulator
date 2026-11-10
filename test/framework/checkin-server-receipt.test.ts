@@ -23,12 +23,16 @@ const fixtures = JSON.parse(encoded) as Record<string, unknown>;
 for (const scenario of ['partial', 'repeated', 'missingConfig']) {
   for (const privateChat of [false, true]) {
     test(`Go 回执经 SDK 和真实处理器发送：${scenario}/${privateChat ? '私聊' : '群聊'}`, async t => {
-      const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, fixtures[scenario]));
+      const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
+        request.path.endsWith('/online-encounter.check')
+          ? { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false }
+          : fixtures[scenario]
+      ));
       const event = privateChat
         ? app.events.privateMessage({ text: '/签到', platform: 'qq-bot' })
         : app.events.groupMessage({ text: '/签到', platform: 'qq-bot' });
       const result = await app.runHandler(hub, event);
-      assert.equal(requests.length, 1);
+      assert.equal(requests.filter(request => request.path.endsWith('/checkin.hub')).length, 1);
       assert.equal(requests[0].path, '/api/v2/robot/business/checkin.hub');
       assert.ok(requests[0].idempotencyKey);
       assert.equal(result.messages.length, 1);

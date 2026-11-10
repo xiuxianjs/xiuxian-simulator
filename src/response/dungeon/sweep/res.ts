@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 秘境扫荡指令
@@ -93,7 +94,13 @@ export default onResponse(selects, async e => {
       ...(result.data.skippedDungeons.length ? [] : [{ label: '再次结算', command: '/扫荡免费秘境' }])
     ];
 
-    void message.send(FormatGui({ isPrivate, bid, title: '秘境免费扫荡', content: md, footer }));
+    const sent = message.send(FormatGui({ isPrivate, bid, title: '秘境免费扫荡', content: md, footer }));
+
+    if (result.data.totalTimes > 0) {
+      await checkEncounterAfterPanel(e, 'dungeon-sweep', message, sent);
+    } else {
+      void sent;
+    }
 
     return;
   }
@@ -148,7 +155,7 @@ export default onResponse(selects, async e => {
     );
   }
 
-  void message.send(
+  const sent = message.send(
     FormatGui({
       isPrivate,
       bid,
@@ -164,4 +171,10 @@ export default onResponse(selects, async e => {
       ]
     })
   );
+
+  if (d.times > 0) {
+    await checkEncounterAfterPanel(e, 'dungeon-sweep', message, sent);
+  } else {
+    void sent;
+  }
 });

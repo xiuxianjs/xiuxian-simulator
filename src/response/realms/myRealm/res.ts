@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 我的境界指令
@@ -64,7 +65,7 @@ export default onResponse(selects, async e => {
     }
     footer.push({ label: '我的主页', command: '/我' });
 
-    void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer }));
+    await checkEncounterAfterPanel(e, 'realm', message, message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer })));
   } catch (error) {
     logger.error('查看我的境界失败:', error);
     const md = Format.createMarkdown();

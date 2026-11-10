@@ -22,12 +22,17 @@ const partial = {
 
 for (const privateChat of [false, true]) {
   test(`真实统一签到处理器保留部分失败及重试按钮（${privateChat ? '私聊' : '群聊'}）`, async t => {
-    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, partial));
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
+      request.path.endsWith('/online-encounter.check')
+        ? { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false }
+        : partial
+    ));
     const event = privateChat
       ? app.events.privateMessage({ text: '/签到', platform: 'qq-bot' })
       : app.events.groupMessage({ text: '/签到', platform: 'qq-bot' });
     const result = await app.runHandler(hub, event);
-    assert.equal(requests.length, 1, '一次指令只提交一次业务请求');
+    assert.equal(requests.filter(request => request.path.endsWith('/checkin.hub')).length, 1, '一次指令只提交一次签到');
+    assert.deepEqual(requests[1]?.body.arguments, { panel: 'checkin' });
     assert.equal(requests[0].path, '/api/v2/robot/business/checkin.hub');
     assert.ok(requests[0].idempotencyKey);
     assert.equal(requests[0].body.messageText, '/签到');
@@ -79,7 +84,11 @@ for (const [code, expected] of [
 }
 
 test('模拟平台拒绝发送时，消息记录与发送结果都可检查', async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, partial));
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
+      request.path.endsWith('/online-encounter.check')
+        ? { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false }
+        : partial
+    ));
   app.actions.on('message.send', () => [createResult(ResultCode.Fail, '平台拒绝发送', null)]);
   const result = await app.runHandler(hub, app.events.privateMessage({ text: '/签到', platform: 'qq-bot' }));
   assert.equal(requests.length, 1);
@@ -88,7 +97,11 @@ test('模拟平台拒绝发送时，消息记录与发送结果都可检查', as
 });
 
 test('挂载真实处理器后，路由分发执行签到；同一消息去重且不重复写入', async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, partial));
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
+      request.path.endsWith('/online-encounter.check')
+        ? { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false }
+        : partial
+    ));
   const router = Router.create({ events: ['message.create'] });
   router.use('签到', async () => ({ default: hub }));
   await app.mount({ responseRouter: router.define });
@@ -97,6 +110,6 @@ test('挂载真实处理器后，路由分发执行签到；同一消息去重�
   assert.equal(first.messages.length, 1);
   const duplicate = await app.dispatch({ ...event });
   assert.equal(duplicate.messages.length, 0);
-  assert.equal(requests.length, 1);
+  assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/checkin.hub', '/api/v2/robot/business/online-encounter.check']);
   assert.ok(duplicate.reasons.includes('filtered'));
 });

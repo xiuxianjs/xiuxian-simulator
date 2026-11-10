@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { dungeonCatalogArguments, parseRobotDungeonCatalog } from '@src/api/bot/dungeon-robot-query';
@@ -127,7 +128,7 @@ export default onResponse(selects, async e => {
     contentMd.addNewline();
   }
 
-  void message.send(
+  const sent = message.send(
     FormatGui({
       isPrivate,
       bid,
@@ -148,4 +149,10 @@ export default onResponse(selects, async e => {
       ]
     })
   );
+
+  if (d.pagination.currentPage === 1) {
+    await checkEncounterAfterPanel(e, 'dungeon-list', message, sent);
+  } else {
+    void sent;
+  }
 });

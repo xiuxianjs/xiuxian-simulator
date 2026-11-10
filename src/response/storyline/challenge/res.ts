@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { hasCommandPrefix, internalCommandText } from '@src/utils/commandPrefix';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
@@ -154,7 +155,7 @@ export default onResponse(selects, async e => {
           actionRowButtons.push({ label: '下一章', command: `/查看主线 ${chapterNumber + 1}` });
         }
       }
-      void message.send(
+      const sent = message.send(
         await BattleFormatGui(
           {
             isPrivate,
@@ -166,6 +167,8 @@ export default onResponse(selects, async e => {
           [{ id: state.logId }]
         )
       );
+
+      await checkEncounterAfterPanel(e, 'storyline-challenge', message, sent);
 
       return;
     }

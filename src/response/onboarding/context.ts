@@ -148,13 +148,26 @@ type TeachingMessage = Parameters<ReturnType<typeof useMessage>[0]['send']>[0];
 
 // Framework send failures may be result codes rather than rejected promises.
 // A fallback only resends presentation, never the already-issued game command.
-export async function sendTeachingMessage(event: GameEvent, bubble: TeachingMessage, lines: string[]): Promise<void> {
+type TeachingDelivery = Awaited<ReturnType<ReturnType<typeof useMessage>[0]['send']>>;
+
+export async function sendTeachingMessage(
+  event: GameEvent,
+  bubble: TeachingMessage,
+  lines: string[],
+  afterDelivery?: (receipts: TeachingDelivery) => Promise<void>
+): Promise<void> {
   const [message] = useMessage(event);
   const delivered = async (payload: TeachingMessage): Promise<boolean> => {
     try {
       const receipts = await message.send(payload);
 
-      return receipts.length > 0 && receipts.every(receipt => receipt.code === ResultCode.Ok);
+      const ok = receipts.length > 0 && receipts.every(receipt => receipt.code === ResultCode.Ok);
+
+      if (ok && afterDelivery) {
+        await afterDelivery(receipts);
+      }
+
+      return ok;
     } catch {
       return false;
     }

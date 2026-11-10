@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
@@ -326,7 +327,13 @@ export const createShopListHandler = (shopCode?: string) => {
     );
 
     if (response) {
-      void message.send(response);
+      const sent = message.send(response);
+
+      if (shopCode === undefined && !parsed.error && !shopQuery.access.deniedReason) {
+        await checkEncounterAfterPanel(e, 'shop', message, sent);
+      } else {
+        void sent;
+      }
     }
   });
 };

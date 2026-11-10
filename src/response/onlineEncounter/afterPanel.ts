@@ -13,7 +13,16 @@ const panelCommands = {
   cave: /^(我的洞府|洞府)$/,
   guild: /^(我的宗门|查看势力)$/,
   activity: /^(我的活动|个人活动|活动大厅)$/,
-  storyline: /^(查看主线|副本列表|主线列表)$/
+  storyline: /^(查看主线|副本列表|主线列表)$/,
+  checkin: /^(签到|一键签到)$/,
+  bag: /^(我的)?(储物袋|背包|纳戒)$/,
+  realm: /^我的境界$/,
+  'storyline-sweep': /^主线扫荡\s+[0-9]+\s*[-－]\s*[0-9]+(?:\s+[0-9]+)?$/,
+  'storyline-challenge': /^主线挑战\s+[0-9]+\s*[-－]\s*[0-9]+$/,
+  'cave-tend': /^一键打理灵田$/,
+  shop: /^商店$/,
+  'dungeon-list': /^(查看秘境|秘境列表)$/,
+  'dungeon-sweep': /^(扫荡免费秘境|扫荡秘境\s+.+)$/
 };
 
 type Panel = keyof typeof panelCommands;
@@ -57,7 +66,10 @@ function cacheUntil(key: string, at: number) {
 }
 
 export async function checkEncounterAfterPanel(e: GameEvent, panel: Panel, message: MessageClient, sent: ReturnType<MessageClient['send']>) {
-  const command = (e.MessageText ?? '').trim().replace(/^[!！/#＃]/, '');
+  const command = (e.MessageText ?? '')
+    .trim()
+    .replace(/^[!！/#＃]/, '')
+    .trimStart();
 
   await sent
     .then(async receipts => {

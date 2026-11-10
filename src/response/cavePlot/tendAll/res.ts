@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseMasterAction } from '@src/api/bot/master-actions';
@@ -17,6 +18,8 @@ export default onResponse(selects, async e => {
   const title = companion ? '一键照料道侣灵田' : '一键打理灵田';
   const quote = Format.createMarkdown();
   let treasureEffects: TreasureEffectNotice[] | undefined;
+
+  let settled = false;
 
   try {
     if (!(companion ? /^一键照料道侣灵田(?:\s+代收割)?$/ : /^一键打理灵田$/).test(text)) {
@@ -46,6 +49,7 @@ export default onResponse(selects, async e => {
     if (failedStep && !tips.length) {
       tips.push(...caveRecoveryTips(operation, '操作失败，请稍后重试'));
     }
+    settled = !companion && !failedStep;
     const uniqueTips = tips.filter((tip, index) => tips.findIndex(other => other.command === tip.command && other.description === tip.description) === index);
 
     appendMiddlewareAdvice(quote, uniqueTips);
@@ -59,5 +63,11 @@ export default onResponse(selects, async e => {
   const md = Format.createMarkdown().addBlockquote(quote);
 
   appendTreasureEffects(md, treasureEffects);
-  void message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: `【${title}】`, content: md }));
+  const sent = message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid: e.UserId, title: `【${title}】`, content: md }));
+
+  if (settled) {
+    await checkEncounterAfterPanel(e, 'cave-tend', message, sent);
+  } else {
+    void sent;
+  }
 });

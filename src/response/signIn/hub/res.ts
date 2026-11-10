@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseCheckInHub } from '@src/api/bot/checkin-robot-query';
@@ -29,6 +30,8 @@ export default onResponse(selects, async e => {
     登仙台签到: '时段'
   };
 
+  let settled = false;
+
   try {
     const loaded = await runRobotBusiness(e, 'checkin.hub', {}, parseCheckInHub, next, async reply => {
       await message.send(
@@ -52,6 +55,8 @@ export default onResponse(selects, async e => {
     }
     const results = loaded.data;
 
+    settled = results.some(item => item.status === 'done' || item.status === 'skip');
+
     for (const item of results) {
       const buttons: Array<{ label: string; command: string }> = [];
 
@@ -73,7 +78,7 @@ export default onResponse(selects, async e => {
   } catch (error) {
     md.addText(`❌ 签到结果暂未确认，请先查看签到概览核对：${error instanceof Error ? error.message : '请稍后再试'}`);
   }
-  void message.send(
+  const sent = message.send(
     FormatGui({
       isPrivate: e.isPrivate ?? false,
       bid,
@@ -89,4 +94,10 @@ export default onResponse(selects, async e => {
       ]
     })
   );
+
+  if (settled) {
+    await checkEncounterAfterPanel(e, 'checkin', message, sent);
+  } else {
+    void sent;
+  }
 });
