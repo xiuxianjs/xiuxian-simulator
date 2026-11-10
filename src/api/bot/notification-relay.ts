@@ -44,12 +44,11 @@ function relayClient() {
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
 
-  return { client, context };
+  return { client, context, apiBase: config.apiBase };
 }
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const endpoint = `/api/v1/internal/notification-relay${path}`;
-
-  const { client, context } = relayClient();
+  const { client, context, apiBase } = relayClient();
+  const endpoint = `${apiBase}/v1/internal/notification-relay${path}`;
 
   try {
     const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });
@@ -124,9 +123,9 @@ export async function markLegacyNotificationSent(messageId: string): Promise<voi
 /** When Node owns the schedule, it triggers the same Go scanner the autonomous Worker uses. */
 export async function scanLegacyNotificationPool(): Promise<void> {
   getWorkerBackendConfig();
-  const { client, context } = relayClient();
+  const { client, context, apiBase } = relayClient();
 
-  await client.post('/api/v1/internal/workers/push-message-relay/run', {}, { headers: { 'X-Request-ID': context.requestId } });
+  await client.post(`${apiBase}/v1/internal/workers/push-message-relay/run`, {}, { headers: { 'X-Request-ID': context.requestId } });
 }
 
 export type NotificationSubscriptionTarget = {

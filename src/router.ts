@@ -141,9 +141,10 @@ export function createGameRouter() {
      */
     publicXiuxian.use(['管理', '权限', '设置'], () => import('@src/response/admins/res'));
     publicXiuxian.use(
-      ['更多'],
+      ['更多', '指令大全'],
       withAccessFacts(['realm'], () => import('@src/response/more/res'))
     );
+    publicXiuxian.use(['指令搜索', '指令搜索翻页'], () => import('@src/response/more/res'));
     publicXiuxian.use(
       ['折叠', '扩展'],
       withAccessFacts(['realm'], () => import('@src/response/more/res'))
@@ -372,7 +373,7 @@ export function createGameRouter() {
         path: '查看信息',
         schema: {
           args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-          usage: '/查看信息 <UID|@道友>'
+          usage: '/查看信息 [UID|@道友]'
         },
         description: '查看指定玩家的信息，支持直接输入 UID，或通过 @ 自动识别对方。'
       },
@@ -394,7 +395,7 @@ export function createGameRouter() {
         path: '查看灵田',
         schema: {
           args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-          usage: '/查看灵田 <UID|@道友>'
+          usage: '/查看灵田 [UID|@道友]'
         },
         description: '查看指定玩家的灵田，支持直接输入 UID，或通过 @ 自动识别对方。'
       },
@@ -666,7 +667,7 @@ export function createGameRouter() {
           path: '队伍位置设置',
           schema: {
             args: [{ name: 'content', rules: [{ type: 'rest' }] }],
-            usage: '/队伍位置设置 <UID|@道友> <位置序号>'
+            usage: '/队伍位置设置 [UID|@道友] [位置序号]'
           }
         },
         () => import('@src/response/team/setPosition/res')
@@ -680,7 +681,7 @@ export function createGameRouter() {
           path: '队伍踢出',
           schema: {
             args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-            usage: '/队伍踢出 <UID|@道友>'
+            usage: '/队伍踢出 [UID|@道友]'
           }
         },
         () => import('@src/response/team/kick/res')
@@ -691,7 +692,7 @@ export function createGameRouter() {
           path: '转让队长',
           schema: {
             args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-            usage: '/转让队长 <UID|@道友>'
+            usage: '/转让队长 [UID|@道友]'
           }
         },
         () => import('@src/response/team/transferLeader/res')
@@ -701,7 +702,7 @@ export function createGameRouter() {
           path: '邀请入队',
           schema: {
             args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-            usage: '/邀请入队 <UID|@道友>'
+            usage: '/邀请入队 [UID|@道友]'
           }
         },
         () => import('@src/response/team/inviteTeam/res')
@@ -711,7 +712,7 @@ export function createGameRouter() {
           path: '结交',
           schema: {
             args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-            usage: '/结交 <UID|@道友>'
+            usage: '/结交 [UID|@道友]'
           }
         },
         () => import('@src/response/friend/befriend/res')
@@ -721,7 +722,7 @@ export function createGameRouter() {
           path: '拜师',
           schema: {
             args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-            usage: '/拜师 <师父UID|@道友>'
+            usage: '/拜师 [师父UID|@道友]'
           }
         },
         () => import('@src/response/master/apply/res')
@@ -1301,7 +1302,7 @@ export function createGameRouter() {
                     args: [{ name: 'target', rules: [{ type: 'rest' }] }],
                     usage: '/比试 [UID|@道友]'
                   },
-                  description: '与指定道友比试，找不到目标时推荐同境界道友。'
+                  description: '与指定道友比试，找不到目标时推荐附近的修士。'
                 },
                 '切磋',
                 '比斗',
@@ -1320,7 +1321,7 @@ export function createGameRouter() {
                   args: [{ name: 'target', rules: [{ type: 'rest' }] }],
                   usage: '/打劫 [UID|@道友]'
                 },
-                description: '对指定道友发起打劫，找不到目标时推荐同境界道友。'
+                description: '对指定道友发起打劫，找不到目标时推荐附近的修士。'
               },
               () => import('@src/response/robbery/res')
             );
@@ -1329,7 +1330,7 @@ export function createGameRouter() {
                 path: '三连打劫',
                 schema: {
                   args: [{ name: 'target', rules: [{ type: 'rest' }] }],
-                  usage: '/三连打劫 <UID|@道友>'
+                  usage: '/三连打劫 [UID|@道友]'
                 },
                 description: '对指定目标连续打劫最多三次，按每次实际结算消耗元力，条件不足时停止。'
               },

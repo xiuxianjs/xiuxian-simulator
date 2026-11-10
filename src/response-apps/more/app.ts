@@ -1,3 +1,5 @@
+import { getCommandPrefix } from '@src/utils/commandPrefix';
+
 export type MoreEntry = {
   label: string;
   command: string;
@@ -85,7 +87,7 @@ export const MORE_CATEGORIES: MoreCategory[] = [
     description: '商店与市场',
     entries: [
       { label: '商店', command: '/商店', description: '选择商店与购买物品' },
-      { label: '交易所', command: '/珍宝楼', description: '分类选购与上架' }
+      { label: '珍宝楼', command: '/珍宝楼', description: '分类选购与上架' }
       // { label: '玩家小店', command: '/小店', description: '浏览玩家店铺' } // 小店下架
     ]
   },
@@ -176,12 +178,45 @@ export default function App(visibleCommands: string[]) {
 }
 
 export function parseMoreNavigation(text: string) {
-  const normalized = text.trim().replace(/^(!|！|\/|#|＃)?\s*/, '');
+  const prefix = getCommandPrefix();
+  const trimmed = text.trim();
+  const normalized = (trimmed.startsWith(prefix) ? trimmed.slice(prefix.length) : trimmed.replace(/^[/#＃!！]/, '')).trimStart();
+  const searchPage = /^指令搜索翻页(?:\s|$)/.exec(normalized);
+
+  if (searchPage) {
+    const match = /^指令搜索翻页\s+([a-f0-9]{24})\s+([1-9]\d?)$/.exec(normalized);
+
+    return { search: 'page' as const, reference: match?.[1], page: parsePage(match?.[2]) };
+  }
+
+  const search = /^指令搜索(?:\s|$)/.exec(normalized);
+
+  if (search) {
+    return { search: 'query' as const, keyword: normalized.slice(search[0].length).trim() };
+  }
+
+  const catalog = /^(?:指令大全|(?:更多|折叠|扩展)\s+指令大全)(?:\s|$)/.exec(normalized);
+
+  if (catalog) {
+    const [scope, page, extra] = normalized.slice(catalog[0].length).trim().split(/\s+/);
+
+    return {
+      catalog: true as const,
+      scope: !extra && (!page || /^\d+$/.test(page)) ? scope : undefined,
+      page: parsePage(page)
+    };
+  }
+
   const match = normalized.match(/^(?:更多|折叠|扩展)(?:\s+(\S+))?(?:\s+(\d+))?$/);
   const categoryText = match?.[1] === '资料' ? '个人资料' : match?.[1];
   const category = MORE_CATEGORIES.find(item => item.name === categoryText || item.displayName === categoryText)?.name ?? categoryText;
-  const page = match?.[2] ? Number(match[2]) : 1;
 
   // Old /折叠 2 links open the shared category menu instead of another catalogue.
-  return { category: category && !/^\d+$/.test(category) ? category : undefined, page: Number.isSafeInteger(page) && page > 0 ? page : 1 };
+  return { catalog: false as const, category: category && !/^\d+$/.test(category) ? category : undefined, page: parsePage(match?.[2]) };
+}
+
+function parsePage(text?: string) {
+  const page = Number(text);
+
+  return Number.isSafeInteger(page) && page > 0 ? page : 1;
 }

@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 转让队长
@@ -18,24 +19,29 @@ export default onResponse(selects, async e => {
   const [mention] = useMention();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
-  const regex = /^(!|！|\/|#|＃)?转让队长\s+(.+)$/;
   const messageText = e.MessageText || '';
-  const match = messageText.match(regex);
-
-  if (!match) {
-    return;
-  }
   const targetUid = await resolveTransferTarget(bid, messageText, mention);
 
   let data;
 
   try {
-    const result = await runRobotBusiness(e, 'teams.leadership', { ...(targetUid ?? {}) }, value => parseBackendTeamWorkflow(value, 'leadership'), next);
+    const result = await runRobotBusiness(
+      e,
+      'teams.leadership',
+      { ...(targetUid ?? {}), suggestTargets: true },
+      value => parseTargetSuggestions(value, raw => parseBackendTeamWorkflow(raw, 'leadership')),
+      next
+    );
 
     if (result.handled) {
       return;
     }
-    data = result.data;
+    if (result.data.mode === 'suggestions') {
+      await message.send(targetSuggestionsBubble(e, '转让队长', result.data.ids, result.data.reason));
+
+      return;
+    }
+    data = result.data.result;
     if (!('outcome' in data)) {
       throw new Error('队伍操作响应不完整');
     }

@@ -24,7 +24,7 @@ test('channel relay and cache use BOT_TOKEN and the configured AppID without Wor
     assert.equal(config?.maxRedirects, 0);
     return { post: async (path: string, body: Record<string, unknown>) => {
       requests.push({ path, body });
-      return { data: path.startsWith('/chat/') ? null : { data: path.endsWith('/claim') ? { event: null } : path.endsWith('/legacy-sent-ids') ? { ids: [] } : null } };
+      return { data: path.includes('/internal/chat/') ? null : { data: path.endsWith('/claim') ? { event: null } : path.endsWith('/legacy-sent-ids') ? { ids: [] } : null } };
     } } as never;
   });
   assert.equal(await claimNotificationRelay('player.notification.dispatch', 'consumer'), null);
@@ -37,7 +37,22 @@ test('channel relay and cache use BOT_TOKEN and the configured AppID without Wor
   await assert.rejects(scanLegacyNotificationPool(), /尚未支持渠道/);
   assert.equal(requests.length, count);
   assert.equal(await claimChatNotice('100017'), null);
-  assert.equal(requests.at(-1)?.path, '/chat/internal/claim');
+  assert.equal(requests.at(-1)?.path, '/api/v1/internal/chat/claim');
+});
+
+test('alternate API prefix is used for channel chat and notification relay', async t => {
+  mockBackendConfig(t, { api_url: 'https://legacy.invalid', api_base_url: 'https://channel.invalid', api_base_path: '/channel-api', channel_mode: true, robot_auth_token: 'merchant-token' });
+  const paths: string[] = [];
+  t.mock.method(axios, 'create', config => {
+    assert.equal(config?.baseURL, 'https://channel.invalid');
+    return { post: async (path: string) => {
+      paths.push(path);
+      return { data: path.includes('/internal/chat/') ? null : { data: { event: null } } };
+    } } as never;
+  });
+  await claimChatNotice('100017');
+  await claimNotificationRelay('player.notification.dispatch', 'consumer');
+  assert.deepEqual(paths, ['/channel-api/v1/internal/chat/claim', '/channel-api/v1/internal/notification-relay/claim']);
 });
 
 test('channel origin and platform event must belong to the configured robot', t => {

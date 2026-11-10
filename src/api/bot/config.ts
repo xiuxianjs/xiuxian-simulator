@@ -1,7 +1,7 @@
 import { getCurrentEvent } from 'alemonjs';
 import { getAppConfig } from '../../utils/appConfig';
 import { getQQBotAppId, getQQBotAppIds } from '../../utils/qqBotIdentity';
-import { isValidTimeout } from '../core/helpers';
+import { DEFAULT_API_BASE, isValidApiBase, isValidTimeout } from '../core/helpers';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -15,11 +15,20 @@ export function getBackendConfig() {
     throw new Error('backend.channel_mode 必须为布尔值');
   }
   const timeoutMs = Number(value.api_timeout_ms);
+  const apiBase = value.api_base_path === undefined ? DEFAULT_API_BASE : value.api_base_path;
 
+  if (!isValidApiBase(apiBase)) {
+    throw new Error('backend.api_base_path 必须是单层路径前缀，例如 /api 或 /channel-api');
+  }
+
+  const hasBaseUrl = value.api_base_url !== undefined;
+  const url = String((hasBaseUrl ? value.api_base_url : value.api_url) ?? '')
+    .trim()
+    .replace(/\/+$/, '');
   const config = {
-    url: String(value.api_url ?? '')
-      .trim()
-      .replace(/\/+$/, ''),
+    url,
+    apiBase,
+    scope: apiBase === DEFAULT_API_BASE ? url : url + apiBase,
     robotAuthToken: String(value.robot_auth_token ?? '').trim(),
     channelMode: value.channel_mode === true,
     channelBotId: getQQBotAppId(),
@@ -36,24 +45,29 @@ export function getBackendConfig() {
     if (getQQBotAppIds().length > 1 && !config.channelBotId) {
       throw new Error('QQ 多机器人配置缺少有效的 default_bot，无法确定渠道 BOT_TOKEN 对应的机器人');
     }
+  }
+
+  if (config.channelMode || hasBaseUrl) {
+    const originError = config.channelMode ? '渠道 API 需要 HTTPS origin；HTTP 仅允许本机回环 IP' : 'backend.api_base_url 必须是 HTTP(S) origin';
     let endpoint: URL;
 
     try {
       endpoint = new URL(config.url);
     } catch {
-      throw new Error('渠道 API 需要独立服务的有效 origin');
+      throw new Error(originError);
     }
     const localHTTP = endpoint.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(endpoint.hostname);
 
     if (
-      (!localHTTP && endpoint.protocol !== 'https:') ||
+      !['http:', 'https:'].includes(endpoint.protocol) ||
+      (config.channelMode && endpoint.protocol === 'http:' && !localHTTP) ||
       endpoint.username ||
       endpoint.password ||
       endpoint.pathname !== '/' ||
       endpoint.search ||
       endpoint.hash
     ) {
-      throw new Error('渠道 API 需要 HTTPS origin；HTTP 仅允许本机回环 IP');
+      throw new Error(originError);
     }
   }
 

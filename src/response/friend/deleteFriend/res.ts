@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { friendRecoveryTips } from '@src/response/friendRecovery';
 import { useMessage } from '@src/utils/useMessage';
@@ -41,15 +42,20 @@ export default onResponse(selects, async e => {
   const result = await runRobotBusiness(
     e,
     'friends.remove',
-    { confirmed: parsed?.confirmed ?? false, ...selector },
-    value => parseBackendFriendWorkflow(value, 'remove'),
+    { confirmed: parsed?.confirmed ?? false, ...(!parsed?.confirmed ? { suggestTargets: true } : {}), ...selector },
+    value => parseTargetSuggestions(value, raw => parseBackendFriendWorkflow(raw, 'remove')),
     next
   );
 
   if (result.handled) {
     return;
   }
-  const workflow = result.data;
+  if (result.data.mode === 'suggestions') {
+    await message.send(targetSuggestionsBubble(e, '删除好友', result.data.ids, result.data.reason));
+
+    return;
+  }
+  const workflow = result.data.result;
 
   if (workflow.outcome === 'locked') {
     sendFifthLayerLockedPage({ bid, isPrivate, message, title: '删除好友', realmName: workflow.realmName ?? '未知' });

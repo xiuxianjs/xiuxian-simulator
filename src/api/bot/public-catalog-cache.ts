@@ -244,7 +244,7 @@ export function preparePublicCatalogRequest(operation: string, args: Record<stri
   const config = getBackendConfig();
   // Credentials are only an isolation input, never a plain-text key or log.
   const scope = createHash('sha256')
-    .update(JSON.stringify([config.url, config.channelMode, config.channelBotId, config.robotAuthToken]))
+    .update(JSON.stringify([config.scope, config.channelMode, config.channelBotId, config.robotAuthToken]))
     .digest('hex');
 
   return publicCatalogCache.prepare(scope, operation, args);

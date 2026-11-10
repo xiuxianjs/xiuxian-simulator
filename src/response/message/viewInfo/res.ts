@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { section } from '@src/response/presentation';
 import { useMessage } from '@src/utils/useMessage';
 import { parseBackendPublicPlayerProfile } from '@src/api/bot/public-player-profile-query';
@@ -20,23 +21,24 @@ export default onResponse(selects, async e => {
   const [, next] = useEvent();
   const target = await resolveRobotTarget(e.MessageText || '', mention);
 
-  if (!target) {
-    const md = Format.createMarkdown();
-
-    md.addText('请输入目标UID，格式：/查看信息 123 或 /查看信息 @目标');
-
-    void message.send(FormatGui({ isPrivate, bid, title: '', content: md }));
-
-    return;
-  }
-
   try {
-    const result = await runRobotBusiness(e, 'profile.view', { target }, parseBackendPublicPlayerProfile, next);
+    const result = await runRobotBusiness(
+      e,
+      'profile.view',
+      { target, suggestTargets: true },
+      value => parseTargetSuggestions(value, parseBackendPublicPlayerProfile),
+      next
+    );
 
     if (result.handled) {
       return;
     }
-    const data = result.data;
+    if (result.data.mode === 'suggestions') {
+      await message.send(targetSuggestionsBubble(e, '查看信息', result.data.ids, result.data.reason));
+
+      return;
+    }
+    const data = result.data.result;
 
     if (!data.found || !data.profile || !data.cave) {
       const md = Format.createMarkdown();

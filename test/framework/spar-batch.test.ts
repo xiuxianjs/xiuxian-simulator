@@ -28,7 +28,7 @@ for (const text of ['/十连比试 2', '/比试 2', '/比斗 2', '/切磋 2']) {
     assert.deepEqual(result.errors, []);
     assert.equal(f.requests.length, 1);
     assert.equal(f.requests[0].path, '/api/v2/robot/business/pvp.spar');
-    assert.deepEqual(f.requests[0].body.arguments, { targetUid: '2', targetBid: null, ...(batch ? { batch: true } : { suggestTargets: true }) });
+    assert.deepEqual(f.requests[0].body.arguments, { targetUid: '2', targetBid: null, suggestTargets: true, ...(batch ? { batch: true } : {}) });
     assert.ok(f.requests[0].idempotencyKey);
     assert.equal(result.messages.length, 2);
     for (const message of result.messages) {

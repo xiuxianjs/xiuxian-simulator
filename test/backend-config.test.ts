@@ -14,7 +14,7 @@ test('AlemonJS backend config handles YAML booleans, domain lists and worker ide
   };
   mockBackendConfig(t, backend);
   assert.deepEqual(getBackendConfig(), {
-    channelMode: false, channelBotId: '100017', url: 'https://backend.test', logApiTimings: false, logTransportTimings: false, robotAuthToken: 'robot', workerToken: 'worker', timeoutMs: 30000
+    channelMode: false, channelBotId: '100017', url: 'https://backend.test', apiBase: '/api', scope: 'https://backend.test', logApiTimings: false, logTransportTimings: false, robotAuthToken: 'robot', workerToken: 'worker', timeoutMs: 30000
   });
   backend.worker_token = 'new-worker';
   backend.domains = ['inventory'];
@@ -36,4 +36,23 @@ test('documented YAML example is accepted by the actual config reader', t => {
   mockBackendConfig(t, example['xiuxian-game'].backend);
   assert.equal(getBackendConfig().url, example['xiuxian-game'].backend.api_url.trim().replace(/\/+$/, ''));
   assert.equal(getBackendConfig().timeoutMs, example['xiuxian-game'].backend.api_timeout_ms);
+});
+
+test('API base URL and path can be configured independently', t => {
+  const backend: { api_url: string; api_base_url?: string; api_base_path?: string } = { api_url: 'https://legacy.test', api_base_url: 'http://gateway.test/' };
+  mockBackendConfig(t, backend);
+  assert.equal(getBackendConfig().url, 'http://gateway.test');
+  assert.equal(getBackendConfig().apiBase, '/api');
+
+  backend.api_base_path = '/channel-api';
+  assert.equal(getBackendConfig().scope, 'http://gateway.test/channel-api');
+
+  backend.api_base_url = 'https://gateway.test/api';
+  assert.throws(() => getBackendConfig(), /backend.api_base_url/);
+
+  delete backend.api_base_url;
+  assert.equal(getBackendConfig().scope, 'https://legacy.test/channel-api');
+
+  backend.api_base_path = '//other.test';
+  assert.throws(() => getBackendConfig(), /backend.api_base_path/);
 });

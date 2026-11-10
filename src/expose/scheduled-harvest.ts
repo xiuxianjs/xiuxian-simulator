@@ -88,7 +88,7 @@ export const scheduledHarvest = {
           ...actor,
           playerId: uid,
           inputId: event.MessageId,
-          backend: config.url,
+          backend: config.scope,
           ...input,
           plotIndex: input.plotIndex ?? 0
         };
@@ -133,7 +133,7 @@ export const scheduledHarvest = {
 
         if (
           ticket.caller !== context.callerApp ||
-          ticket.backend !== config.url ||
+          ticket.backend !== config.scope ||
           now >= ticket.expiresAt ||
           input.dueAt > now ||
           offset < 0 ||

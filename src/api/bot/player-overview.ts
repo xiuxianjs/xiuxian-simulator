@@ -51,7 +51,15 @@ export function validateHomeOverview(data: HomeOverviewData, uid?: number): Home
     throw new Error('主页宗门响应不完整');
   }
 
-  return { profile, notifications, atmosphere, ...(data.guildName !== undefined ? { guildName: data.guildName } : {}) };
+  const guildId = data.guildId;
+
+  return {
+    profile,
+    notifications,
+    atmosphere,
+    ...(data.guildName !== undefined ? { guildName: data.guildName } : {}),
+    ...(typeof guildId === 'number' && Number.isSafeInteger(guildId) && guildId > 0 ? { guildId } : {})
+  };
 }
 export async function getBackendSettingsOverview(bid: string | undefined, uid: number, includeGroup: boolean) {
   if (!bid) {

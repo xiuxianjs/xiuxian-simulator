@@ -18,7 +18,7 @@ async function fixture(t: TestContext) {
   t.after(async () => { await observer.dispose(); app.dispose(); await rm(directory, { recursive: true, force: true }); });
   const batches: ChatContactObservation[][] = [];
   t.mock.method(axios, 'create', () => ({ async post(path: string, body: { items: ChatContactObservation[] }) {
-    assert.equal(path, '/chat/internal/contacts/observe');
+    assert.equal(path, '/api/v1/internal/chat/contacts/observe');
     batches.push(body.items);
     return { data: { items: body.items.map(item => ({ botId: item.botId, openId: item.openId, relationState: item.kind === 'private' ? 2 : item.kind === 'removed' ? 0 : 1, relationAt: item.occurredAt, groupSeen: item.groupSeen, enabled: false })) } };
   } }));

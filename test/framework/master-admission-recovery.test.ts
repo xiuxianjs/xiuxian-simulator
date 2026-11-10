@@ -74,7 +74,7 @@ for (const isPrivate of [false, true]) {
     const result = await app.runHandler(apply, event);
     assert.equal(requests.length, 1);
     assert.ok(requests[0].idempotencyKey);
-    assert.deepEqual(requests[0].body.arguments, { targetArg: '2' });
+    assert.deepEqual(requests[0].body.arguments, { targetArg: '2', suggestTargets: true });
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);

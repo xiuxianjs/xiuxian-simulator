@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { friendRecoveryTips } from '@src/response/friendRecovery';
 import { useMessage } from '@src/utils/useMessage';
@@ -25,12 +26,23 @@ export default onResponse(selects, async e => {
   const mentioned = parsedTargetUid === null ? await mention.findOne() : null;
   const targetBid = mentioned?.count && mentioned.data?.UserId ? mentioned.data.UserId : null;
   const selector: TargetSelector = parsedTargetUid && parsedTargetUid > 0 ? { targetUid: String(parsedTargetUid) } : targetBid ? { targetBid } : {};
-  const result = await runRobotBusiness(e, 'friends.request', selector, value => parseBackendFriendWorkflow(value, 'request'), next);
+  const result = await runRobotBusiness(
+    e,
+    'friends.request',
+    { ...selector, suggestTargets: true },
+    value => parseTargetSuggestions(value, raw => parseBackendFriendWorkflow(raw, 'request')),
+    next
+  );
 
   if (result.handled) {
     return;
   }
-  const data = result.data;
+  if (result.data.mode === 'suggestions') {
+    await message.send(targetSuggestionsBubble(e, '结交', result.data.ids, result.data.reason));
+
+    return;
+  }
+  const data = result.data.result;
 
   if (data.outcome === 'locked') {
     sendFifthLayerLockedPage({ bid, isPrivate, message, title: '结交好友', realmName: data.realmName ?? '未知' });

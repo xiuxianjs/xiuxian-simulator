@@ -175,15 +175,15 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
 
             if (data.guildName !== undefined) {
               contentMd.addText(`宗门：${data.guildName ?? '无'}`);
-              // appendButtons(contentMd, [{ label: '加入', command: `/加入宗门 ${data.guildName}` }]);
+              if (!isPrivate && data.guildName && data.guildId) {
+                contentMd.addText(' ').addButton(markdownButtonLabel('加入'), { data: commandText(`/加入宗门 ${data.guildId}`), autoEnter: false });
+              }
               contentMd.addNewline();
             }
 
-            if (isPrivate && data.profile.signature) {
-              contentMd.addText(data.profile.signature);
-              contentMd.addNewline();
+            if (data.profile.signature) {
+              contentMd.addBlockquote(Format.createMarkdown().addText(data.profile.signature));
             }
-            contentMd.addNewline();
 
             contentMd.addText(`战力：${data.stats.combatPower} ✊`);
 

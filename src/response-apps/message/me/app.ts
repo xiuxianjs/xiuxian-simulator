@@ -11,6 +11,7 @@ export type MeHomeResource = {
 
 export type MeHomeData = {
   bannerImageUrl?: string;
+  guildId?: number;
   guildName?: string | null;
   notifications: HomeNotificationItem[];
   /** 上次签到距今天数，未签到过则为 null，< 7 则不触发归来信 */
@@ -95,6 +96,7 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
       code: 'OK',
       data: {
         bannerImageUrl,
+        guildId: overview.guildId,
         guildName: overview.guildName,
         notifications,
         absenceDays: facts.absenceDays,

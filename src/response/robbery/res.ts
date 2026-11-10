@@ -1,4 +1,4 @@
-import { parsePVPTargetSuggestions, pvpTargetSuggestionsBubble } from '@src/response/pvpTargetSuggestions';
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
@@ -51,7 +51,7 @@ export default onResponse(selects, async e => {
         e,
         'pvp.robbery',
         { target, suggestTargets: true },
-        data => parsePVPTargetSuggestions(data, parseBackendRobbery),
+        data => parseTargetSuggestions(data, parseBackendRobbery),
         next,
         sendFailure
       );
@@ -65,11 +65,11 @@ export default onResponse(selects, async e => {
       return;
     }
     if (response.data.mode === 'suggestions') {
-      await message.send(pvpTargetSuggestionsBubble(e, '打劫', response.data.ids, response.data.reason));
+      await message.send(targetSuggestionsBubble(e, '打劫', response.data.ids, response.data.reason));
 
       return;
     }
-    const result = response.data.battle;
+    const result = response.data.result;
     const pk = parsePKReceipt(result);
     const won = pk?.won ?? result.winner === 'A';
     // 战斗完成，展示结果

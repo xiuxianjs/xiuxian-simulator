@@ -38,7 +38,14 @@ export default onResponse(selects, async e => {
   const mentioned = isCommand && !isPureNumber ? await mention.findOne() : null;
   const page = args[0] && /^\d+$/.test(args[0]) ? parseInt(args[0], 10) || 1 : 1;
   const input = isCommand
-    ? { mode: 'command', target: first, targetBid: mentioned?.data?.UserId ?? undefined, oathIndex, fallbackPage: isPureNumber ? Number(first) || 1 : 1 }
+    ? {
+        mode: 'command',
+        suggestTargets: true,
+        target: first,
+        targetBid: mentioned?.data?.UserId ?? undefined,
+        oathIndex,
+        fallbackPage: isPureNumber ? Number(first) || 1 : 1
+      }
     : { mode: 'friends', page: String(page) };
   const response = await runRobotBusiness(e, 'companion.propose', input, parseRobotCompanionPropose, next, async reply => {
     const md = Format.createMarkdown().addText(reply.text);

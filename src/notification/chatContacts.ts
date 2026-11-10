@@ -241,15 +241,16 @@ export const cachedChatContacts = () => observer.snapshot();
 export const resetChatContactObserver = async () => {
   await observer.dispose();
   const config = getBackendConfig();
-  const directory = config.channelMode
-    ? resolve(
-        'data/robot-chat-outbox',
-        `channel-${createHash('sha256')
-          .update(JSON.stringify([config.url, config.channelBotId]))
-          .digest('hex')
-          .slice(0, 24)}`
-      )
-    : resolve('data/robot-chat-outbox');
+  const directory =
+    config.channelMode || config.scope !== config.url
+      ? resolve(
+          'data/robot-chat-outbox',
+          `${config.channelMode ? 'channel' : 'backend'}-${createHash('sha256')
+            .update(JSON.stringify([config.scope, config.channelBotId]))
+            .digest('hex')
+            .slice(0, 24)}`
+        )
+      : resolve('data/robot-chat-outbox');
 
   observer = new ChatContactObserver(undefined, Date.now, directory);
   observer.start();

@@ -105,7 +105,7 @@ export const startNotificationStream = (): void => {
         let response: Response;
 
         try {
-          response = await fetch(`${config.url}/api/v1/internal/notification-relay/events/stream`, {
+          response = await fetch(`${config.url}${config.apiBase}/v1/internal/notification-relay/events/stream`, {
             headers: { ...config.headers, Accept: 'text/event-stream' },
             cache: 'no-store',
             ...(config.channelMode ? { redirect: 'error' } : {}),
@@ -119,7 +119,7 @@ export const startNotificationStream = (): void => {
           const data = response.headers.get('content-type')?.includes('application/json') ? await response.json().catch(() => undefined) : undefined;
 
           void response.body?.cancel();
-          throw notificationResponseError('/api/v1/internal/notification-relay/events/stream', {
+          throw notificationResponseError(`${config.apiBase}/v1/internal/notification-relay/events/stream`, {
             response: {
               status: response.status,
               data,

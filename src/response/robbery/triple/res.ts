@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parsePKReceipt } from '@src/api/bot/pk-receipt';
@@ -7,7 +8,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import { sendBattleResult } from '@src/utils/battleMemoryMessage';
 import { formatGameTime } from '@src/utils/gameTime';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { createQuoteMarkdown, type GuiButton } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 import { resolveRobotTarget } from '@src/utils/targetUid';
 import { useMessage } from '@src/utils/useMessage';
@@ -21,16 +22,8 @@ export default onResponse(selects, async e => {
   const receipts: ReturnType<typeof parseBackendRobbery>[] = [];
   let stopped = '';
   let stopButtons: GuiButton[] = [];
-  const sendText = async (text: string) => {
-    await message.send(FormatGui({ isPrivate, bid: e.UserId, title: '三连打劫', content: Format.createMarkdown().addText(text) }));
-  };
   const target = await resolveRobotTarget(e.MessageText, mention);
 
-  if (!target) {
-    await sendText('请正确输入指令，示例：/三连打劫 UID 或 /三连打劫 @目标');
-
-    return;
-  }
   for (let index = 1; index <= 3; index++) {
     // Keep the original platform identity; each fight replays independently.
     const request = createBackendRequestContext(e, `pvp.robbery.triple.${index}`);
@@ -43,8 +36,8 @@ export default onResponse(selects, async e => {
       const response = await runRobotBusiness(
         e,
         'pvp.robbery',
-        { target },
-        parseBackendRobbery,
+        { target, ...(index === 1 ? { suggestTargets: true } : {}) },
+        value => parseTargetSuggestions(value, parseBackendRobbery),
         next,
         reply => {
           stopped = reply.text;
@@ -59,8 +52,13 @@ export default onResponse(selects, async e => {
         stopped ||= '本次未继续执行，请查看服务端提示。';
         break;
       }
-      receipts.push(response.data);
-      if (response.data.remaining === 0 && index < 3) {
+      if (response.data.mode === 'suggestions') {
+        await message.send(targetSuggestionsBubble(e, '三连打劫', response.data.ids, response.data.reason));
+
+        return;
+      }
+      receipts.push(response.data.result);
+      if (response.data.result.remaining === 0 && index < 3) {
         stopped = '今日打劫次数已用完。';
         break;
       }
@@ -103,7 +101,9 @@ export default onResponse(selects, async e => {
     const experience = result.normalExperienceGained ?? result.experience;
     const koiNote = fishingBlessingNote(result.bonusText);
 
-    if (!won && koiNote) { lines.push('其中：' + koiNote); }
+    if (!won && koiNote) {
+      lines.push('其中：' + koiNote);
+    }
 
     if (result.normalExperienceGained !== undefined || experience > 0) {
       lines.push(`修为 +${experience}`);

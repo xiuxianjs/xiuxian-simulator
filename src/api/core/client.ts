@@ -4,10 +4,54 @@ import { operationDefinitions, type OperationId, type Operations } from '../regi
 import type { ClientOptions, Identity, RequestArguments } from './types';
 import type { RuntimeDefinition } from './runtime';
 import { SDKError } from './error';
-import { fail, headerValue, isRecord, isParameterRecord, isValidTimeout, parameterScalar, protectedHeaders, redact, validateParameter } from './helpers';
+import {
+  DEFAULT_API_BASE,
+  isValidApiBase,
+  fail,
+  headerValue,
+  isRecord,
+  isParameterRecord,
+  isValidTimeout,
+  parameterScalar,
+  protectedHeaders,
+  redact,
+  validateParameter
+} from './helpers';
+
+const QUERY_RETRY_DELAY_MS = 6_000;
+const transientQueryStatuses = new Set([502, 503, 504]);
+const transientConnectionCodes = new Set([
+  'ERR_NETWORK',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ENETUNREACH',
+  'EHOSTUNREACH'
+]);
+
+function waitForQueryRetry(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    return Promise.resolve();
+  }
+
+  return new Promise(resolve => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, QUERY_RETRY_DELAY_MS);
+
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
 
 export class APIClient {
   private readonly origin: string;
+  private readonly apiBase: string;
   private readonly identity: Identity;
   private readonly http: AxiosInstance;
   private readonly timeoutMs: number;
@@ -25,7 +69,13 @@ export class APIClient {
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
       fail('baseUrl must be an HTTP(S) origin without credentials, path, query or fragment');
     }
+    const apiBase = options.apiBase ?? DEFAULT_API_BASE;
+
+    if (!isValidApiBase(apiBase)) {
+      fail('apiBase must be a single URL path segment such as /api or /channel-api');
+    }
     this.origin = url.origin;
+    this.apiBase = apiBase;
     this.onTiming = options.onTiming;
     this.onPresentation = options.onPresentation;
     this.identity = { ...(options.identity ?? { kind: 'public' }) };
@@ -86,6 +136,10 @@ export class APIClient {
         fail('Unknown operation', requestId);
       }
       const definition: RuntimeDefinition = operationDefinitions[operationId];
+
+      if (!definition.path.startsWith('/api/')) {
+        fail('SDK operations must use the /api/ prefix', requestId);
+      }
 
       for (const [kind, value, parameters] of [
         ['path', options.path, definition.pathParams],
@@ -180,7 +234,11 @@ export class APIClient {
         }
         path = path.replace(`{${parameter.name}}`, encodeURIComponent(String(value)));
       }
-      const url = new URL(path, this.origin);
+      const url = new URL(this.apiBase + path.slice(DEFAULT_API_BASE.length), this.origin);
+
+      if (!url.pathname.startsWith(this.apiBase + '/')) {
+        fail('Request path is outside apiBase', requestId);
+      }
 
       for (const parameter of definition.queryParams) {
         const value = options.query?.[parameter.name];
@@ -260,26 +318,48 @@ export class APIClient {
       if (options.signal?.aborted) {
         controller.abort();
       }
-      const timer = setTimeout(() => {
-        if (!controller.signal.aborted) {
-          timedOut = true;
-          controller.abort();
-        }
-      }, timeoutMs);
-
-      try {
+      const send = async () => {
         if (controller.signal.aborted) {
           throw new SDKError('Request aborted', { code: 'SDK_ABORTED', requestId });
         }
+        const timer = setTimeout(() => {
+          if (!controller.signal.aborted) {
+            timedOut = true;
+            controller.abort();
+          }
+        }, timeoutMs);
+
+        try {
+          return await this.http.request<string>({
+            url: url.toString(),
+            method: definition.method,
+            headers: Object.fromEntries(headers.entries()),
+            data: body,
+            signal: controller.signal,
+            transformRequest: [(value: unknown) => value]
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      };
+
+      try {
         nextStage('api.http.wait');
-        const response = await this.http.request<string>({
-          url: url.toString(),
-          method: definition.method,
-          headers: Object.fromEntries(headers.entries()),
-          data: body,
-          signal: controller.signal,
-          transformRequest: [(value: unknown) => value]
-        });
+        const isQuery = definition.method === 'GET';
+        let response;
+
+        try {
+          response = await send();
+        } catch (error) {
+          if (!isQuery || controller.signal.aborted || !axios.isAxiosError(error) || !transientConnectionCodes.has(error.code ?? '')) {
+            throw error;
+          }
+        }
+
+        if (!response || (isQuery && transientQueryStatuses.has(response.status))) {
+          await waitForQueryRetry(controller.signal);
+          response = await send();
+        }
 
         nextStage('api.sdk.response');
         const ok = response.status >= 200 && response.status < 300;
@@ -368,7 +448,6 @@ export class APIClient {
           requestId
         });
       } finally {
-        clearTimeout(timer);
         options.signal?.removeEventListener('abort', onAbort);
       }
     } finally {

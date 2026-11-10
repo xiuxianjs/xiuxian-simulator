@@ -27,7 +27,7 @@ async function post<T>(path: string, data: unknown): Promise<T> {
   if (!config.url || (!channel && !config.workerToken)) {
     throw new Error('消息管理 API 未配置');
   }
-  const endpoint = `/chat/internal/${path}`;
+  const endpoint = `${config.apiBase}/v1/internal/chat/${path}`;
   const headers = channel ? { Authorization: `Bearer ${config.robotAuthToken}` } : { 'X-Worker-Token': config.workerToken };
   const context = notificationRequestContext(config.timeoutMs);
 

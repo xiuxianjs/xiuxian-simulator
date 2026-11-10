@@ -591,12 +591,12 @@ export async function requestRobotBusiness<T>(
 
   // A native group can also carry a private reply address. Keep that
   // address while using only the native group ID for candidate ordering.
-  const suggestsPVPTargets = (operation === 'pvp.robbery' || operation === 'pvp.spar') && args.suggestTargets === true;
+  const suggestsTargets = args.suggestTargets === true;
 
-  if (suggestsPVPTargets) {
+  if (suggestsTargets) {
     delete input.channelId;
   }
-  if (event.Target?.scope === 'group' && (suggestsPVPTargets || operation === 'daily-fortune.claim')) {
+  if (event.Target?.scope === 'group' && (suggestsTargets || operation === 'daily-fortune.claim')) {
     input.channelId = event.Target.targetId;
   }
   const parameters = {

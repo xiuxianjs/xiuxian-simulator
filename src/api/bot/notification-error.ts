@@ -30,10 +30,11 @@ export function notificationResponseError(path: string, error: HTTPFailure, cont
   const status = error.response?.status;
   // Older chat mounts only accept Worker credentials and return this exact
   // plain-text error. A valid BOT_TOKEN on the game API cannot upgrade that mount.
-  const legacyChannelChat = config.channelMode && path.startsWith('/chat/internal/') && status === 401 && typeof data === 'string' && data.trim() === '未授权';
+  const legacyChannelChat =
+    config.channelMode && path.startsWith(`${config.apiBase}/v1/internal/chat/`) && status === 401 && typeof data === 'string' && data.trim() === '未授权';
   const code = legacyChannelChat ? 'CHANNEL_CHAT_AUTH_MISMATCH' : redact(detail.code ?? error.code, 80);
   const message = legacyChannelChat
-    ? '聊天接口仍返回 Worker 鉴权格式，请核对渠道游戏 API 版本、GAME_MODE=channel 和 /chat/ 代理目标'
+    ? '聊天接口仍返回 Worker 鉴权格式，请核对渠道游戏 API 版本、GAME_MODE=channel 和聊天接口的代理目标'
     : redact(detail.message ?? envelope.error);
   const requestId = redact(detail.requestId ?? envelope.requestId ?? error.response?.headers?.['x-request-id'], 128) || redact(context?.requestId, 128);
   const elapsedMs = context ? Math.max(0, Math.round(performance.now() - context.startedAt)) : undefined;

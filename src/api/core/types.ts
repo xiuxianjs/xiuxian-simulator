@@ -6,6 +6,8 @@ export type Identity = { kind: 'public' } | { kind: 'user'; token: string } | { 
 export interface ClientOptions {
   /** Server origin, without /api/v1 (paths already contain their server prefix). */
   baseUrl: string;
+  /** Replaces the canonical /api prefix on outgoing requests. Defaults to /api. */
+  apiBase?: string;
   identity?: Identity;
   /** Optional transport adapter for tests or custom runtimes. */
   adapter?: AxiosAdapter;

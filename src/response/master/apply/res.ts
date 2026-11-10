@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
@@ -39,8 +40,8 @@ export default onResponse(selects, async e => {
     const result = await runRobotBusiness(
       e,
       'master.apply',
-      { targetArg: parseApplyMasterCommand(e.MessageText || '') ?? '', ...(targetBid ? { targetBid } : {}) },
-      value => parseMasterTargetAction(value, '拜师'),
+      { suggestTargets: true, targetArg: parseApplyMasterCommand(e.MessageText || '') ?? '', ...(targetBid ? { targetBid } : {}) },
+      value => parseTargetSuggestions(value, raw => parseMasterTargetAction(raw, '拜师')),
       next,
       adviceRenderer(reply => send(reply.text, false, reply.advice, reply.buttons))
     );
@@ -48,12 +49,17 @@ export default onResponse(selects, async e => {
     if (result.handled) {
       return;
     }
-    if (result.data.outcome === 'usage') {
+    if (result.data.mode === 'suggestions') {
+      await message.send(targetSuggestionsBubble(e, '拜师', result.data.ids, result.data.reason));
+
+      return;
+    }
+    if (result.data.result.outcome === 'usage') {
       await send('使用方法：拜师 <师父UID|@目标>', true);
 
       return;
     }
-    await send(result.data.message);
+    await send(result.data.result.message);
   } catch (error) {
     await send(error instanceof Error ? error.message : '拜师申请失败');
   }

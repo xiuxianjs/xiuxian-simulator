@@ -35,9 +35,9 @@ for (const privateChat of [true, false]) {
     const result = await app.runHandler(triple, event);
     assert.equal(requests.length, 3);
     assert.equal(new Set(requests.map(r => r.idempotencyKey)).size, 3);
-    for (const r of requests) {
+    for (const [index, r] of requests.entries()) {
       assert.equal(r.path, '/api/v2/robot/business/pvp.robbery');
-      assert.deepEqual(r.body.arguments, { target: { uid: 2 } });
+      assert.deepEqual(r.body.arguments, { target: { uid: 2 }, ...(index === 0 ? { suggestTargets: true } : {}) });
       assert.equal(r.body.messageText, '/三连打劫 2');
       assert.ok(r.idempotencyKey);
     }
@@ -107,16 +107,18 @@ test('第二场回执损坏时不重试或继续，不把未知结算说成失�
   assert.ok(view.commands.includes('/打劫记录'));
 });
 
-test('缺少目标不写入，缺少真实消息标识不写入', async t => {
-  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, receipt(1)));
+test('缺少目标仅查候选，缺少真实消息标识不发请求', async t => {
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, { targetSuggestions: [2] }));
   app.actions.on('mention.get', () => [createResult(ResultCode.Ok, 'No mentions', [])]);
   const missingTarget = assertSent(await app.runHandler(triple, app.events.privateMessage({ text: '/三连打劫', platform: 'qq-bot' })));
-  assert.match(missingTarget.text, /三连打劫 UID/);
+  assert.match(missingTarget.text, /附近的修士/);
+  assert.ok(missingTarget.commands.includes('/三连打劫 2'));
   const event = app.events.privateMessage({ text: '/三连打劫 2', platform: 'qq-bot' });
   Object.assign(event, { MessageId: '', InteractionId: '' });
   const missingId = assertSent(await app.runHandler(triple, event));
   assert.match(missingId.text, /消息缺少有效标识/);
-  assert.equal(requests.length, 0);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body.arguments, { target: null, suggestTargets: true });
 });
 
 test('可打劫道友入口提供三连按钮，剩一次时也可按实际次数执行', async t => {
@@ -132,7 +134,7 @@ test('@目标仅解析一次并在三场中复用平台身份，不预查玩家�
   assertSent(result);
   assert.equal(requests.length, 3);
   assert.equal(result.actions.filter(a => a.name === 'mention.get').length, 1);
-  for (const r of requests) assert.deepEqual(r.body.arguments, { target: { bid: 'target-bid' } });
+  for (const [index, r] of requests.entries()) assert.deepEqual(r.body.arguments, { target: { bid: 'target-bid' }, ...(index === 0 ? { suggestTargets: true } : {}) });
 });
 
 test('交互按钮以真实交互标识生成三个不同幂等键', async t => {

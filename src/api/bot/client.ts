@@ -90,6 +90,7 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
     }
     const buildClient = () => createClient({
         baseUrl: config.url,
+        apiBase: config.apiBase,
         onTiming: isDetailedTimingEvent(event) ? (stage, start, end, outcome) => recordTransportStage(stage, start, end, outcome, event) : undefined,
         connectionPools: backendConnectionPools,
         onPresentation: value => receiveRepeatPresentation(event, normalizedBid, actorUid, value),

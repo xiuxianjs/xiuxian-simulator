@@ -72,12 +72,20 @@ test('仅开放队伍飞信时，未读入口直接进入队伍，避免落到�
   assert.ok(!view.commands.includes('/飞信'));
 });
 
-for (const guildName of ['青云宗', null, undefined]) {
-  test(`资料页显示宗门且只请求一次主页：${String(guildName)}`, async t => {
+for (const { guildName, guildId, privateChat, canJoin } of [
+  { guildName: '青云宗', guildId: 10, privateChat: false, canJoin: true },
+  { guildName: '青云宗', guildId: 10, privateChat: true, canJoin: false },
+  { guildName: '青云宗', guildId: undefined, privateChat: false, canJoin: false },
+  { guildName: '青云宗', guildId: '占位输入', privateChat: false, canJoin: false },
+  { guildName: null, guildId: undefined, privateChat: false, canJoin: false },
+  { guildName: undefined, guildId: undefined, privateChat: false, canJoin: false }
+]) {
+  test(`资料宗门入口校验数字编号和会话：${String(guildName)} / ${String(guildId)} / 私聊=${privateChat}`, async t => {
     const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, {
-      profile, guildName, notifications: [], atmosphere: { text: null, kind: 'none' }
+      profile, guildName, guildId, notifications: [], atmosphere: { text: null, kind: 'none' }
     }));
-    const result = await app.runHandler(handler, app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' }));
+    const input = { text: '/我的资料', platform: 'qq-bot' };
+    const result = await app.runHandler(handler, privateChat ? app.events.privateMessage(input) : app.events.groupMessage(input));
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
@@ -86,6 +94,19 @@ for (const guildName of ['青云宗', null, undefined]) {
       assert.doesNotMatch(view.text, /宗门：/);
     } else {
       assert.ok(view.text.includes(`宗门：${guildName ?? '无'}`));
+    }
+    const markdown = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+    const guildLine = markdown.findIndex(node => node.type === 'MD.text' && node.value.startsWith('宗门：'));
+    const joinIndex = markdown.findIndex(node => node.type === 'MD.button' && node.options?.data?.startsWith('/加入宗门'));
+    if (canJoin) {
+      assert.ok(joinIndex > guildLine && guildLine >= 0);
+      assert.ok(!markdown.slice(guildLine + 1, joinIndex).some(node => node.type === 'MD.newline'));
+      const button = markdown[joinIndex];
+      assert.ok(button.type === 'MD.button');
+      assert.equal(button.options?.data, '/加入宗门 10');
+      assert.equal(button.options?.autoEnter, false);
+    } else {
+      assert.equal(joinIndex, -1);
     }
     assert.equal(requests.length, 1);
     assert.equal(requests[0].path, '/api/v2/robot/home-overview');
@@ -157,10 +178,16 @@ for (const privateChat of [false, true]) {
       assert.equal(result.messages.length, 1);
       assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
       const view = inspectMessage(result.messages[0].nodes);
-      const signatureNode = result.messages[0].nodes
-        .flatMap(node => node.type === 'Markdown' ? node.value : [])
-        .find(node => node.type === 'MD.text' && node.value === signature);
-      assert.equal(Boolean(signatureNode), privateChat && Boolean(signature.trim()));
+      const markdownNodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+      const signatureQuotes = markdownNodes.filter(node => node.type === 'MD.blockquote' && Array.isArray(node.value) &&
+        node.value.some(child => child.type === 'MD.text' && child.value === signature));
+      assert.equal(signatureQuotes.length, signature.trim() ? 1 : 0);
+      const powerIndex = markdownNodes.findIndex(node => node.type === 'MD.text' && node.value.startsWith('战力：'));
+      assert.ok(powerIndex > 1);
+      assert.equal(markdownNodes[powerIndex - 1].type, signature.trim() ? 'MD.blockquote' : 'MD.newline');
+      if (!signature.trim()) assert.notEqual(markdownNodes[powerIndex - 2].type, 'MD.newline');
+      assert.equal(markdownNodes.filter(node => node.type === 'MD.blockquote').length, signature.trim() ? 1 : 0);
+      assert.ok(!markdownNodes.some(node => node.type === 'MD.text' && node.value === signature));
       assert.doesNotMatch(view.text, /(?:个性|个人)签名：|上限：50字|保存前需通过 AI 审核/);
       const editButton = result.messages[0].nodes
         .flatMap(node => node.type === 'Markdown' ? node.value : [])

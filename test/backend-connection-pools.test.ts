@@ -36,6 +36,28 @@ test('shared socket pools reuse connections while concurrent clients keep separa
   }
 });
 
+test('SDK replaces the API prefix on the same origin and rejects non-API operations before transport', async () => {
+  const urls: string[] = [];
+  for (const apiBase of [undefined, '/channel-api']) {
+    const client = createClient({
+      baseUrl: 'https://backend.test',
+      apiBase,
+      identity: { kind: 'robot', bid: 'test-bid', token: 'test-token' },
+      adapter: async config => {
+        urls.push(config.url ?? '');
+        return { status: 200, statusText: 'OK', data: '{"data":{"found":true}}', headers: {}, config };
+      }
+    });
+    await client.request('getRobotIdentity');
+    await assert.rejects(client.request('get_healthz'), /SDK operations must use the \/api\/ prefix/);
+  }
+  assert.deepEqual(urls, [
+    'https://backend.test/api/v1/robot/identity',
+    'https://backend.test/channel-api/v1/robot/identity'
+  ]);
+  assert.throws(() => createClient({ baseUrl: 'https://backend.test', apiBase: '//other.test' }), /apiBase/);
+});
+
 test('HTTP and HTTPS pools are distinct and TLS verification remains enabled', () => {
   assert.notEqual(backendConnectionPools.httpAgent, backendConnectionPools.httpsAgent);
   assert.equal((backendConnectionPools.httpAgent as unknown as { options: { keepAlive?: boolean } }).options.keepAlive, true);

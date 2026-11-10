@@ -13,7 +13,7 @@ const entries = [
  { handler: own, op: 'cave.view', text: '/灵田', args: {} },
  { handler: logs, op: 'cave.logs', text: '/灵田记录', args: { page: '1' } },
  { handler: nearby, op: 'cave.nearby', text: '/附近灵田', args: {} },
- { handler: visit, op: 'cave.visit', text: '/查看灵田 2', args: { target: { uid: 2 } } }
+ { handler: visit, op: 'cave.visit', text: '/查看灵田 2', args: { target: { uid: 2 }, suggestTargets: true } }
 ];
 for (const entry of entries) for (const isPrivate of [false, true]) for (const wire of ['http', 'feedback', 'structured', 'malformed', 'internal']) test(`cave query ${entry.op} ${wire} private=${isPrivate}`, async t => {
  const { app, requests } = await gameFixture(t, request => wire === 'http' ? { code: 'CONFLICT', message: '原查询拒绝' } : wire === 'internal' ? { code: 'INTERNAL', message: 'private query SQL' } : businessEnvelope(request.bid, wire === 'malformed' ? {} : undefined, wire === 'malformed' ? [] : [{ title: '原标题', heading: '原抬头', text: '原查询拒绝', quote: '原引用', blocks: [{ text: '原说明', quoted: true, inlineButtons: [{ label: '原内联', command: '/丹方' }] }], buttons: [{ label: '原返回', command: '/我的境界' }], advice: wire === 'structured' ? [{ command: '/我的信息', description: '原服务建议' }] : [] }]), wire === 'http' ? 409 : wire === 'internal' ? 500 : 200);

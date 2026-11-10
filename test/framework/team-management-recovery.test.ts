@@ -92,8 +92,8 @@ for (const entry of [
     const args = requests[0].body.arguments;
     const selector = target === '2' ? { targetUid: '2' } : { targetBid: 'target-bid' };
     assert.deepEqual(args, entry.handler === invite || entry.handler === kick
-      ? { target: target === '2' ? { uid: 2 } : { bid: 'target-bid' } }
-      : { ...selector, ...(entry.handler === position ? { position: '3' } : {}) });
+      ? { suggestTargets: true, target: target === '2' ? { uid: 2 } : { bid: 'target-bid' } }
+      : { suggestTargets: true, ...selector, ...(entry.handler === position ? { position: '3' } : {}) });
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);

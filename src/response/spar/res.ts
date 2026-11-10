@@ -1,4 +1,4 @@
-import { parsePVPTargetSuggestions, pvpTargetSuggestionsBubble } from '@src/response/pvpTargetSuggestions';
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
@@ -64,8 +64,8 @@ export default onResponse(selects, async e => {
     result = await runRobotBusiness(
       e,
       'pvp.spar',
-      { targetUid: Number.isFinite(UID) ? String(UID) : null, targetBid: targetBid ?? null, ...(batch ? { batch: true } : { suggestTargets: true }) },
-      data => parsePVPTargetSuggestions(data, parseRobotSpar),
+      { targetUid: Number.isFinite(UID) ? String(UID) : null, targetBid: targetBid ?? null, suggestTargets: true, ...(batch ? { batch: true } : {}) },
+      data => parseTargetSuggestions(data, parseRobotSpar),
       next,
       async reply => {
         await sendFailure(reply);
@@ -81,12 +81,12 @@ export default onResponse(selects, async e => {
   }
 
   if (result.data.mode === 'suggestions') {
-    await message.send(pvpTargetSuggestionsBubble(e, '比试', result.data.ids, result.data.reason));
+    await message.send(targetSuggestionsBubble(e, command, result.data.ids, result.data.reason));
 
     return;
   }
 
-  const data = result.data.battle;
+  const data = result.data.result;
 
   UID = data.targetUid;
   const mdStart = Format.createMarkdown();

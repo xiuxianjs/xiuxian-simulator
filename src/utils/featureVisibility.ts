@@ -14,7 +14,7 @@ let activated = false;
 const runtimeKey = () => {
   const config = getBackendConfig();
 
-  return { config, key: JSON.stringify([config.url, config.robotAuthToken]) };
+  return { config, key: JSON.stringify([config.url, config.apiBase, config.robotAuthToken]) };
 };
 const canonical = (value: string) => internalCommandText(value.replace(/^notAutoConfirmation:/, ''))
     .trim()
@@ -57,7 +57,7 @@ export async function startFeatureVisibility(): Promise<void> {
     if (!config.url || !config.robotAuthToken) {
       throw new Error('后端 API 未配置');
     }
-    const response = await fetch(`${config.url}/api/v1/content/tianshu`, {
+    const response = await fetch(`${config.url}${config.apiBase}/v1/content/tianshu`, {
       headers: { Authorization: `Bearer ${config.robotAuthToken}` },
       signal: AbortSignal.timeout(config.timeoutMs)
     });
@@ -82,13 +82,11 @@ export async function startFeatureVisibility(): Promise<void> {
 
 function featureFor(command: string, policy: Policy): string | undefined {
   const text = canonical(command);
-  const fishInventory = ['储物袋 渔获', '物品详情 渔获', '锁定 渔获', '解锁 渔获', '出售 渔获']
-    .find(alias => text === alias || text.startsWith(alias + ' '));
+  const fishInventory = ['储物袋 渔获', '物品详情 渔获', '锁定 渔获', '解锁 渔获', '出售 渔获'].find(alias => text === alias || text.startsWith(alias + ' '));
 
   if (fishInventory) {
     // A startup catalogue from before the new alias still has the fishing gate.
-    return policy.commands.find(([alias]) => alias === fishInventory)?.[1] ??
-      policy.commands.find(([alias]) => alias === '垂钓 渔获' || alias === '垂钓')?.[1];
+    return policy.commands.find(([alias]) => alias === fishInventory)?.[1] ?? policy.commands.find(([alias]) => alias === '垂钓 渔获' || alias === '垂钓')?.[1];
   }
 
   return policy.commands.find(([alias]) => text === alias || text.startsWith(alias + ' '))?.[1];

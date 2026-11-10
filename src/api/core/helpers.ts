@@ -1,6 +1,9 @@
 import type { ParameterSchema } from './runtime';
 import { SDKError } from './error';
 
+export const DEFAULT_API_BASE = '/api';
+export const isValidApiBase = (value: unknown): value is string => typeof value === 'string' && /^\/[a-zA-Z0-9_-]+$/.test(value);
+
 export function fail(message: string, requestId?: string): never {
   throw new SDKError(message, { code: 'SDK_INVALID_REQUEST', requestId });
 }

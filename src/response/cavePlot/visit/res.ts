@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
@@ -25,16 +26,16 @@ export default onResponse(selects, async e => {
     const response = await runRobotBusiness(
       e,
       'cave.visit',
-      { target },
-      value => {
-        const data = parseBackendCaveVisit(value);
+      { target, suggestTargets: true },
+      value => parseTargetSuggestions(value, raw => {
+          const data = parseBackendCaveVisit(raw);
 
-        if (target && 'uid' in target && data.ownerUid !== target.uid) {
-          throw new Error('访问回执目标不匹配');
-        }
+          if (target && 'uid' in target && data.ownerUid !== target.uid) {
+            throw new Error('访问回执目标不匹配');
+          }
 
-        return data;
-      },
+          return data;
+        }),
       next,
       failure
     );
@@ -42,7 +43,12 @@ export default onResponse(selects, async e => {
     if (response.handled) {
       return;
     }
-    const overview = response.data;
+    if (response.data.mode === 'suggestions') {
+      await message.send(targetSuggestionsBubble(e, '查看灵田', response.data.ids, response.data.reason));
+
+      return;
+    }
+    const overview = response.data.result;
     const footer = [
       { label: '查看信息', command: `/查看信息 ${overview.ownerUid}` },
       { label: '返回灵田', command: '/我的灵田' }

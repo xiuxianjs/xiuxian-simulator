@@ -16,13 +16,12 @@ function cacheClient() {
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
 
-  return { client, context };
+  return { client, context, apiBase: config.apiBase };
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const endpoint = `/api/v1/internal/notification-relay/cache${path}`;
-
-  const { client, context } = cacheClient();
+  const { client, context, apiBase } = cacheClient();
+  const endpoint = `${apiBase}/v1/internal/notification-relay/cache${path}`;
 
   try {
     const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });

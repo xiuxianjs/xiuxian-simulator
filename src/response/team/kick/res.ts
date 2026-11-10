@@ -1,3 +1,4 @@
+import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 踢出队员
@@ -17,24 +18,29 @@ export default onResponse(selects, async e => {
   const [mention] = useMention();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
-  const regex = /^(!|！|\/|#|＃)?队伍踢出\s+(.+)$/;
   const messageText = e.MessageText || '';
-  const match = messageText.match(regex);
-
-  if (!match) {
-    return;
-  }
   const targetUid = await resolveRobotTarget(messageText, mention);
 
   let data;
 
   try {
-    const result = await runRobotBusiness(e, 'teams.kick', targetUid ? { target: targetUid } : {}, value => parseTeamTargetMutation(value, false), next);
+    const result = await runRobotBusiness(
+      e,
+      'teams.kick',
+      { target: targetUid, suggestTargets: true },
+      value => parseTargetSuggestions(value, raw => parseTeamTargetMutation(raw, false)),
+      next
+    );
 
     if (result.handled) {
       return;
     }
-    data = result.data;
+    if (result.data.mode === 'suggestions') {
+      await message.send(targetSuggestionsBubble(e, '队伍踢出', result.data.ids, result.data.reason));
+
+      return;
+    }
+    data = result.data.result;
   } catch (error) {
     const md = Format.createMarkdown();
 
