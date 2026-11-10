@@ -247,7 +247,7 @@ export default onResponse(selects, async e => {
     }
 
     if (!showAlchemy && !showHerbalist) {
-      md.addText('当前尚未开放职业，可查阅天书了解解锁条件。').addNewline();
+      md.addText('说明：可在阵法师页面免费入门；其他职业的开放条件可查阅天书。').addNewline();
     }
 
     {
@@ -273,6 +273,7 @@ export default onResponse(selects, async e => {
             isPrivate,
             bid,
             title: '我的职业',
+            header: [{ label: '阵法师', command: '/阵法师', autoEnter: false }],
             content: md,
             footer: footerButtons
           })

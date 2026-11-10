@@ -615,6 +615,7 @@ export function createGameRouter() {
     // xiuxian.use('黑盒详情', () => import('@src/response/blackBox/room/res'));
     // xiuxian.use('黑盒出价', () => import('@src/response/blackBox/preview/res'));
     xiuxian.use(['宝物', '上古遗珍', '灵脉租契', '确认宝物', '确认礼包'], () => import('@src/response/treasures/res'));
+    xiuxian.use(['灵墟洞天', '阵法师'], () => import('@src/response/lingxu/res'));
     xiuxian.use(
       ['垂钓', '储物袋 渔获', '物品详情 渔获', '锁定 渔获', '解锁 渔获', '出售 渔获', '渔获', '钓具', '渔市'],
       () => import('@src/response/fishing/res')

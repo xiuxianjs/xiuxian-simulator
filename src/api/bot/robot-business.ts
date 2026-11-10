@@ -19,6 +19,7 @@ export type RobotBusinessResult<T = unknown> =
   | ({ success: true; branch: 'business'; middleware: RobotMiddlewareResult; data: T } & RobotBusinessFollowup);
 
 export type RobotBusinessOperation =
+  | 'lingxu.command'
   | 'fishing.query'
   | 'fishing.contest-claim'
   | 'fishing.daily-supply'

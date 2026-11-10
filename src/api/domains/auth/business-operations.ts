@@ -1,5 +1,6 @@
 // Shared v1/v2 server registry, synchronized with Go OpenAPI.
 const robotBusinessOperations = [
+  'lingxu.command',
   'fishing.query',
   'fishing.contest-claim',
   'fishing.daily-supply',
