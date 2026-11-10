@@ -35,17 +35,20 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     return words.length === 2 && validLingxuReference(arg) ? { readOnly: false, confirmationCommand: `/${match[1]} 确认 ${arg}` } : error;
   }
   if (match[1] === '阵法师') {
-    if (words.length === 1 && ['图谱', '入门', '卸下'].includes(action)) {
-      return action === '图谱' ? read : write;
+    if (words.length === 1 && ['图谱', '入门', '卸下', '终止预览'].includes(action)) {
+      return action === '入门' ? write : read;
     }
     if (action === '阵盘' && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {
       return read;
     }
-    if (action === '制盘预览' && words.length === 2 && /^(daoyun|shenxing|guixu)$/.test(arg)) {
+    if (['制盘预览', '路线'].includes(action) && words.length === 2 && /^(daoyun|shenxing|guixu)$/.test(arg)) {
       return read;
     }
-    if (action === '装备' && words.length === 2 && shortID.test(arg)) {
-      return write;
+    if (['装备', '激活预览'].includes(action) && words.length === 2 && shortID.test(arg)) {
+      return read;
+    }
+    if (action === '升级预览' && shortID.test(arg ?? '') && (words.length === 2 || (words.length === 3 && value === '最高'))) {
+      return read;
     }
 
     return error;

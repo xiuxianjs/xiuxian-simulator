@@ -143,8 +143,8 @@ test('a maximum legal short ref, holding and UID fit the complete 80-character b
 });
 
 test('all MVP fixed options have explicit read/write classification', () => {
-  const read = ['/灵墟洞天 入场', '/灵墟洞天 倾向', '/灵墟洞天 对人 123', '/灵墟洞天 返程设置', '/灵墟洞天 保护 lot_1', '/灵墟洞天 扩容预览', '/灵墟洞天 行囊升级', '/阵法师', '/阵法师 图谱', '/阵法师 阵盘 2', '/阵法师 制盘预览 guixu'];
-  const write = ['/灵墟洞天 倾向 行动 激进', '/灵墟洞天 倾向 对人 躲避', '/灵墟洞天 倾向 对怪 友善', '/灵墟洞天 对人 123 默认', '/灵墟洞天 返程设置 时长 60', '/灵墟洞天 返程设置 格数 40', '/灵墟洞天 返程设置 物品 herb:1', '/灵墟洞天 返程设置 关闭', '/灵墟洞天 前往 kun', '/灵墟洞天 撤离 zhen', '/灵墟洞天 隐匿', '/灵墟洞天 继续', '/灵墟洞天 保护 lot_1 1', '/阵法师 入门', '/阵法师 装备 disc_1'];
+  const read = ['/灵墟洞天 入场', '/灵墟洞天 倾向', '/灵墟洞天 对人 123', '/灵墟洞天 返程设置', '/灵墟洞天 保护 lot_1', '/灵墟洞天 扩容预览', '/灵墟洞天 行囊升级', '/阵法师', '/阵法师 图谱', '/阵法师 阵盘 2', '/阵法师 制盘预览 guixu', '/阵法师 装备 disc_1', '/阵法师 卸下', '/阵法师 终止预览'];
+  const write = ['/灵墟洞天 倾向 行动 激进', '/灵墟洞天 倾向 对人 躲避', '/灵墟洞天 倾向 对怪 友善', '/灵墟洞天 对人 123 默认', '/灵墟洞天 返程设置 时长 60', '/灵墟洞天 返程设置 格数 40', '/灵墟洞天 返程设置 物品 herb:1', '/灵墟洞天 返程设置 关闭', '/灵墟洞天 前往 kun', '/灵墟洞天 撤离 zhen', '/灵墟洞天 隐匿', '/灵墟洞天 继续', '/灵墟洞天 保护 lot_1 1', '/阵法师 入门'];
   for (const command of read) assert.deepEqual(parseLingxuCommand(command), { readOnly: true }, command);
   for (const command of write) assert.deepEqual(parseLingxuCommand(command), { readOnly: false }, command);
 });
@@ -157,7 +157,19 @@ test('seventeen-region map accepts both rings and only seven actual public exits
   assert.deepEqual(parseLingxuCommand('/灵墟洞天 前往 core'), { readOnly: false });
   for (const key of ['kan', 'zhen', 'li', 'kun', 'dui', 'gen_inner', 'qian_inner']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { readOnly: false });
   for (const key of ['core', 'kan_inner', 'zhen_inner', 'li_inner', 'kun_inner', 'dui_inner', 'xun_inner', 'gen', 'qian', 'xun']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { error: true });
-  for (const command of ['/灵墟洞天 拾取', '/阵法师 卸下']) assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
+  assert.deepEqual(parseLingxuCommand('/灵墟洞天 拾取'), { readOnly: false });
+});
+
+test('formation grades and twelve-hour activation are previews, including legacy equip and remove commands', async t => {
+  const page = { title: '阵法师 · 激活预览', privateOnly: true, sections: [{ lines: ['目标：道蕴阵盘·三品 #d1', '时效：确认后立即生效12小时，同路线刷新期限不累加，其他路线覆盖不返还。', '消耗：一件真实成品；预览尚未消耗。'], actions: [{ label: '确认激活', command: `/阵法师 确认 ${lingxuRef}` }] }], actions: [{ label: '取消', command: '/阵法师 阵盘' }] };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, page));
+  for (const command of ['/阵法师 路线 daoyun', '/阵法师 升级预览 d1', '/阵法师 升级预览 d1 最高', '/阵法师 激活预览 d1', '/阵法师 装备 d1', '/阵法师 终止预览', '/阵法师 卸下']) {
+    assert.deepEqual(parseLingxuCommand(command), { readOnly: true });
+    const view = delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
+    assert.match(view.text, /预览尚未消耗/);
+    assert.equal(requests.at(-1)?.body.messageText, command);
+    assert.deepEqual(requests.at(-1)?.body.arguments, {});
+  }
 });
 
 test('malformed pages, oversize commands, invalid navigation and action overload fail closed', async t => {
@@ -224,7 +236,7 @@ test('profession overview exposes formation profession without inventing its enr
 });
 
 test('formation market filter sends its real category and shows original effect without a fake item-detail command', async t => {
-  const item = { listingId: 51, sellerUserId: 2, sellerName: '清霜', itemCategory: 'formation_disc', itemCategoryLabel: '阵盘', itemType: null, itemSubtype: null, templateItemId: 1, itemName: '道蕴阵盘', quantity: 1, unitPriceAmount: 200, currencyCode: 'SPIRIT_CRYSTAL', currencyName: '灵晶', canPurchase: true, purchaseUnavailableReason: null, upgradeHint: '', attributeAvailable: true, attributes: null, attributeView: { attrText: '双攻+3%；洞天PvE胜利后40%追加一次本地基础掉落', hidden: false }, createdAt: '2026-11-11T09:00:00+08:00', expiresAt: null };
+  const item = { listingId: 51, sellerUserId: 2, sellerName: '清霜', itemCategory: 'formation_disc', itemCategoryLabel: '阵盘', itemType: null, itemSubtype: null, templateItemId: 14, itemName: '道蕴阵盘（四品）', quantity: 1, unitPriceAmount: 200, currencyCode: 'SPIRIT_CRYSTAL', currencyName: '灵晶', canPurchase: true, purchaseUnavailableReason: null, upgradeHint: '', attributeAvailable: true, attributes: null, attributeView: { attrText: '四品累计效果：双攻+3%；激活消耗成品，立即生效12小时', hidden: false }, createdAt: '2026-11-11T09:00:00+08:00', expiresAt: null };
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { view: 'browse', spiritsCrystal: 500, quota: { dailyLimit: 10, dailyUsed: 0, remaining: 10 }, items: [item], pagination: { currentPage: 1, totalPages: 1, total: 1 } }));
   const result = await app.runHandler(marketBrowse, app.events.privateMessage({ text: '/珍宝楼 筛选 阵盘', platform: 'qq-bot' }));
   const sent = result.messages[0];
@@ -237,11 +249,11 @@ test('formation market filter sends its real category and shows original effect 
 });
 
 test('formation market listing uses actual instance ID and the original fixed-quantity price flow', async t => {
-  const range = { minPrice: 2, maxPrice: 99999999, referencePrice: 0, source: 'fallback', credibilityReady: true, templateItemId: 1, maxListingQuantity: 1, fixedQuantity: true };
+  const range = { minPrice: 2, maxPrice: 99999999, referencePrice: 0, source: 'fallback', credibilityReady: true, templateItemId: 14, maxListingQuantity: 1, fixedQuantity: true };
   const { app, requests } = await gameFixture(t, request => {
     const args = request.body.arguments as Record<string, unknown>;
     return businessEnvelope(request.bid, args.mode === 'choose' ? { mode: 'choose' } : args.mode === 'list'
-      ? { mode: 'list', items: [{ category: 'formation_disc', userItemId: 31, templateId: 1, name: '道蕴阵盘', quantity: 1, grade: '入门', realm: '不限境界', typeName: '阵盘', config: { discKey: 'formation.disc.daoyun', effect: '双攻+3%；原洞天完整效果' }, priceRange: range, currentLowestPrice: null }], total: 1, currentPage: 1, pageSize: 10, totalPages: 1 }
+      ? { mode: 'list', items: [{ category: 'formation_disc', userItemId: 31, templateId: 14, name: '道蕴阵盘（四品）', quantity: 1, grade: '四品', realm: '不限境界', typeName: '阵盘', config: { discKey: 'formation.disc.daoyun', effect: '双攻+3%；原洞天完整效果' }, priceRange: range, currentLowestPrice: null }], total: 1, currentPage: 1, pageSize: 10, totalPages: 1 }
       : { mode: 'start', range, ...(args.firstNumber === null ? {} : { message: '上架成功：道蕴阵盘×1，单价200灵晶', listingId: 51 }) });
   });
   const run = async (text: string) => {
@@ -253,7 +265,7 @@ test('formation market listing uses actual instance ID and the original fixed-qu
   };
   assert.ok((await run('/交易上架')).commands.includes('/交易上架 阵盘'));
   const listed = await run('/交易上架 阵盘');
-  assert.match(listed.text, /道蕴阵盘 #31/);
+  assert.match(listed.text, /道蕴阵盘（四品） #31/);
   assert.ok(listed.commands.includes('/交易上架 阵盘 31'));
   assert.ok(listed.text.includes('双攻+3%；原洞天完整效果'));
   const choosePrice = await run('/交易上架 阵盘 31');

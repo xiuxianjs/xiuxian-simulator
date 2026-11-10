@@ -6,7 +6,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天',
     page: {
       title: '灵墟洞天', privateOnly: true,
-      sections: [{ lines: ['状态：探索中 · 坤·废弃坊市', '生命点：4/5 · 每60分钟恢复1点', '行动：保守 · 对人躲避 · 对怪战斗', '行囊：8/50格 · 安全格0/0', '阵盘：道蕴阵盘 · 本局已冻结', '时间：下次结算19:20'] }],
+      sections: [{ lines: ['状态：探索中 · 坤·阴·废弃坊市', '生命点：4/5 · 每60分钟恢复1点', '行动：保守 · 对人躲避 · 对怪战斗', '行囊：8/50格 · 安全格0/0', '阵效：道蕴阵盘·三品 · 剩余5小时', '时效：下一未冻结行动读取当前有效阵效，已冻结行动保持原快照。', '时间：下次结算19:20'] }],
       actions: [{ label: '倾向', command: '/灵墟洞天 倾向' }, { label: '地图', command: '/灵墟洞天 地图' }, { label: '行囊', command: '/灵墟洞天 行囊' }, { label: '阵法师', command: '/阵法师' }, { label: '行记', command: '/灵墟洞天 行记' }, { label: '返程', command: '/灵墟洞天 返程' }]
     },
     expected: ['生命点：4/5', '下次结算19:20']
@@ -44,10 +44,10 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/阵法师 制盘预览 shenxing',
     page: {
       title: '阵法师 · 制盘确认', privateOnly: true,
-      sections: [{ title: '目标', lines: ['物品：神行阵盘×1', '效果：命中+3个百分点；洞天行路搜获按阵盘说明生效。'] }, { title: '代价', lines: ['材料：青岚灵芽×4、断碑晶砂×2、古藏残章×1', '范围：只扣已带出的永久可用库存', '时效：确认引用24小时内有效，原预览变化则整单失败。'], actions: [{ label: '确认制作', command: `/阵法师 确认 ${lingxuRef}` }] }],
+      sections: [{ title: '目标', lines: ['物品：神行阵盘·无品×1', '效果：命中+3个百分点。', '职业经验：基础+10，成功后自动结算晋级。'] }, { title: '代价', lines: ['材料：青岚灵芽×3、断碑晶砂×1', '灵晶：10', '范围：只扣已带出的永久可用库存', '时效：确认引用24小时内有效，原预览变化则整单失败。'], actions: [{ label: '确认制作', command: `/阵法师 确认 ${lingxuRef}` }] }],
       actions: [{ label: '取消', command: '/阵法师 图谱' }]
     },
-    expected: ['青岚灵芽×4', '只扣已带出的永久可用库存']
+    expected: ['青岚灵芽×3', '只扣已带出的永久可用库存']
   },
   {
     command: '/灵墟洞天 扩容预览 最高',
