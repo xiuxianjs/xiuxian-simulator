@@ -5,6 +5,8 @@ import { isPrivateEvent } from './privateEvent';
 /** 消息发送辅助工具：统一处理文本、分页和按钮。 */
 import { Format, FormatMarkDown, getCurrentEvent, type DataEnums } from 'alemonjs';
 
+export type InlineLinkResolver = (command: string) => string | undefined;
+
 /**
  * 仅限qq-bot使用
  * @param md
@@ -16,10 +18,17 @@ export const addOptions = (
     label: string;
     command: string;
     autoEnter?: boolean;
-  }[]
+  }[],
+  resolveLink?: InlineLinkResolver
 ) => {
   for (const btn of buttons) {
     md.addText(' ');
+    const link = resolveLink?.(btn.command);
+
+    if (link) {
+      md.addLink(markdownButtonLabel(btn.label), link);
+      continue;
+    }
     md.addButton(markdownButtonLabel(`${btn.label}`), { data: commandText(btn.command), ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
   }
   md.addNewline();
@@ -37,7 +46,8 @@ export const createQuoteMarkdown = (
     label: string;
     command: string;
     autoEnter?: boolean;
-  }[] = []
+  }[] = [],
+  resolveLink?: InlineLinkResolver
 ): FormatMarkDown => {
   const quoteMd = Format.createMarkdown();
 
@@ -49,7 +59,7 @@ export const createQuoteMarkdown = (
   });
 
   if (buttons.length > 0) {
-    addOptions(quoteMd, buttons);
+    addOptions(quoteMd, buttons, resolveLink);
   }
 
   return quoteMd;

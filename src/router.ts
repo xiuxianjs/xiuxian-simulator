@@ -348,6 +348,7 @@ export function createGameRouter() {
       () => import('@src/response/soulPath/switch/res')
     );
     xiuxian.use(['个人活动', '我的活动', '活动大厅', '宗门活动'], () => import('@src/response/activity/res'));
+    xiuxian.use(['我的奇遇', '奇遇选择'], () => import('@src/response/onlineEncounter/res'));
     xiuxian.use(['查看秘境', '秘境列表'], () => import('@src/response/dungeon/list/res'));
     xiuxian.use('秘境详情', () => import('@src/response/dungeon/detail/res'));
     xiuxian.use('队伍信息', () => import('@src/response/team/teamInfo/res'));

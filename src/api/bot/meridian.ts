@@ -84,6 +84,7 @@ export function parseMeridianPulse(data: any): BackendMeridianPulse {
     typeof data.canPulse !== 'boolean' ||
     typeof data.pulseBlockedReason !== 'string' ||
     typeof data.jumped !== 'boolean' ||
+    (data.talentTrueQiRefund !== undefined && (!integer(data.talentTrueQiRefund) || data.talentTrueQiRefund < 1)) ||
     ![data.progressBefore, data.basePulseRemaining, data.extraPulseRemaining, data.trueQiRemaining, data.dailyPulseRemaining].every(integer)
   ) {
     throw new Error('冲脉接口返回不完整，请更新服务端后重试');

@@ -65,6 +65,7 @@ export default onResponse(selects, async e => {
         `进度：${data.progressBefore} → ${data.progressAfter}/${data.meridianRequiredProgress ?? config.QI_PER_MERIDIAN}`,
         ...(data.completed && data.description ? [`获得加成：${data.description}`] : []),
         `真气：-${config.PULSE_QI_COST} · 剩余 ${data.trueQiRemaining}`,
+        ...(data.talentTrueQiRefund ? [`天赋：返还真气 +${data.talentTrueQiRefund}（已计入）`] : []),
         `今日剩余：${data.dailyPulseRemaining}次`,
         `基础 ${data.basePulseRemaining}/${config.DAILY_PULSE_MAX} · 额外 ${data.extraPulseRemaining}/${config.DAILY_EXTRA_PULSE_MAX}`,
         ...(data.allCompleted ? ['✨ 已开放经脉全部圆满'] : data.phaseCompleted ? [`第${data.phase}期 ${data.phaseName}已圆满`] : []),

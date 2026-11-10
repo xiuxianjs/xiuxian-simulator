@@ -3,6 +3,7 @@ import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { parseAlchemyV2Reply } from '@src/api/bot/alchemy-v2';
+import { encyclopediaUrl, parseEncyclopediaLinkCommand } from '@src/utils/encyclopediaMessage';
 import { getCommandErrorMessage } from '@src/utils/commandError';
 import { alchemyRetryCommand, normalizeAlchemyCommand } from './commands';
 
@@ -43,7 +44,14 @@ export default onResponse(selects, async event => {
           ];
         }
       }
-      await sendMiddlewareReply(event, result.data, 'footer');
+      await sendMiddlewareReply(event, result.data, 'footer', false, command => {
+        if (!command.startsWith('/图鉴详情 材料 ')) {
+          return undefined;
+        }
+        const target = parseEncyclopediaLinkCommand(command, true);
+
+        return typeof target === 'string' ? undefined : encyclopediaUrl(target);
+      });
     }
   } catch (error) {
     const confirmation = /^\/炼丹 确认 \S+$/.test(event.MessageText ?? '');

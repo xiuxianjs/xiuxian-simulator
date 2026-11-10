@@ -68,3 +68,9 @@ test('committed second-phase receipt names the phase and all-complete view remov
   assert.ok(done.includes('已开放经脉全部圆满'));
   assert.ok(!done.includes('/冲脉'));
 });
+
+test('meridian talent receipt separates the original charge and credited refund', async () => {
+  const text = await render('pulse', { ...fixtures['pulse:phase2'], talentTrueQiRefund: 1 }, true);
+  assert.ok(text.includes('真气：-15'));
+  assert.ok(text.includes('天赋：返还真气 +1（已计入）'));
+});

@@ -108,6 +108,9 @@ export default onResponse(selects, async e => {
         .addNewline()
         .addText(`获得修为：+${experienceText}  声望：+${result.data.reputationGained}`)
     );
+    if (result.data.talentExperienceBonus) {
+      md.addNewline().addText(`天赋：修为 +${result.data.talentExperienceBonus}（已计入）`);
+    }
     appendTreasureEffects(md, result.data.treasureEffects);
     void message.send(
       FormatGui({

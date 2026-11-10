@@ -41,7 +41,35 @@ test('formation original success, error, usage and alias bubbles match in privat
   const expectedAdvice=!row.result.success?formationAdvice(row.op,row.result.middleware.replies.at(-1).text):key==='info'&&row.result.data.length===0?formationAdvice(row.op,'暂无生效中的洞府阵法'):[];
   const comparable=withoutExpectedAdvice(actual,expectedAdvice);const before=await render('old_'+key,row,isPrivate);
   if(row.args.keyword===''){const view=bubbleSemantics(actual);assert.ok(view.text.includes('用法：'));assert.ok(view.text.includes('示例：'));assert.ok(!view.commands.some(command=>/^\/(激活阵盘|移除阵法)(?:\s|$)/.test(command)));assert.deepEqual(bubbleSemantics(comparable),bubbleSemantics(before),old[n].state+row.text);assert.equal(state.legacyCalls,0);}
-  else {assert.deepEqual(comparable,before,old[n].state+row.text);assert.equal(state.legacyCalls,1);}
+  else {
+   const formationEffect = '布阵后开始打坐，有效期内基础修为 +10%。';
+   const hasMeditationEffect = key === 'info' && row.result.success &&
+    row.result.data.some(item => item.formationEffect.includes(formationEffect));
+   if (hasMeditationEffect) {
+    const view = bubbleSemantics(comparable);
+    assert.ok(view.text.includes(formationEffect));
+    assert.deepEqual(view, bubbleSemantics(before), old[n].state + row.text);
+   } else {
+    assert.deepEqual(comparable, before, old[n].state + row.text);
+   }
+   assert.equal(state.legacyCalls, 1);
+  }
+ }
+});
+test('active 聚灵阵 bubble shows meditation and harvest effects in private and group', async () => {
+ const row = rows.find(entry => entry.op === 'cave-formations.list' && entry.result.success &&
+  entry.result.data.some(item => item.formationKey === 'juling'));
+ assert.ok(row);
+ const effect = row.result.data.find(item => item.formationKey === 'juling').formationEffect;
+ const [harvest, meditation] = effect.split('\n');
+ assert.ok(harvest);
+ assert.equal(meditation, '布阵后开始打坐，有效期内基础修为 +10%。');
+ for (const isPrivate of [true, false]) {
+  state.result = row.result;
+  const view = bubbleSemantics(await render('info', row, isPrivate));
+  assert.ok(view.text.includes(harvest));
+  assert.ok(view.text.includes(meditation));
+  assert.ok(view.commands.includes('/移除阵法 聚灵阵'));
  }
 });
 test('formation list faults return one feedback without supplementary HTTP',async()=>{

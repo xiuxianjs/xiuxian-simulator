@@ -1,6 +1,6 @@
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { addOptions, createQuoteMarkdown, FormatGui, type InlineLinkResolver } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, type FormatMarkDown } from 'alemonjs';
 import { activeFeatureText, mentionsRetiredFeature } from './retiredFeatures';
@@ -42,14 +42,14 @@ export function appendMiddlewareAdvice(md: FormatMarkDown, advice: RobotMiddlewa
   }
 }
 
-export function appendMiddlewareBlocks(md: FormatMarkDown, blocks: RobotMiddlewareReply['blocks'] = []): void {
+export function appendMiddlewareBlocks(md: FormatMarkDown, blocks: RobotMiddlewareReply['blocks'] = [], resolveLink?: InlineLinkResolver): void {
   for (const block of blocks) {
     if (block.quoted) {
-      md.addBlockquote(createQuoteMarkdown(block.text.split('\n'), block.inlineButtons ?? []));
+      md.addBlockquote(createQuoteMarkdown(block.text.split('\n'), block.inlineButtons ?? [], resolveLink));
     } else {
       md.addText(block.text);
       if (block.inlineButtons?.length) {
-        addOptions(md, block.inlineButtons ?? []);
+        addOptions(md, block.inlineButtons, resolveLink);
       } else {
         md.addNewline();
       }
@@ -62,7 +62,8 @@ export async function sendMiddlewareReply(
   event: GameEvent,
   reply: RobotMiddlewareReply,
   useDefaultBar: boolean | 'footer' = false,
-  preserveReason = false
+  preserveReason = false,
+  resolveLink?: InlineLinkResolver
 ): Promise<void> {
   reply = presentMiddlewareReply(reply, preserveReason);
   const [message] = useMessage(event);
@@ -99,7 +100,7 @@ export async function sendMiddlewareReply(
   if (reply.quote) {
     md.addNewline().addBlockquote(Format.createMarkdown().addText(reply.quote));
   }
-  appendMiddlewareBlocks(md, reply.blocks);
+  appendMiddlewareBlocks(md, reply.blocks, resolveLink);
   appendTreasureEffects(md, reply.treasureEffects);
   appendMiddlewareAdvice(md, reply.advice);
   // Legacy servers also send page actions as buttons. Standard nav renders

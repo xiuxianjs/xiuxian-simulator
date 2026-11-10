@@ -22,6 +22,7 @@ type PulseResult =
         progressAfter?: number;
         meridianRequiredProgress?: number;
         trueQiRemaining?: number;
+        talentTrueQiRefund?: number;
         dailyPulseRemaining?: number;
         basePulseRemaining?: number;
         extraPulseRemaining?: number;
@@ -61,6 +62,7 @@ export default async function App(params: {
         progressAfter: remote.Progress,
         meridianRequiredProgress: remote.RequiredProgress,
         trueQiRemaining: remote.trueQiRemaining,
+        talentTrueQiRefund: remote.talentTrueQiRefund,
         dailyPulseRemaining: remote.dailyPulseRemaining,
         basePulseRemaining: remote.basePulseRemaining,
         extraPulseRemaining: remote.extraPulseRemaining,

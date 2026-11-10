@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { parseAttributePanel } from '@src/api/bot/attribute-panel';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -122,14 +123,19 @@ const response = onResponse(selects, async e => {
   if (d.resourceRecovery) {
     contentMd.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery));
   }
-  await message.send(
-    FormatGui({
-      isPrivate,
-      bid,
-      title: `属性面板 · ${d.daoName}`,
-      content: contentMd,
-      footer: [footerButtons.slice(0, 3), footerButtons.slice(3)]
-    })
+  await checkEncounterAfterPanel(
+    e,
+    'attributes',
+    message,
+    message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: `属性面板 · ${d.daoName}`,
+        content: contentMd,
+        footer: [footerButtons.slice(0, 3), footerButtons.slice(3)]
+      })
+    )
   );
 });
 

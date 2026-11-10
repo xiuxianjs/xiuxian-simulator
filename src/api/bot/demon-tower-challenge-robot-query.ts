@@ -65,6 +65,7 @@ export function parseRobotDemonTowerChallenge(value: unknown): { outcome: 'usage
       scoreEarned: number(data.scoreEarned),
       totalTowerScore: number(data.totalTowerScore),
       spiritStoneEarned: number(data.spiritStoneEarned),
+      ...(data.talentSpiritStoneBonus === undefined ? {} : { talentSpiritStoneBonus: number(data.talentSpiritStoneBonus) }),
       layerCleared: boolean(data.layerCleared),
       allCleared: boolean(data.allCleared),
       nextLayer: number(data.nextLayer),

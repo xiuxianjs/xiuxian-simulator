@@ -13,6 +13,7 @@ export type BackendTowerReset = {
 export type BackendTowerSweep = {
   layersSwept: number;
   totalSpiritStone: number;
+  talentSpiritStoneBonus?: number;
   totalScore: number;
   cumulativeStars: number;
   milestonesTriggered: Array<{ id: number; stars: number; score: number }>;
@@ -59,6 +60,7 @@ export function parseSweep(value: unknown): BackendTowerSweep {
   if (
     !positiveInteger(data.layersSwept) ||
     !nonNegativeInteger(data.totalSpiritStone) ||
+    (data.talentSpiritStoneBonus !== undefined && !positiveInteger(data.talentSpiritStoneBonus)) ||
     !nonNegativeInteger(data.totalScore) ||
     !nonNegativeInteger(data.cumulativeStars) ||
     !positiveInteger(data.nextLayer) ||
@@ -91,6 +93,7 @@ export function parseSweep(value: unknown): BackendTowerSweep {
   return {
     layersSwept: data.layersSwept,
     totalSpiritStone: data.totalSpiritStone,
+    ...(data.talentSpiritStoneBonus === undefined ? {} : { talentSpiritStoneBonus: data.talentSpiritStoneBonus }),
     totalScore: data.totalScore,
     cumulativeStars: data.cumulativeStars,
     milestonesTriggered,

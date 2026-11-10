@@ -61,6 +61,7 @@ export interface MeridianSchemas {
     extraPulseRemaining: number;
     jumped: boolean;
     trueQiRemaining: number;
+    talentTrueQiRefund?: number;
     dailyPulseRemaining: number;
   };
 }

@@ -59,6 +59,14 @@ function catalogPage(isPrivate: boolean, bid: string, scope: string | undefined,
   const numericPage = Number(scope);
   const page = category ? requestedPage : Number.isSafeInteger(numericPage) && numericPage > 0 ? numericPage : 1;
 
+  const categoryIndex = category ? catalogCategories.indexOf(category) : 0;
+  const categoryStart = Math.max(0, Math.min(categoryIndex - 1, catalogCategories.length - 3));
+  const categoryButtons = catalogCategories.slice(categoryStart, categoryStart + 3).map(name => ({
+    label: name,
+    selected: name === category,
+    command: `${COMMAND_TABLE_ENTRY} ${name} 1`
+  }));
+
   return commandTable({
     isPrivate,
     bid,
@@ -67,7 +75,10 @@ function catalogPage(isPrivate: boolean, bid: string, scope: string | undefined,
     page,
     pageSize: category ? MORE_PAGE_SIZE : TABLE_PAGE_SIZE,
     command: `${COMMAND_TABLE_ENTRY}${category ? ` ${category}` : ''} {page}`,
-    footer: [{ label: category ? '返回分类' : '按分类查找', command: `${COMMAND_TABLE_ENTRY} 分类` }, searchButton, backToMore]
+    footer: [
+      [{ label: '全部', selected: !category, command: `${COMMAND_TABLE_ENTRY} 1` }, ...categoryButtons],
+      [{ label: '更多分类', command: `${COMMAND_TABLE_ENTRY} 分类` }, searchButton, backToMore]
+    ]
   });
 }
 
@@ -129,7 +140,7 @@ function searchPage(event: SearchEvent, selection: SearchSelection) {
   }
 
   const title = '指令搜索';
-  const footer = [backToTable, searchButton];
+  const footer = [searchButton, backToTable];
   const notice = (text: string) => buildBubble({ isPrivate, bid, title, sections: [{ lines: [text] }], footer, bar: false });
   const now = Date.now();
   let entries: typeof COMMAND_CATALOG;

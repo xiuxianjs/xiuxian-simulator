@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { buildBubble, type BubbleSection } from '@src/response/presentation';
 import { commandText } from '@src/utils/commandPrefix';
 import { parseProfessionDashboard } from '@src/api/bot/profession-dashboard-query';
@@ -263,14 +264,19 @@ export default onResponse(selects, async e => {
       }
       footerButtons.push({ label: '洞府', command: '/我的洞府' });
 
-      void message.send(
-        FormatGui({
-          isPrivate,
-          bid,
-          title: '我的职业',
-          content: md,
-          footer: footerButtons
-        })
+      await checkEncounterAfterPanel(
+        e,
+        'cave',
+        message,
+        message.send(
+          FormatGui({
+            isPrivate,
+            bid,
+            title: '我的职业',
+            content: md,
+            footer: footerButtons
+          })
+        )
       );
     }
   } catch (error) {

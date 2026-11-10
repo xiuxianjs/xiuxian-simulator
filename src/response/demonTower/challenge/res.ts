@@ -60,6 +60,9 @@ export default onResponse(selects, async e => {
 
     if (d.spiritStoneEarned > 0) {
       lines.push(`通层奖励：+${d.spiritStoneEarned} 灵石`);
+      if (d.talentSpiritStoneBonus) {
+        lines.push(`天赋：灵石 +${d.talentSpiritStoneBonus}（已计入）`);
+      }
     }
 
     if (d.milestonesTriggered.length > 0) {

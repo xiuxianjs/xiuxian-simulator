@@ -41,7 +41,10 @@ export default onResponse(selects, async e => {
 
         quote.addText(' ').addButton(markdownButtonLabel('替换'), { data: commandText(`${layoutCommand} 洞府阵法`) });
         quote.addText(' ').addButton(markdownButtonLabel('移除'), { data: commandText(`移除阵法 ${item.formationName}`) });
-        quote.addNewline().addText(` 剩余 ${item.remainingText} `).addNewline().addText(` ${item.effectText} `);
+        quote.addNewline().addText(` 剩余 ${item.remainingText} `);
+        for (const line of item.effectText.split('\n')) {
+          quote.addNewline().addText(` ${line} `);
+        }
         md.addBlockquote(quote);
       }
     }

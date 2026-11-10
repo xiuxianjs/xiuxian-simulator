@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { parseStorylineListArgs } from '@src/api/bot/catalog-query-reuse';
@@ -220,6 +221,6 @@ export default onResponse(selects, async e => {
   );
 
   if (response) {
-    void message.send(response);
+    await checkEncounterAfterPanel(e, 'storyline', message, message.send(response));
   }
 });

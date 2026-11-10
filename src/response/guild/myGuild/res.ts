@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseGuildHome } from '@src/api/bot/guild-home-query';
@@ -42,7 +43,7 @@ export default onResponse(selects, async e => {
     }
     const page = buildGuildHomePage(data, match?.[1] as GuildHomeSection | undefined);
 
-    void message.send(FormatGui({ isPrivate, bid, ...page }));
+    await checkEncounterAfterPanel(e, 'guild', message, message.send(FormatGui({ isPrivate, bid, ...page })));
   } catch (error) {
     logger.error('我的宗门指令处理失败:', error);
     void message.send(

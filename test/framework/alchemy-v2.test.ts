@@ -70,6 +70,36 @@ for (const privateChat of [false, true]) {
     assert.doesNotMatch(message.text, /融臣|熟练度|完美|精品|倒计时/);
   });
 }
+test('缺料行直达材料图鉴，保留查看材料', async t => {
+  const shortage = {
+    ...reply,
+    text: '培元丹 · 请求1炉 · 当前可炼0炉',
+    blocks: [
+      { text: '培元草：单炉需3 · 可用0 · 缺3', quoted: true, inlineButtons: [{ label: '获取途径', command: '/图鉴详情 材料 20' }] },
+      { text: '元灵果：单炉需2 · 可用2', quoted: true, inlineButtons: [{ label: '查看材料', command: '/储物袋 材料 草药' }] }
+    ]
+  };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, shortage));
+  const result = await app.runHandler(handler, app.events.groupMessage({ text: '/炼丹 预览 1 1', platform: 'qq-bot' }));
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const quotes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).filter(node => node.type === 'MD.blockquote');
+  assert.equal(quotes.length, 2);
+  assert.ok(Array.isArray(quotes[0].value) && Array.isArray(quotes[1].value));
+  const [material, , link] = quotes[0].value;
+  assert.ok(material.type === 'MD.text');
+  assert.equal(material.value, '培元草：单炉需3 · 可用0 · 缺3');
+  assert.ok(link.type === 'MD.link');
+  assert.match(link.value.text, /获取途径/);
+  const url = new URL(link.value.url!);
+  assert.equal(url.pathname, '/components/encyclopedia');
+  assert.equal(url.searchParams.get('category'), '材料');
+  assert.equal(url.searchParams.get('entryId'), '20');
+  assert.ok(!quotes[1].value.some(node => node.type === 'MD.link'));
+  assert.deepEqual(inspectMessage([{ type: 'Markdown', value: quotes[1].value }]).commands, ['/储物袋 材料 草药']);
+});
+
 test('确认失败保留权威原因，不自动重试扣料', async t => {
   const { app, requests } = await gameFixture(t, () => ({ code: 'ALCHEMY_V2_VERSION_CHANGED', message: '炼丹规则已更新，请重新预览' }), 409);
   const result = await app.runHandler(handler, app.events.privateMessage({ text: '/炼丹 确认 stable-intent', platform: 'qq-bot' }));

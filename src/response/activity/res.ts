@@ -1,5 +1,6 @@
 import { parseRobotActivityHub } from '@src/api/bot/activity-hub';
 import { selects } from '@src/response/config';
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { commandText } from '@src/utils/commandPrefix';
@@ -18,22 +19,23 @@ import { Format, onResponse, useEvent } from 'alemonjs';
 // 宗门页优先日常参与与养成，再展示竞争玩法和商店。
 // 已开放入口保持原有优先级。
 const PERSONAL_ROWS = [
-  { label: '活跃任务', command: '/日常活跃', introduction: '完成活跃任务，查看进度与奖励' },
-  { label: '成就', command: '/成就', introduction: '查看成就目标与进度，领取已达成的奖励' },
+  { label: '我的奇遇', command: '/我的奇遇', introduction: '我的兄弟也是主角？' },
+  { label: '活跃任务', command: '/日常活跃', introduction: '我修，这仙我修还不成嘛' },
+  { label: '成就', command: '/成就', introduction: '天才只是见我的门槛' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
-  { label: '上古遗珍', command: '/上古遗珍', introduction: '每日免费探索，收集宝物与碎片' },
-  { label: '宝物', command: '/宝物', introduction: '查看与培养宝物，提升鸿蒙气运' },
-  { label: '通天塔', command: '/通天塔', introduction: '登塔闯关，挑战更高层' },
-  { label: '镇妖塔', command: '/妖塔', introduction: '逐层镇妖，磨砺战力' },
-  { label: '登天梯', command: '/登天梯', introduction: '挑战天骄，争夺排名' },
-  { label: '劫云榜', command: '/劫云榜', introduction: '观望道友渡劫，参与劫云互动' },
-  { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，修行任务与签到' },
-  { label: '邀请奖励', command: '/邀请奖励', introduction: '邀请道友，查看邀请奖励' },
-  { label: '稻草人', command: '/挑战稻草人', introduction: '测试伤害，检验战力' },
-  { label: '悬赏', command: '/悬赏榜', introduction: '接取悬赏，追缉目标' },
-  { label: '杀神榜', command: '/杀神榜', introduction: '群雄争锋，查看杀神排名' },
+  { label: '上古遗珍', command: '/上古遗珍', introduction: '夺天地之造化' },
+  { label: '宝物', command: '/宝物', introduction: '你的宝物，与我有缘' },
+  { label: '通天塔', command: '/通天塔', introduction: '既见仙人，为何不拜' },
+  { label: '镇妖塔', command: '/妖塔', introduction: '魔可虾，妖亦可虾' },
+  { label: '登天梯', command: '/登天梯', introduction: '谁敢言不败，谁敢言无敌' },
+  { label: '劫云榜', command: '/劫云榜', introduction: '落子无悔啊，落子无悔' },
+  { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，寻仙问道' },
+  { label: '邀请奖励', command: '/邀请奖励', introduction: '举杯，共饮天上水' },
+  { label: '稻草人', command: '/挑战稻草人', introduction: '我的剑，也未尝不利' },
+  { label: '悬赏', command: '/悬赏榜', introduction: '今日恩怨，今日了' },
+  { label: '杀神榜', command: '/杀神榜', introduction: '管虾不管埋，以虾证道' },
   // { label: '小店', command: '/小店', introduction: '逛逛道友小店' }, // 小店下架
-  { label: '珍宝楼', command: '/珍宝楼', introduction: '道友摆摊，交易珍宝' },
+  { label: '珍宝楼', command: '/珍宝楼', introduction: '大佬也得来我这里买神器' },
   { label: '风云榜', command: '/排行榜', introduction: '唯有吾，敢称天下第一' }
 ];
 
@@ -87,17 +89,22 @@ export default onResponse(selects, async e => {
     md.addText('当前暂无已开放入口，可查阅天书了解解锁条件。');
   }
 
-  void message.send(
-    FormatGui({
-      isPrivate,
-      bid,
-      title: '修仙界风云',
-      header: [
-        { label: '个人', selected: !isGuild, command: '/个人活动' },
-        ...(GUILD_ROWS.some(entry => allowed(entry.command)) ? [{ label: '宗门', selected: isGuild, command: '/宗门活动' }] : [])
-      ],
-      // 活动中心只承载玩法与活动；礼包码、福利导航不混入此气泡。
-      content: md
-    })
+  await checkEncounterAfterPanel(
+    e,
+    'activity',
+    message,
+    message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '修仙界风云',
+        header: [
+          { label: '个人', selected: !isGuild, command: '/个人活动' },
+          ...(GUILD_ROWS.some(entry => allowed(entry.command)) ? [{ label: '宗门', selected: isGuild, command: '/宗门活动' }] : [])
+        ],
+        // 活动中心只承载玩法与活动；礼包码、福利导航不混入此气泡。
+        content: md
+      })
+    )
   );
 });

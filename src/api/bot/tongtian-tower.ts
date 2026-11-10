@@ -13,6 +13,7 @@ export type BackendTongtianBattle = {
 export type BackendTongtianChallenge = {
   treasureEffects?: TreasureEffectNotice[];
   normalExperienceGained?: number;
+  talentExperienceBonus?: number;
   logId?: string;
   success: boolean;
   message: string;
@@ -39,6 +40,7 @@ export type BackendTongtianView = {
 export type BackendTongtianSweep = {
   treasureEffects?: TreasureEffectNotice[];
   normalExperienceGained?: number;
+  talentExperienceBonus?: number;
   targetRank: number;
   sweepCount: number;
   qiSpent: number;
@@ -60,6 +62,7 @@ export type BackendTongtianBatchEvent = {
 export type BackendTongtianBatch = {
   treasureEffects?: TreasureEffectNotice[];
   normalExperienceGained?: number;
+  talentExperienceBonus?: number;
   startRank: number;
   finalRank: number;
   rounds: BackendTongtianChallenge[];
@@ -150,6 +153,7 @@ export function parseTongtianChallenge(value: unknown): BackendTongtianChallenge
   return {
     treasureEffects: parseTreasureEffects(data.treasureEffects),
     normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
+    ...(data.talentExperienceBonus === undefined ? {} : { talentExperienceBonus: integer(data.talentExperienceBonus, 'talentExperienceBonus', 1) }),
     ...(typeof data.logId === 'string' ? { logId: data.logId } : {}),
     success: bool(data.success, 'success'),
     message: string(data.message, 'message'),
@@ -233,6 +237,7 @@ export function parseTongtianSweep(value: unknown): BackendTongtianSweep {
   return {
     treasureEffects: parseTreasureEffects(data.treasureEffects),
     normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
+    ...(data.talentExperienceBonus === undefined ? {} : { talentExperienceBonus: integer(data.talentExperienceBonus, 'talentExperienceBonus', 1) }),
     targetRank: integer(data.targetRank, 'targetRank', 1),
     sweepCount: integer(data.sweepCount, 'sweepCount', 1),
     qiSpent: integer(data.qiSpent, 'qiSpent'),
@@ -277,6 +282,7 @@ export function parseTongtianBatch(value: unknown): BackendTongtianBatch {
   const output: BackendTongtianBatch = {
     treasureEffects: parseTreasureEffects(data.treasureEffects),
     normalExperienceGained: parseNormalExperienceGained(data.normalExperienceGained),
+    ...(data.talentExperienceBonus === undefined ? {} : { talentExperienceBonus: integer(data.talentExperienceBonus, 'talentExperienceBonus', 1) }),
     startRank: integer(data.startRank, 'startRank', 1),
     finalRank: integer(data.finalRank, 'finalRank', 1),
     rounds: array(data.rounds, 'rounds').map(parseTongtianChallenge),

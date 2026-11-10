@@ -1,3 +1,4 @@
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { getRobotHomeOverview } from '@src/api/bot/robot-business';
 import type { HomeNotificationItem, HomeNotificationType } from '@src/api/schemas/home-notification-query';
 import App from '@src/response-apps/message/me/app';
@@ -258,7 +259,7 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
           e
         );
 
-        void message.send(payload);
+        await checkEncounterAfterPanel(e, 'profile', message, message.send(payload));
       } catch (error) {
         logger.error(error);
         const md = Format.createMarkdown();

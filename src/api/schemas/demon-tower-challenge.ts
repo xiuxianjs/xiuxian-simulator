@@ -18,6 +18,7 @@ export type DemonTowerChallengeResult = {
   scoreEarned: number;
   totalTowerScore: number;
   spiritStoneEarned: number;
+  talentSpiritStoneBonus?: number;
   milestonesTriggered: DemonTowerChallengeMilestone[];
   layerCleared: boolean;
   allCleared: boolean;

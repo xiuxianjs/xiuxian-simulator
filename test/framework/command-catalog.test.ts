@@ -27,8 +27,18 @@ test('更多和指令大全沿用统一入口和常用指令，兼容旧入口�
     const markdown = message.nodes.flatMap(node => (node.type === 'Markdown' ? node.value : []));
     const nodes = markdown.flatMap(node => (node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [node]));
     const textNodes = nodes.flatMap(node => (node.type === 'MD.text' ? [node.value] : []));
+    const tableIndex = markdown.findIndex(node => node.type === 'MD.text' && node.value.startsWith('| 功能类型 | 指令 | 参数 | 作用 |'));
+    if (tableIndex >= 0) {
+      const searchIndex = markdown.findIndex(node => node.type === 'MD.button' && node.options?.data === '/指令搜索');
+      assert.ok(searchIndex > tableIndex);
+      const searchButton = markdown[searchIndex];
+      assert.ok(searchButton.type === 'MD.button');
+      assert.equal(searchButton.options?.autoEnter, false);
+      assert.equal(markdown.filter(node => node.type === 'MD.button' && node.options?.data === '/指令搜索').length, 1);
+    }
     return {
       buttons: nodes.flatMap(node => (node.type === 'MD.button' ? [node.options?.data] : [])),
+      selected: nodes.flatMap(node => (node.type === 'MD.button' && node.value.startsWith('‹▸') ? [node.options?.data] : [])),
       rows: textNodes.find(value => value.startsWith('| 功能类型 | 指令 | 参数 | 作用 |'))?.split('\n').slice(2),
       text: textNodes.join('\n')
     };
@@ -54,7 +64,17 @@ test('更多和指令大全沿用统一入口和常用指令，兼容旧入口�
   assert.equal(table.rows?.length, 10);
   assert.ok(!table.text.includes('`/指令大全`'));
   assert.equal(table.rows?.[0], '| 入门与资料 | `/更多` | `分类（可选）` | 浏览游戏功能目录。 |');
-  assert.ok(table.buttons.includes('/指令大全 2'));
+  assert.deepEqual(table.buttons, [
+    '/指令大全 2',
+    '/指令大全 1',
+    '/指令大全 入门与资料 1',
+    '/指令大全 角色与设置 1',
+    '/指令大全 任务链与面板 1',
+    '/指令大全 分类',
+    '/指令搜索',
+    '/更多'
+  ]);
+  assert.deepEqual(table.selected, ['/指令大全 1']);
   assert.ok(table.buttons.includes('/指令大全 分类'));
   assert.ok(table.buttons.includes('/更多'));
 
@@ -68,6 +88,13 @@ test('更多和指令大全沿用统一入口和常用指令，兼容旧入口�
   assert.ok(!first.text.includes('`/指令大全`'));
   assert.ok(!first.text.match(/折叠|扩展/));
   assert.ok(first.buttons.includes('/指令大全 入门与资料 2'));
+  assert.deepEqual(first.selected, ['/指令大全 入门与资料 1']);
+  const switchCategory = first.buttons.find(button => button === '/指令大全 角色与设置 1');
+  assert.ok(switchCategory);
+  const switched = await send(switchCategory);
+  assert.deepEqual(switched.selected, [switchCategory]);
+  assert.ok(switched.rows?.every(row => row.startsWith('| 角色与设置 |')));
+  assert.ok(switched.buttons.includes('/指令大全 角色与设置 2'));
   assert.ok(first.buttons.includes('/指令大全 分类'));
 
   const market = await send('/指令大全 交易与商店');
@@ -77,6 +104,8 @@ test('更多和指令大全沿用统一入口和常用指令，兼容旧入口�
   const marketNext = await send('/指令大全 交易与商店 2');
   assert.ok(marketNext.rows?.some(row => row.includes('`/珍宝楼 搜索`')));
   assert.ok(marketNext.buttons.includes('/指令大全 交易与商店 1'));
+  assert.deepEqual(marketNext.selected, ['/指令大全 交易与商店 1']);
+  assert.ok(marketNext.rows?.every(row => row.startsWith('| 交易与商店 |')));
 
   const comeback = COMMAND_CATALOG.find(([, commands]) => commands.includes('/回归奖励'));
   assert.ok(comeback?.[1].includes('/回归签到'));
