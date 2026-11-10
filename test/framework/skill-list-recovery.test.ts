@@ -29,7 +29,19 @@ for (const entry of entries) for (const isPrivate of [false, true]) for (const s
  assert.equal(requests.length, 1); assert.deepEqual(requests[0].body.arguments, { page: String(displayPage) });
  if (state === 'bounds') { assert.ok(view.text.includes('页码超出范围')); assert.ok(view.commands.includes(entry.first)); assert.ok(view.text.includes(hiddenList ? '隐藏列表从第1页开始' : '实例列表从第2页开始')); assert.ok(!view.commands.some(command => /\/(?:显示功法|升级功法)\s/.test(command))); }
  else if (state.startsWith('empty')) { assert.ok(view.text.includes(hiddenList ? '暂无隐藏功法' : '暂无已学习的功法')); assert.ok(view.commands.includes(hiddenList ? '/我的功法' : '/我的隐藏功法')); assert.ok(view.text.includes(hiddenList ? '隐藏列表为空不代表功法丢失' : '可见列表为空不等于没有已学实例')); }
- else { assert.ok(view.text.includes('原功法文本 物攻-3')); assert.ok(view.commands.includes('/查看功法 2')); assert.ok(view.commands.includes(hiddenList ? '/显示功法 2' : '/升级功法 2 选择')); if (!hiddenList) assert.ok(view.text.includes('原属性-3')); }
+ else {
+  assert.ok(view.commands.includes('/查看功法 2'));
+  assert.ok(view.commands.includes(hiddenList ? '/显示功法 2' : '/升级功法 2 选择'));
+  if (hiddenList) {
+   assert.ok(view.text.includes('原功法文本 物攻-3'));
+  } else {
+   assert.match(view.text, /青莲诀.*#2.*· 已学/);
+   assert.match(view.text, /战技 · 熟练度 65%/);
+   assert.doesNotMatch(view.text, /类型：|状态：/);
+   assert.doesNotMatch(view.text, /原功法文本|原属性-3/);
+   assert.ok(view.commands.includes('/我的功法 2 排序选项'));
+  }
+ }
  assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 for (const isPrivate of [false, true]) for (const displayPage of [1, 8]) test(`visible empty list retains hidden equipped slot page=${displayPage} private=${isPrivate}`, async t => {

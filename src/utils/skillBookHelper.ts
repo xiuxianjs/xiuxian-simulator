@@ -17,7 +17,7 @@ interface SkillBookCombatSectionOptions {
   proficiencyAllButtonData?: string;
 }
 
-const DAMAGE_TYPE_TEXT: Record<string, string> = {
+export const DAMAGE_TYPE_TEXT: Readonly<Record<string, string>> = {
   physical: '物理',
   magical: '法术',
   true: '真实',

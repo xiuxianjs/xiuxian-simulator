@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@alemonjs/qq-bot@^2.1.44":
-  version "2.1.44"
-  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.44.tgz#e9f9c7b1faea5ae31a665e145ac5da83b8a1e7b1"
-  integrity sha512-aOoqhLWDdG2e44zwQfTupLHzDn1rXRrZoHYzTmyrvUkmD4E/DueYcZlNtrdWMVzcD4MUfn3uCPn+meEZkfR7/Q==
+"@alemonjs/qq-bot@^2.1.45":
+  version "2.1.45"
+  resolved "https://registry.npmmirror.com/@alemonjs/qq-bot/-/qq-bot-2.1.45.tgz#f6ea6f692395b70758396397c5648ef1685b5140"
+  integrity sha512-8wJY0kY2mJlJEjqxie7VmbTiIbHU8qFNy9YuylqVSA8CIidr1pWFVf1RlB3y2M8Ohk3JUQeoszWsACc0Z+1/FA==
   dependencies:
     "@noble/curves" "^1.7.0"
     axios "^1.4.0"

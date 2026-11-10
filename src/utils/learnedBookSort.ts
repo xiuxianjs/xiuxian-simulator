@@ -18,7 +18,7 @@ export const LEARNED_BOOK_ATTRIBUTES = [
 
 export type LearnedBookSort = { attribute: string; direction: string; basis: string };
 
-export function parseLearnedBookListCommand(message: string): { page: string | null; sort?: LearnedBookSort } {
+export function parseLearnedBookListCommand(message: string): { page: string | null; sort?: LearnedBookSort; showSortMenu?: boolean } {
   const tokens = message
     .replace(/^(!|！|\/|#|＃)?我的功法\s*/, '')
     .trim()
@@ -26,7 +26,7 @@ export function parseLearnedBookListCommand(message: string): { page: string | n
     .filter(Boolean);
 
   if (tokens[0] !== '排序') {
-    return { page: tokens[0] ?? null };
+    return { page: tokens[0] ?? null, ...(tokens[1] === '排序选项' ? { showSortMenu: true } : {}) };
   }
   if (!tokens[1]) {
     return { page: '2' };
@@ -34,8 +34,9 @@ export function parseLearnedBookListCommand(message: string): { page: string | n
 
   return {
     page: tokens[4] ?? '2',
+    ...(tokens[5] === '排序选项' ? { showSortMenu: true } : {}),
     sort: {
-      attribute: LEARNED_BOOK_ATTRIBUTES.find(item => item.label === tokens[1])?.key ?? tokens[1],
+      attribute: LEARNED_BOOK_ATTRIBUTES.find(item => item.label === tokens[1] || item.label.replace('%', '百分比') === tokens[1])?.key ?? tokens[1],
       direction: tokens[2] === '升序' ? 'asc' : tokens[2] === '降序' || !tokens[2] ? 'desc' : tokens[2],
       basis: tokens[3] === '上限' ? 'max' : tokens[3] === '当前' || !tokens[3] ? 'current' : tokens[3]
     }
@@ -46,7 +47,7 @@ export function buildLearnedBookListCommand(sort?: LearnedBookSort, page: number
   if (!sort) {
     return `/我的功法 ${page}`;
   }
-  const label = LEARNED_BOOK_ATTRIBUTES.find(item => item.key === sort.attribute)?.label ?? sort.attribute;
+  const label = LEARNED_BOOK_ATTRIBUTES.find(item => item.key === sort.attribute)?.label.replace('%', '百分比') ?? sort.attribute;
 
   return `/我的功法 排序 ${label} ${sort.direction === 'asc' ? '升序' : '降序'} ${sort.basis === 'max' ? '上限' : '当前'} ${page}`;
 }
@@ -59,7 +60,7 @@ export function learnedBookSortLabel(sort: LearnedBookSort) {
 
 export function createLearnedBookSortRows(sort?: LearnedBookSort): GuiButton[][] {
   const attributes = LEARNED_BOOK_ATTRIBUTES.map(item => ({
-    label: `${sort?.attribute === item.key ? '·' : ''}${item.label}`,
+    label: `${sort?.attribute === item.key ? '·' : ''}${item.label.replace('%', '百分比')}`,
     command: buildLearnedBookListCommand({ attribute: item.key, direction: sort?.direction ?? 'desc', basis: sort?.basis ?? 'current' })
   }));
   const rows: GuiButton[][] = [

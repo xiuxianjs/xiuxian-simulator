@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
+import { createMarkdownText } from '../../node_modules/@alemonjs/qq-bot/lib/format.js';
 import handler from '../../src/response/skillBook/mySkillBooks/res';
 import { buildLearnedBookListCommand, createLearnedBookSortRows, LEARNED_BOOK_ATTRIBUTES, parseLearnedBookListCommand } from '../../src/utils/learnedBookSort';
 import { businessEnvelope, gameFixture } from './fixture';
@@ -13,7 +14,7 @@ const numeric = ['upgradeCount', 'physicalAttack', 'magicAttack', 'physicalDefen
 const book = (id: number) => ({ ...Object.fromEntries(numeric.map(key => [key, 0])), id, name: `功法${id}`, skillType: '战技', damageType: null, status: 2, statusText: '已学习', listText: `【${id}】功法${id}`, slotText: '装备中的战技', attributeSummary: `物攻(${id}/${id * 2})`, canHide: true, canReset: true, isHidden: 0, proficiency: 65, physicalAttack: id, maxPhysicalAttack: id * 2 });
 const data = (displayPage: number) => ({
   displayPage, page: {
-    items: (displayPage <= 2 ? [15, 14, 13, 12, 11] : [10]).map(book),
+    items: displayPage <= 2 ? [15, 14, 13, 12, 11].map(book) : [{ ...book(10), skillType: '神通', damageType: 'magical' }],
     inUseBooks: [{ ...book(99), status: 3, isHidden: 1 }], total: 6, totalPages: 2, currentPage: Math.max(1, displayPage - 1),
     pageSize: 5, proficiencyPoints: 7, canUseFifthLayerFeature: true
   }
@@ -34,17 +35,35 @@ for (const privateChat of [false, true]) {
       assert.ok(node?.type === 'MD.button' && node.options?.data);
       return node.options.data;
     };
+    const renderButtons = (message: Awaited<ReturnType<typeof render>>) => {
+      const markup = message.nodes.flatMap(node => node.type === 'Markdown' ? [createMarkdownText(node.value, privateChat ? 'c2c' : 'group')] : []).join('\n');
+      // QQ adapter versions can percent-encode the wire attributes.
+      return markup.replace(/(text|show)="(%[^"]*)"/g, (_, key, value) => `${key}="${decodeURIComponent(value)}"`);
+    };
     const initial = await render('/我的功法 3');
     assert.deepEqual(requests[0].body.arguments, { page: '3' });
-    const current = await render(button(initial, '物攻'));
+    assert.doesNotMatch(initial.text, /物攻百分比|物攻\(10\/20\)/);
+    assert.match(initial.text, /功法10.*#10.*· 已学习/);
+    assert.match(initial.text, /神通 · 法术 · 熟练度 65%/);
+    const menu = await render(button(initial, '排序'));
+    const menuMarkup = renderButtons(menu);
+    assert.match(menuMarkup, /show="‹物攻百分比›"/);
+    assert.doesNotMatch(menuMarkup, /<qqbot-cmd-input [^>]*%/);
+    assert.equal(button(menu, '返回列表'), '/我的功法 3');
+    const percentage = await render(button(menu, '物攻百分比'));
+    assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttackPercent', direction: 'desc', basis: 'current' } });
+    const markdown = renderButtons(percentage);
+    assert.doesNotMatch(markdown, /<qqbot-cmd-input text="[^"]*%/);
+    assert.match(markdown, /text="\/我的功法 排序 物攻百分比 降序 当前 3" show="‹下一页›"/);
+    const current = await render(button(menu, '物攻'));
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttack', direction: 'desc', basis: 'current' } });
     const view = inspectMessage(current.nodes);
     assert.match(view.text, /当前物攻↓/);
     assert.ok(view.commands.includes('/查看功法 15'));
     assert.ok(view.commands.includes('/升级功法 15 选择'));
-    const maximum = await render(button(current, '属性上限'));
+    const maximum = await render(button(await render(button(current, '排序')), '属性上限'));
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttack', direction: 'desc', basis: 'max' } });
-    const ascending = await render(button(maximum, '从低到高'));
+    const ascending = await render(button(await render(button(maximum, '排序')), '从低到高'));
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2', sort: { attribute: 'physicalAttack', direction: 'asc', basis: 'max' } });
     const checkButtons = (nodes: unknown[]) => {
       for (const raw of nodes) {
@@ -62,7 +81,7 @@ for (const privateChat of [false, true]) {
     const last = await render(next);
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '3', sort: { attribute: 'physicalAttack', direction: 'asc', basis: 'max' } });
     assert.match(inspectMessage(last.nodes).text, /功法10/);
-    await render(button(last, '默认'));
+    await render(button(await render(button(last, '排序')), '默认'));
     assert.deepEqual(requests.at(-1)?.body.arguments, { page: '2' });
     assert.ok(requests.every(r => r.path.endsWith('/skill-books.learned')));
   });
@@ -88,6 +107,8 @@ test('全部十三项独立属性均提供排序，固定值与百分比使用�
   for (const [index, attribute] of LEARNED_BOOK_ATTRIBUTES.entries()) {
     const parsed = parseLearnedBookListCommand(attributes[index].command ?? '');
     assert.deepEqual(parsed, { page: '2', sort: { attribute: attribute.key, direction: 'desc', basis: 'current' } });
+    assert.equal(parseLearnedBookListCommand(`/我的功法 排序 ${attribute.label}`).sort?.attribute, attribute.key);
+    assert.doesNotMatch(attributes[index].command ?? '', /%/);
     assert.deepEqual(parseLearnedBookListCommand(buildLearnedBookListCommand(parsed.sort, 3)), { ...parsed, page: '3' });
   }
   assert.notEqual(parseLearnedBookListCommand('/我的功法 排序 物攻').sort?.attribute, parseLearnedBookListCommand('/我的功法 排序 物攻%').sort?.attribute);

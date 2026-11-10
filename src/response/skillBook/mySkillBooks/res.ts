@@ -8,9 +8,9 @@ import { MIN_PAGE } from '@src/constants/common';
 import { parseRobotLearnedBooks } from '@src/api/bot/learned-books-queries';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
 import { section } from '@src/response/presentation/sections';
-import { formatSkillBookListItem } from '@src/utils/skillBookHelper';
+import { DAMAGE_TYPE_TEXT } from '@src/utils/skillBookHelper';
 import { buildLearnedBookListCommand, createLearnedBookSortRows, learnedBookSortLabel, parseLearnedBookListCommand } from '@src/utils/learnedBookSort';
 import { Format, onResponse, useEvent } from 'alemonjs';
 // 常量定义
@@ -54,6 +54,23 @@ const response = onResponse(selects, async e => {
 
   const { inUseBooks, items, total, totalPages, currentPage, proficiencyPoints } = result.data;
   const emptyMessage = inUseBooks.length ? '💡当前可见列表为空，可核对装备槽位与隐藏列表' : '💡暂无已学习的功法';
+  const sortLabel = selection.sort ? learnedBookSortLabel(selection.sort) : '';
+
+  if (selection.showSortMenu && page > MIN_PAGE && items.length > EMPTY_TOTAL) {
+    await message.send(
+      FormatGui({
+        isPrivate,
+        bid,
+        title: '功法排序',
+        content: Format.createMarkdown()
+          .addText(`排序：${sortLabel || '默认'}`)
+          .addNewline(),
+        footer: [...createLearnedBookSortRows(selection.sort), [{ label: '返回列表', command: buildLearnedBookListCommand(selection.sort, page) }]]
+      })
+    );
+
+    return;
+  }
 
   // 构建当前装备功法槽位显示
   const slotContent = Format.createMarkdown();
@@ -165,27 +182,24 @@ const response = onResponse(selects, async e => {
   }
 
   // 构建功法列表
-  const skillBookItems = items.map(skillBook => ({
-    id: skillBook.id,
-    text: formatSkillBookListItem(skillBook, skillBook.id),
-    attrText: skillBook.attributeSummary
-  }));
-
   const listContent = Format.createMarkdown();
 
-  listContent.addText(`已学功法${selection.sort ? ` · ${learnedBookSortLabel(selection.sort)}` : ''}`).addNewline();
+  listContent.addText(sortLabel ? `排序：${sortLabel}` : '已学功法').addNewline();
 
-  skillBookItems.forEach(item => {
-    const lines = [item.text];
+  items.forEach(book => {
+    const damage = book.damageType ? (DAMAGE_TYPE_TEXT[book.damageType] ?? book.damageType) : null;
 
-    if (item.attrText) {
-      lines.push(item.attrText);
-    }
     listContent.addBlockquote(
-      createQuoteMarkdown(lines, [
-        { label: '查看', command: `/查看功法 ${item.id}` },
-        { label: '连续升级', command: `/升级功法 ${item.id} 选择` }
-      ])
+      section({
+        title: book.name,
+        id: book.id,
+        suffix: `· ${book.statusText}`,
+        lines: [[book.skillType, damage, `熟练度 ${book.proficiency}%`].filter(Boolean).join(' · ')],
+        actions: [
+          { label: '查看', command: `/查看功法 ${book.id}` },
+          { label: '连续升级', command: `/升级功法 ${book.id} 选择` }
+        ]
+      })
     );
   });
 
@@ -194,10 +208,12 @@ const response = onResponse(selects, async e => {
       isPrivate,
       bid,
       title: '我的功法',
-      header: [{ label: '返回', command: '/我的功法' }],
       content: listContent,
       footer: [
-        ...createLearnedBookSortRows(selection.sort),
+        [
+          { label: '排序', command: `${buildLearnedBookListCommand(selection.sort, page)} 排序选项` },
+          { label: '返回', command: '/我的功法' }
+        ],
         [
           ...(result.data.canUseFifthLayerFeature ? [{ label: '战斗模板', command: '/战斗模板' }] : []),
           { label: '一键学习', command: '/一键学习功法' },
