@@ -1,14 +1,15 @@
 import { notificationResponseError } from '../api/bot/notification-error';
 import { dispatchChatNotices, startChatNotices, stopChatNotices } from './chat';
 import { dispatchCommunityNotifications } from './communityDelivery';
-import { getNotificationBackendConfig } from '@src/api/bot/config';
+import { getNotificationBackendConfig, hasNotificationBackendUrl } from '@src/api/bot/config';
 import { logger, onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from '../utils/qqBotIdentity';
 import { PushFlyMailTask, dispatchStandardMessages } from '@src/task/pushMessageTask';
 import { NotificationDispatcher } from './dispatch';
 
 let started = false;
-let stopWaitingForAppId: (() => void) | undefined;
+let stopWaitingForConfig: (() => void) | undefined;
+let warnedMissingBackendUrl = false;
 let generation = 0;
 let activeController: AbortController | undefined;
 let cancelReconnect: (() => void) | undefined;
@@ -66,13 +67,20 @@ export const startNotificationStream = (): void => {
   if (started) {
     return;
   }
-  if (!getQQBotAppIds().length) {
-    stopWaitingForAppId ??= onWatchConfigValue(() => startNotificationStream());
+  const hasBackendUrl = hasNotificationBackendUrl();
+
+  if (!hasBackendUrl && !warnedMissingBackendUrl) {
+    warnedMissingBackendUrl = true;
+    logger.warn('修仙通知流等待后端地址，请配置 xiuxian-game.backend.api_base_url 或 api_url。');
+  }
+  if (!getQQBotAppIds().length || !hasBackendUrl) {
+    stopWaitingForConfig ??= onWatchConfigValue(startNotificationStream);
 
     return;
   }
-  stopWaitingForAppId?.();
-  stopWaitingForAppId = undefined;
+  stopWaitingForConfig?.();
+  stopWaitingForConfig = undefined;
+  warnedMissingBackendUrl = false;
   started = true;
   const dispatcher = new NotificationDispatcher([
     { name: '飞信', run: PushFlyMailTask },
@@ -171,8 +179,9 @@ export const startNotificationStream = (): void => {
 
 export const stopNotificationStream = (): void => {
   started = false;
-  stopWaitingForAppId?.();
-  stopWaitingForAppId = undefined;
+  stopWaitingForConfig?.();
+  stopWaitingForConfig = undefined;
+  warnedMissingBackendUrl = false;
   stopChatNotices();
   activeDispatcher?.stop();
   activeDispatcher = undefined;

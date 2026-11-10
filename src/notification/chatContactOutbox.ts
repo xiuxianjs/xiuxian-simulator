@@ -48,19 +48,22 @@ export class ChatContactOutbox {
         await file.close();
       }
       await rename(temporary, path);
-      const directory = await open(this.directory, 'r');
+      // Windows does not support syncing a directory handle.
+      if (process.platform !== 'win32') {
+        const directory = await open(this.directory, 'r');
 
-      try {
-        await directory.sync();
-      } finally {
-        await directory.close();
+        try {
+          await directory.sync();
+        } finally {
+          await directory.close();
+        }
       }
       this.latest.delete(key);
       this.latest.set(key, { item, path });
       while (this.latest.size > 5000) {
         this.latest.delete(this.latest.keys().next().value!);
       }
-      // The new revision is already durable before retiring the old revision.
+      // Retire the old revision only after the replacement is installed.
       if (previous) {
         await rm(previous.path, { force: true });
       }

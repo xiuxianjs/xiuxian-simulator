@@ -5,6 +5,16 @@ import { DEFAULT_API_BASE, isValidApiBase, isValidTimeout } from '../core/helper
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+const normalizeBackendUrl = (value: unknown): string => String(value ?? '')
+    .trim()
+    .replace(/\/+$/, '');
+
+export function hasNotificationBackendUrl(): boolean {
+  const backend = getAppConfig().backend;
+
+  return Boolean(normalizeBackendUrl(backend?.api_base_url === undefined ? backend?.api_url : backend.api_base_url));
+}
+
 export function getBackendConfig() {
   if (typeof process === 'undefined') {
     throw new Error('机器人配置仅限服务端使用；浏览器请使用 createClient 显式配置身份');
@@ -22,9 +32,7 @@ export function getBackendConfig() {
   }
 
   const hasBaseUrl = value.api_base_url !== undefined;
-  const url = String((hasBaseUrl ? value.api_base_url : value.api_url) ?? '')
-    .trim()
-    .replace(/\/+$/, '');
+  const url = normalizeBackendUrl(hasBaseUrl ? value.api_base_url : value.api_url);
   const config = {
     url,
     apiBase,

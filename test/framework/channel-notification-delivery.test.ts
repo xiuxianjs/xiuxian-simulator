@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import axios from 'axios';
-import { createResult, getConfig, ResultCode, shutdownLogger } from 'alemonjs';
+import { createResult, getConfig, logger, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { PushMessageTask } from '../../src/task/pushMessageTask';
 import { startNotificationStream, stopNotificationStream } from '../../src/notification/stream';
@@ -193,5 +193,55 @@ test('等待扫码期间销毁会取消配置订阅', async t => {
     stopNotificationStream();
     assert.equal(stopped, 1);
   }, app.events.groupMessage({ platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+});
+
+test('通知流等待后端地址，补齐后只连接一次，停止时取消等待', async t => {
+  const backend = config['xiuxian-game'].backend;
+  const waitingConfig = { ...config, 'xiuxian-game': { backend: { ...backend, api_base_url: ' ' } } };
+  const readyConfig = { ...config, 'xiuxian-game': { backend: { ...backend, api_base_url: 'https://relay.invalid/' } } };
+  const app = createTestApp({ config: waitingConfig });
+  t.after(() => { stopNotificationStream(); app.dispose(); });
+  const warn = t.mock.method(logger, 'warn', () => {});
+  const axiosCreate = t.mock.method(axios, 'create', () => ({ post: async () => ({ data: { claim: null, pending: false } }) } as never));
+  const urls: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit) => {
+    urls.push(url);
+    return new Response(new ReadableStream<Uint8Array>({ start(controller) {
+      options.signal?.addEventListener('abort', () => controller.close(), { once: true });
+    } }), { headers: { 'Content-Type': 'text/event-stream' } });
+  });
+  const result = await app.runHandler(async () => {
+    let notify: (() => void) | undefined;
+    let stopped = 0;
+    const watch = t.mock.method(getConfig(), 'onWatch', listener => {
+      notify = () => listener(getConfig().value!);
+      return () => { notify = undefined; stopped++; };
+    });
+
+    startNotificationStream();
+    notify?.();
+    startNotificationStream();
+    assert.equal(watch.mock.callCount(), 1);
+    assert.equal(warn.mock.callCount(), 1);
+    assert.equal(axiosCreate.mock.callCount(), 0);
+    assert.deepEqual(urls, []);
+
+    app.configure(readyConfig);
+    notify?.();
+    startNotificationStream();
+    assert.deepEqual(urls, ['https://relay.invalid/api/v1/internal/notification-relay/events/stream']);
+    assert.equal(stopped, 1);
+    stopNotificationStream();
+
+    app.configure(waitingConfig);
+    startNotificationStream();
+    assert.equal(watch.mock.callCount(), 2);
+    stopNotificationStream();
+    assert.equal(stopped, 2);
+    app.configure(readyConfig);
+    notify?.();
+    assert.equal(urls.length, 1);
+  }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
   assert.deepEqual(result.errors, []);
 });
