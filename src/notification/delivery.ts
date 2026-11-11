@@ -16,6 +16,8 @@ export async function deliverNotification(
     mention?: string;
     recipientBid?: string;
     enabled: boolean;
+    /** Revalidate a feature-specific destination immediately before sending. */
+    authorize?: (target: NotificationTarget) => Promise<boolean>;
     /** 飞信明确发送失败时继续尝试私聊；私聊也失败则只留站内记录。 */
     fallbackOnFailure?: boolean;
   },
@@ -46,6 +48,9 @@ export async function deliverNotification(
         return false;
       }
       throw new Error('通知通道暂时冷却，等待重试');
+    }
+    if (input.authorize && !(await input.authorize(target))) {
+      return false;
     }
     try {
       await channel.send(target, filterData(data), cached);

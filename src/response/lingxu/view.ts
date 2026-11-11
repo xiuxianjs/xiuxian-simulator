@@ -13,7 +13,7 @@ export const lingxuBottomBar = [
 
 const manual = (actions: LingxuAction[] = []) => actions.map(action => ({ ...action, autoEnter: false }));
 
-/** Normal objects reuse presentation.section; event records keep the requested two quote blocks. */
+/** Current journal rows use one section. Older servers can still send split experience and harvest fields. */
 export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) {
   const md = Format.createMarkdown();
 

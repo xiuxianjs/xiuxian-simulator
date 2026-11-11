@@ -591,7 +591,7 @@ export async function requestRobotBusiness<T>(
   request?: BackendRequestContext
 ): Promise<RobotBusinessResult<T>> {
   await beginGamePresentation(event);
-  const input = businessInputFromEvent(event);
+  const input = businessInputFromEvent(event, operation === 'lingxu.command');
 
   // A native group can also carry a private reply address. Keep that
   // address while using only the native group ID for candidate ordering.

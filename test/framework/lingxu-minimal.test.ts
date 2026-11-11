@@ -11,7 +11,7 @@ import profession from '../../src/response/profession/myProfession/res';
 import marketBrowse from '../../src/response/market/list/res';
 import marketSell from '../../src/response/market/sell/res';
 import { businessEnvelope, gameFixture } from './fixture';
-import { lingxuPages, lingxuRef } from './lingxu-minimal-fixtures';
+import { lingxuJournal, lingxuJournalDetail, lingxuPages, lingxuRef } from './lingxu-minimal-fixtures';
 import { commandText } from '../../src/utils/commandPrefix';
 import { createGameRouter } from '../../src/router';
 
@@ -73,6 +73,84 @@ test('all generated page buttons round-trip to the domain parser without changin
     delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
     assert.equal(requests.at(-1)?.body.messageText, command);
   }
+});
+
+test('each compact diary record has a bold time and its own fill-only detail button', async t => {
+  const detailCommand = '/灵墟洞天 记录 record_4';
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
+    request.body.messageText === detailCommand ? lingxuJournalDetail : lingxuJournal));
+  for (const isPrivate of [false, true]) {
+    const event = (text: string) => {
+      const options = { text, platform: 'qq-bot', userId: 'lingxu-member' };
+      return isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group', channelId: 'lingxu-group' });
+    };
+    const list = await app.runHandler(handler, event('/灵墟洞天 行记'));
+    const view = delivery(list);
+    const quotes = nodes(list.messages[0].nodes).filter(node => node.type === 'MD.blockquote');
+    assert.equal(quotes.length, lingxuJournal.sections.length);
+    for (const [index, record] of lingxuJournal.sections.entries()) {
+      assert.ok(Array.isArray(quotes[index].value));
+      const children = nodes(quotes[index].value as unknown[]).filter(node => node.type !== 'MD.newline' && String(node.value).trim());
+      assert.equal(children[0].type, 'MD.bold');
+      assert.equal(children[0].value, record.title);
+      assert.deepEqual(children.filter(node => node.type === 'MD.text').map(node => node.value), record.lines);
+      assert.equal(children.at(-1)?.type, 'MD.button');
+      assert.equal(children.at(-1)?.options?.data, record.actions?.[0].command);
+    }
+    assert.doesNotMatch(view.text, /行动记录|交战 3 回合|损失|托管/);
+    assert.ok(view.commands.includes('/灵墟洞天 推送设置'));
+    const detail = delivery(await app.runHandler(handler, event(detailCommand)));
+    assert.match(detail.text, /行动详情/);
+    assert.match(detail.text, /交战 3 回合/);
+    assert.ok(detail.commands.includes('/灵墟洞天 行记'));
+    assert.equal(requests.at(-1)?.body.messageText, detailCommand);
+  }
+});
+
+test('diary push settings send only fixed modes and carry the current group identity', async t => {
+  const settings = '/灵墟洞天 推送设置';
+  const groupTarget = { platform: 'qq-bot', BotId: '100017', scope: 'group', targetId: 'lingxu-group' };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    title: '灵墟洞天 · 推送设置', privateOnly: false,
+    sections: [{ lines: ['状态：当前推送到私聊'] }],
+    actions: [
+      ...(request.body.groupTarget ? [{ label: '推送到本群', command: `${settings} 本群` }] : []),
+      { label: '推送到私聊', command: `${settings} 私聊` },
+      { label: '关闭推送', command: `${settings} 关闭` },
+      { label: '返回行记', command: '/灵墟洞天 行记' }
+    ]
+  }));
+  for (const isPrivate of [false, true]) {
+    const run = async (text: string) => {
+      const options = { text, platform: 'qq-bot', botId: groupTarget.BotId, userId: 'lingxu-member' };
+      const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group', channelId: 'lingxu-group' });
+      return delivery(await app.runHandler(handler, event));
+    };
+    const view = await run(settings);
+    assert.deepEqual(parseLingxuCommand(settings), { readOnly: true });
+    assert.match(view.text, /当前推送到私聊/);
+    assert.equal(requests.at(-1)?.body.channelId, isPrivate ? undefined : 'lingxu-group');
+    assert.deepEqual(requests.at(-1)?.body.groupTarget, isPrivate ? undefined : groupTarget);
+    assert.equal(view.commands.includes(`${settings} 本群`), !isPrivate);
+    for (const command of view.commands.filter(command => command.startsWith(`${settings} `))) {
+      assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
+      await run(command);
+      assert.equal(requests.at(-1)?.body.messageText, command);
+      assert.equal(requests.at(-1)?.body.channelId, isPrivate ? undefined : 'lingxu-group');
+      assert.deepEqual(requests.at(-1)?.body.groupTarget, isPrivate ? undefined : groupTarget);
+      assert.ok(requests.at(-1)?.idempotencyKey);
+    }
+    const count = requests.length;
+    const invalid = await run(`${settings} 回显占位词`);
+    assert.doesNotMatch(invalid.text, /回显占位词/);
+    assert.ok(invalid.commands.every(command => !command.includes('回显占位词')));
+    assert.equal(requests.length, count);
+  }
+  const channel = app.events.channelMessage({ text: settings, platform: 'qq-bot', botId: groupTarget.BotId, channelId: 'lingxu-channel' });
+  const view = delivery(await app.runHandler(handler, channel));
+  assert.equal(requests.at(-1)?.body.channelId, 'lingxu-channel');
+  assert.equal(requests.at(-1)?.body.groupTarget, undefined);
+  assert.ok(!view.commands.includes(`${settings} 本群`));
 });
 
 test('other package messages continue the event chain', async t => {

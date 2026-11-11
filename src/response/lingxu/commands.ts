@@ -58,8 +58,11 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
 
     return error;
   }
-  if (words.length === 1 && ['入场', '倾向', '返程设置', '行囊升级'].includes(action)) {
+  if (words.length === 1 && ['入场', '倾向', '返程设置', '行囊升级', '推送设置'].includes(action)) {
     return read;
+  }
+  if (action === '推送设置' && words.length === 2 && ['本群', '私聊', '关闭'].includes(arg)) {
+    return write;
   }
   if (words.length === 1 && ['返程', '隐匿', '继续', '拾取'].includes(action)) {
     return write;

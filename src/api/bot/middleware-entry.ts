@@ -16,6 +16,7 @@ export type RobotMiddlewareInput = {
   botId?: string;
   channelId?: string;
   privateTarget?: { platform: string; BotId?: string; scope: 'c2c' | 'direct'; targetId: string };
+  groupTarget?: { platform: string; BotId: string; scope: 'group'; targetId: string };
 };
 export type RobotMiddlewareNav = { current: number; total: number; count: number; command: string };
 export type RobotMiddlewareReply = {
@@ -258,9 +259,24 @@ export function middlewareInputFromEvent(event: GameEvent): RobotMiddlewareInput
 
 // Only combined endpoints accept task context. A later continuation/res cannot
 // start a second task transition after the exact business has consumed it.
-export function businessInputFromEvent(event: GameEvent): RobotMiddlewareInput & { taskInput?: string } {
+export function businessInputFromEvent(event: GameEvent, includeGroupTarget = false): RobotMiddlewareInput & { taskInput?: string } {
   const input = middlewareInputFromEvent(event);
   const taskInput = takeRobotTaskInput(event);
+  const { botId, channelId } = input;
+  const group = event.Target ? event.Target.scope === 'group' && event.Target.targetId === channelId : event.SpaceId === `GROUP:${channelId}`;
+
+  if (
+    includeGroupTarget &&
+    input.platform === 'qq-bot' &&
+    !input.privateTarget &&
+    !event.IsPrivate &&
+    !event.name.startsWith('private.') &&
+    group &&
+    botId &&
+    channelId
+  ) {
+    input.groupTarget = { platform: input.platform, BotId: botId, scope: 'group', targetId: channelId };
+  }
 
   return taskInput === undefined ? input : { ...input, taskInput };
 }

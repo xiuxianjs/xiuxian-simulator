@@ -4,6 +4,7 @@ import { withFlyMailBuffer, withNotificationBuffer } from '@src/notification/fly
 import type { NotificationRelayEvent } from '@src/api/bot/notification-relay';
 import { flyMailNoticeData } from '@src/utils/flyMailPresentation';
 import { deliverFlyMailNotification } from '@src/notification/flymailDelivery';
+import { deliverLingxuNotification } from '@src/notification/lingxu';
 import { getAppConfig } from '@src/utils/appConfig';
 import {
   acknowledgeNotificationRelay,
@@ -26,6 +27,7 @@ type PlayerNotificationPayload = {
   flymail?: unknown;
   fishingCastId?: unknown;
   fishingBossEventId?: unknown;
+  lingxuSummary?: unknown;
   version: 1;
   recipientUserId: number;
   data: DataEnums[];
@@ -101,7 +103,9 @@ async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: '
         continue;
       }
       const owner = String(row.recipientUserId ?? row.recipientBid ?? row.eventId);
-      const delivery = withNotificationBuffer(owner, () => processPlayerNotification(row, consumer, loadLegacyIDs, lane));
+      // 洞天已在服务端按 30 分钟汇总，战败与撤离须立即送达。
+      const dispatch = () => processPlayerNotification(row, consumer, loadLegacyIDs, lane);
+      const delivery = parsePayload(row.payload)?.source === 'lingxu.summary' ? dispatch() : withNotificationBuffer(owner, dispatch);
 
       active.add(delivery);
       void delivery.finally(() => active.delete(delivery)).catch(() => {});
@@ -161,6 +165,9 @@ async function processPlayerNotification(
       }
       if (!(await playerNotificationEnabled(ownerUserId, payload.source))) {
         return { route: 'history' as const, reason: 'proactive_disabled' as const };
+      }
+      if (payload.source === 'lingxu.summary') {
+        return deliverLingxuNotification(ownerUserId, row.recipientBid!, row.occurredAt, payload.lingxuSummary, data, proactiveEnabled());
       }
       if (blackBoxNotice && !row.recipientBid) {
         return Promise.resolve({ route: 'history' as const, reason: 'no_target' as const });

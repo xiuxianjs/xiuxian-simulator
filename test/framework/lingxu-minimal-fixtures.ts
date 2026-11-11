@@ -1,6 +1,30 @@
 import type { LingxuPage } from '../../src/api/bot/lingxu';
 
 export const lingxuRef = 'r1_1_lx_mabc1234_0123456789abcdef01234567';
+export const lingxuLegacyJournal: LingxuPage = {
+  title: '灵墟洞天 · 行记', privateOnly: false,
+  sections: [{ title: '行动记录', id: 'record_5', lines: ['时间：11-10 19:10'], experience: ['搜寻林间落种，精力-2、元力-2。'], harvest: ['获得了7修为、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_5' }] }],
+  nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },
+  actions: [{ label: '提取回执', command: '/灵墟洞天 提取回执' }, { label: '返回洞天', command: '/灵墟洞天' }]
+};
+
+export const lingxuJournal: LingxuPage = {
+  title: '灵墟洞天 · 行记', privateOnly: false,
+  sections: [
+    { title: '11-11 21:30', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_5' }] },
+    { title: '11-11 21:20', lines: ['经历：与针背山猪开战。', '结果：战败，生命点-1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_4' }] },
+    { title: '11-11 21:10', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_3' }] }
+  ],
+  nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },
+  actions: [{ label: '提取回执', command: '/灵墟洞天 提取回执' }, { label: '推送设置', command: '/灵墟洞天 推送设置' }, { label: '返回洞天', command: '/灵墟洞天' }]
+};
+
+export const lingxuJournalDetail: LingxuPage = {
+  title: '灵墟洞天 · 行动详情', privateOnly: false,
+  sections: [{ title: '11-11 21:20', lines: ['地点：青岚林', '经历：与针背山猪开战 · 交战 3 回合', '结果：战败 · 生命点 5→4', '消耗：精力 2、元力 2'] }],
+  actions: [{ label: '返回行记', command: '/灵墟洞天 行记' }]
+};
+
 export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: string[] }> = [
   {
     command: '/灵墟洞天',
@@ -60,12 +84,17 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
   },
   {
     command: '/灵墟洞天 行记',
-    page: {
-      title: '灵墟洞天 · 行记', privateOnly: false,
-      sections: [{ title: '行动记录', id: 'record_5', lines: ['时间：11-10 19:10'], experience: ['搜寻林间落种，精力-2、元力-2。'], harvest: ['获得了7修为、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_5' }] }],
-      nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },
-      actions: [{ label: '提取回执', command: '/灵墟洞天 提取回执' }, { label: '返回洞天', command: '/灵墟洞天' }]
-    },
+    page: lingxuLegacyJournal,
     expected: ['行动记录 #record_5', '经历：', '收获：', '共120条']
+  },
+  {
+    command: '/灵墟洞天 行记',
+    page: lingxuJournal,
+    expected: ['11-11 21:30', '与针背山猪开战', '正在前往废弃坊市', '共120条']
+  },
+  {
+    command: '/灵墟洞天 记录 record_4',
+    page: lingxuJournalDetail,
+    expected: ['11-11 21:20', '消耗：精力 2、元力 2', '交战 3 回合']
   }
 ];

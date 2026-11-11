@@ -42,12 +42,14 @@ export async function deliverPlayerNotification(
   enabled: boolean,
   options?: {
     privateOnly?: boolean;
+    exactGroup?: NotificationTarget;
+    authorize?: (target: NotificationTarget) => Promise<boolean>;
     fallbackOnFailure?: boolean;
     sendGroup?: (target: NotificationTarget, send: (content?: DataEnums[]) => Promise<void>) => Promise<void>;
   }
 ) {
-  const subscription = enabled && !options?.privateOnly ? await getNotificationSubscriptionTarget(userId) : null;
-  const group = subscription?.isEnabled ? subscriptionTarget(subscription) : null;
+  const subscription = enabled && !options?.privateOnly && !options?.exactGroup ? await getNotificationSubscriptionTarget(userId) : null;
+  const group = options?.exactGroup ?? (subscription?.isEnabled ? subscriptionTarget(subscription) : null);
   const platform = subscription?.platform ?? process.env.login ?? '';
   const botId = subscription?.botId ?? undefined;
   const isGroup = (target: NotificationTarget) => target.scope === 'group' || target.scope === 'channel';
@@ -57,12 +59,15 @@ export async function deliverPlayerNotification(
     enabled && !options?.privateOnly && subscription?.isEnabled === true
       ? async () => (await readPlatformGroupCandidates(platform, bid, botId)).map(activity => activity.target)
       : undefined;
-  const candidate = enabled ? ((await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId)) : null;
+  const candidate =
+    enabled && !options?.exactGroup
+      ? ((await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId))
+      : null;
 
   const privateTarget = options?.privateOnly && candidate && !['c2c', 'direct'].includes(candidate.scope) ? null : candidate;
 
   return await deliverNotification(
-    { group, fallbackGroups, privateTarget, data, mention: bid, enabled, fallbackOnFailure: options?.fallbackOnFailure },
+    { group, fallbackGroups, privateTarget, data, mention: bid, enabled, fallbackOnFailure: options?.fallbackOnFailure, authorize: options?.authorize },
     {
       ...notificationChannel,
       async read(target) {

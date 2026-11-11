@@ -27,7 +27,10 @@ export type NotificationRelayEvent = {
   deliveryAttempts: number;
   recipientUserId?: number;
   recipientBid?: string;
+  occurredAt?: string;
 };
+
+export type LingxuPushPreference = { mode: 'private' | 'off' } | { mode: 'group'; target: NotificationTarget };
 
 /** 投递结果由本层上报给服务端，类型与客户端投递状态机共用同一份定义。 */
 export type { NotificationDelivery };
@@ -62,6 +65,25 @@ export async function claimNotificationRelay(eventType: string, consumer: string
   const data = await post<{ event: NotificationRelayEvent | null }>('/claim', { eventType, consumer, ...(lane ? { lane } : {}) });
 
   return data.event;
+}
+export async function getLingxuPushDestination(playerId: number, queuedAt: string): Promise<LingxuPushPreference> {
+  const preference = await post<LingxuPushPreference>('/lingxu-preference', { playerId, queuedAt });
+
+  if (preference?.mode === 'private' || preference?.mode === 'off') {
+    return preference;
+  }
+  if (
+    preference?.mode === 'group' &&
+    preference.target?.scope === 'group' &&
+    preference.target.platform === 'qq-bot' &&
+    typeof preference.target.targetId === 'string' &&
+    preference.target.targetId &&
+    typeof preference.target.BotId === 'string' &&
+    preference.target.BotId
+  ) {
+    return preference;
+  }
+  throw new Error('洞天推送设置无效');
 }
 export async function acknowledgeNotificationRelay(eventId: string, consumer: string, delivery: NotificationDelivery): Promise<void> {
   await post('/ack', { eventId, consumer, delivery });
