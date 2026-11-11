@@ -14,11 +14,19 @@ const fixture = await build({
   plugins: [{ name: 'half-month-transport-seam', setup(builder) {
     builder.onResolve({ filter: /^alemonjs$/ }, () => ({ path: pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href, external: true }));
     builder.onResolve({ filter: /^@src\/(api\/bot\/client|response\/config)$/ }, args => ({ path: args.path, namespace: 'fixture' }));
+      builder.onResolve({ filter: /^\.\/client$/ }, args => args.importer.endsWith('/api/bot/identity.ts')
+        ? { path: '@src/api/bot/client', namespace: 'fixture' }
+        : undefined);
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: `
       export const selects = ['message.create','private.message.create','interaction.create','private.interaction.create'];
+      export class BackendAPIError extends Error {}
       export function writeContext() { return { requestId: 'trace', idempotencyKey: 'test-operation' }; }
-      export async function requestBackend(_bid, op, args) {
+      export async function requestBackend(bid, op, args) {
         const fixture = globalThis.__halfMonthPresentation;
+        if (op === 'getRobotIdentity') {
+          fixture.identityCalls.push(bid);
+          return { bid, account: { status: 'registered', playerId: 7 } };
+        }
         fixture.calls.push({ op, args });
         return fixture.replies[op];
       }
@@ -39,8 +47,8 @@ const overview = {
 };
 
 async function render(command, replies) {
-  Object.assign(state, { sent: [], calls: [], replies });
-  const result = await harness.run(handler, { name: 'message.create', UserId: 'fixture', uid: 7, isPrivate: true, MessageText: command });
+  Object.assign(state, { sent: [], calls: [], identityCalls: [], replies });
+  const result = await harness.run(handler, { name: 'message.create', UserId: 'fixture', isPrivate: true, MessageText: command });
   assert.equal(result.messages.length, 1);
   assert.ok(result.messages[0].nodes.length);
   const nodes = result.messages[0].nodes;
@@ -60,6 +68,14 @@ test('activity overview shows tier progress and navigates to farm and shop', asy
   assert.match(result.text, /已获 9 仙玉/);
   assert.ok(result.commands.includes('/我的灵田'));
   assert.ok(result.commands.includes('/半月活动 商店'));
+});
+
+test('opening the activity before launch resolves the QQ player identity before requesting the overview', async () => {
+  const result = await render('/半月活动', { [get]: { ...overview, day: 0, task: undefined, products: undefined } });
+  assert.deepEqual(state.identityCalls, ['fixture']);
+  assert.equal(state.calls[0].args.path.id, 7);
+  assert.match(result.text, /未开放/);
+  assert.match(result.text, /11-15 00:00/);
 });
 
 test('shop confirmation round-trips a complete server reference within QQ budget', async () => {

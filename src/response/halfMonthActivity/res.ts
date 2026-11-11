@@ -1,6 +1,7 @@
 import { onResponse } from 'alemonjs';
 import { requestBackend, writeContext } from '@src/api/bot/client';
 import { createBackendRequestContext } from '@src/api/bot/context';
+import { getEventBackendRobotIdentity } from '@src/api/bot/identity';
 import { selects } from '@src/response/config';
 import { buildBubble, confirmBubble, errorBubble, listBubble, resultBubble, type BubbleAction } from '@src/response/presentation';
 import { getCommandErrorMessage } from '@src/utils/commandError';
@@ -69,7 +70,6 @@ export default onResponse(selects, async event => {
   const [, mode, value, extra] = event.MessageText.trim()
     .replace(/^[!！/#＃]/, '')
     .split(/\s+/);
-  const path = { id: event.uid };
   const request = createBackendRequestContext(event);
   const signReceipt = (result: SignResult, day: number, makeup: boolean) => {
     const sign = result.signs[day - 1];
@@ -85,10 +85,17 @@ export default onResponse(selects, async event => {
   };
 
   try {
+    if (mode === '确认' && (!value || !shortReference.test(value) || extra)) {
+      return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：确认编号无效，请重新预览', footer: [back] }));
+    }
+    const { account } = await getEventBackendRobotIdentity(event, request);
+
+    if (account.status !== 'registered' || !account.playerId) {
+      throw new Error('半月活动缺少角色身份');
+    }
+    const path = { id: account.playerId };
+
     if (mode === '确认') {
-      if (!value || !shortReference.test(value) || extra) {
-        return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：确认编号无效，请重新预览', footer: [back] }));
-      }
       const result = (await requestBackend(bid, 'post_players_id_half_month_activity_confirm', {
         path,
         body: { ref: value },
