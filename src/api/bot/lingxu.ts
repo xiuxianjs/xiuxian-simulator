@@ -1,5 +1,5 @@
 import { commandCharacterLength } from '@src/utils/commandPrefix';
-import { parseLingxuCommand } from '@src/response/lingxu/commands';
+import { lingxuMapTiers, parseLingxuCommand } from '@src/response/lingxu/commands';
 
 export type LingxuAction = { label: string; command: string };
 export type LingxuSection = {
@@ -12,6 +12,7 @@ export type LingxuSection = {
 };
 export type LingxuPage = {
   title: string;
+  tabs?: LingxuAction[];
   sections: LingxuSection[];
   actions?: LingxuAction[];
   nav?: { page: number; totalPages: number; total?: number; command: string };
@@ -68,7 +69,41 @@ export function parseLingxuPage(value: unknown): LingxuPage {
     };
   });
   const pageActions = actions(raw.actions, 8);
+  const tabs = actions(raw.tabs, lingxuMapTiers.length);
   let nav: LingxuPage['nav'];
+
+  if (tabs) {
+    const validTabs =
+      tabs.length === lingxuMapTiers.length &&
+      tabs.every(({ label, command }, index) => {
+        const tier = lingxuMapTiers[index];
+
+        return command === `/灵墟洞天 地图 ${tier}` && (label === tier || label === `▶${tier}`);
+      }) &&
+      tabs.filter(tab => tab.label.startsWith('▶')).length === 1;
+    const validRegions =
+      sections.length > 0 &&
+      sections.length <= 8 &&
+      sections.every(entry => {
+        const moves = entry.actions ?? [];
+
+        return (
+          entry.title &&
+          entry.id === undefined &&
+          entry.experience === undefined &&
+          entry.harvest === undefined &&
+          entry.lines.length === 2 &&
+          entry.lines[0].startsWith('产出：') &&
+          entry.lines[1].startsWith('出口：') &&
+          moves.length <= 1 &&
+          moves.every(action => action.label === '前往' && action.command.startsWith('/灵墟洞天 前往 '))
+        );
+      });
+
+    if (title !== '灵墟洞天 · 地图' || !validTabs || !validRegions || (pageActions?.length ?? 0) > 2 || raw.nav !== undefined) {
+      return invalid();
+    }
+  }
 
   if (raw.nav !== undefined) {
     const entry = object(raw.nav);
@@ -86,9 +121,9 @@ export function parseLingxuPage(value: unknown): LingxuPage {
   const sectionActions = sections.reduce((sum, entry) => sum + (entry.actions?.length ?? 0), 0);
   const count = sectionActions + (pageActions?.length ?? 0) + (nav && nav.page > 1 ? 1 : 0) + (nav && nav.page < nav.totalPages ? 1 : 0);
 
-  if (count > 10) {
+  if (!tabs && count > 10) {
     return invalid();
   }
 
-  return { title, sections, actions: pageActions, nav, privateOnly: raw.privateOnly };
+  return { title, ...(tabs ? { tabs } : {}), sections, actions: pageActions, nav, privateOnly: raw.privateOnly };
 }

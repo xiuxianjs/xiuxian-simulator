@@ -18,7 +18,9 @@ export function lingxuNoticeData(summary: unknown, fallback: DataEnums[]): DataE
       lines.length <= 5 &&
       lines.every(line => typeof line === 'string' && /^(?:经历|结果|掉落|损失|收获)：[^\r\n]{1,181}$/.test(line))
     ) {
-      return buildBubble({ title: '灵墟洞天 · 行记推送', sections: [{ title: time, lines }], footer: [viewJournal], bar: false }).format.value;
+      const journal = lines.map(line => line.replaceAll('生命点', '命数'));
+
+      return buildBubble({ title: '灵墟洞天 · 行记推送', sections: [{ title: time, lines: journal }], footer: [viewJournal], bar: false }).format.value;
     }
   }
 

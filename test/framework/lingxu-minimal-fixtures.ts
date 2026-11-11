@@ -1,6 +1,26 @@
 import type { LingxuPage } from '../../src/api/bot/lingxu';
 
 export const lingxuRef = 'r1_1_lx_mabc1234_0123456789abcdef01234567';
+export const lingxuOuterMap: LingxuPage = {
+  title: '灵墟洞天 · 地图', privateOnly: false,
+  tabs: [
+    { label: '▶外围', command: '/灵墟洞天 地图 外围' },
+    { label: '内围', command: '/灵墟洞天 地图 内围' },
+    { label: '核心', command: '/灵墟洞天 地图 核心' }
+  ],
+  sections: [
+    ['坎·阳·玄泽湿地', '水生灵植、液材、丹药', '坎门'],
+    ['艮·阳·玄晶矿洞', '矿料、铸造工具、装备', '艮门'],
+    ['震·阳·青岚林', '草药、种子、灵植', '震门'],
+    ['巽·阳·百草坞', '成片灵植、种子、草药', '巽门'],
+    ['离·阳·赤砂裂隙', '矿料、兵器、护具', '离门'],
+    ['坤·阳·废弃坊市', '丹药、功法、旧工具和遗物', '坤门'],
+    ['兑·阳·秋水河滩', '液材、河砂矿料、散落法器', '兑门'],
+    ['乾·阳·观星台', '功法、法器、星象遗物', '乾门']
+  ].map(([title, drops, exit]) => ({ title, lines: [`产出：${drops}`, `出口：${exit}`], actions: [{ label: '前往', command: `/灵墟洞天 前往 ${title.split('·').at(-1)}` }] })),
+  actions: [{ label: '选择出口', command: '/灵墟洞天 出口' }, { label: '返回洞天', command: '/灵墟洞天' }]
+};
+
 export const lingxuLegacyJournal: LingxuPage = {
   title: '灵墟洞天 · 行记', privateOnly: false,
   sections: [{ title: '行动记录', id: 'record_5', lines: ['时间：11-10 19:10'], experience: ['搜寻林间落种，精力-2、元力-2。'], harvest: ['获得了7修为、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_5' }] }],
@@ -11,9 +31,9 @@ export const lingxuLegacyJournal: LingxuPage = {
 export const lingxuJournal: LingxuPage = {
   title: '灵墟洞天 · 行记', privateOnly: false,
   sections: [
-    { title: '11-11 21:30', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_5' }] },
-    { title: '11-11 21:20', lines: ['经历：与针背山猪开战。', '结果：战败，生命点-1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_4' }] },
-    { title: '11-11 21:10', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 record_3' }] }
+    { title: '11-11 21:30', id: '5', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 5' }] },
+    { title: '11-11 21:20', id: '4', lines: ['经历：与针背山猪开战。', '结果：战败，命数-1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 4' }] },
+    { title: '11-11 21:10', id: '3', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 3' }] }
   ],
   nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },
   actions: [{ label: '提取回执', command: '/灵墟洞天 提取回执' }, { label: '推送设置', command: '/灵墟洞天 推送设置' }, { label: '返回洞天', command: '/灵墟洞天' }]
@@ -21,7 +41,7 @@ export const lingxuJournal: LingxuPage = {
 
 export const lingxuJournalDetail: LingxuPage = {
   title: '灵墟洞天 · 行动详情', privateOnly: false,
-  sections: [{ title: '11-11 21:20', lines: ['地点：青岚林', '经历：与针背山猪开战 · 交战 3 回合', '结果：战败 · 生命点 5→4', '消耗：精力 2、元力 2'] }],
+  sections: [{ title: '11-11 21:20', id: '4', lines: ['地点：青岚林', '经历：与针背山猪开战 · 交战 3 回合', '结果：战败 · 命数 5→4', '消耗：精力 2、元力 2'] }],
   actions: [{ label: '返回行记', command: '/灵墟洞天 行记' }]
 };
 
@@ -30,19 +50,22 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天',
     page: {
       title: '灵墟洞天', privateOnly: false,
-      sections: [{ lines: ['状态：探索中 · 坤·阴·废弃坊市', '生命点：4/5 · 每60分钟恢复1点', '行动：保守 · 对人躲避 · 对怪战斗', '行囊：8/50格 · 安全格0/0', '阵效：道蕴阵盘·三品 · 剩余5小时', '时效：下一未冻结行动读取当前有效阵效，已冻结行动保持原快照。', '时间：下次结算19:20'] }],
-      actions: [{ label: '倾向', command: '/灵墟洞天 倾向' }, { label: '地图', command: '/灵墟洞天 地图' }, { label: '行囊', command: '/灵墟洞天 行囊' }, { label: '阵法师', command: '/阵法师' }, { label: '行记', command: '/灵墟洞天 行记' }, { label: '返程', command: '/灵墟洞天 返程' }]
+      sections: [{ lines: ['状态：探索中 · 坤·阳·废弃坊市', '行动：保守 · 对人躲避 · 对怪战斗', '命数：4/5 · 每60分钟恢复1点', '行囊：8/50格 · 安全格0/0', '阵效：道蕴阵盘·三品 · 剩余5小时', '时效：每轮开始时确定阵效，之后的阵效变化从下一轮起生效。', '时间：下次结算19:20'] }],
+      actions: [{ label: '行动倾向', command: '/灵墟洞天 行动倾向' }, { label: '地图', command: '/灵墟洞天 地图' }, { label: '行囊', command: '/灵墟洞天 行囊' }, { label: '阵法师', command: '/阵法师' }, { label: '行记', command: '/灵墟洞天 行记' }, { label: '返程', command: '/灵墟洞天 返程' }, { label: '休息', command: '/灵墟洞天 隐匿' }]
     },
-    expected: ['生命点：4/5', '下次结算19:20']
+    expected: ['命数：4/5', '下次结算19:20']
   },
   {
     command: '/灵墟洞天 入场',
     page: {
       title: '灵墟洞天 · 入场确认', privateOnly: false,
-      sections: [{ title: '目标', lines: ['行动：谨慎 · 对人躲避 · 对怪友善', '生命点：5/5', '说明：不停止原探索、闭关或打坐。'] }, { title: '代价', lines: ['消耗：每轮精力2、元力2', '风险：战败扣1生命点，两袋随机败损；安全格内物品不会掉落。', '结算：须到公开出口另用一轮撤离。'], actions: [{ label: '确认入场', command: `/灵墟洞天 确认 ${lingxuRef}` }] }],
-      actions: [{ label: '取消', command: '/灵墟洞天' }]
+      sections: [{
+        lines: ['状态：准备入场(坤·阳·废弃坊市)', '行动：谨慎 · 对人躲避 · 对怪躲避', '命数：4/5 · 每60分钟恢复1点', '行囊：0/60格 · 安全格0/0', '阵盘：归墟阵盘·三品 · 余1时43分', '', '消耗：每轮精力2、元力2。精力或元力不足时等待。', '风险：战败扣1点命数，两袋内的物品可能随机掉落。安全格内物品不会掉落。', '结算：到外围出口后另用一轮撤离，成功后带出所得。', '说明：入场沿用当前命数，探索、闭关和打坐照常。', '时效：24小时内可按此页设置入场。容量、阵盘或规则变化后须重新预览。'],
+        actions: [{ label: '确认入场', command: `/灵墟洞天 确认 ${lingxuRef}` }]
+      }],
+      actions: [{ label: '地图', command: '/灵墟洞天 地图' }, { label: '倾向', command: '/灵墟洞天 行动倾向' }, { label: '打开', command: '/灵墟洞天 行囊' }, { label: '查看', command: '/阵法师' }, { label: '取消', command: '/灵墟洞天' }]
     },
-    expected: ['两袋随机败损', '不停止原探索']
+    expected: ['战败扣1点命数', '入场沿用当前命数']
   },
   {
     command: '/灵墟洞天 地图 2',
@@ -93,7 +116,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     expected: ['11-11 21:30', '与针背山猪开战', '正在前往废弃坊市', '共120条']
   },
   {
-    command: '/灵墟洞天 记录 record_4',
+    command: '/灵墟洞天 记录 4',
     page: lingxuJournalDetail,
     expected: ['11-11 21:20', '消耗：精力 2、元力 2', '交战 3 回合']
   }

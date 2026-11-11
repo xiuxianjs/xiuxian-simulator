@@ -198,10 +198,11 @@ export function notificationNoticeData(data: DataEnums[], source = '', fishingRe
   if (!data.length || data.some(block => block.type !== 'Text' && block.type !== 'Mention')) {
     return data;
   }
-  const text = data
+  const rawText = data
     .filter(block => block.type === 'Text')
     .map(block => block.value)
     .join('');
+  const text = source === 'lingxu.summary' ? rawText.replaceAll('生命点', '命数') : rawText;
 
   if (!text.trim()) {
     return data;
