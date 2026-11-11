@@ -220,6 +220,10 @@
     "mode": "adapter"
   },
   {
+    "file": "half-month-activity-presentation.test.mjs",
+    "mode": "adapter"
+  },
+  {
     "file": "forge-routing.test.mjs",
     "mode": "direct"
   },

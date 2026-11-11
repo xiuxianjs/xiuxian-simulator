@@ -3,8 +3,9 @@ import { treasureAttributeNames, type OwnedTreasure, type TreasureOverview } fro
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { createQuoteMarkdown } from '@src/utils/messageHelper';
 import { Format, type FormatMarkDown } from 'alemonjs';
+import { section, type GuiNav } from '../presentation';
 
-const rarityNames = ['普通', '优秀', '精良', '稀有', '史诗', '神话'];
+export const rarityNames = ['普通', '优秀', '精良', '稀有', '史诗', '神话'];
 const pageSize = 6;
 const number = (value: number) => new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value);
 const gradeName = (value: string) => value.replace(/阶$/, '');
@@ -171,62 +172,66 @@ export function buildTreasureCatalogPage(items: OwnedTreasure['definition'][], o
   return content;
 }
 
-export function buildTreasureDecompositionPage(data: TreasureOverview, options: { rarity?: number; page?: number } = {}): FormatMarkDown {
+export function buildTreasureDecompositionPage(data: TreasureOverview, options: { rarity?: number; page?: number } = {}) {
   const content = Format.createMarkdown();
   const sorted = [...data.items].sort((a, b) => a.definition.id - b.definition.id);
   const selectedRarity = options.rarity ?? sorted.find(item => item.duplicates > 0 || item.fragments > 0)?.definition.rarity ?? 1;
   const items = sorted.filter(item => item.definition.rarity === selectedRarity);
-  const pages = Math.max(1, Math.ceil(items.length / pageSize));
+  const decompositionPageSize = 4;
+  const pages = Math.max(1, Math.ceil(items.length / decompositionPageSize));
   const page = Math.min(pages, Math.max(1, Number.isSafeInteger(options.page) ? (options.page as number) : 1));
 
-  addNavigation(content, 'decomposition');
   content.addBlockquote(
     createQuoteMarkdown([`仙蕴 ${number(data.xianYun)} · 1份等于1碎片，1件重复本体折合10份。`, '本体仅计重复库存，已激活主宝物保留；确认分解后不能撤销。'])
   );
-  addButtons(
-    content,
-    rarityNames.map((label, index) => ({
-      label,
-      command: `/宝物 分解 品质 ${index + 1}`,
-      selected: index + 1 === selectedRarity
-    }))
-  );
-  for (const item of items.slice((page - 1) * pageSize, page * pageSize)) {
+  for (const item of items.slice((page - 1) * decompositionPageSize, page * decompositionPageSize)) {
     const rate = data.decompositionValues.find(value => value.rarity === item.definition.rarity);
     const portions = item.duplicates * 10 + item.fragments;
     const available = Number.isSafeInteger(portions) && portions > 0 && rate !== undefined;
     const maxed = item.owned && item.grade === item.definition.maxGrade;
 
-    content.addText(`${item.definition.name}${maxed ? ' · 已满品' : ''}`).addNewline();
     content.addBlockquote(
-      createQuoteMarkdown(
-        [
-          `本体${number(item.duplicates)} · 碎片${number(item.fragments)}`,
+      section({
+        title: item.definition.name,
+        id: item.definition.id,
+        lines: [
+          `品级：${maxed ? '已满品' : item.owned ? '未满品' : '未激活'}`,
+          `物品：本体${number(item.duplicates)} · 碎片${number(item.fragments)}`,
           Number.isSafeInteger(portions)
-            ? `可分解${number(portions)}份，${rate ? `每份${number(rate.fragmentXianYun)}仙蕴` : '分解价值暂未同步'}`
-            : '库存份数暂不可用，请核对后重试。'
+            ? `数量：可分解${number(portions)}份，${rate ? `每份${number(rate.fragmentXianYun)}仙蕴` : '分解价值暂未同步'}`
+            : '状态：库存份数暂不可用，请核对后重试。',
+          ...(!maxed && portions > 0 ? ['状态：本档一键分解会保留这些材料。'] : [])
         ],
-        available ? [{ label: '输入份数预览', command: `/宝物 分解 份数 ${item.definition.id} 1`, autoEnter: false }] : []
-      )
+        actions: available ? [{ label: '输入份数预览', command: `/宝物 分解 份数 ${item.definition.id} 1`, autoEnter: false }] : []
+      })
     );
   }
   if (!items.length) {
     content.addBlockquote(createQuoteMarkdown(['该稀有度暂无宝物资料。']));
   }
-  if (pages > 1) {
-    addButtons(content, [
-      ...(page > 1 ? [{ label: '上一页', command: `/宝物 分解 品质 ${selectedRarity} p${page - 1}` }] : []),
-      ...(page < pages ? [{ label: '下一页', command: `/宝物 分解 品质 ${selectedRarity} p${page + 1}` }] : [])
-    ]);
+  const canBatch = (item: OwnedTreasure) => item.owned && item.grade === item.definition.maxGrade && (item.duplicates > 0 || item.fragments > 0);
+
+  content.addBlockquote(section({ lines: ['说明：一键只处理满品宝物的全部重复本体与碎片；未满品材料须手动指定。'] }));
+  const actions: PageButton[] = [];
+
+  if (items.some(canBatch)) {
+    actions.push({ label: '一键分解本档满品', command: `/宝物 一键分解 品质 ${selectedRarity}` });
+  } else {
+    content.addBlockquote(section({ lines: ['状态：本品质暂无可一键分解的满品库存。'] }));
   }
-  content.addBlockquote(createQuoteMarkdown(['一键只处理满品宝物的全部重复本体与碎片；未满品材料须手动指定。范围为全部稀有度，先预览再确认。']));
-  if (sorted.some(item => item.owned && item.grade === item.definition.maxGrade && (item.duplicates > 0 || item.fragments > 0))) {
-    addButtons(content, [{ label: '一键分解满品宝物', command: '/宝物 一键分解' }]);
+  if (sorted.some(canBatch)) {
+    content.addBlockquote(section({ lines: ['说明：全部满品覆盖全部稀有度。'] }));
+    actions.push({ label: '一键分解全部满品', command: '/宝物 一键分解' });
   } else {
     content.addBlockquote(createQuoteMarkdown(['暂无可一键分解的满品宝物库存。']));
   }
 
-  return content;
+  const nav: GuiNav | undefined =
+    pages > 1 ? { current: page, total: pages, command: `/宝物 分解 品质 ${selectedRarity} p{page}`, autoEnter: false } : undefined;
+
+  actions.push({ label: '切换品质', command: `/宝物 分解 切换品质 ${selectedRarity}` });
+
+  return { content, nav, actions, rarity: selectedRarity };
 }
 
 export function buildTreasureFortunePage(data: TreasureOverview): FormatMarkDown {

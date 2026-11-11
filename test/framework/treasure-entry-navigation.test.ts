@@ -92,7 +92,7 @@ function plainText(node: Node): string {
     : typeof node.value === 'string' ? node.value : '';
 }
 
-function delivered(result: TestRunResult, command: string) {
+function delivered(result: TestRunResult, command: string, hasKeyboard = true) {
   assert.deepEqual(result.errors, []);
   assert.equal(result.messages.length, 1);
   const message = result.messages[0];
@@ -101,9 +101,11 @@ function delivered(result: TestRunResult, command: string) {
   const keyboard = message.nodes.filter(node => node.type === 'BT.group');
   const shortcuts = [['我', '/我'], ['战', '/属性面板'], ['本', '/查看主线'], ['动', '/我的活动'], ['店', '/商店']];
 
-  assert.equal(message.nodes.at(-1)?.type, 'BT.group');
-  assert.equal(keyboard.length, 1);
-  assert.deepEqual(keyboard[0].value, [{ type: 'BT.row', value: shortcuts.map(([value, data]) => ({ type: 'Button', value, options: { data } })) }]);
+  assert.equal(keyboard.length, hasKeyboard ? 1 : 0);
+  if (hasKeyboard) {
+    assert.equal(message.nodes.at(-1)?.type, 'BT.group');
+    assert.deepEqual(keyboard[0].value, [{ type: 'BT.row', value: shortcuts.map(([value, data]) => ({ type: 'Button', value, options: { data } })) }]);
+  }
   const checkButtons = (nodes: Node[]) => {
     for (const node of nodes) {
       if (node.type === 'MD.button') {
@@ -293,7 +295,10 @@ test('QQ分解按六档稀有度切换，精确显示13份与真实每份价值�
   assert.match(view.text, /本体1 · 碎片3/);
   assert.match(view.text, /可分解13份，每份10仙蕴/);
   assert.doesNotMatch(view.text, /宝物101|宝物601|本体2 · 碎片3/);
-  for (let rarity = 1; rarity <= 6; rarity++) assert.ok(view.commands.includes(`/宝物 分解 品质 ${rarity}`));
+  const switchCommand = '/宝物 分解 切换品质 4';
+  assert.ok(view.commands.includes(switchCommand));
+  const chooser = delivered(await app.runHandler(handler, app.events.privateMessage({ text: switchCommand, platform: 'qq-bot' })), switchCommand);
+  for (let rarity = 1; rarity <= 6; rarity++) assert.ok(chooser.commands.includes(`/宝物 分解 品质 ${rarity}`));
   assert.ok(view.commands.includes('/宝物 分解 份数 401 1'));
   assert.ok(!view.commands.includes('/宝物 一键分解'));
   const empty = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解 品质 5', platform: 'qq-bot' })), '/宝物 分解 品质 5');
@@ -319,7 +324,7 @@ test('QQ分解默认最低有库存档，空库存仍可查看六档分类', asy
   for (const item of data.items) item.fragments = 0;
   const empty = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解', platform: 'qq-bot' })), '/宝物 分解（空库存）');
 
-  for (let rarity = 1; rarity <= 6; rarity++) assert.ok(empty.commands.includes(`/宝物 分解 品质 ${rarity}`));
+  assert.ok(empty.commands.includes('/宝物 分解 切换品质 1'));
   assert.ok(!empty.commands.some(value => value.startsWith('/宝物 分解 份数 ')));
   assert.ok(!empty.commands.includes('/宝物 一键分解'));
 });
@@ -396,3 +401,58 @@ for (const command of [
     assert.equal(requests.length, 0);
   });
 }
+
+test('QQ 按品质满品分解从真实按钮到预览和结算，旧响应及串档清单不可确认', async t => {
+  const data = structuredClone(overview);
+  const rare = data.items.find(item => item.definition.id === 401)!;
+
+  Object.assign(rare, { owned: true, grade: rare.definition.maxGrade, duplicates: 2, fragments: 3 });
+  const operationId = 'treasure-scoped-decomposition';
+  const line = { treasureId: 401, rarity: 4, name: '宝物401', kind: 'portion', quantity: 23, unitXianYun: 10, xianYun: 230 };
+  const preview = { kind: 'decompose', summary: ['宝物分解预览'], confirmationRef, expiresAt: '2026-11-11T12:00:00+08:00', operationId };
+  let responseMode = 'current';
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/treasures.confirm')) {
+      return businessEnvelope(request.bid, { kind: 'decompose', operationId, decomposeRarity: 4, result: { operationId, message: '分解完成', items: [line], xianYun: 230 } });
+    }
+    if (request.path.endsWith('/treasures.preview')) {
+      return businessEnvelope(request.bid, responseMode === 'legacy' ? preview : {
+        ...preview,
+        decomposeRarity: 4,
+        data: { allMaxed: true, items: [responseMode === 'wrong-item' ? { ...line, treasureId: 501, rarity: 5 } : line], totalXianYun: 230 }
+      });
+    }
+
+    return businessEnvelope(request.bid, data);
+  });
+  const run = async (command: string, hasKeyboard = true) => {
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+
+    return delivered(result, command, hasKeyboard);
+  };
+  const inventory = await run('/宝物 分解 品质 4');
+  const scoped = inventory.commands.find(command => command === '/宝物 一键分解 品质 4');
+
+  assert.ok(scoped);
+  assert.ok(inventory.commands.includes('/宝物 一键分解'));
+  const quote = await run(scoped, false);
+  const confirm = quote.commands.find(command => command.startsWith('/确认宝物 '));
+
+  assert.equal(confirm, `/确认宝物 ${confirmationRef}`);
+  assert.ok(quote.commands.includes('/宝物 分解 品质 4'));
+  assert.match(quote.text, /预计获得 230 仙蕴/);
+  assert.deepEqual(requests.at(-1)?.body.arguments, { kind: 'decompose', decomposeRarity: 4 });
+  const receipt = await run(confirm);
+
+  assert.match(receipt.text, /分解完成 · 稀有/);
+  assert.match(receipt.text, /仙蕴 \+230/);
+  assert.ok(receipt.commands.includes('/宝物 分解 品质 4'));
+  assert.deepEqual(requests.at(-1)?.body.arguments, { confirmationRef });
+  for (const mode of ['legacy', 'wrong-item']) {
+    responseMode = mode;
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: scoped, platform: 'qq-bot' }));
+    const failed = delivered(result, `${scoped}（${mode}）`);
+
+    assert.ok(!failed.commands.some(command => command.startsWith('/确认宝物 ')));
+  }
+});

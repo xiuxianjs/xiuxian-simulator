@@ -410,7 +410,9 @@ export type TreasureMerchantSku = (typeof treasureMerchantSkus)[number];
 export function parseTreasureMerchant(value: unknown) {
   const data = row(value);
 
-  if (!['treasure-merchant-v1-20261031', 'treasure-merchant-v2-box-prices-20261031'].includes(String(data.rulesVersion))) { return invalid(); }
+  if (!['treasure-merchant-v1-20261031', 'treasure-merchant-v2-box-prices-20261031'].includes(String(data.rulesVersion))) {
+    return invalid();
+  }
   const products = array(data.products, value => {
     const product = row(value);
 
@@ -418,12 +420,16 @@ export function parseTreasureMerchant(value: unknown) {
       !treasureMerchantSkus.includes(product.sku as TreasureMerchantSku) ||
       !['map', 'fragment', 'lootbox'].includes(String(product.kind)) ||
       !['weekly', 'monthly'].includes(String(product.period))
-    ) { return invalid(); }
+    ) {
+      return invalid();
+    }
     const limit = product.limit === null ? null : integer(product.limit);
     const remaining = product.remaining === null ? null : integer(product.remaining);
     const unitPrice = integer(product.unitPrice);
 
-    if (unitPrice < 1 || (limit === null) !== (remaining === null)) { return invalid(); }
+    if (unitPrice < 1 || (limit === null) !== (remaining === null)) {
+      return invalid();
+    }
 
     return {
       sku: product.sku as TreasureMerchantSku,
@@ -444,7 +450,9 @@ export function parseTreasureMerchant(value: unknown) {
     };
   });
 
-  if (new Set(products.map(product => product.sku)).size !== products.length) { return invalid(); }
+  if (new Set(products.map(product => product.sku)).size !== products.length) {
+    return invalid();
+  }
 
   return {
     rulesVersion: text(data.rulesVersion),
@@ -461,6 +469,57 @@ export type TreasureMerchantOverview = ReturnType<typeof parseTreasureMerchant>;
 export function validTreasureConfirmationRef(value: string): boolean {
   return /^r1_[0-9a-z]{1,13}_b_[0-9a-z]{1,13}_[0-9a-f]{24}$/.test(value) && [...`/确认宝物 ${value}`].length <= 80;
 }
+function scopedDecomposition(envelope: Record<string, unknown>, value: unknown, totalField: 'totalXianYun' | 'xianYun') {
+  if (envelope.decomposeRarity === undefined) {
+    return undefined;
+  }
+  const selectedRarity = rarity(envelope.decomposeRarity);
+  const plan = row(value);
+
+  if (envelope.kind !== 'decompose' || (totalField === 'totalXianYun' && plan.allMaxed !== true)) {
+    return invalid();
+  }
+  const ids = new Set<number>();
+  let portions = 0;
+  let duplicates = 0;
+  let fragments = 0;
+  let xianYun = 0;
+
+  const items = array(plan.items, value => {
+    const item = row(value);
+    const id = integer(item.treasureId);
+    const quantity = integer(item.quantity);
+    const unit = integer(item.unitXianYun);
+    const amount = integer(item.xianYun);
+
+    if (
+      ids.has(id) ||
+      rarity(item.rarity) !== selectedRarity ||
+      Math.floor(id / 100) !== selectedRarity ||
+      id % 100 < 1 ||
+      id % 100 > 6 ||
+      item.kind !== 'portion' ||
+      !quantity ||
+      !unit ||
+      quantity * unit !== amount
+    ) {
+      return invalid();
+    }
+    ids.add(id);
+    portions += quantity;
+    duplicates += Math.floor(quantity / 10);
+    fragments += quantity % 10;
+    xianYun += amount;
+
+    return { id, name: text(item.name), quantity, amount };
+  });
+
+  if (!items.length || !Number.isSafeInteger(portions) || xianYun !== integer(plan[totalField])) {
+    return invalid();
+  }
+
+  return { rarity: selectedRarity, items, portions, duplicates, fragments, xianYun };
+}
 export function parseTreasureConfirmation(value: unknown) {
   const item = row(value);
 
@@ -476,6 +535,7 @@ export function parseTreasureConfirmation(value: unknown) {
   return {
     kind: item.kind as TreasurePreviewKind,
     summary: array(item.summary, text),
+    decomposition: scopedDecomposition(item, item.data, 'totalXianYun'),
     confirmationRef,
     expiresAt: date(item.expiresAt),
     operationId: text(item.operationId)
@@ -498,7 +558,8 @@ export function parseTreasureReceipt(value: unknown) {
   if (item.kind === 'explore') {
     const count = integer(result.count);
     const expandedPool =
-      ((result.poolVersion === 'treasure-36-v2' || result.poolVersion === 'treasure-36-maxed-v3') && isActualExplorationPityRulesVersion(result.rulesVersion)) ||
+      ((result.poolVersion === 'treasure-36-v2' || result.poolVersion === 'treasure-36-maxed-v3') &&
+        isActualExplorationPityRulesVersion(result.rulesVersion)) ||
       (result.poolVersion === 'treasure-36-dispersion-v4' && result.rulesVersion === mythicDispersionRulesVersion);
 
     if (result.poolVersion !== undefined && result.poolVersion !== 'treasure-24-v1' && !expandedPool) {
@@ -565,6 +626,7 @@ export function parseTreasureReceipt(value: unknown) {
   return {
     kind: item.kind as TreasurePreviewKind,
     operationId: text(item.operationId),
+    decomposition: scopedDecomposition(item, result, 'xianYun'),
     result: {
       operationId: text(result.operationId),
       message: text(result.message),

@@ -315,6 +315,48 @@ export interface RewardsOperations {
     body: never;
     response: unknown;
   };
+  get_players_id_half_month_activity: {
+    path: { id: number };
+    query: { month?: string };
+    headers: { 'X-Request-ID'?: string };
+    body: never;
+    response: unknown;
+  };
+  post_players_id_half_month_activity_sign: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string; 'Idempotency-Key'?: string };
+    body: { month: string; day: number; makeup: boolean };
+    response: unknown;
+  };
+  post_players_id_half_month_activity_buy: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string; 'Idempotency-Key'?: string };
+    body: { month: string; productId: string; requestId: string; count: number };
+    response: unknown;
+  };
+  post_players_id_half_month_activity_open_box: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string; 'Idempotency-Key'?: string };
+    body: { month: string };
+    response: unknown;
+  };
+  post_players_id_half_month_activity_preview: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string; 'Idempotency-Key'?: string };
+    body: { month: string; day?: number; productId?: string };
+    response: unknown;
+  };
+  post_players_id_half_month_activity_confirm: {
+    path: { id: number };
+    query: never;
+    headers: { 'X-Request-ID'?: string; 'Idempotency-Key'?: string };
+    body: { ref: string };
+    response: unknown;
+  };
   get_players_id_limited_events: {
     path: { id: number };
     query: never;
