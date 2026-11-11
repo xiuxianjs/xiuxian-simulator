@@ -30,9 +30,10 @@ export const lingxuLegacyJournal: LingxuPage = {
 
 export const lingxuJournal: LingxuPage = {
   title: '灵墟洞天 · 行记', privateOnly: false,
+  tabs: ['与人', '与怪', '探索', '赶路', '其他'].map(label => ({ label, command: `/灵墟洞天 行记 ${label}` })),
   sections: [
     { title: '11-11 21:30', id: '5', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 5' }] },
-    { title: '11-11 21:20', id: '4', lines: ['经历：与针背山猪开战。', '结果：战败，命数-1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 4' }] },
+    { title: '11-11 21:20', id: '4', lines: ['经历：与针背山猪开战。', '结果：战败 · 命数 5→4'], actions: [{ label: '详情', command: '/灵墟洞天 记录 4' }] },
     { title: '11-11 21:10', id: '3', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 3' }] }
   ],
   nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },

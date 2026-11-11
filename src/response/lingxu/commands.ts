@@ -7,6 +7,7 @@ const placeName = /^[\p{Script=Han}·]{2,24}$/u;
 const attitude = /^(战斗|友善|躲避)$/;
 
 export const lingxuMapTiers = ['外围', '内围', '核心'] as const;
+export const lingxuJournalFilters = ['与人', '与怪', '探索', '赶路', '其他'] as const;
 const natural = (value: string | undefined, max = Number.MAX_SAFE_INTEGER) => {
   if (value === undefined || !/^[1-9]\d*$/.test(value)) {
     return false;
@@ -43,8 +44,11 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     return words.length === 2 && validLingxuReference(arg) ? { readOnly: false, confirmationCommand: `/${match[1]} 确认 ${arg}` } : error;
   }
   if (match[1] === '阵法师') {
-    if (words.length === 1 && ['图谱', '入门', '卸下', '终止预览'].includes(action)) {
-      return action === '入门' ? write : read;
+    if (words.length === 1 && ['入门', '引星', '摹纹'].includes(action)) {
+      return write;
+    }
+    if (words.length === 1 && ['图谱', '卸下', '终止预览'].includes(action)) {
+      return read;
     }
     if (action === '阵盘' && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {
       return read;
@@ -71,6 +75,9 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     return write;
   }
   if (action === '地图' && words.length === 2 && lingxuMapTiers.some(tier => tier === arg)) {
+    return read;
+  }
+  if (action === '行记' && lingxuJournalFilters.some(filter => filter === arg) && (words.length === 2 || (words.length === 3 && natural(value, 1000000)))) {
     return read;
   }
   if (['地图', '行囊', '行记', '提取回执'].includes(action) && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {

@@ -126,12 +126,20 @@ export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) 
     return FormatGui({ bid, isPrivate, title: page.title, content: md.addBlockquote(story), footer: manual(page.actions), bar: lingxuBottomBar });
   }
 
+  const journalPage = ['灵墟洞天 · 行记', '灵墟洞天 · 行动详情', '灵墟洞天 · 提取回执'].includes(page.title);
+  const mapWithTabs = page.title === '灵墟洞天 · 地图' && page.tabs;
+
   for (const [index, entry] of page.sections.entries()) {
     if (index > 0) {
       md.addNewline();
     }
     if (entry.experience === undefined && entry.harvest === undefined) {
-      if (entry.title && entry.actions?.length && (page.tabs || entry.actions.some(action => /^(保护|取消保护|丢弃)$/.test(action.label)))) {
+      if (journalPage && entry.title && entry.id && /^[1-9]\d{0,19}$/.test(entry.id)) {
+        const row = Format.createMarkdown().addText(`【${entry.id}】`);
+
+        row.absorb(section({ title: entry.title, lines: entry.lines, actions: manual(entry.actions) }));
+        md.addBlockquote(row);
+      } else if (entry.title && entry.actions?.length && (mapWithTabs || entry.actions.some(action => /^(保护|取消保护|丢弃)$/.test(action.label)))) {
         const row = section({ title: entry.title, id: entry.id, lines: [] });
 
         addOptions(row, manual(entry.actions));

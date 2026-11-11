@@ -48,7 +48,7 @@ for (const entry of lingxuPages) {
     const options = { text: entry.command, platform: 'qq-bot', userId: 'lingxu-member' };
     const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group', channelId: 'lingxu-group' });
     const result = await app.runHandler(handler, event);
-    const view = delivery(result);
+    const view = delivery(result, entry.page.tabs ? 13 : 10);
     assert.equal(requests.length, 1);
     assert.ok(requests[0].path.endsWith('/lingxu.command'));
     assert.deepEqual(requests[0].body.arguments, {});
@@ -276,36 +276,58 @@ test('only the three map tiers and the separate exit selector are accepted as ne
   assert.throws(() => parseLingxuPage({ ...lingxuOuterMap, sections: [...lingxuOuterMap.sections, lingxuOuterMap.sections[0]] }));
 });
 
-test('each compact diary record has a bold time and its own fill-only detail button', async t => {
+test('journal filters, stable numbers and detail actions render in their own rows', async t => {
   const detailCommand = '/灵墟洞天 记录 4';
+  const filter = '/灵墟洞天 行记 与怪';
+  const filtered = {
+    ...lingxuJournal,
+    tabs: lingxuJournal.tabs?.map(tab => tab.command === filter ? { label: '▶与怪', command: '/灵墟洞天 行记' } : tab),
+    sections: [lingxuJournal.sections[1]],
+    nav: { page: 1, totalPages: 2, total: 4, command: `${filter} {page}` }
+  };
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid,
-    request.body.messageText === detailCommand ? lingxuJournalDetail : lingxuJournal));
+    request.body.messageText === detailCommand ? lingxuJournalDetail : request.body.messageText === filter ? filtered : lingxuJournal));
   for (const isPrivate of [false, true]) {
     const event = (text: string) => {
       const options = { text, platform: 'qq-bot', userId: 'lingxu-member' };
       return isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group', channelId: 'lingxu-group' });
     };
     const list = await app.runHandler(handler, event('/灵墟洞天 行记'));
-    const view = delivery(list);
-    const quotes = nodes(list.messages[0].nodes).filter(node => node.type === 'MD.blockquote');
+    const view = delivery(list, 13);
+    const rendered = nodes(list.messages[0].nodes);
+    const firstQuote = rendered.findIndex(node => node.type === 'MD.blockquote');
+    assert.deepEqual(rendered.slice(0, firstQuote).filter(node => node.type === 'MD.button').map(node => node.value), ['‹与人›', '‹与怪›', '‹探索›', '‹赶路›', '‹其他›']);
+    const quotes = rendered.filter(node => node.type === 'MD.blockquote');
     assert.equal(quotes.length, lingxuJournal.sections.length);
     for (const [index, record] of lingxuJournal.sections.entries()) {
       assert.ok(Array.isArray(quotes[index].value));
       const children = nodes(quotes[index].value as unknown[]).filter(node => node.type !== 'MD.newline' && String(node.value).trim());
-      assert.equal(children[0].type, 'MD.bold');
-      assert.equal(children[0].value, record.title);
-      assert.deepEqual(children.filter(node => node.type === 'MD.text').map(node => node.value), [` #${record.id}`, ...record.lines]);
+      assert.equal(children[0].value, `【${record.id}】`);
+      assert.equal(children[1].type, 'MD.bold');
+      assert.equal(children[1].value, record.title);
+      assert.deepEqual(children.filter(node => node.type === 'MD.text').map(node => node.value), [`【${record.id}】`, ...record.lines]);
       assert.equal(children.at(-1)?.type, 'MD.button');
       assert.equal(children.at(-1)?.options?.data, record.actions?.[0].command);
     }
     assert.doesNotMatch(view.text, /行动记录|交战 3 回合|损失|托管/);
+    assert.match(view.text, /结果：战败 · 命数 5→4/);
     assert.ok(view.commands.includes('/灵墟洞天 推送设置'));
+    const filterButton = rendered.find(node => node.type === 'MD.button' && node.value === '‹与怪›');
+    assert.equal(filterButton?.options?.data, filter);
+    const onlyMonsters = await app.runHandler(handler, event(String(filterButton?.options?.data)));
+    const selected = delivery(onlyMonsters, 13);
+    assert.ok(selected.commands.includes(`${filter} 2`));
+    assert.equal(nodes(onlyMonsters.messages[0].nodes).find(node => node.value === '‹▶与怪›')?.options?.data, '/灵墟洞天 行记');
+    assert.match(selected.text, /【4】/);
+    assert.doesNotMatch(selected.text, /【3】|【5】/);
     const detail = delivery(await app.runHandler(handler, event(detailCommand)));
     assert.match(detail.text, /行动详情/);
     assert.match(detail.text, /交战 3 回合/);
+    assert.match(detail.text, /结果：战败 · 命数 5→4/);
     assert.ok(detail.commands.includes('/灵墟洞天 行记'));
     assert.equal(requests.at(-1)?.body.messageText, detailCommand);
   }
+  assert.throws(() => parseLingxuPage({ ...filtered, nav: { ...filtered.nav, command: '/灵墟洞天 行记 与人 {page}' } }));
 });
 
 test('diary push settings send only fixed modes and carry the current group identity', async t => {
@@ -428,6 +450,10 @@ test('all MVP fixed options have explicit read/write classification', () => {
   const write = ['/灵墟洞天 倾向 行动 激进', '/灵墟洞天 倾向 对人 躲避', '/灵墟洞天 倾向 对怪 友善', '/灵墟洞天 对人 123 默认', '/灵墟洞天 返程设置 时长 60', '/灵墟洞天 返程设置 格数 40', '/灵墟洞天 返程设置 关闭', '/灵墟洞天 前往 废弃坊市', '/灵墟洞天 撤离 震门', '/灵墟洞天 隐匿', '/灵墟洞天 继续', '/灵墟洞天 保护 21 1', '/阵法师 入门'];
   for (const command of read) assert.deepEqual(parseLingxuCommand(command), { readOnly: true }, command);
   for (const command of write) assert.deepEqual(parseLingxuCommand(command), { readOnly: false }, command);
+  for (const step of ['引星', '摹纹']) {
+    assert.deepEqual(parseLingxuCommand(`/阵法师 ${step}`), { readOnly: false });
+    assert.deepEqual(parseLingxuCommand(`/阵法师 ${step} 1`), { error: true });
+  }
 });
 
 test('readable destinations and legacy keys are forwarded for server validation', async t => {
@@ -509,7 +535,7 @@ test('malformed pages, oversize commands, invalid navigation and action overload
 test('life zero, post-defeat, protected bag and extraction receipt preserve authoritative text', async t => {
   const states = [
     ['状态：暂停，待20:00恢复1点命数后继续', '命数：0/5'],
-    ['结果：战败，命数-1，已转移至相邻合法地域', '说明：下一场战斗满血开始'],
+    ['结果：战败 · 命数 5→4，已转移至相邻合法地域', '说明：下一场战斗满血开始'],
     ['状态：已保护 · 安全格1/1', '说明：保护物品不会掉落'],
     ['结果：本局已安全撤离', '到账：青岚灵芽×2 · 原回执，不再重复领取']
   ];
