@@ -180,7 +180,7 @@ test('个人状态读取失败仅保留启动确认的零门槛入口', async t 
   assert.deepEqual(inspectMessage(result.messages[0].nodes).commands, ['/天书']);
 });
 
-test('活动大厅隐藏未开放玩法的整行介绍，保留已开放的成就', async t => {
+test('活动大厅隐藏未解锁玩法，个人页保留成就和半月活动', async t => {
   const full: TianshuContent = catalog(0);
   full.commandFeatures = { ...full.commandFeatures, '成就': 'profile', '我的活动': 'help', '个人活动': 'help', '宗门活动': 'help', '通天塔': 'alchemy', '妖塔': 'alchemy' };
   const { app } = await gameFixture(t, request => request.path.includes('/business/') ? businessEnvelope(request.bid, {
@@ -193,7 +193,17 @@ test('活动大厅隐藏未开放玩法的整行介绍，保留已开放的成�
   assertDelivered(result);
   const view = inspectMessage(result.messages[0].nodes);
   assert.ok(view.commands.includes('/成就'));
+  assert.ok(view.commands.includes('/半月活动'));
+  assert.match(view.text, /查看开放时间、签到任务和活动商店/);
   assert.doesNotMatch(view.text, /通天塔|镇妖塔|登塔闯关|逐层镇妖/);
+
+  const group = await app.runHandler(activity, app.events.groupMessage({ userId: 'new', text: '/我的活动', platform: 'qq-bot' }));
+  assertDelivered(group);
+  assert.ok(inspectMessage(group.messages[0].nodes).commands.includes('/半月活动'));
+
+  const guild = await app.runHandler(activity, app.events.privateMessage({ userId: 'new', text: '/宗门活动', platform: 'qq-bot' }));
+  assertDelivered(guild);
+  assert.ok(!inspectMessage(guild.messages[0].nodes).commands.includes('/半月活动'));
 });
 
 test('主动通知按收件人隐藏未开放按钮，保留归属与数据正文', async t => {

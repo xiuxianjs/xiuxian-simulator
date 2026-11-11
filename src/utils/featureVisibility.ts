@@ -89,7 +89,14 @@ function featureFor(command: string, policy: Policy): string | undefined {
     return policy.commands.find(([alias]) => alias === fishInventory)?.[1] ?? policy.commands.find(([alias]) => alias === '垂钓 渔获' || alias === '垂钓')?.[1];
   }
 
-  return policy.commands.find(([alias]) => text === alias || text.startsWith(alias + ' '))?.[1];
+  const feature = policy.commands.find(([alias]) => text === alias || text.startsWith(alias + ' '))?.[1];
+
+  // Earlier catalogues only declare the activity hub's feature.
+  if (!feature && (text === '半月活动' || text.startsWith('半月活动 '))) {
+    return policy.commands.find(([alias]) => alias === '我的活动')?.[1];
+  }
+
+  return feature;
 }
 
 export async function presentationCommandFilter(event?: object & { UserId?: string }): Promise<CommandFilter> {
