@@ -21,7 +21,7 @@ import { Format, onResponse, useEvent } from 'alemonjs';
 const PERSONAL_ROWS = [
   { label: '我的奇遇', command: '/我的奇遇', introduction: '我的兄弟也是主角？' },
   { label: '活跃任务', command: '/日常活跃', introduction: '我修，这仙我修还不成嘛' },
-  { label: '半月活动', command: '/半月活动', introduction: '查看开放时间、签到任务和活动商店' },
+  { label: '半月活动', command: '/半月活动', introduction: '每月第三个周日开放,开放一周' },
   { label: '成就', command: '/成就', introduction: '天才只是见我的门槛' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
   { label: '上古遗珍', command: '/上古遗珍', introduction: '夺天地之造化' },
