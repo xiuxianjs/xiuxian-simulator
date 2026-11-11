@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
-import { ResultCode, Router, shutdownLogger } from 'alemonjs';
+import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import { parseLingxuPage } from '../../src/api/bot/lingxu';
 import { parseLingxuCommand, validLingxuReference } from '../../src/response/lingxu/commands';
@@ -13,6 +13,7 @@ import marketSell from '../../src/response/market/sell/res';
 import { businessEnvelope, gameFixture } from './fixture';
 import { lingxuPages, lingxuRef } from './lingxu-minimal-fixtures';
 import { commandText } from '../../src/utils/commandPrefix';
+import { createGameRouter } from '../../src/router';
 
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
@@ -41,19 +42,27 @@ function delivery(result: TestRunResult) {
   return inspectMessage(message.nodes);
 }
 
-for (const entry of lingxuPages) test(`minimal lingxu actual handler: ${entry.command}`, async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, entry.page));
-  const event = app.events.privateMessage({ text: entry.command, platform: 'qq-bot' });
-  const result = await app.runHandler(handler, event);
-  const view = delivery(result);
-  assert.equal(requests.length, 1);
-  assert.ok(requests[0].path.endsWith('/lingxu.command'));
-  assert.deepEqual(requests[0].body.arguments, {});
-  assert.equal(requests[0].body.messageText, entry.command);
-  for (const expected of entry.expected) assert.ok(view.text.includes(expected), view.text);
-  assert.equal(result.messages[0].target?.targetId, event.UserId);
-  assert.equal(result.nextCalls.length, 0);
-});
+for (const entry of lingxuPages) {
+  for (const isPrivate of [false, true]) test(`minimal lingxu actual handler (${isPrivate ? 'private' : 'group'}): ${entry.command}`, async t => {
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, entry.page));
+    const options = { text: entry.command, platform: 'qq-bot', userId: 'lingxu-member' };
+    const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group', channelId: 'lingxu-group' });
+    const result = await app.runHandler(handler, event);
+    const view = delivery(result);
+    assert.equal(requests.length, 1);
+    assert.ok(requests[0].path.endsWith('/lingxu.command'));
+    assert.deepEqual(requests[0].body.arguments, {});
+    assert.equal(requests[0].body.messageText, entry.command);
+    assert.equal(requests[0].bid, event.UserId);
+    const groupId = event.name === 'message.create' ? event.ChannelId : undefined;
+    assert.equal(requests[0].body.channelId, groupId);
+    for (const expected of entry.expected) assert.ok(view.text.includes(expected), view.text);
+    assert.equal(result.messages[0].target?.targetId, groupId ?? event.UserId);
+    const mentions = nodes(result.messages[0].nodes).filter(node => node.type === 'MD.mention');
+    assert.deepEqual(mentions.map(node => node.value), isPrivate ? [] : [event.UserId]);
+    assert.equal(result.nextCalls.length, 0);
+  });
+}
 
 test('all generated page buttons round-trip to the domain parser without changing their payload', async t => {
   const commands = lingxuPages.flatMap(entry => [...(entry.page.actions ?? []), ...entry.page.sections.flatMap(section => section.actions ?? [])].map(action => action.command));
@@ -66,22 +75,14 @@ test('all generated page buttons round-trip to the domain parser without changin
   }
 });
 
-test('each private-only entry in a group gives the fixed private handoff with no backend call', async t => {
-  const { app, requests } = await gameFixture(t, () => { throw new Error('Group must not query private state'); });
-  for (const entry of lingxuPages) {
-    const result = await app.runHandler(handler, app.events.groupMessage({ text: entry.command, platform: 'qq-bot' }));
-    assert.match(delivery(result).text, /只在私聊中展示/);
-    assert.equal(result.nextCalls.length, 0);
-  }
-  assert.equal(requests.length, 0);
-});
-
 test('other package messages continue the event chain', async t => {
   const { app, requests } = await gameFixture(t, () => undefined);
   for (const text of ['/灵墟洞天外', '/阵法师傅', '/其他包', '今天去哪里', '/激活阵盘 隐息阵盘']) {
-    const result = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
-    assert.equal(result.nextCalls.length, 1);
-    assert.equal(result.messages.length, 0);
+    for (const event of [app.events.privateMessage({ text, platform: 'qq-bot' }), app.events.groupMessage({ text, platform: 'qq-bot' })]) {
+      const result = await app.runHandler(handler, event);
+      assert.equal(result.nextCalls.length, 1);
+      assert.equal(result.messages.length, 0);
+    }
   }
   assert.equal(requests.length, 0);
 });
@@ -119,12 +120,13 @@ test('confirmation retries preserve the original ref and original message idempo
 test('one original reference can be sent only with current actor identity; no local authority cache', async t => {
   const { app, requests } = await gameFixture(t, request => request.bid === 'ref-owner' ? businessEnvelope(request.bid, lingxuPages[0].page) : ({ code: 'FORBIDDEN', message: '确认不属于当前角色' }), request => request.bid === 'ref-owner' ? 200 : 403);
   const command = `/灵墟洞天 确认 ${lingxuRef}`;
-  const owner = delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, userId: 'ref-owner', platform: 'qq-bot' })));
+  const owner = delivery(await app.runHandler(handler, app.events.groupMessage({ text: command, groupId: 'ref-group', channelId: 'ref-group', userId: 'ref-owner', platform: 'qq-bot' })));
   assert.match(owner.text, /生命点：4\/5/);
-  const other = delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, userId: 'ref-other', platform: 'qq-bot' })));
+  const other = delivery(await app.runHandler(handler, app.events.groupMessage({ text: command, groupId: 'ref-group', channelId: 'ref-group', userId: 'ref-other', platform: 'qq-bot' })));
   assert.doesNotMatch(other.text, /生命点：4\/5/);
   assert.equal(requests.length, 2);
-  assert.notEqual(requests[0].bid, requests[1].bid);
+  assert.deepEqual(requests.map(request => request.bid), ['ref-owner', 'ref-other']);
+  assert.deepEqual(requests.map(request => request.body.channelId), ['ref-group', 'ref-group']);
 });
 
 test('a maximum legal short ref, holding and UID fit the complete 80-character budget', () => {
@@ -182,7 +184,7 @@ test('formation grades and twelve-hour activation are previews, including legacy
 
 test('malformed pages, oversize commands, invalid navigation and action overload fail closed', async t => {
   const base = lingxuPages[0].page;
-  const bad = [{ ...base, privateOnly: false }, { ...base, sections: null }, { ...base, sections: [{ lines: [], actions: [{ label: '未知', command: '/灵墟洞天 回显占位词' }] }] }, { ...base, nav: { page: 1, totalPages: 2, command: '/灵墟洞天 回显占位词 {page}' } }, { ...base, actions: Array.from({ length: 9 }, () => ({ label: '返回', command: '/灵墟洞天' })) }, { ...base, sections: [{ lines: [], actions: [{ label: '过长', command: `/灵墟洞天 确认 ${'x'.repeat(75)}` }] }] }];
+  const bad = [{ ...base, privateOnly: 'false' }, { ...base, sections: null }, { ...base, sections: [{ lines: [], actions: [{ label: '未知', command: '/灵墟洞天 回显占位词' }] }] }, { ...base, nav: { page: 1, totalPages: 2, command: '/灵墟洞天 回显占位词 {page}' } }, { ...base, actions: Array.from({ length: 9 }, () => ({ label: '返回', command: '/灵墟洞天' })) }, { ...base, sections: [{ lines: [], actions: [{ label: '过长', command: `/灵墟洞天 确认 ${'x'.repeat(75)}` }] }] }];
   for (const value of bad) assert.throws(() => parseLingxuPage(value));
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, bad[0]));
   assert.match(delivery(await app.runHandler(handler, app.events.privateMessage({ text: '/灵墟洞天', platform: 'qq-bot' }))).text, /未获完整确认/);
@@ -204,19 +206,27 @@ test('life zero, post-defeat, protected bag and extraction receipt preserve auth
   }
 });
 
-test('both root routes dispatch full confirmation commands through real framework router', async t => {
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, lingxuPages[0].page));
-  const router = Router.create({ events: ['message.create', 'private.message.create'] });
-  router.use(['灵墟洞天', '阵法师'], async () => ({ default: handler }));
-  await app.mount({ responseRouter: router.define });
+test('both root routes dispatch full confirmation commands in group and private through real framework router', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { ...lingxuPages[0].page, privateOnly: !request.body.channelId }));
+  await app.mount({ responseRouter: app.run(createGameRouter).router }, undefined, 'xiuxian-game');
   for (const domain of ['灵墟洞天', '阵法师']) {
     const command = `/${domain} 确认 ${lingxuRef}`;
-    delivery(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })));
-    assert.equal(requests.at(-1)?.body.messageText, command);
+    const options = { text: command, platform: 'qq-bot', userId: 'confirmed-member' };
+    const events = [app.events.privateMessage(options), app.events.groupMessage({ ...options, groupId: 'confirm-group', channelId: 'confirm-group' })];
+    for (const event of events) {
+      const result = await app.dispatch(event);
+      delivery(result);
+      const groupId = event.name === 'message.create' ? event.ChannelId : undefined;
+      assert.equal(result.messages[0].target?.targetId, groupId ?? event.UserId);
+      assert.equal(requests.at(-1)?.bid, event.UserId);
+      assert.equal(requests.at(-1)?.body.channelId, groupId);
+      assert.equal(requests.at(-1)?.body.messageText, command);
+      assert.ok(requests.at(-1)?.idempotencyKey);
+    }
   }
 });
 
-test('activity hall makes the new private cave discoverable without replacing existing games', async t => {
+test('activity hall makes the new cave discoverable without replacing existing games', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('/online-encounter.check')
     ? { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-02T00:00:00Z', quotaExhausted: false }
     : { limitedEvent: { activeCount: 0 }, guildCompetition: { phase: 'INACTIVE' }, guildSecretRealmWar: { phase: 'INACTIVE', activeStartAt: '', activeEndAt: '', maxAttackPerWeek: 0, remainingAttackCount: 0 }, access: { hasGuild: false, canAccessOverseasIsland: false }, newcomerVisible: false, giftCodesVisible: false }));
@@ -288,10 +298,15 @@ test('actual Go page-builder JSON passes the QQ parser and real handler', { skip
   for (const sample of samples) {
     const page = parseLingxuPage(sample.page);
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, sample.page));
-    const result = await app.runHandler(handler, app.events.privateMessage({ text: sample.command, platform: 'qq-bot' }));
-    const view = delivery(result);
-    assert.ok(view.text.includes(page.title));
-    for (const action of [...(page.actions ?? []), ...page.sections.flatMap(section => section.actions ?? [])]) assert.ok(view.commands.includes(action.command));
-    assert.equal(requests[0].body.messageText, sample.command);
+    const options = { text: sample.command, platform: 'qq-bot' };
+    const events = [app.events.privateMessage(options), app.events.groupMessage(options)];
+    for (const event of events) {
+      const result = await app.runHandler(handler, event);
+      const view = delivery(result);
+      assert.ok(view.text.includes(page.title));
+      for (const action of [...(page.actions ?? []), ...page.sections.flatMap(section => section.actions ?? [])]) assert.ok(view.commands.includes(action.command));
+      assert.equal(requests.at(-1)?.body.messageText, sample.command);
+      assert.equal(result.messages[0].target?.targetId, event.name === 'message.create' ? event.ChannelId : event.UserId);
+    }
   }
 });

@@ -14,7 +14,7 @@ export const lingxuBottomBar = [
 const manual = (actions: LingxuAction[] = []) => actions.map(action => ({ ...action, autoEnter: false }));
 
 /** Normal objects reuse presentation.section; event records keep the requested two quote blocks. */
-export function lingxuBubble(page: LingxuPage, bid: string) {
+export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) {
   const md = Format.createMarkdown();
 
   for (const [index, entry] of page.sections.entries()) {
@@ -50,7 +50,7 @@ export function lingxuBubble(page: LingxuPage, bid: string) {
 
   return FormatGui({
     bid,
-    isPrivate: true,
+    isPrivate,
     title: page.title,
     content: md,
     footer: [footer.slice(0, 4), footer.slice(4)].filter(row => row.length > 0),

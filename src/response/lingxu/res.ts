@@ -20,6 +20,7 @@ export default onResponse(selects, async event => {
     return;
   }
   const [message] = useMessage();
+  const isPrivate = isPrivateEvent(event);
   const send = async (body: Parameters<typeof message.send>[0]) => {
     const receipts = await message.send(body);
 
@@ -27,23 +28,17 @@ export default onResponse(selects, async event => {
       throw new Error('灵墟洞天消息未确认送达');
     }
   };
-  const failure = (reason: string, retry?: string) => send(buildBubble({
-    bid: event.UserId,
-    isPrivate: isPrivateEvent(event),
-    title: '灵墟洞天 · 未完成',
-    sections: [{ lines: [`说明：${reason}`] }],
-    footer: [
-      ...(retry ? [{ label: '重试原确认', command: retry, autoEnter: false }] : []),
-      { label: '返回洞天', command: '/灵墟洞天', autoEnter: false }
-    ],
-    bar: lingxuBottomBar
-  }));
+  const failure = (reason: string, retry?: string) => send(
+      buildBubble({
+        bid: event.UserId,
+        isPrivate,
+        title: '灵墟洞天 · 未完成',
+        sections: [{ lines: [`说明：${reason}`] }],
+        footer: [...(retry ? [{ label: '重试原确认', command: retry, autoEnter: false }] : []), { label: '返回洞天', command: '/灵墟洞天', autoEnter: false }],
+        bar: lingxuBottomBar
+      })
+    );
 
-  if (!isPrivateEvent(event)) {
-    await failure('洞天状态、行囊及操作只在私聊中展示，请私聊机器人使用 /灵墟洞天。');
-
-    return;
-  }
   if ('error' in parsed) {
     await failure('参数不正确，请通过洞天或阵法师页面的按键重新选择。');
 
@@ -67,7 +62,7 @@ export default onResponse(selects, async event => {
     );
 
     if (!result.handled) {
-      await send(lingxuBubble(result.data, event.UserId));
+      await send(lingxuBubble(result.data, event.UserId, isPrivate));
     }
   } catch {
     // Never log raw backend content, player inputs or opaque confirmation references.

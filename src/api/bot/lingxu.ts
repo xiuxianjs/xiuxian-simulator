@@ -15,14 +15,16 @@ export type LingxuPage = {
   sections: LingxuSection[];
   actions?: LingxuAction[];
   nav?: { page: number; totalPages: number; total?: number; command: string };
-  privateOnly: true;
+  privateOnly: boolean;
 };
 
-const invalid = (): never => { throw new Error('Invalid lingxu page'); };
-const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : invalid();
-const text = (value: unknown, maximum = 2000): string => typeof value === 'string' && value.length <= maximum ? value : invalid();
-const integer = (value: unknown, minimum = 1): number => typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum ? value : invalid();
-const lines = (value: unknown): string[] => Array.isArray(value) && value.length <= 30 ? value.map(line => text(line)) : invalid();
+const invalid = (): never => {
+  throw new Error('Invalid lingxu page');
+};
+const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : invalid();
+const text = (value: unknown, maximum = 2000): string => (typeof value === 'string' && value.length <= maximum ? value : invalid());
+const integer = (value: unknown, minimum = 1): number => (typeof value === 'number' && Number.isSafeInteger(value) && value >= minimum ? value : invalid());
+const lines = (value: unknown): string[] => (Array.isArray(value) && value.length <= 30 ? value.map(line => text(line)) : invalid());
 const actions = (value: unknown, maximum: number): LingxuAction[] | undefined => {
   if (value === undefined) {
     return undefined;
@@ -50,7 +52,7 @@ export function parseLingxuPage(value: unknown): LingxuPage {
   const raw = object(value);
   const title = text(raw.title, 64);
 
-  if (raw.privateOnly !== true || !/^(灵墟洞天|阵法师)(?: · |$)/.test(title) || !Array.isArray(raw.sections) || raw.sections.length > 12) {
+  if (typeof raw.privateOnly !== 'boolean' || !/^(灵墟洞天|阵法师)(?: · |$)/.test(title) || !Array.isArray(raw.sections) || raw.sections.length > 12) {
     return invalid();
   }
   const sections: LingxuSection[] = raw.sections.map(item => {
@@ -88,5 +90,5 @@ export function parseLingxuPage(value: unknown): LingxuPage {
     return invalid();
   }
 
-  return { title, sections, actions: pageActions, nav, privateOnly: true };
+  return { title, sections, actions: pageActions, nav, privateOnly: raw.privateOnly };
 }
