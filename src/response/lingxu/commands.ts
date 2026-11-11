@@ -2,11 +2,16 @@
 export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string } | { error: true };
 
 const shortID = /^[A-Za-z0-9_-]{1,32}$/;
-const region = /^(?:(kan|gen|zhen|xun|li|kun|dui|qian)(?:_inner)?|core)$/;
-const exit = /^(kan|zhen|li|kun|dui|gen_inner|qian_inner)$/;
+const regionKey = /^[a-z][a-z0-9_-]{0,23}$/;
 const attitude = /^(战斗|友善|躲避)$/;
-const natural = (value: string | undefined, max: number) => value !== undefined
-  && /^[1-9]\d*$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) <= max;
+const natural = (value: string | undefined, max = Number.MAX_SAFE_INTEGER) => {
+  if (value === undefined || !/^[1-9]\d*$/.test(value)) {
+    return false;
+  }
+  const number = Number(value);
+
+  return Number.isSafeInteger(number) && number <= max;
+};
 const uid = (value: string | undefined) => value !== undefined && /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9223372036854775807n;
 
 // References are opaque: the server validates UID, domain, expiry and original operation.
@@ -65,7 +70,11 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
   if (action === '记录' && words.length === 2 && shortID.test(arg)) {
     return read;
   }
-  if (action === '倾向' && words.length === 3 && ((arg === '行动' && /^(激进|保守|谨慎)$/.test(value)) || (/^(对人|对怪)$/.test(arg) && attitude.test(value)))) {
+  if (
+    action === '倾向' &&
+    words.length === 3 &&
+    ((arg === '行动' && /^(激进|保守|谨慎)$/.test(value)) || (/^(对人|对怪)$/.test(arg) && attitude.test(value)))
+  ) {
     return write;
   }
   if (action === '对人' && uid(arg)) {
@@ -75,17 +84,14 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
 
     return words.length === 3 && (attitude.test(value) || value === '默认') ? write : error;
   }
-  if (action === '前往' && words.length === 2 && region.test(arg)) {
-    return write;
-  }
-  if (action === '撤离' && words.length === 2 && exit.test(arg)) {
+  if ((action === '前往' || action === '撤离') && words.length === 2 && regionKey.test(arg)) {
     return write;
   }
   if (action === '返程设置') {
     if (words.length === 2 && arg === '关闭') {
       return write;
     }
-    if (words.length === 3 && ((arg === '时长' && natural(value, 10080)) || (arg === '格数' && natural(value, 100)) || (arg === '物品' && /^[a-z_]+:[1-9]\d{0,9}$/.test(value)))) {
+    if (words.length === 3 && (((arg === '时长' || arg === '格数') && natural(value)) || (arg === '物品' && /^[a-z_]+:[1-9]\d{0,9}$/.test(value)))) {
       return write;
     }
   }

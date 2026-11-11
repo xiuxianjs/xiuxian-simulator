@@ -149,14 +149,22 @@ test('all MVP fixed options have explicit read/write classification', () => {
   for (const command of write) assert.deepEqual(parseLingxuCommand(command), { readOnly: false }, command);
 });
 
-test('seventeen-region map accepts both rings and only seven actual public exits', () => {
-  for (const key of ['kan', 'gen', 'zhen', 'xun', 'li', 'kun', 'dui', 'qian']) {
-    assert.deepEqual(parseLingxuCommand(`/灵墟洞天 前往 ${key}`), { readOnly: false });
-    assert.deepEqual(parseLingxuCommand(`/灵墟洞天 前往 ${key}_inner`), { readOnly: false });
+test('valid map keys and return values are forwarded for server validation', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, lingxuPages[0].page));
+  const valid = ['/灵墟洞天 前往 kun_inner', '/灵墟洞天 前往 new_region-2', '/灵墟洞天 撤离 core', `/灵墟洞天 撤离 ${'a'.repeat(24)}`, '/灵墟洞天 返程设置 时长 10081', '/灵墟洞天 返程设置 格数 101'];
+  for (const command of valid) {
+    assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
+    delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
+    assert.equal(requests.at(-1)?.body.messageText, command);
   }
-  assert.deepEqual(parseLingxuCommand('/灵墟洞天 前往 core'), { readOnly: false });
-  for (const key of ['kan', 'zhen', 'li', 'kun', 'dui', 'gen_inner', 'qian_inner']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { readOnly: false });
-  for (const key of ['core', 'kan_inner', 'zhen_inner', 'li_inner', 'kun_inner', 'dui_inner', 'xun_inner', 'gen', 'qian', 'xun']) assert.deepEqual(parseLingxuCommand(`/灵墟洞天 撤离 ${key}`), { error: true });
+  const invalid = ['/灵墟洞天 前往 ../core', '/灵墟洞天 撤离 回显占位词', `/灵墟洞天 撤离 ${'a'.repeat(25)}`, '/灵墟洞天 返程设置 时长 0', '/灵墟洞天 返程设置 格数 1.5', '/灵墟洞天 返程设置 时长 9007199254740992'];
+  for (const command of invalid) {
+    assert.deepEqual(parseLingxuCommand(command), { error: true });
+    const view = delivery(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
+    assert.match(view.text, /参数不正确/);
+    assert.doesNotMatch(view.text, /回显占位词|\.\.\/core/);
+  }
+  assert.equal(requests.length, valid.length);
   assert.deepEqual(parseLingxuCommand('/灵墟洞天 拾取'), { readOnly: false });
 });
 
