@@ -1,13 +1,13 @@
-import { legacyCommandHandler } from './utils/legacyCommandHandler';
 import { defineRouter, Router, type Next } from 'alemonjs';
-import { withAccessFacts, getRegisteredAccessFacts } from './api/bot/access-facts';
-import { withCommandCatalog, getRegisteredCommandCatalog } from './api/bot/catalog-query-reuse';
+import { getRegisteredAccessFacts, withAccessFacts } from './api/bot/access-facts';
+import { getRegisteredCommandCatalog, withCommandCatalog } from './api/bot/catalog-query-reuse';
 import type { RobotCommandProfile } from './api/bot/command-entry';
 import { alchemyRoutes } from './response/alchemy/v2/commands';
 import { forgeReadEntries, forgeReadRoutes } from './response/profession/forge/commands';
 import type { GameEvent } from './types/event';
 import { getCommandAllowBare, getCommandPrefix, getCommandSpace, getNativeCommand, hasCommandPrefix } from './utils/commandPrefix';
 import { isGameEventEnabled } from './utils/eventPolicy';
+import { legacyCommandHandler } from './utils/legacyCommandHandler';
 import { measureTransportStage } from './utils/transportTiming';
 
 /** 创建时读取配置，生产环境重启后生效；测试可在实例作用域构建。 */
@@ -161,7 +161,7 @@ export function createGameRouter() {
     // 旧版资料查询独立于新版注册、结算和引导流程。
     publicXiuxian.use(['继承', '前世'], () => import('@src/response/legacyArchive/res'));
     publicXiuxian.use(
-      ['修仙帮助'],
+      ['帮助', '修仙帮助'],
       withAccessFacts(['realm'], () => import('@src/response/help'))
     );
 

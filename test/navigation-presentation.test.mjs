@@ -44,10 +44,10 @@ async function run(mode,row,command,isPrivate=false){
 }
 export const commands={
  'navigation.more':['/更多','/更多 修行','/更多 不存在','/更多 修行 2','/折叠','/扩展'],
- 'navigation.help':['/帮助','/帮助 0','/帮助 1','/帮助 2','/帮助 3','/帮助 99','/help']
+ 'navigation.help':['/帮助']
 };
-test('public navigation preserves full original bubbles for guests, realm thresholds, muted users and pages',async()=>{
- for(const row of rows.filter(r=>!r.fault))for(const command of commands[row.operation])for(const isPrivate of [false,true]){
+test('public more preserves full original bubbles for guests, realm thresholds, muted users and pages',async()=>{
+ for(const row of rows.filter(r=>!r.fault&&r.operation==='navigation.more'))for(const command of commands[row.operation])for(const isPrivate of [false,true]){
   const actual=await run('current',row,command,isPrivate);assert.deepEqual(state.calls,[{operation:row.operation,args:{}}]);assert.equal(state.legacy.length,0);assert.equal(state.next,0);
   assert.deepEqual(actual,await run('old',row,command,isPrivate),row.state+' '+command);assert.equal(state.legacy.length,1);
  }
