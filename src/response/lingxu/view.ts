@@ -63,6 +63,35 @@ function overviewContent(lines: string[], actions: LingxuAction[]) {
   return Format.createMarkdown().addBlockquote(status);
 }
 
+function formationRouteContent(entry: LingxuPage['sections'][number]) {
+  const content = section({ title: entry.title, id: entry.id, lines: [] });
+  const effects = Format.createMarkdown();
+
+  for (const line of entry.lines) {
+    const grade = /^(?:效果：(?:（大节点）)?)?(基础|无品|[一二三四五六七八九]品·[^：]+)(：.*)$/.exec(line);
+
+    if (!grade) {
+      content.addNewline().addText(line);
+      continue;
+    }
+    if (effects.value.value.length) {
+      effects.addNewline();
+    }
+    const [, name, effect] = grade;
+
+    effects.addBold(name === '基础' ? '无品' : name).addText(effect);
+  }
+  if (effects.value.value.length) {
+    content.addNewline().addNewline().addBlockquote(effects);
+  }
+  if (entry.actions?.length) {
+    content.addNewline();
+    addOptions(content, manual(entry.actions));
+  }
+
+  return content;
+}
+
 /** Current journal rows use one section. Older servers can still send split experience and harvest fields. */
 export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) {
   const [overview] = page.sections;
@@ -130,6 +159,15 @@ export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) 
     }
 
     return FormatGui({ bid, isPrivate, title: page.title, content: md.addBlockquote(story), footer: manual(page.actions), bar: lingxuBottomBar });
+  }
+  if (
+    page.title === '阵法师 · 路线详情' &&
+    page.sections.length === 1 &&
+    overview.title &&
+    overview.experience === undefined &&
+    overview.harvest === undefined
+  ) {
+    return FormatGui({ bid, isPrivate, title: page.title, content: formationRouteContent(overview), footer: manual(page.actions), bar: lingxuBottomBar });
   }
 
   const journalPage = ['灵墟洞天 · 行记', '灵墟洞天 · 行动详情', '灵墟洞天 · 提取回执'].includes(page.title);

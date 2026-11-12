@@ -648,6 +648,28 @@ test('formation grades and twelve-hour activation are previews, including legacy
   }
 });
 
+test('formation route bolds the disc and every grade name while keeping effect text in a quote', async t => {
+  const labels = ['无品', '一品·循战觅迹', '二品·战后拾遗', '三品·星火护命', '四品·裂甲留痕', '五品·胜战养元', '六品·战获余珍', '七品·破险护身', '八品·闻道战获', '九品·战藏归元'];
+  const effects = ['双攻+3%。', ...labels.slice(1).map(() => '保留服务端效果说明。')];
+  const lines = ['成长：', ...labels.map((label, i) => `${i === 0 ? '效果：基础' : i === 3 ? `效果：（大节点）${label}` : label}：${effects[i]}`)];
+  const page = {
+    title: '阵法师 · 路线详情', privateOnly: false,
+    sections: [{ title: '道蕴阵盘', lines }],
+    actions: [{ label: '返回图谱', command: '/阵法师 图谱' }]
+  };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, page));
+  const result = await app.runHandler(handler, app.events.groupMessage({ text: '/阵法师 路线 道蕴', platform: 'qq-bot', userId: 'formation-viewer' }));
+  const view = delivery(result);
+  const all = nodes(result.messages[0].nodes);
+  const quoteAt = all.findIndex(node => node.type === 'MD.blockquote');
+  assert.ok(all.slice(0, quoteAt).some(node => node.type === 'MD.bold' && node.value === '道蕴阵盘'));
+  assert.ok(all.slice(0, quoteAt).some(node => node.type === 'MD.text' && node.value === '成长：'));
+  const quote = nodes(all[quoteAt].value as unknown[]);
+  assert.deepEqual(quote.filter(node => node.type === 'MD.bold').map(node => node.value), labels);
+  assert.deepEqual(quote.filter(node => node.type === 'MD.text').map(node => node.value), effects.map(effect => `：${effect}`));
+  assert.ok(view.commands.includes('/阵法师 图谱'));
+});
+
 test('the bag discard shortcut only previews and confirmation keeps the original operation', async t => {
   const holding = '/灵墟洞天 丢弃 21';
   const multi = `${holding} 3`;
