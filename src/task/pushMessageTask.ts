@@ -103,7 +103,7 @@ async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: '
         continue;
       }
       const owner = String(row.recipientUserId ?? row.recipientBid ?? row.eventId);
-      // 洞天已在服务端按 30 分钟汇总，战败与撤离须立即送达。
+      // 洞天每轮结算独立投递。
       const dispatch = () => processPlayerNotification(row, consumer, loadLegacyIDs, lane);
       const delivery = parsePayload(row.payload)?.source === 'lingxu.summary' ? dispatch() : withNotificationBuffer(owner, dispatch);
 
@@ -134,6 +134,9 @@ async function processPlayerNotification(
 
     if (payload?.version !== 1 || !Number.isSafeInteger(payload.recipientUserId) || payload.recipientUserId <= 0 || !Array.isArray(payload.data)) {
       throw new Error('玩家通知事件载荷无效');
+    }
+    if (row.eventId.startsWith('lingxu:') && payload.source !== 'lingxu.summary') {
+      throw new Error('洞天推送来源无效');
     }
     // 下架期间关闭主动通知，原投递逻辑完整保留，恢复时移除此拦截。
     if (payload.source?.startsWith('black-box.') || payload.source?.startsWith('guild.competition.')) {

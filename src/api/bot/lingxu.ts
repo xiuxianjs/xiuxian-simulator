@@ -1,5 +1,5 @@
 import { commandCharacterLength } from '@src/utils/commandPrefix';
-import { lingxuJournalFilters, lingxuMapTiers, parseLingxuCommand } from '@src/response/lingxu/commands';
+import { lingxuBagSubtypes, lingxuBagTypes, lingxuJournalFilters, lingxuMapTiers, parseLingxuCommand } from '@src/response/lingxu/commands';
 
 export type LingxuAction = { label: string; command: string };
 export type LingxuSection = {
@@ -13,6 +13,7 @@ export type LingxuSection = {
 export type LingxuPage = {
   title: string;
   tabs?: LingxuAction[];
+  subTabs?: LingxuAction[];
   sections: LingxuSection[];
   actions?: LingxuAction[];
   nav?: { page: number; totalPages: number; total?: number; command: string };
@@ -48,6 +49,59 @@ const actions = (value: unknown, maximum: number): LingxuAction[] | undefined =>
   });
 };
 
+const bagCommand = '/灵墟洞天 行囊';
+const selectedTab = (tabs: LingxuAction[]) => tabs.findIndex(tab => tab.label.startsWith('▶'));
+const matchingTab = (action: LingxuAction, label: string, command: string) => (action.label === label || action.label === `▶${label}`) && (action.command === command || (label === '全部' && action.command === `${command} 全部`));
+
+function bagPageCommand(tabs: LingxuAction[], subTabs: LingxuAction[], sections: LingxuSection[], pageActions: LingxuAction[] | undefined) {
+  const mainIndex = selectedTab(tabs);
+  const type = lingxuBagTypes[mainIndex];
+
+  if (
+    type === undefined ||
+    tabs.length !== lingxuBagTypes.length ||
+    tabs.filter(tab => tab.label.startsWith('▶')).length !== 1 ||
+    sections.length > 3 ||
+    (pageActions?.length ?? 0) > 3
+  ) {
+    return invalid();
+  }
+  if (
+    !tabs.every((tab, index) => {
+      const label = lingxuBagTypes[index];
+
+      return matchingTab(tab, label, label === '全部' ? bagCommand : `${bagCommand} ${label}`);
+    })
+  ) {
+    return invalid();
+  }
+
+  const base = type === '全部' ? bagCommand : `${bagCommand} ${type}`;
+  const labels = lingxuBagSubtypes[type];
+
+  if (subTabs.length !== labels.length) {
+    return invalid();
+  }
+  if (labels.length === 0) {
+    return base;
+  }
+  const subIndex = selectedTab(subTabs);
+
+  if (
+    subIndex < 0 ||
+    subTabs.filter(tab => tab.label.startsWith('▶')).length !== 1 ||
+    !subTabs.every((tab, index) => {
+      const label = labels[index];
+
+      return matchingTab(tab, label, label === '全部' ? base : `${base} ${label}`);
+    })
+  ) {
+    return invalid();
+  }
+
+  return labels[subIndex] === '全部' ? base : `${base} ${labels[subIndex]}`;
+}
+
 /** A malformed response never falls back to made-up gameplay data. */
 export function parseLingxuPage(value: unknown): LingxuPage {
   const raw = object(value);
@@ -70,8 +124,15 @@ export function parseLingxuPage(value: unknown): LingxuPage {
   });
   const pageActions = actions(raw.actions, 8);
   const isJournal = title === '灵墟洞天 · 行记';
-  const tabs = actions(raw.tabs, isJournal ? lingxuJournalFilters.length : lingxuMapTiers.length);
+  const isBag = title === '灵墟洞天 · 墟行囊';
+  const tabs = actions(raw.tabs, isBag ? lingxuBagTypes.length : isJournal ? lingxuJournalFilters.length : lingxuMapTiers.length);
+  const subTabs = actions(raw.subTabs, lingxuBagSubtypes.藏品.length);
   const selected = tabs?.filter(tab => tab.label.startsWith('▶')) ?? [];
+
+  if (subTabs && (!isBag || !tabs)) {
+    return invalid();
+  }
+  const bagPage = isBag && tabs ? bagPageCommand(tabs, subTabs ?? [], sections, pageActions) : undefined;
   let nav: LingxuPage['nav'];
 
   if (tabs && isJournal) {
@@ -86,7 +147,7 @@ export function parseLingxuPage(value: unknown): LingxuPage {
     if (!validFilters || selected.length > 1 || sections.length > 3 || (pageActions?.length ?? 0) > 3) {
       return invalid();
     }
-  } else if (tabs) {
+  } else if (tabs && !isBag) {
     const validTabs =
       tabs.length === lingxuMapTiers.length &&
       tabs.every(({ label, command }, index) => {
@@ -126,8 +187,9 @@ export function parseLingxuPage(value: unknown): LingxuPage {
     const command = text(entry.command, 80);
 
     const filter = selected[0]?.label.slice(1);
-    const validNavigation =
-      isJournal && tabs
+    const validNavigation = bagPage
+      ? command === `${bagPage} {page}` || (command === `${bagPage} 全部 {page}` && bagPage.split(' ').length <= 3)
+      : isJournal && tabs
         ? command === `/灵墟洞天 行记${filter ? ` ${filter}` : ''} {page}`
         : /^\/灵墟洞天 (地图|行囊|行记|提取回执) \{page\}$|^\/阵法师 阵盘 \{page\}$/.test(command);
 
@@ -137,11 +199,12 @@ export function parseLingxuPage(value: unknown): LingxuPage {
     nav = { page, totalPages, command, ...(entry.total === undefined ? {} : { total: integer(entry.total, 0) }) };
   }
   const sectionActions = sections.reduce((sum, entry) => sum + (entry.actions?.length ?? 0), 0);
-  const count = sectionActions + (pageActions?.length ?? 0) + (tabs?.length ?? 0) + (nav && nav.page > 1 ? 1 : 0) + (nav && nav.page < nav.totalPages ? 1 : 0);
+  const tabCount = (tabs?.length ?? 0) + (subTabs?.length ?? 0);
+  const count = sectionActions + (pageActions?.length ?? 0) + tabCount + (nav && nav.page > 1 ? 1 : 0) + (nav && nav.page < nav.totalPages ? 1 : 0);
 
-  if (count > (tabs ? 13 : 10)) {
+  if (count > (bagPage ? 22 : tabs ? 13 : 10)) {
     return invalid();
   }
 
-  return { title, ...(tabs ? { tabs } : {}), sections, actions: pageActions, nav, privateOnly: raw.privateOnly };
+  return { title, ...(tabs ? { tabs } : {}), ...(subTabs ? { subTabs } : {}), sections, actions: pageActions, nav, privateOnly: raw.privateOnly };
 }

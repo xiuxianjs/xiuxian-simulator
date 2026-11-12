@@ -12,7 +12,7 @@ export async function deliverNotification(
     group?: NotificationTarget | null;
     fallbackGroups?: () => Promise<NotificationTarget[]>;
     privateTarget?: NotificationTarget | null;
-    data: DataEnums[];
+    data: DataEnums[] | (() => DataEnums[]);
     mention?: string;
     recipientBid?: string;
     enabled: boolean;
@@ -37,7 +37,7 @@ export async function deliverNotification(
 
     return filterFeatureFormat(format, allowed).value;
   };
-  const tryTarget = async (target: NotificationTarget, data: DataEnums[]): Promise<boolean> => {
+  const tryTarget = async (target: NotificationTarget, isPrivate: boolean): Promise<boolean> => {
     const cached = await channel.read(target);
 
     if (cached?.state === 'blocked') {
@@ -52,6 +52,9 @@ export async function deliverNotification(
     if (input.authorize && !(await input.authorize(target))) {
       return false;
     }
+    const content = typeof input.data === 'function' ? input.data() : input.data;
+    const data = input.mention ? FormatGui({ isPrivate, bid: input.mention, content, bar: false }).format.value : content;
+
     try {
       await channel.send(target, filterData(data), cached);
 
@@ -86,9 +89,8 @@ export async function deliverNotification(
       return false;
     }
     seen.add(key);
-    const data = input.mention ? FormatGui({ bid: input.mention, content: input.data, bar: false }).format.value : input.data;
 
-    return await tryTarget(target, data);
+    return await tryTarget(target, false);
   };
 
   if (input.group && (await tryGroup(input.group))) {
@@ -100,9 +102,7 @@ export async function deliverNotification(
     }
   }
   if (input.privateTarget) {
-    const data = input.mention ? FormatGui({ isPrivate: true, bid: input.mention, content: input.data, bar: false }).format.value : input.data;
-
-    if (await tryTarget(input.privateTarget, data)) {
+    if (await tryTarget(input.privateTarget, true)) {
       return { route: 'private', reason: 'sent' };
     }
 

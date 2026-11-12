@@ -9,6 +9,7 @@ import { seedEventBackendRobotIdentity } from './identity';
 import { seedEventAccessFacts } from './access-facts';
 import { BackendAPIError, requestBackend, writeContext } from './client';
 import { createBackendRequestContext } from './context';
+import { getQQBotAppIds, isQQGroupMemberId } from '@src/utils/qqBotIdentity';
 
 export type RobotMiddlewareInput = {
   messageText: string;
@@ -16,7 +17,8 @@ export type RobotMiddlewareInput = {
   botId?: string;
   channelId?: string;
   privateTarget?: { platform: string; BotId?: string; scope: 'c2c' | 'direct'; targetId: string };
-  groupTarget?: { platform: string; BotId: string; scope: 'group'; targetId: string };
+  groupTarget?: { platform: 'qq-bot'; BotId: string; scope: 'group'; targetId: string };
+  groupMemberId?: string;
 };
 export type RobotMiddlewareNav = { current: number; total: number; count: number; command: string };
 export type RobotMiddlewareReply = {
@@ -259,26 +261,39 @@ export function middlewareInputFromEvent(event: GameEvent): RobotMiddlewareInput
 
 // Only combined endpoints accept task context. A later continuation/res cannot
 // start a second task transition after the exact business has consumed it.
-export function businessInputFromEvent(event: GameEvent, includeGroupTarget = false): RobotMiddlewareInput & { taskInput?: string } {
+export function businessInputFromEvent(event: GameEvent, includeAnnouncementGroup = false): RobotMiddlewareInput & { taskInput?: string } {
   const input = middlewareInputFromEvent(event);
   const taskInput = takeRobotTaskInput(event);
-  const { botId, channelId } = input;
-  const group = event.Target ? event.Target.scope === 'group' && event.Target.targetId === channelId : event.SpaceId === `GROUP:${channelId}`;
+  const groupTarget = includeAnnouncementGroup ? currentQQAnnouncementGroup(event) : undefined;
 
-  if (
-    includeGroupTarget &&
-    input.platform === 'qq-bot' &&
-    !input.privateTarget &&
-    !event.IsPrivate &&
-    !event.name.startsWith('private.') &&
-    group &&
-    botId &&
-    channelId
-  ) {
-    input.groupTarget = { platform: input.platform, BotId: botId, scope: 'group', targetId: channelId };
+  if (groupTarget) {
+    input.groupTarget = groupTarget;
+    input.groupMemberId = event.UserId;
   }
 
   return taskInput === undefined ? input : { ...input, taskInput };
+}
+
+export function currentQQAnnouncementGroup(event: GameEvent): RobotMiddlewareInput['groupTarget'] {
+  const { BotId, Target, ChannelId, SpaceId } = event;
+
+  if (
+    event.Platform !== 'qq-bot' ||
+    event.IsPrivate ||
+    event.name.startsWith('private.') ||
+    !BotId ||
+    !getQQBotAppIds().includes(BotId) ||
+    !isQQGroupMemberId(event.UserId) ||
+    Target?.scope !== 'group' ||
+    Target.BotId !== BotId ||
+    Target.targetId !== ChannelId ||
+    SpaceId !== `GROUP:${Target.targetId}` ||
+    !/^[A-Za-z0-9_-]{1,128}$/.test(Target.targetId)
+  ) {
+    return undefined;
+  }
+
+  return { platform: 'qq-bot', BotId, scope: 'group', targetId: Target.targetId };
 }
 
 const entries = new WeakMap<object, { bid: string; pending: Promise<RobotMiddlewareResult> }>();

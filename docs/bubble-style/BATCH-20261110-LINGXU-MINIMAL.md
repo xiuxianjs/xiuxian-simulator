@@ -12,6 +12,6 @@
 
 阵盘交易分类沿原珍宝楼链路新增 `formation_disc`，独立实例数量固定1，效果文本来自原服务端投影。上架一级分类整理为两行四键，所有既有分类保留。单独对照为同目录 `market-comparison.png` / `market-comparison.html`，改前直接读取最新 main `b9001674` 原上架处理器，改后运行真实新处理器；同样不是平台实机图。
 
-跨端验证先运行 Go 的 `TestLingxuRobot*` 导出 `server-pages.json`，再将 `XIUXIAN_LINGXU_CONTRACT_FIXTURE` 指向该文件运行 QQ 定向测试，覆盖22份真实页面 JSON、地图全部6页、实际短引用、私有页标记和所有按钮原载荷。完整指令80/81字符边界、安全格满袋不可拆堆但可整堆保护均有定向检查。
+跨端验证先运行 Go 的 `TestLingxuRobot*` 导出 `server-pages.json`，再将 `XIUXIAN_LINGXU_CONTRACT_FIXTURE` 指向该文件运行 QQ 定向测试，覆盖22份真实页面 JSON、地图全部6页、实际短引用、私有页标记和所有按钮原载荷。完整指令80/81字符边界、暗格满袋不可拆堆但可整堆保护均有定向检查。
 
 后端原子结算、Redis 确认引用与实际规则由配套服务端提供；页面通过不代表已部署或产出周期已经平衡。

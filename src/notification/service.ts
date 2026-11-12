@@ -38,7 +38,7 @@ export async function deliverNotificationOnce(eventId: string, send: () => Promi
 export async function deliverPlayerNotification(
   userId: number,
   bid: string,
-  data: DataEnums[],
+  data: DataEnums[] | (() => DataEnums[]),
   enabled: boolean,
   options?: {
     privateOnly?: boolean;

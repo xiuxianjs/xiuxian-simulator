@@ -51,7 +51,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天',
     page: {
       title: '灵墟洞天', privateOnly: false,
-      sections: [{ lines: ['状态：探索中 · 坤·阳·废弃坊市', '行动：保守 · 对人躲避 · 对怪战斗', '命数：4/5 · 每60分钟恢复1点', '行囊：8/50格 · 安全格0/0', '阵效：道蕴阵盘·三品 · 剩余5小时', '时效：每轮开始时确定阵效，之后的阵效变化从下一轮起生效。', '时间：下次结算19:20'] }],
+      sections: [{ lines: ['状态：探索中 · 坤·阳·废弃坊市', '行动：保守 · 对人躲避 · 对怪战斗', '命数：4/5 · 每60分钟恢复1点', '行囊：8/50格 · 暗格0/0', '阵效：道蕴阵盘·三品 · 剩余5小时', '时效：每轮开始时确定阵效，之后的阵效变化从下一轮起生效。', '时间：下次结算19:20'] }],
       actions: [{ label: '行动倾向', command: '/灵墟洞天 行动倾向' }, { label: '地图', command: '/灵墟洞天 地图' }, { label: '行囊', command: '/灵墟洞天 行囊' }, { label: '阵法师', command: '/阵法师' }, { label: '行记', command: '/灵墟洞天 行记' }, { label: '返程', command: '/灵墟洞天 返程' }, { label: '休息', command: '/灵墟洞天 隐匿' }]
     },
     expected: ['命数：4/5', '下次结算19:20']
@@ -61,7 +61,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     page: {
       title: '灵墟洞天 · 入场确认', privateOnly: false,
       sections: [{
-        lines: ['状态：准备入场(坤·阳·废弃坊市)', '行动：谨慎 · 对人躲避 · 对怪躲避', '命数：4/5 · 每60分钟恢复1点', '行囊：0/60格 · 安全格0/0', '阵盘：归墟阵盘·三品 · 余1时43分', '', '消耗：每轮精力2、元力2。精力或元力不足时等待。', '风险：战败扣1点命数，两袋内的物品可能随机掉落。安全格内物品不会掉落。', '结算：到外围出口后另用一轮撤离，成功后带出所得。', '说明：入场沿用当前命数，探索、闭关和打坐照常。', '时效：24小时内可按此页设置入场。容量、阵盘或规则变化后须重新预览。'],
+        lines: ['状态：准备入场(坤·阳·废弃坊市)', '行动：谨慎 · 对人躲避 · 对怪躲避', '命数：4/5 · 每60分钟恢复1点', '行囊：0/60格 · 暗格0/0', '阵盘：归墟阵盘·三品 · 余1时43分', '', '消耗：每轮精力2、元力2。精力或元力不足时等待。', '风险：战败扣1点命数，资产损失限本局灵石和灵晶。墟行囊实物与原储物袋保留。', '结算：到外围出口后另用一轮撤离，成功后带出所得。', '说明：入场沿用当前命数，探索、闭关和打坐照常。', '时效：24小时内可按此页设置入场。容量、阵盘或规则变化后须重新预览。'],
         actions: [{ label: '确认入场', command: `/灵墟洞天 确认 ${lingxuRef}` }]
       }],
       actions: [{ label: '地图', command: '/灵墟洞天 地图' }, { label: '倾向', command: '/灵墟洞天 行动倾向' }, { label: '打开', command: '/灵墟洞天 行囊' }, { label: '查看', command: '/阵法师' }, { label: '取消', command: '/灵墟洞天' }]
@@ -82,7 +82,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天 行囊',
     page: {
       title: '灵墟洞天 · 墟行囊', privateOnly: false,
-      sections: [{ lines: ['容量：50格 · 已用8格', '保护：0/1安全格 · 本轮已冻结的败损不受更改影响'] }, { title: '青岚灵芽', id: 'lot_0123456789abcdef0123456789', lines: ['数量：3 · 占用1格', '状态：未保护 · 提取前尚未归入永久库存'], actions: [{ label: '保护', command: '/灵墟洞天 保护 lot_0123456789abcdef0123456789' }] }, { title: '断碑晶砂', id: 'lot_2', lines: ['数量：2 · 已保护1份'], actions: [{ label: '取消保护', command: '/灵墟洞天 取消保护 lot_2' }] }],
+      sections: [{ lines: ['容量：50格 · 已用8格', '保护：0/1暗格 · 批量丢弃保留受保护的物品'] }, { title: '青岚灵芽', id: 'lot_0123456789abcdef0123456789', lines: ['数量：3 · 占用1格', '状态：未保护 · 提取前尚未归入永久库存'], actions: [{ label: '保护', command: '/灵墟洞天 保护 lot_0123456789abcdef0123456789' }] }, { title: '断碑晶砂', id: 'lot_2', lines: ['数量：2 · 已保护1份'], actions: [{ label: '取消保护', command: '/灵墟洞天 取消保护 lot_2' }] }],
       nav: { page: 1, totalPages: 2, total: 4, command: '/灵墟洞天 行囊 {page}' },
       actions: [{ label: '行囊升级', command: '/灵墟洞天 行囊升级' }, { label: '返回洞天', command: '/灵墟洞天' }]
     },
@@ -101,7 +101,7 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
     command: '/灵墟洞天 扩容预览 最高',
     page: {
       title: '灵墟洞天 · 扩容确认', privateOnly: false,
-      sections: [{ title: '目标', lines: ['等级：3级→4级', '容量：60格→65格', '保护：0安全格→1安全格', '说明：本局容量已冻结；扩容从下一局生效。'] }, { title: '代价', lines: ['材料：青岚灵芽×6、断碑晶砂×4', '范围：只扣本次原预览合计的永久可用材料。'], actions: [{ label: '确认升级', command: `/灵墟洞天 确认 ${lingxuRef}` }] }],
+      sections: [{ title: '目标', lines: ['等级：3级→4级', '容量：60格→65格', '保护：0暗格→1暗格', '说明：本局容量已冻结；扩容从下一局生效。'] }, { title: '代价', lines: ['材料：青岚灵芽×6、断碑晶砂×4', '范围：只扣本次原预览合计的永久可用材料。'], actions: [{ label: '确认升级', command: `/灵墟洞天 确认 ${lingxuRef}` }] }],
       actions: [{ label: '取消', command: '/灵墟洞天 行囊升级' }]
     },
     expected: ['3级→4级', '扩容从下一局生效']

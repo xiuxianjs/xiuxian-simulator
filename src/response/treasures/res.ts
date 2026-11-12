@@ -232,7 +232,9 @@ export default onResponse(selects, async event => {
       if (data.kind === 'explore' && data.result.rewards) {
         backCommand = '/上古遗珍';
         explorationSettled = true;
-        const highestRarity = Math.max(1, ...data.result.rewards.filter(reward => reward.kind === 'body').map(reward => reward.rarity));
+        const bonusRewards = data.result.bonusRewards ?? [];
+        const rewards = [...data.result.rewards, ...bonusRewards];
+        const highestRarity = Math.max(1, ...rewards.filter(reward => reward.kind === 'body').map(reward => reward.rarity));
 
         requireSent(
           await message.send(
@@ -251,7 +253,10 @@ export default onResponse(selects, async event => {
         const unit = data.result.source ? sourceNames[data.result.source] : '';
 
         quote([`探索 ${data.result.count}次 · 消耗 ${data.result.paidAmount}${unit} · 宝物经验 +${data.result.experienceGranted}`]);
-        for (const r of data.result.rewards) {
+        for (const r of rewards) {
+          if (bonusRewards.includes(r)) {
+            content.addText('万象藏珍匣追加 · ');
+          }
           content
             .addText(`${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''} `)
             .addButton(markdownButtonLabel('查看'), { data: commandText(`宝物 详情 ${r.treasureId}`), autoEnter: false })
@@ -634,6 +639,7 @@ export default onResponse(selects, async event => {
               `${r.name}${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? '；已激活' : ''}`,
               ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
             ]),
+            ...record.bonusRewards.map(r => `万象藏珍匣追加 · ${r.name}${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}`),
             `操作编号 ${record.operationId}`
           ]);
         }
@@ -676,7 +682,7 @@ export default onResponse(selects, async event => {
           quote([`神话自选待领取 ${data.pendingSelections}份`], [{ label: '选择神话', command: '/上古遗珍 自选' }]);
         }
         if (data.freeAvailable) {
-          content.addButton(markdownButtonLabel('每日免费探索'), { data: commandText('上古遗珍 免费探索'), autoEnter: false });
+          content.addButton(markdownButtonLabel(data.freeRemaining && data.freeRemaining > 1 ? `每日免费探索 ×${data.freeRemaining}` : '每日免费探索'), { data: commandText('上古遗珍 免费探索'), autoEnter: false });
         } else {
           content.addText('每日免费探索：已使用');
         }

@@ -1,5 +1,5 @@
 /** QQ only validates command shape. Ownership, frozen plans and settlement remain server-authoritative. */
-export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string } | { error: true };
+export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string; groupAnnouncement?: true } | { error: true };
 
 const shortID = /^[A-Za-z0-9_-]{1,32}$/;
 const regionKey = /^[a-z][a-z0-9_-]{0,23}$/;
@@ -8,6 +8,41 @@ const attitude = /^(战斗|友善|躲避)$/;
 
 export const lingxuMapTiers = ['外围', '内围', '核心'] as const;
 export const lingxuJournalFilters = ['与人', '与怪', '探索', '赶路', '其他'] as const;
+export const lingxuChoiceActions = {
+  SEEK: { verb: '寻战', label: '前往寻战' },
+  AVOID_PLAYER: { verb: '避战', label: '避开交战' },
+  NPC_TALK: { verb: '交涉', label: '上前交涉' },
+  NPC_AVOID: { verb: '绕行', label: '绕开异种' },
+  NPC_FIGHT: { verb: '迎击', label: '迎击异种' },
+  SEARCH: { verb: '搜寻', label: '暂留搜寻' },
+  FOLLOW_ROUTE: { verb: '赶路', label: '沿原路走' },
+  REST: { verb: '休息', label: '休息一轮' },
+  TOWARD_EXIT: { verb: '近门', label: '前往出口' },
+  EXIT: { verb: '撤离', label: '下轮撤离' },
+  FRIENDLY: { verb: '论道', label: '尝试论道' },
+  LEAVE: { verb: '离开', label: '离开此地' },
+  TOWARD_OPPORTUNITY: { verb: '赴机缘', label: '向机缘前进' },
+  SEARCH_PERIMETER: { verb: '搜外围', label: '去外围搜寻' }
+} as const;
+
+const validChoiceRound = (date: string, time: string) => {
+  const parts = /^([1-9]\d{3})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.exec(date);
+
+  return !!parts && Number(parts[3]) <= new Date(Date.UTC(Number(parts[1]), Number(parts[2]), 0)).getUTCDate() && /^(?:[01]\d|2[0-3]):[0-5]0$/.test(time);
+};
+
+export const lingxuBagSubtypes = {
+  全部: [],
+  材料: ['全部', '洞天材料', '草药', '其他'],
+  道具: ['全部', '丹药', '种子', '图纸', '其他'],
+  功法: ['全部', '战技', '神通', '被动', '其他'],
+  装备: ['全部', '装备', '阵盘', '本命'],
+  藏品: ['全部', '白', '绿', '蓝', '紫', '金', '红']
+} as const;
+export const lingxuBagTypes = Object.keys(lingxuBagSubtypes) as (keyof typeof lingxuBagSubtypes)[];
+
+const bagType = (value: string | undefined): value is keyof typeof lingxuBagSubtypes => lingxuBagTypes.some(type => type === value);
+const bagSubtype = (type: keyof typeof lingxuBagSubtypes, value: string | undefined) => lingxuBagSubtypes[type].some(subtype => subtype === value);
 const natural = (value: string | undefined, max = Number.MAX_SAFE_INTEGER) => {
   if (value === undefined || !/^[1-9]\d*$/.test(value)) {
     return false;
@@ -29,7 +64,7 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     return undefined;
   }
   const words = (match[2] ?? '').split(/\s+/).filter(Boolean);
-  const [action, arg, value] = words;
+  const [action, arg, value, page] = words;
   const error = { error: true } as const;
   const read = { readOnly: true } as const;
   const write = { readOnly: false } as const;
@@ -65,10 +100,32 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
 
     return error;
   }
-  if (words.length === 1 && ['简介', '玩法', '入门', '入场', '行动倾向', '倾向', '返程设置', '行囊升级', '推送设置', '出口', '拾取'].includes(action)) {
+  if (words.length === 1 && ['简介', '玩法', '入门', '入场', '行动倾向', '倾向', '返程设置', '行囊升级', '推送设置', '出口', '拾取', '机缘', '临场'].includes(action)) {
     return read;
   }
-  if (action === '推送设置' && words.length === 2 && ['本群', '私聊', '关闭'].includes(arg)) {
+  if (action === '临场') {
+    return words.length === 4 && validChoiceRound(arg, value) && (page === '取消' || Object.values(lingxuChoiceActions).some(choice => choice.verb === page))
+      ? write
+      : error;
+  }
+  if (action === '组队') {
+    if (words.length === 1) {
+      return read;
+    }
+    if (words.length === 2 && ['创建', '离队', '解散'].includes(arg)) {
+      return write;
+    }
+
+    return words.length === 3 && ['邀请', '加入', '移交'].includes(arg) && uid(value) ? write : error;
+  }
+  if (action === '公告') {
+    if (words.length === 1) {
+      return { readOnly: true, groupAnnouncement: true };
+    }
+
+    return words.length === 2 && ['开启', '关闭'].includes(arg) ? { readOnly: false, groupAnnouncement: true } : error;
+  }
+  if (action === '推送设置' && words.length === 2 && ['私聊', '关闭'].includes(arg)) {
     return write;
   }
   if (words.length === 1 && ['返程', '隐匿', '继续'].includes(action)) {
@@ -79,6 +136,23 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
   }
   if (action === '行记' && lingxuJournalFilters.some(filter => filter === arg) && (words.length === 2 || (words.length === 3 && natural(value, 1000000)))) {
     return read;
+  }
+  if (action === '行囊' && bagType(arg)) {
+    if (words.length === 2 || (words.length === 3 && natural(value, 1000000))) {
+      return read;
+    }
+
+    return bagSubtype(arg, value) && (words.length === 3 || (words.length === 4 && natural(page, 1000000))) ? read : error;
+  }
+  if (action === '批量丢弃' && bagType(arg) && arg !== '全部') {
+    return words.length === 2 || (words.length === 3 && bagSubtype(arg, value)) ? read : error;
+  }
+  if (action === '藏品丢弃') {
+    if (words.length === 1 || (words.length === 2 && (natural(arg) || bagSubtype('藏品', arg)))) {
+      return read;
+    }
+
+    return words.length === 3 && bagSubtype('藏品', arg) && natural(value) ? read : error;
   }
   if (['地图', '行囊', '行记', '提取回执'].includes(action) && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {
     return read;

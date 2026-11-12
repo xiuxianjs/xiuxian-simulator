@@ -1,5 +1,7 @@
 import { getConfigValue } from 'alemonjs';
 
+export const isQQGroupMemberId = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value) && !/^(?:everyone|all)$/i.test(value);
+
 /** 与 QQ 适配器共用配置来源；每次读取以接收扫码后的配置更新。 */
 export function getQQBotAppIds(): string[] {
   const values = getConfigValue() ?? {};

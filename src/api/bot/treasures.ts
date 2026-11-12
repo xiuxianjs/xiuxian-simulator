@@ -67,7 +67,8 @@ export const treasureAttributeNames = {
   magicAttack: '法攻',
   physicalDefense: '物防',
   magicDefense: '法防',
-  hp: '生命'
+  hp: '生命',
+  speed: '速度'
 } as const;
 function attributes(value: unknown) {
   const item = row(value);
@@ -77,7 +78,8 @@ function attributes(value: unknown) {
     magicAttack: number(item.magicAttack),
     physicalDefense: number(item.physicalDefense),
     magicDefense: number(item.magicDefense),
-    hp: number(item.hp)
+    hp: number(item.hp),
+    speed: item.speed === undefined ? 0 : number(item.speed)
   };
 }
 function rarity(value: unknown): number {
@@ -228,6 +230,28 @@ function reward(value: unknown) {
   };
 }
 
+function optionalBonusRewards(value: unknown, count: number) {
+  if (value === undefined) {
+    return [];
+  }
+  const rewards = array(value, reward);
+  const pulls = new Set<number>();
+
+  if (rewards.length > count) {
+    return invalid();
+  }
+  for (const item of rewards) {
+    if (item.pullIndex === undefined || item.pullIndex < 1 || item.pullIndex > count || pulls.has(item.pullIndex) ||
+        Math.floor(item.treasureId / 100) !== item.rarity || item.treasureId % 100 < 1 || item.treasureId % 100 > 6 ||
+        item.forcedComplete || !item.name.trim() || (item.kind === 'body' ? item.quantity !== 1 : item.quantity < 1 || item.quantity > 3)) {
+      return invalid();
+    }
+    pulls.add(item.pullIndex);
+  }
+
+  return rewards;
+}
+
 function validateIndependentRewards(rewards: ReturnType<typeof reward>[], count: number, priority = false, itemsPerRarity = 4) {
   if ((priority && rewards.length !== count) || rewards.length < count || rewards.length > count * 3) {
     return invalid();
@@ -295,6 +319,7 @@ export function parseRelicsOverview(value: unknown) {
     serverDate: date(item.serverDate),
     balances: { spiritCrystal: integer(balances.spiritCrystal), daoCrystal: integer(balances.daoCrystal), treasureMaps: integer(balances.treasureMaps) },
     freeAvailable: bool(item.freeAvailable),
+    ...(item.freeRemaining === undefined ? {} : { freeRemaining: integer(item.freeRemaining) }),
     spiritTenDiscountAvailable: bool(item.spiritTenDiscountAvailable),
     ...(item.daoTenDiscountAvailable === undefined ? {} : { daoTenDiscountAvailable: bool(item.daoTenDiscountAvailable) }),
     ...(item.spiritTenCost === undefined ? {} : { spiritTenCost: integer(item.spiritTenCost) }),
@@ -362,7 +387,8 @@ export function parseRelicsOverview(value: unknown) {
         source: source(record.source),
         count: integer(record.count),
         paidAmount: integer(record.paidAmount),
-        rewards: array(record.rewards, reward)
+        rewards: array(record.rewards, reward),
+        bonusRewards: optionalBonusRewards(record.bonusRewards, integer(record.count))
       };
     })
   };
@@ -571,6 +597,7 @@ export function parseTreasureReceipt(value: unknown) {
       ...(item.kind === 'explore'
         ? {
             rewards: array(result.rewards, reward),
+            bonusRewards: optionalBonusRewards(result.bonusRewards, integer(result.count)),
             rulesVersion: text(result.rulesVersion),
             ...(result.poolVersion === undefined ? {} : { poolVersion: text(result.poolVersion) }),
             source: source(result.source),

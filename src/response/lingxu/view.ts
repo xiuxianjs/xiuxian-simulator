@@ -1,6 +1,7 @@
 import { Format } from 'alemonjs';
 import type { LingxuAction, LingxuPage } from '@src/api/bot/lingxu';
 import { buildBubble, section } from '@src/response/presentation';
+import { renderSubTabs } from '@src/response/storage/newBag/tabs';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { commandText } from '@src/utils/commandPrefix';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
@@ -128,6 +129,10 @@ export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) 
 
   const journalPage = ['灵墟洞天 · 行记', '灵墟洞天 · 行动详情', '灵墟洞天 · 提取回执'].includes(page.title);
   const mapWithTabs = page.title === '灵墟洞天 · 地图' && page.tabs;
+
+  if (page.subTabs?.length) {
+    renderSubTabs(md, page.subTabs);
+  }
 
   for (const [index, entry] of page.sections.entries()) {
     if (index > 0) {
