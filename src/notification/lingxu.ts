@@ -83,9 +83,10 @@ function lingxuChoiceSection(raw: unknown): BubbleSection | undefined {
   }
 
   const round = time.format('YYYY-MM-DD HH:mm');
+  const duration = options.some(key => key === 'TOWARD_EXIT' || key === 'EXIT') ? '返程持续至撤离' : '临场选择仅此一轮生效';
 
   return {
-    lines: [`动静：${description}`, `轮次：${time.format('HH:mm')} · 临场选择仅此一轮生效`],
+    lines: [`动静：${description}`, `轮次：${time.format('HH:mm')} · ${duration}`],
     actions: options.map(key => {
       const { label, verb } = lingxuChoiceActions[key];
       const contextualLabel = contextualLabels[cue]?.[key] ?? label;

@@ -119,7 +119,7 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
       const context = quotes[1].value;
       assert.deepEqual(context.filter(child => child.type === 'MD.text').map(child => child.value).filter(line => line.trim()), [
         isTreasureChoice ? '动静：浮空遗宫的机缘正在争夺。' : '动静：你已抵达青岚林，震门可以撤离。',
-        '轮次：00:30 · 临场选择仅此一轮生效'
+        `轮次：00:30 · ${isTreasureChoice ? '临场选择仅此一轮生效' : '返程持续至撤离'}`
       ]);
       const choices = context.filter(child => child.type === 'MD.button');
       assert.deepEqual(choices.map(button => button.value), isTreasureChoice ? ['‹向机缘前进›', '‹去外围搜寻›'] : ['‹下轮撤离›', '‹休息一轮›']);
