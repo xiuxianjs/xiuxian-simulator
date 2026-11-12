@@ -1,6 +1,6 @@
 import { notificationSettingsData } from './presentation';
 import { Format, type DataEnums } from 'alemonjs';
-import { readPlatformAvailability, readPlatformGroupCandidates } from '@src/api/bot/notification-cache';
+import { acquireFlyMailGroupReminder, readPlatformAvailability, readPlatformGroupCandidates } from '@src/api/bot/notification-cache';
 import { type NotificationDelivery } from '@src/types/notification';
 import { FormatGui } from '@src/utils/messageHelper';
 import { notificationChannel, getNotificationPrivateTarget } from './channel';
@@ -34,9 +34,18 @@ export async function deliverFlyMailNotification(eventId: string, bid: string, d
   }).format.value;
   const groups = await readPlatformGroupCandidates(platform, bid);
 
+  // All active groups share the recipient’s cooldown.
+  let acquiredGroupReminder = false;
+
   for (const { target } of groups) {
     if ((await readPlatformAvailability(target, bid))?.available === false) {
       continue;
+    }
+    if (!acquiredGroupReminder) {
+      if (!(await acquireFlyMailGroupReminder(platform, bid))) {
+        return { route: 'history', reason: 'group_reminder_cooldown' };
+      }
+      acquiredGroupReminder = true;
     }
     const delivery = await deliverNotification(
       { group: target, recipientBid: bid, data: notificationSettingsData(reminder, 'flymail.message.received'), enabled, fallbackOnFailure: true },

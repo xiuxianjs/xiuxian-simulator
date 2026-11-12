@@ -20,7 +20,7 @@ export type NotificationDelivery = {
   /** Organization fanout failures, reported to Go for one durable administrator warning. */
   unreachableUserIds?: number[];
   subscriptionRequired?: boolean;
-  reason: 'sent' | 'reminded' | 'proactive_disabled' | 'permission_blocked' | 'no_private_target' | 'no_target';
+  reason: 'sent' | 'reminded' | 'proactive_disabled' | 'permission_blocked' | 'no_private_target' | 'no_target' | 'group_reminder_cooldown';
 };
 
 /** 平台通道能力：读取权限、发送、失败后复查权限、记录失败。 */

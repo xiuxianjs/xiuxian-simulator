@@ -22,6 +22,7 @@ function fixture(t: TestContext) {
  const queue:any[]=[];
  const acknowledgements:any[]=[];
  const receipts = new Map<string,unknown>();
+ const leases = new Set<string>();
  t.mock.method(axios,'create',()=>({async post(path:string,body:any){
   requests.push(path);
   let data:unknown=null;
@@ -31,6 +32,10 @@ function fixture(t: TestContext) {
   else if(path.endsWith('/player/categories')) data={enabled:true};
   else if(path.endsWith('/retry')) throw new Error(String(body.error));
   else if(path.endsWith('/private-target/read')) data=state.private?{...privateTarget,scope:state.privateScope}:null;
+  else if(path.endsWith('/flymail/reminder/acquire')) {
+   data={acquired:!leases.has(body.eventId)};
+   leases.add(body.eventId);
+  }
   else if(path.endsWith('/receipt/read')) data=receipts.get(body.eventId)??null;
   else if(path.endsWith('/receipt/store')) receipts.set(body.eventId,body.receipt);
   else if(path.endsWith('/activity/candidates')) data=[{target:group,occurredAt:100}];
@@ -41,7 +46,7 @@ function fixture(t: TestContext) {
  }}));
  app.actions.on('message.send.target',()=>[createResult(ResultCode.Ok,'送达',{id:'receipt'})]);
  const run=(handler:()=>Promise<void>)=>app.runHandler(handler,app.events.groupMessage({platform:'qq-bot'}));
- return {app,run,state,requests,queue,acknowledgements};
+ return {app,run,state,requests,queue,acknowledgements,leases};
 }
 for(const scope of ['friend','companion','guild','master','team']) {
  test(`${scope} 正文只到各自收件人私聊，不读取个人或组织订阅群`,async t=>{
@@ -60,8 +65,28 @@ test('私聊地址缺失时活跃群仅提醒收件人，不泄露正文、发�
  assert.deepEqual(result.errors,[]); assert.equal(result.messages.length,1);
  assert.equal(result.messages[0].target?.targetId,'active-group');
  const view=inspectMessage(result.messages[0].nodes);
- assert.match(view.text,/你有新的飞信/);assert.doesNotMatch(view.text,/秘密|41|宗门|师门|队伍/);assert.deepEqual(view.commands,[]);
+ assert.match(view.text,/你有新的飞信/);assert.doesNotMatch(view.text,/秘密|41|宗门|师门|队伍/);assert.deepEqual(view.commands,['/通知设置 flymail 关闭']);
  assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code,ResultCode.Ok);
+});
+test('飞信群提醒按收件人限频，冷却期间仍逐封尝试私聊', async t => {
+ const {run,state,leases}=fixture(t);
+ state.private=false;
+ const result=await run(async()=>{
+  const outcomes=await Promise.all([
+   deliverFlyMailNotification('first','recipient',content,true),
+   deliverFlyMailNotification('second','recipient',content,true)
+  ]);
+  assert.deepEqual(outcomes.map(outcome=>outcome.reason).sort(),['group_reminder_cooldown','reminded']);
+  assert.equal((await deliverFlyMailNotification('other','other-recipient',content,true)).reason,'reminded');
+  state.private=true;
+  assert.deepEqual(await deliverFlyMailNotification('private-restored','recipient',content,true),{route:'private',reason:'sent'});
+  state.private=false;
+  leases.clear();
+  assert.equal((await deliverFlyMailNotification('expired','recipient',content,true)).reason,'reminded');
+ });
+ assert.deepEqual(result.errors,[]);
+ assert.deepEqual(result.messages.map(message=>message.target?.scope),['group','group','c2c','group']);
+ assert.ok(result.messages.every(message=>result.actions[message.actionIndex].results?.[0].code===ResultCode.Ok));
 });
 test('私聊明确拒绝后只提醒；结果不确定时重试且不转发正文',async t=>{
  const {app,run}=fixture(t);

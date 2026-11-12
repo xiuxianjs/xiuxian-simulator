@@ -97,6 +97,12 @@ export async function listCommunityJoinRequests(target: NotificationTarget, page
   return await post('/community/requests/list', { target, page });
 }
 
+export async function acquireFlyMailGroupReminder(platform: string, bid: string): Promise<boolean> {
+  const result = await post<{ acquired: boolean }>('/flymail/reminder/acquire', { eventId: JSON.stringify([platform, bid]) });
+
+  return result.acquired;
+}
+
 export async function acquirePlatformDeliveryLease(eventId: string, consumer: string): Promise<boolean> {
   const result = await post<{ acquired: boolean }>('/receipt/lease/acquire', { eventId, consumer });
 
