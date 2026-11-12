@@ -1,6 +1,5 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { beginGamePresentation } from '@src/utils/gamePresentation';
-import { parseLingxuCommand } from '@src/response/lingxu/commands';
 import type { GameEvent } from '../../types/event';
 import { measureTransportStageSync } from '../../utils/transportTiming';
 import type { HomeOverviewData } from '../schemas/player-overview';
@@ -592,8 +591,7 @@ export async function requestRobotBusiness<T>(
   request?: BackendRequestContext
 ): Promise<RobotBusinessResult<T>> {
   await beginGamePresentation(event);
-  const lingxuCommand = operation === 'lingxu.command' ? parseLingxuCommand(event.MessageText ?? '') : undefined;
-  const input = businessInputFromEvent(event, lingxuCommand && 'groupAnnouncement' in lingxuCommand && lingxuCommand.groupAnnouncement);
+  const input = businessInputFromEvent(event);
 
   // A native group can also carry a private reply address. Keep that
   // address while using only the native group ID for candidate ordering.

@@ -12,3 +12,5 @@
 - [机缘预告与结果](D:/data/alemone/bubble-style-mockups/lingxu-context-20261112/treasure-announcements.png)
 - [组队和共享墟行囊](D:/data/alemone/bubble-style-mockups/lingxu-context-20261112/team-menu.png)
 - [本群订阅与同条公告提醒](D:/data/alemone/bubble-style-mockups/lingxu-context-20261112/announcement-subscriptions.png)
+
+2026-11-13 简化洞天。行囊改为全部、材料、道具、功法、装备五类，保留分类、分页及原确认。取消藏品的颜色和价值筛选、机缘和群公告入口。旧藏品归入材料其他。原五格底栏、蓝链填入方式及逐轮私聊沿用。对照图位于 `D:/data/alemone/bubble-style-mockups/lingxu-simplify-20261113/comparison.png`。

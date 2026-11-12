@@ -15,7 +15,7 @@ const queuedAt = '2026-11-12T16:20:00Z';
 const choiceTick = '2026-11-12T16:30:00Z';
 const beforeChoiceTick = Date.parse('2026-11-12T16:25:00Z');
 
-for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可用', '发送前关闭', '个人停用', '队员私聊', '同一私聊的临场选择', '机缘临场选择', '临场选择到期', '投递时到期', '无效临场选项'] as const) {
+for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可用', '发送前关闭', '个人停用', '队员私聊', '同一私聊的临场选择', '旧机缘选项已停用', '临场选择到期', '投递时到期', '无效临场选项'] as const) {
   test(`洞天行记推送：${scenario}`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: scenario === '临场选择到期' ? Date.parse(choiceTick) : beforeChoiceTick });
     const app = createTestApp({ config: {
@@ -32,7 +32,7 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     const legacyRound = scenario === '队员私聊';
     const summaryTime = legacyRound ? '12-31 20:40' : '2026.11.13-00:20';
     const lingxuTick = Date.parse(legacyRound ? '2025-12-31T12:40:00Z' : queuedAt) / 1000;
-    const isTreasureChoice = scenario === '机缘临场选择';
+    const isTreasureChoice = scenario === '旧机缘选项已停用';
     const withChoice = isTreasureChoice || ['同一私聊的临场选择', '临场选择到期', '投递时到期', '无效临场选项'].includes(scenario);
     const choice = isTreasureChoice
       ? { nextTick: choiceTick, cue: 'TREASURE_OPEN', region: '浮空遗宫', options: ['TOWARD_OPPORTUNITY', 'SEARCH_PERIMETER'] }
@@ -107,8 +107,8 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     const view = inspectMessage(message.nodes);
     assert.match(view.text, /收获：修为 \+7/);
     assert.doesNotMatch(view.text, /legacy-private-text/);
-    const hasChoice = scenario === '同一私聊的临场选择' || isTreasureChoice;
-    const verbs = isTreasureChoice ? ['赴机缘', '搜外围'] : ['撤离', '休息'];
+    const hasChoice = scenario === '同一私聊的临场选择';
+    const verbs = ['撤离', '休息'];
     assert.deepEqual(view.commands, [...(hasChoice ? verbs.map(verb => `/灵墟洞天 临场 2026-11-13 00:30 ${verb}`) : []), '/灵墟洞天 行记']);
     const quotes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.blockquote') : []);
     assert.ok(Array.isArray(quotes[0].value));
@@ -118,11 +118,11 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
       assert.ok(Array.isArray(quotes[1].value));
       const context = quotes[1].value;
       assert.deepEqual(context.filter(child => child.type === 'MD.text').map(child => child.value).filter(line => line.trim()), [
-        isTreasureChoice ? '动静：浮空遗宫的机缘正在争夺。' : '动静：你已抵达青岚林，震门可以撤离。',
-        `轮次：00:30 · ${isTreasureChoice ? '临场选择仅此一轮生效' : '返程持续至撤离'}`
+        '动静：你已抵达青岚林，震门可以撤离。',
+        '轮次：00:30 · 返程持续至撤离'
       ]);
       const choices = context.filter(child => child.type === 'MD.button');
-      assert.deepEqual(choices.map(button => button.value), isTreasureChoice ? ['‹向机缘前进›', '‹去外围搜寻›'] : ['‹下轮撤离›', '‹休息一轮›']);
+      assert.deepEqual(choices.map(button => button.value), ['‹下轮撤离›', '‹休息一轮›']);
       assert.ok(choices.every(button => button.options?.autoEnter === false && !('show' in button.options)));
     } else {
       assert.equal(quotes.length, 1);

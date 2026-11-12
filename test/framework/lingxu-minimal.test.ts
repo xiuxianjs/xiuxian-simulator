@@ -381,61 +381,14 @@ test('diary push settings allow only private delivery or turning it off', async 
   assert.ok(!view.commands.includes(`${settings} 本群`));
 });
 
-test('a logged-in QQ member can manage their announcement subscription for the current group only', async t => {
-  const command = '/灵墟洞天 公告';
-  const member = 'cave-group-member';
-  const target = { platform: 'qq-bot', BotId: '100017', scope: 'group', targetId: 'cave-group' };
-  let enabled = false;
-  const { app, requests } = await gameFixture(t, request => {
-    if (request.body.messageText === `${command} 开启`) enabled = true;
-    if (request.body.messageText === `${command} 关闭`) enabled = false;
-    return businessEnvelope(request.bid, {
-      title: '灵墟洞天 · 公告',
-      privateOnly: false,
-      sections: [{ lines: [enabled ? '状态：已订阅本群公告' : '状态：尚未订阅本群公告'] }],
-      actions: [
-        { label: enabled ? '关闭提醒' : '开启提醒', command: `${command} ${enabled ? '关闭' : '开启'}` },
-        { label: '查看机缘', command: '/灵墟洞天 机缘' }
-      ]
-    });
-  });
-  const options = { text: command, userId: member, platform: 'qq-bot', botId: target.BotId, groupId: target.targetId };
-  const run = (text: string) => app.runHandler(handler, app.events.groupMessage({ ...options, text }, { Role: 'member', IsMaster: false }));
-  const settings = delivery(await run(command));
-  assert.match(settings.text, /尚未订阅本群公告/);
-  assert.ok(settings.commands.includes(`${command} 开启`));
-  assert.deepEqual(parseLingxuCommand(command), { readOnly: true, groupAnnouncement: true });
-  const openResult = await run(`${command} 开启`);
-  const open = delivery(openResult);
-  assert.match(open.text, /已订阅本群公告/);
-  assert.ok(open.commands.includes(`${command} 关闭`));
-  const fixtureDir = process.env.XIUXIAN_LINGXU_NOTIFICATION_FIXTURE_DIR;
-  if (fixtureDir) {
-    writeFileSync(join(fixtureDir, 'announcement-settings.json'), JSON.stringify(openResult.messages[0].nodes), 'utf8');
+test('retired opportunity and announcement commands never reach the backend', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, lingxuPages[0].page));
+
+  for (const text of ['/灵墟洞天 机缘', '/灵墟洞天 公告 开启', '/灵墟洞天 临场 2026-11-13 00:30 赴机缘']) {
+    assert.deepEqual(parseLingxuCommand(text), { error: true });
+    assert.match(delivery(await app.runHandler(handler, app.events.groupMessage({ text, platform: 'qq-bot' }))).text, /参数不正确/);
   }
-  assert.match(delivery(await run(`${command} 关闭`)).text, /尚未订阅本群公告/);
-  assert.equal(requests.length, 3);
-  for (const request of requests) {
-    assert.equal(request.bid, member);
-    assert.equal(request.body.groupMemberId, member);
-    assert.equal(request.body.botId, target.BotId);
-    assert.equal(request.body.channelId, target.targetId);
-    assert.deepEqual(request.body.groupTarget, target);
-    assert.deepEqual(request.body.arguments, {});
-  }
-  assert.ok(requests[1].idempotencyKey && requests[2].idempotencyKey);
-  for (const event of [
-    app.events.privateMessage(options),
-    app.events.channelMessage(options),
-    app.events.groupMessage(options, { Target: { scope: 'group', BotId: target.BotId, targetId: 'some-other-group' } }),
-    app.events.groupMessage(options, { Target: { scope: 'group', BotId: '100019', targetId: target.targetId } })
-  ]) {
-    const rejected = delivery(await app.runHandler(handler, event));
-    assert.match(rejected.text, /请在要接收宝物现世公告的 QQ 群里操作/);
-  }
-  const malformed = delivery(await run(`${command} 开启 回显占位词`));
-  assert.doesNotMatch(malformed.text, /回显占位词/);
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 0);
 });
 
 test('context choices send only the visible target round and fixed verb', async t => {
@@ -447,12 +400,11 @@ test('context choices send only the visible target round and fixed verb', async 
       { label: '前往寻战', command: `${choice} ${round} 寻战` },
       { label: '取消选择', command: `${choice} ${round} 取消` }
     ] }],
-    actions: [{ label: '查看机缘', command: '/灵墟洞天 机缘' }, { label: '返回洞天', command: '/灵墟洞天' }]
+    actions: [{ label: '返回洞天', command: '/灵墟洞天' }]
   }));
   const run = (text: string) => app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
   const view = delivery(await run(choice));
   assert.deepEqual(parseLingxuCommand(choice), { readOnly: true });
-  assert.deepEqual(parseLingxuCommand('/灵墟洞天 机缘'), { readOnly: true });
   assert.equal(requests[0].body.messageText, choice);
   for (const command of view.commands.filter(item => item.startsWith(`${choice} `))) {
     assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
@@ -707,52 +659,53 @@ test('the bag discard shortcut only previews and confirmation keeps the original
   for (const cmd of [`${holding} 0`, `${holding} 1000001`, `${holding} 全部`, '/灵墟洞天 丢弃 ../h1']) assert.deepEqual(parseLingxuCommand(cmd), { error: true });
 });
 
-test('the bag keeps both filter rows, scoped pagination and value-based discard preview', async t => {
+test('the bag keeps five categories, material subfilters and scoped discard preview', async t => {
   const root = '/灵墟洞天 行囊';
-  const purple = `${root} 藏品 紫`;
-  const choose = '/灵墟洞天 藏品丢弃 紫';
-  const threshold = `${choose} 50`;
+  const herbs = `${root} 材料 草药`;
+  const discard = '/灵墟洞天 批量丢弃 材料 草药';
   const confirm = `/灵墟洞天 确认 ${lingxuRef}`;
   const bag = {
     title: '灵墟洞天 · 墟行囊',
     privateOnly: false,
-    tabs: ['全部', '材料', '道具', '功法', '装备', '藏品'].map(label => ({
-      label: label === '藏品' ? '▶藏品' : label,
+    tabs: ['全部', '材料', '道具', '功法', '装备'].map(label => ({
+      label: label === '材料' ? '▶材料' : label,
       command: label === '全部' ? root : `${root} ${label}`
     })),
-    subTabs: ['全部', '白', '绿', '蓝', '紫', '金', '红'].map(label => ({
-      label: label === '紫' ? '▶紫' : label,
-      command: label === '全部' ? `${root} 藏品` : `${root} 藏品 ${label}`
+    subTabs: ['全部', '洞天材料', '草药', '其他'].map(label => ({
+      label: label === '草药' ? '▶草药' : label,
+      command: label === '全部' ? `${root} 材料` : `${root} 材料 ${label}`
     })),
     sections: [
       { lines: ['行囊：9/60格'] },
-      { title: '古物', lines: ['单件价值：40灵晶'], actions: [{ label: '丢弃', command: '/灵墟洞天 丢弃 21' }] }
+      { title: '培元草', lines: ['数量：2'], actions: [{ label: '丢弃', command: '/灵墟洞天 丢弃 21' }] }
     ],
-    actions: [{ label: '按价值丢弃', command: choose }, { label: '返回洞天', command: '/灵墟洞天' }],
-    nav: { page: 2, totalPages: 3, command: `${purple} {page}` }
+    actions: [{ label: '批量丢弃', command: discard }, { label: '返回洞天', command: '/灵墟洞天' }],
+    nav: { page: 2, totalPages: 3, command: `${herbs} {page}` }
   };
   const pages = new Map<string, LingxuPage>([
-    [`${purple} 2`, bag],
-    [choose, { title: '灵墟洞天 · 按价值丢弃', privateOnly: false, sections: [{ lines: ['单件价值上限'], actions: [{ label: '50灵晶', command: threshold }] }] }],
-    [threshold, { title: '灵墟洞天 · 确认批量丢弃', privateOnly: false, sections: [{ lines: ['物品：古物×2', '保护中的物品保留'], actions: [{ label: '确认永久丢弃', command: confirm }] }] }]
+    [`${herbs} 2`, bag],
+    [discard, { title: '灵墟洞天 · 确认批量丢弃', privateOnly: false, sections: [{ lines: ['物品：培元草×2', '保护中的物品保留'], actions: [{ label: '确认永久丢弃', command: confirm }] }] }]
   ]);
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, pages.get(String(request.body.messageText))));
   const run = (command: string) => app.runHandler(handler, app.events.groupMessage({ text: command, platform: 'qq-bot', userId: 'lingxu-member' }));
-  const result = await run(`${purple} 2`);
+  const result = await run(`${herbs} 2`);
   const view = delivery(result, 22);
-  assert.match(view.text, /‹▸藏品›[\s\S]*‹▸紫›[\s\S]*单件价值/);
+  assert.match(view.text, /‹▸材料›[\s\S]*‹▸草药›[\s\S]*培元草/);
+  assert.doesNotMatch(view.text, /藏品|按价值丢弃/);
   const selected = nodes(result.messages[0].nodes).filter(node => node.type === 'MD.button' && String(node.value).startsWith('‹▸'));
-  assert.deepEqual(selected.map(node => [node.value, node.options?.data]), [['‹▸藏品›', `${root} 藏品`], ['‹▸紫›', purple]]);
-  assert.ok(view.commands.includes(`${purple} 1`));
-  assert.ok(view.commands.includes(`${purple} 3`));
-  assert.ok(view.commands.includes(choose));
-  assert.ok(delivery(await run(choose)).commands.includes(threshold));
-  assert.ok(delivery(await run(threshold)).commands.includes(confirm));
-  assert.deepEqual(requests.map(request => request.body.messageText), [`${purple} 2`, choose, threshold]);
-  for (const cmd of [root, `${root} 2`, purple, `${purple} 2`, choose, threshold, '/灵墟洞天 批量丢弃 材料 洞天材料']) {
+  assert.deepEqual(selected.map(node => [node.value, node.options?.data]), [['‹▸材料›', `${root} 材料`], ['‹▸草药›', herbs]]);
+  assert.ok(view.commands.includes(`${herbs} 1`));
+  assert.ok(view.commands.includes(`${herbs} 3`));
+  assert.ok(view.commands.includes(discard));
+  assert.ok(delivery(await run(discard)).commands.includes(confirm));
+  assert.deepEqual(requests.map(request => request.body.messageText), [`${herbs} 2`, discard]);
+  for (const cmd of [root, `${root} 2`, herbs, `${herbs} 2`, discard, '/灵墟洞天 批量丢弃 材料 洞天材料']) {
     assert.deepEqual(parseLingxuCommand(cmd), { readOnly: true });
   }
-  for (const cmd of [`${root} 材料 紫`, `${purple} 0`, `${choose} 0`, '/灵墟洞天 批量丢弃 全部']) {
+  for (const cmd of [
+    `${root} 材料 紫`, `${root} 藏品 紫`, '/灵墟洞天 藏品丢弃 紫 50', '/灵墟洞天 批量丢弃 全部',
+    '/灵墟洞天 行商', '/灵墟洞天 异变', '/灵墟洞天 动静', '/灵墟洞天 观测', '/灵墟洞天 坊市'
+  ]) {
     assert.deepEqual(parseLingxuCommand(cmd), { error: true });
   }
   assert.throws(() => parseLingxuPage({ ...bag, subTabs: bag.subTabs.slice(1) }));

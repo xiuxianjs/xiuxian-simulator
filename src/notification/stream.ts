@@ -1,7 +1,6 @@
 import { notificationResponseError } from '../api/bot/notification-error';
 import { dispatchChatNotices, startChatNotices, stopChatNotices } from './chat';
 import { dispatchCommunityNotifications } from './communityDelivery';
-import { dispatchLingxuTreasureAnnouncements } from './lingxuTreasure';
 import { getNotificationBackendConfig, hasNotificationBackendUrl } from '@src/api/bot/config';
 import { logger, onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from '../utils/qqBotIdentity';
@@ -86,7 +85,6 @@ export const startNotificationStream = (): void => {
   const dispatcher = new NotificationDispatcher([
     { name: '飞信', run: PushFlyMailTask },
     { name: '玩家通知', run: dispatchStandardMessages },
-    { name: '洞天机缘', run: dispatchLingxuTreasureAnnouncements },
     { name: '群通知', run: dispatchCommunityNotifications },
     { name: '运营消息', run: dispatchChatNotices }
   ]);

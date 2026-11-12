@@ -74,8 +74,6 @@ function lingxuChoiceSection(raw: unknown): BubbleSection | undefined {
       return undefined;
     }
     description = `你已抵达${name}，${exitGates[name as keyof typeof exitGates]}可以撤离。`;
-  } else if ((cue === 'TREASURE_PREVIEW' || cue === 'TREASURE_OPEN') && (region === '浮空遗宫' || region === '归墟核心')) {
-    description = cue === 'TREASURE_PREVIEW' ? `${region}的灵气开始汇聚。` : `${region}的机缘正在争夺。`;
   } else if (typeof cue === 'string' && Object.hasOwn(choiceCues, cue)) {
     description = choiceCues[cue as keyof typeof choiceCues];
   } else {

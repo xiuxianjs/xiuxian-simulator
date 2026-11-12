@@ -1,7 +1,6 @@
 import { logger, onResponse, ResultCode, useEvent } from 'alemonjs';
 import { createBackendReadRequestContext, createBackendRequestContext } from '@src/api/bot/context';
 import { parseLingxuPage } from '@src/api/bot/lingxu';
-import { currentQQAnnouncementGroup } from '@src/api/bot/middleware-entry';
 import { selects } from '@src/response/config';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { buildBubble } from '@src/response/presentation';
@@ -42,11 +41,6 @@ export default onResponse(selects, async event => {
 
   if ('error' in parsed) {
     await failure('参数不正确，请通过洞天或阵法师页面的按键重新选择。');
-
-    return;
-  }
-  if (parsed.groupAnnouncement && !currentQQAnnouncementGroup(event)) {
-    await failure('请在要接收宝物现世公告的 QQ 群里操作。');
 
     return;
   }

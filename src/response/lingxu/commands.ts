@@ -1,5 +1,5 @@
 /** QQ only validates command shape. Ownership, frozen plans and settlement remain server-authoritative. */
-export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string; groupAnnouncement?: true } | { error: true };
+export type LingxuCommand = { readOnly: boolean; confirmationCommand?: string } | { error: true };
 
 const shortID = /^[A-Za-z0-9_-]{1,32}$/;
 const regionKey = /^[a-z][a-z0-9_-]{0,23}$/;
@@ -20,9 +20,7 @@ export const lingxuChoiceActions = {
   TOWARD_EXIT: { verb: '近门', label: '前往出口' },
   EXIT: { verb: '撤离', label: '下轮撤离' },
   FRIENDLY: { verb: '论道', label: '尝试论道' },
-  LEAVE: { verb: '离开', label: '离开此地' },
-  TOWARD_OPPORTUNITY: { verb: '赴机缘', label: '向机缘前进' },
-  SEARCH_PERIMETER: { verb: '搜外围', label: '去外围搜寻' }
+  LEAVE: { verb: '离开', label: '离开此地' }
 } as const;
 
 const validChoiceRound = (date: string, time: string) => {
@@ -36,8 +34,7 @@ export const lingxuBagSubtypes = {
   材料: ['全部', '洞天材料', '草药', '其他'],
   道具: ['全部', '丹药', '种子', '图纸', '其他'],
   功法: ['全部', '战技', '神通', '被动', '其他'],
-  装备: ['全部', '装备', '阵盘', '本命'],
-  藏品: ['全部', '白', '绿', '蓝', '紫', '金', '红']
+  装备: ['全部', '装备', '阵盘', '本命']
 } as const;
 export const lingxuBagTypes = Object.keys(lingxuBagSubtypes) as (keyof typeof lingxuBagSubtypes)[];
 
@@ -100,7 +97,7 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
 
     return error;
   }
-  if (words.length === 1 && ['简介', '玩法', '入门', '入场', '行动倾向', '倾向', '返程设置', '行囊升级', '推送设置', '出口', '拾取', '机缘', '临场'].includes(action)) {
+  if (words.length === 1 && ['简介', '玩法', '入门', '入场', '行动倾向', '倾向', '返程设置', '行囊升级', '推送设置', '出口', '拾取', '临场'].includes(action)) {
     return read;
   }
   if (action === '临场') {
@@ -117,13 +114,6 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
     }
 
     return words.length === 3 && ['邀请', '加入', '移交'].includes(arg) && uid(value) ? write : error;
-  }
-  if (action === '公告') {
-    if (words.length === 1) {
-      return { readOnly: true, groupAnnouncement: true };
-    }
-
-    return words.length === 2 && ['开启', '关闭'].includes(arg) ? { readOnly: false, groupAnnouncement: true } : error;
   }
   if (action === '推送设置' && words.length === 2 && ['私聊', '关闭'].includes(arg)) {
     return write;
@@ -146,13 +136,6 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
   }
   if (action === '批量丢弃' && bagType(arg) && arg !== '全部') {
     return words.length === 2 || (words.length === 3 && bagSubtype(arg, value)) ? read : error;
-  }
-  if (action === '藏品丢弃') {
-    if (words.length === 1 || (words.length === 2 && (natural(arg) || bagSubtype('藏品', arg)))) {
-      return read;
-    }
-
-    return words.length === 3 && bagSubtype('藏品', arg) && natural(value) ? read : error;
   }
   if (['地图', '行囊', '行记', '提取回执'].includes(action) && (words.length === 1 || (words.length === 2 && natural(arg, 1000000)))) {
     return read;

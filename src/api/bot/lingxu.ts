@@ -50,6 +50,7 @@ const actions = (value: unknown, maximum: number): LingxuAction[] | undefined =>
 };
 
 const bagCommand = '/灵墟洞天 行囊';
+const bagSubTabLimit = Math.max(...Object.values(lingxuBagSubtypes).map(tabs => tabs.length));
 const selectedTab = (tabs: LingxuAction[]) => tabs.findIndex(tab => tab.label.startsWith('▶'));
 const matchingTab = (action: LingxuAction, label: string, command: string) => (action.label === label || action.label === `▶${label}`) && (action.command === command || (label === '全部' && action.command === `${command} 全部`));
 
@@ -126,7 +127,7 @@ export function parseLingxuPage(value: unknown): LingxuPage {
   const isJournal = title === '灵墟洞天 · 行记';
   const isBag = title === '灵墟洞天 · 墟行囊';
   const tabs = actions(raw.tabs, isBag ? lingxuBagTypes.length : isJournal ? lingxuJournalFilters.length : lingxuMapTiers.length);
-  const subTabs = actions(raw.subTabs, lingxuBagSubtypes.藏品.length);
+  const subTabs = actions(raw.subTabs, bagSubTabLimit);
   const selected = tabs?.filter(tab => tab.label.startsWith('▶')) ?? [];
 
   if (subTabs && (!isBag || !tabs)) {
