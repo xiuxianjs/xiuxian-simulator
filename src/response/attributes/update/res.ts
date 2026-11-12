@@ -1,11 +1,22 @@
 import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { parseAttributePanel } from '@src/api/bot/attribute-panel';
+import AttributePanel from '@src/img/views/AttributePanel';
 import { selects } from '@src/response/config';
+import { section } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
+import { renderCachedImage } from '@src/utils/imageRender';
 import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { recoverySummaryMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { useMessage } from '@src/utils/useMessage';
-import { Format, logger, onResponse, useEvent } from 'alemonjs';
+import { Format, logger, onResponse, ResultCode, useEvent } from 'alemonjs';
+
+const formatPanelNumber = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 21 }).format;
+
+const pillActions = [
+  { label: '✛1', command: '/服用 培元丹 1' },
+  { label: '✛3', command: '/服用 培元丹 3' },
+  { label: '✛5', command: '/服用 培元丹 5' }
+];
 
 /**
  * 展示道号、境界、五维属性、自由属性点及战斗属性
@@ -38,11 +49,7 @@ const response = onResponse(selects, async e => {
 
     md.addNewline();
     md.addText('属性分配');
-    addOptions(md, [
-      { label: '✛1', command: '/服用 培元丹 1' },
-      { label: '✛3', command: '/服用 培元丹 3' },
-      { label: '✛5', command: '/服用 培元丹 5' }
-    ]);
+    addOptions(md, pillActions);
     await message.send(
       FormatGui({
         isPrivate,
@@ -71,12 +78,47 @@ const response = onResponse(selects, async e => {
     ...(d.access.canUseSoulPath ? [{ label: '道途印证', command: '/道途印证' }] : []),
     ...(d.access.canUseMeridian ? [{ label: '经络', command: '/经络' }] : [{ label: '闭关', command: '/闭关' }])
   ];
+  const footer = [footerButtons.slice(0, 3), footerButtons.slice(3)];
+
+  if (/^\/?属性面板图$/.test(e.MessageText?.trim() ?? '')) {
+    let imageSent = false;
+
+    try {
+      const { access: _access, resourceRecovery: _recovery, ...stats } = d;
+      const image = await renderCachedImage(AttributePanel, { ...stats, avatarURL: e.UserAvatar }, 'panel:attributes');
+
+      if (image) {
+        const receipts = await message.send({ format: Format.create().addImage(image) });
+
+        imageSent = receipts.length > 0 && receipts.every(receipt => receipt.code === ResultCode.Ok);
+      }
+    } catch (error) {
+      logger.error(error);
+    }
+
+    if (imageSent) {
+      const content = Format.createMarkdown();
+
+      if (d.resourceRecovery) {
+        content.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery)).addNewline();
+      }
+      content.addBlockquote(section({ lines: ['服用培元丹'], actions: pillActions }));
+      await message.send(FormatGui({ isPrivate, bid, title: '属性面板操作', content, footer }));
+
+      return;
+    }
+  }
   const contentMd = Format.createMarkdown();
 
   contentMd.addText(`境界：${d.realmName}`).addNewline();
   contentMd.addText(d.mid ? `MID：${d.mid}` : `UID: ${d.uid}`).addNewline();
-  contentMd.addText(`战力：${d.combatPower}`).addNewline().addNewline();
-  contentMd.addBold(`自由属性${d.maxAttributeBonus ? ` · 上限加成 ${d.maxAttributeBonus > 0 ? '+' : ''}${d.maxAttributeBonus}%` : ''}`).addNewline();
+  contentMd
+    .addText(`战力：${formatPanelNumber(d.combatPower)}`)
+    .addNewline()
+    .addNewline();
+  contentMd
+    .addBold(`自由属性${d.maxAttributeBonus ? ` · 上限加成 ${d.maxAttributeBonus > 0 ? '+' : ''}${formatPanelNumber(d.maxAttributeBonus)}%` : ''}`)
+    .addNewline();
   const attributes = [
     ['力量', d.strength, d.maxStrength],
     ['智慧', d.intelligence, d.maxIntelligence],
@@ -92,36 +134,30 @@ const response = onResponse(selects, async e => {
     if (attributeLines.length > 0) {
       attributeLines.push('');
     }
-    attributeLines.push(`${label}\u3000${value} / ${max}`, '▓'.repeat(filled) + '░'.repeat(10 - filled));
+    attributeLines.push(`${label}\u3000${formatPanelNumber(value)} / ${formatPanelNumber(max)}`, '▓'.repeat(filled) + '░'.repeat(10 - filled));
   }
   attributeLines.push('', '服用培元丹');
-  contentMd.addBlockquote(
-    createQuoteMarkdown(attributeLines, [
-      { label: '✛1', command: '/服用 培元丹 1' },
-      { label: '✛3', command: '/服用 培元丹 3' },
-      { label: '✛5', command: '/服用 培元丹 5' }
-    ])
-  );
+  contentMd.addBlockquote(createQuoteMarkdown(attributeLines, pillActions));
   contentMd.addNewline().addBold('战斗属性').addNewline().addNewline();
   contentMd.addContent(
     [
       '| 属性 | 数值 | 属性 | 数值 |',
       '| :--- | ---: | :--- | ---: |',
-      `| 物理攻击 | ${d.physicalAttack} | 物理防御 | ${d.physicalDefense} |`,
-      `| 法术攻击 | ${d.magicAttack} | 法术防御 | ${d.magicDefense} |`,
-      `| 生命上限 | ${d.hp} | 灵力上限 | ${d.spiritualPower} |`,
-      `| 速度 | ${d.speed} | 念力上限 | ${d.mentalPower} |`,
-      `| 暴击率 | ${d.critRate}% | 暴击伤害 | ${d.critDamage}% |`,
-      `| 抗暴率 | ${d.antiCritRate}% | 命中率 | ${d.hitRate}% |`,
+      `| 物理攻击 | ${formatPanelNumber(d.physicalAttack)} | 物理防御 | ${formatPanelNumber(d.physicalDefense)} |`,
+      `| 法术攻击 | ${formatPanelNumber(d.magicAttack)} | 法术防御 | ${formatPanelNumber(d.magicDefense)} |`,
+      `| 生命上限 | ${formatPanelNumber(d.hp)} | 灵力上限 | ${formatPanelNumber(d.spiritualPower)} |`,
+      `| 速度 | ${formatPanelNumber(d.speed)} | 念力上限 | ${formatPanelNumber(d.mentalPower)} |`,
+      `| 暴击率 | ${formatPanelNumber(d.critRate)}% | 暴击伤害 | ${formatPanelNumber(d.critDamage)}% |`,
+      `| 抗暴率 | ${formatPanelNumber(d.antiCritRate)}% | 命中率 | ${formatPanelNumber(d.hitRate)}% |`,
       ...(d.mpRecoveryEfficiency !== undefined && d.mentalRecoveryEfficiency !== undefined
-        ? [`| 回灵效率 | ${d.mpRecoveryEfficiency}% | 回念效率 | ${d.mentalRecoveryEfficiency}% |`]
+        ? [`| 回灵效率 | ${formatPanelNumber(d.mpRecoveryEfficiency)}% | 回念效率 | ${formatPanelNumber(d.mentalRecoveryEfficiency)}% |`]
         : []),
-      `| 闪避率 | ${d.dodgeRate}% | | |`
+      `| 闪避率 | ${formatPanelNumber(d.dodgeRate)}% | | |`
     ].join('\n')
   );
   contentMd.addNewline().addNewline();
   if (d.resourceRecovery) {
-    contentMd.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery));
+    contentMd.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery, formatPanelNumber));
   }
   await checkEncounterAfterPanel(
     e,
@@ -133,7 +169,7 @@ const response = onResponse(selects, async e => {
         bid,
         title: `属性面板 · ${d.daoName}`,
         content: contentMd,
-        footer: [footerButtons.slice(0, 3), footerButtons.slice(3)]
+        footer
       })
     )
   );

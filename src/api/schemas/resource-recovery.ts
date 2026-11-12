@@ -71,9 +71,11 @@ export function parseRecoverySummary(value: unknown): ResourceRecoverySummary | 
 
   return { ...item, sources: parseRecoveryEffects(item.sources) };
 }
-export function recoveryEffectText(effect: RecoveryEffect): string {
-  const stats = [effect.mp > 0 ? `回灵效率 +${effect.mp}%` : '', effect.mental > 0 ? `回念效率 +${effect.mental}%` : ''].filter(Boolean).join('，');
-  const pieces = effect.pieces > 0 && effect.status !== 'preview' ? `（${effect.currentPieces}/${effect.pieces}件）` : '';
+export function recoveryEffectText(effect: RecoveryEffect, formatNumber: (value: number) => string = String): string {
+  const stats = [effect.mp > 0 ? `回灵效率 +${formatNumber(effect.mp)}%` : '', effect.mental > 0 ? `回念效率 +${formatNumber(effect.mental)}%` : '']
+    .filter(Boolean)
+    .join('，');
+  const pieces = effect.pieces > 0 && effect.status !== 'preview' ? `（${formatNumber(effect.currentPieces)}/${formatNumber(effect.pieces)}件）` : '';
 
   return `${effect.name}${pieces}：${stats} · ${effect.statusText}`;
 }

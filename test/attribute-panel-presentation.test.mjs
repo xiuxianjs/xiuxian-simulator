@@ -50,8 +50,9 @@ test('attribute panel renders Markdown, five progress bars and gated actions; pr
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(message.nodes);
   const d = row.result.data;
+  const number = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 21 }).format;
   assert.ok(view.text.includes(`属性面板 · ${d.daoName}`));
-  assert.ok(view.text.includes(`境界：${d.realmName}\nUID: ${d.uid}\n战力：${d.combatPower}`));
+  assert.ok(view.text.includes(`境界：${d.realmName}\nUID: ${d.uid}\n战力：${number(d.combatPower)}`));
   assert.doesNotMatch(JSON.stringify(message.nodes), /MD.image|panel.png|面板图片渲染失败/);
   const quotes = message.nodes.flatMap(n => n.type === 'Markdown' ? n.value.filter(c => c.type === 'MD.blockquote') : []);
   const attr = inspectMessage([{ type: 'Markdown', value: quotes[0].value }]);
@@ -59,26 +60,26 @@ test('attribute panel renders Markdown, five progress bars and gated actions; pr
   const bars = attr.text.match(/[▓░]{10}/g);
   assert.equal(bars.length, 5);
   for (const [i, label, key, maxKey] of [[0,'力量','strength','maxStrength'],[1,'智慧','intelligence','maxIntelligence'],[2,'体质','constitution','maxConstitution'],[3,'敏捷','agility','maxAgility'],[4,'气运','luck','maxLuck']]) {
-   assert.ok(attr.text.includes(`${label}　${d[key]} / ${d[maxKey]}`));
+   assert.ok(attr.text.includes(`${label}　${number(d[key])} / ${number(d[maxKey])}`));
    const filled = d[maxKey] > 0 ? Math.max(0,Math.min(10,Math.floor(d[key]/d[maxKey]*10))) : 0;
    assert.equal(bars[i], '▓'.repeat(filled)+'░'.repeat(10-filled));
   }
   for (const line of [
-   `| 物理攻击 | ${d.physicalAttack} | 物理防御 | ${d.physicalDefense} |`,
-   `| 法术攻击 | ${d.magicAttack} | 法术防御 | ${d.magicDefense} |`,
-   `| 生命上限 | ${d.hp} | 灵力上限 | ${d.spiritualPower} |`,
-   `| 速度 | ${d.speed} | 念力上限 | ${d.mentalPower} |`,
-   `| 暴击率 | ${d.critRate}% | 暴击伤害 | ${d.critDamage}% |`,
-   `| 抗暴率 | ${d.antiCritRate}% | 命中率 | ${d.hitRate}% |`,
-   `| 闪避率 | ${d.dodgeRate}% | | |`
+   `| 物理攻击 | ${number(d.physicalAttack)} | 物理防御 | ${number(d.physicalDefense)} |`,
+   `| 法术攻击 | ${number(d.magicAttack)} | 法术防御 | ${number(d.magicDefense)} |`,
+   `| 生命上限 | ${number(d.hp)} | 灵力上限 | ${number(d.spiritualPower)} |`,
+   `| 速度 | ${number(d.speed)} | 念力上限 | ${number(d.mentalPower)} |`,
+   `| 暴击率 | ${number(d.critRate)}% | 暴击伤害 | ${number(d.critDamage)}% |`,
+   `| 抗暴率 | ${number(d.antiCritRate)}% | 命中率 | ${number(d.hitRate)}% |`,
+   `| 闪避率 | ${number(d.dodgeRate)}% | | |`
   ]) assert.ok(view.text.includes(line), line);
   assert.equal(view.commands.includes('/我的本命物'), d.access.canUseSoulArtifact);
   assert.equal(view.commands.includes('/道途印证'), d.access.canUseSoulPath);
   assert.equal(view.commands.includes('/经络'), d.access.canUseMeridian);
   assert.equal(view.commands.includes('/闭关'), !d.access.canUseMeridian);
   if (d.resourceRecovery) {
-   assert.ok(view.text.includes(`回灵效率：${d.resourceRecovery.mp}%`));
-   assert.ok(view.text.includes(`回念效率：${d.resourceRecovery.mental}%`));
+   assert.ok(view.text.includes(`回灵效率：${number(d.resourceRecovery.mp)}%`));
+   assert.ok(view.text.includes(`回念效率：${number(d.resourceRecovery.mental)}%`));
   }
  }
 });

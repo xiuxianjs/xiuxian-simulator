@@ -296,7 +296,7 @@ export function createGameRouter() {
     xiuxian.use(['储物袋 本命', '背包 本命', '我的储物袋 本命', '我的背包 本命'], () => import('@src/response/storage/newBag/soulArtifacts/res'));
     xiuxian.use(['储物袋 礼盒', '背包 礼盒', '我的储物袋 礼盒', '我的背包 礼盒'], () => import('@src/response/storage/newBag/lootboxes/res'));
     xiuxian.use(['查看通天塔', '通天塔', '查看通天塔 我的'], () => import('@src/response/ranking/viewRankings/res'));
-    xiuxian.use(['更新属性', '属性面板', '我的面板'], () => import('@src/response/attributes/update/res'));
+    xiuxian.use(['更新属性', '属性面板', '我的面板', '属性面板图'], () => import('@src/response/attributes/update/res'));
     xiuxian.use(['元婴神魂', '元婴面板'], () => import('@src/response/soulPath/panel/res'));
     xiuxian.use(['元婴道途', '道途详情'], () => import('@src/response/soulPath/path/res'));
     xiuxian.use(
