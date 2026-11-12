@@ -14,6 +14,7 @@ const state = globalThis.__onboardingRuntime = {};
 const bundle = await build({
   stdin: { resolveDir: process.cwd(), contents: `export {onboardingContent,showOnboarding} from './src/response/onboarding/context.ts';export {default as resGuide} from './src/response/resGuide.ts';export {configureOnboardingCommandMatcher} from './src/response/onboarding/policy.ts';export {matchesGameCommand as actualMatch, default as actualRoutes} from './src/router.ts';export {handleOnboardingResponse} from './src/response/onboarding/res.ts';` }, bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'runtime-transport', setup(b) {
+    b.onResolve({ filter: /^axios$/ }, () => ({ path: import.meta.resolve('axios'), external: true }));
     b.onResolve({ filter: /.*/ }, a => a.kind === 'dynamic-import' ? {path:a.path,external:true} : undefined);
     b.onResolve({ filter: /^alemonjs$/ }, () => ({ path: pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href, external: true }));
     b.onResolve({ filter: /^@src\/api\/bot\/robot-business$|^@src\/utils\/useMessage$|^\.\/useMessage$|^\.\.\/robotBusiness$/ }, a => ({ path: a.path, namespace: 'transport' }));

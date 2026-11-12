@@ -1,3 +1,4 @@
+import { trackFeatureOutcome } from '@src/response/mwFeatureTrack';
 import { requestBackend } from '@src/api/bot/client';
 import { getPaymentOrder, getPaymentOrders } from '@src/api/bot/payment-orders';
 import { parseBackendRechargeRights } from '@src/api/bot/recharge-rights-queries';
@@ -59,9 +60,12 @@ export default onResponse(selects, async e => {
 
     return;
   }
+  const startedAt = performance.now();
+  let success = false;
+
   try {
     // Resolve the platform identity and existing entry guards before any player-scoped read.
-    const entry = await runRobotBusiness(e, 'membership.rights', {}, parseBackendRechargeRights, next, reply => send(reply.text));
+    const entry = await runRobotBusiness(e, 'membership.rights', {}, parseBackendRechargeRights, next, reply => send(reply.text), undefined, undefined, false);
 
     if (entry.handled) {
       return;
@@ -127,9 +131,12 @@ export default onResponse(selects, async e => {
         );
         try {
           await sendPaymentQr(message, checkout);
+          success = true;
         } catch {
           await send(`原订单 ${orderNo} 的支付二维码未确认送达，请从我的订单重试。`);
         }
+      } else {
+        success = match[1] === '查询充值订单';
       }
 
       return;
@@ -176,6 +183,7 @@ export default onResponse(selects, async e => {
         footer
       })
     );
+    success = true;
   } catch (error) {
     logger.error('订单查询失败:', error);
     await send(
@@ -183,5 +191,7 @@ export default onResponse(selects, async e => {
         ? error.message
         : (getCommandBusinessErrorMessage(error) ?? '订单信息暂未获取。请从我的订单查询原订单；本次操作不会重新创建订单。')
     );
+  } finally {
+    trackFeatureOutcome(e, success, startedAt);
   }
 });

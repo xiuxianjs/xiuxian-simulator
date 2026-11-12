@@ -1,3 +1,4 @@
+import { trackPromotion } from '@src/analytics';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
 import { useEvent } from 'alemonjs';
 import { parsePromotionCommand } from '@src/api/bot/promotion-command';
@@ -29,6 +30,10 @@ export default onResponse(selects, async e => {
     }
     const uid = e.uid as number;
     const result = await App({ load: business.load, uid, bid, request: createBackendRequestContext(e) });
+
+    if (result.code === 'SUCCESS' || result.code === 'FAILED') {
+      trackPromotion(uid, result.code === 'SUCCESS', result.code === 'SUCCESS' ? { newRealm: result.data.newRealm?.name } : {});
+    }
 
     if (result.code === 'TRIBULATION') {
       await message.send(renderTribulationPanel(result.data, { isPrivate, bid }));

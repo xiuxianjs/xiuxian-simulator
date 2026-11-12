@@ -1,3 +1,4 @@
+import { trackDemonTowerSweep } from '@src/analytics';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 妖塔扫荡指令
@@ -32,6 +33,8 @@ export default onResponse(selects, async e => {
     return;
   }
   const d = loaded.data;
+
+  trackDemonTowerSweep(e.uid, { layersSwept: d.layersSwept });
 
   const canBatchSelect = d.buffsToSelect > 1;
   const lines: string[] = [];

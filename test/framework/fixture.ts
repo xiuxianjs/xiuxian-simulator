@@ -6,7 +6,7 @@ import { createTestApp } from 'alemonjs/testing';
 export type BusinessRequest = { path: string; bid: string; body: Record<string, unknown>; idempotencyKey: string };
 
 /** Real project HTTP/parsers/hooks; only the backend response and platform are simulated. */
-export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode: number | ((request: BusinessRequest) => number) = 200) {
+export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode: number | ((request: BusinessRequest) => number) = 200, appConfig: Record<string, unknown> = {}) {
   const requests: BusinessRequest[] = [];
   const server = createServer(async (req, res) => {
     try {
@@ -38,7 +38,7 @@ export async function gameFixture(t: TestContext, respond: (request: BusinessReq
     config: {
       processor: { repeated_user_time: 0 },
       'qq-bot': { app_id: '100017' },
-      'xiuxian-game': { backend: { api_url: `http://127.0.0.1:${address.port}`, robot_auth_token: 'offline-fixture-token' } }
+      'xiuxian-game': { ...appConfig, backend: { api_url: `http://127.0.0.1:${address.port}`, robot_auth_token: 'offline-fixture-token' } }
     }
   });
   t.after(async () => {

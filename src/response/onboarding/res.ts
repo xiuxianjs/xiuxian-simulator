@@ -2,6 +2,7 @@ import { getCommandPrefix, internalCommandText } from '@src/utils/commandPrefix'
 import { onResponse, useEvent, type Next } from 'alemonjs';
 import { selects } from '../config';
 import { runRobotBusiness } from '../robotBusiness';
+import { trackFeatureWithIdentity } from '../mwFeatureTrack';
 import { parseOnboarding } from '@src/api/bot/onboarding';
 import { showOnboarding, showOnboardingRecovery } from './context';
 import { canonicalOnboardingCommand, onboardingButtonVersion } from './policy';
@@ -27,6 +28,7 @@ export async function handleOnboardingResponse(event: GameEvent, next: Next): Pr
     }
     const page = onboardingMenuPage(pageRequest[1], Number(pageRequest[2]), event);
 
+    trackFeatureWithIdentity(event, Boolean(page));
     if (page) {
       await showOnboarding(event, page.view, undefined, page);
     } else {

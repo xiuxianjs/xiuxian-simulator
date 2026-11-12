@@ -1,3 +1,4 @@
+import { trackSpar } from '@src/analytics';
 import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { fishingBlessingSuffix } from '@src/response/fishing/blessingNote';
 import { commandText } from '@src/utils/commandPrefix';
@@ -88,6 +89,14 @@ export default onResponse(selects, async e => {
 
   const data = result.data.result;
 
+  const { winner, totalRounds, totalWaves } = data.battleResult;
+
+  trackSpar(e.uid, winner === 'A' ? 'success' : winner === 'B' ? 'fail' : 'draw', {
+    targetId: data.targetUid,
+    totalRounds,
+    totalWaves,
+    settledCount: data.settledCount
+  });
   UID = data.targetUid;
   const mdStart = Format.createMarkdown();
 

@@ -1,3 +1,4 @@
+import { trackFeatureWithIdentity } from '../mwFeatureTrack';
 import { invalidateEventCommandEntry } from '@src/api/bot/command-entry';
 import { invalidateEventBackendRobotIdentity } from '@src/api/bot/identity';
 import { parseBackendRegistration } from '@src/api/bot/registration';
@@ -53,6 +54,7 @@ export default onResponse(selects, async e => {
   if (result.code === 'OK') {
     invalidateEventBackendRobotIdentity(e);
     invalidateEventCommandEntry(e);
+    trackFeatureWithIdentity(e, true);
   }
 
   if (result.code === 'EXISTING_USER') {

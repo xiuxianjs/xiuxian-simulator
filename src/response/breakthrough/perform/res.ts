@@ -1,3 +1,4 @@
+import { trackBreakthrough } from '@src/analytics';
 import { loadFinalBusiness } from '@src/response/finalBusiness';
 import { useEvent } from 'alemonjs';
 import { parseRealmBreakthrough } from '@src/api/bot/realm-breakthrough';
@@ -32,6 +33,10 @@ export default onResponse(selects, async e => {
   }
   const uid = e.uid as number;
   const result = await App({ load: business.load, uid, bid, request });
+
+  if (result.code === 'SUCCESS' || result.code === 'FAIL') {
+    trackBreakthrough(uid, result.code === 'SUCCESS', result.code === 'SUCCESS' ? { newRealm: result.data.newRealm.name } : {});
+  }
   const md = Format.createMarkdown();
 
   switch (result.code) {

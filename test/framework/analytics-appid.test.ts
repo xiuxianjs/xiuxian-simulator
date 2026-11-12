@@ -7,6 +7,9 @@ import { after, test, type TestContext } from 'node:test';
 import { onResponse, shutdownLogger, logger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import trackFeature from '../../src/response/mwFeatureTrack';
+import { finishRobotBusiness } from '../../src/response/robotBusiness';
+import { parseRobotBusinessEnvelope } from '../../src/api/bot/robot-business';
+import { businessEnvelope } from './fixture';
 import { getAnalyticsDeliveryStatus, startAnalyticsDelivery, stopAnalyticsDelivery, trackAction, trackLogin } from '../../src/analytics';
 
 after(() => shutdownLogger());
@@ -64,6 +67,27 @@ test('真实功能中间件按 AppID 分批，延迟发送保留各运行实例�
     assert.equal(actions.length, 2);
     assert.equal(actions.filter(event => event.action === 'login').length, 1);
   }
+});
+
+test('功能上报保留真实失败和处理耗时，省略原始参数', async t => {
+  const requests = capture(t);
+  const app = fixture(t, 'key');
+  const handler = onResponse('message.create', async event => {
+    const result = parseRobotBusinessEnvelope(businessEnvelope(event.UserId, undefined), event.UserId, value => value);
+    const outcome = await finishRobotBusiness(event, result, () => assert.fail('业务拒绝不应继续路由'), undefined, true, 'tribulation.command', performance.now() - 10);
+    assert.deepEqual(outcome, { handled: true });
+  });
+  const event = app.events.groupMessage({ text: '/渡劫开劫 example-private-reference', platform: 'qq-bot' });
+  Object.assign(event, { BotId: '102062268' });
+  assert.deepEqual((await app.runHandler(handler, event)).errors, []);
+  t.mock.timers.tick(5000);
+  await turn();
+
+  const [entry] = requests[0].body.events;
+  assert.equal(entry.feature_name, '渡劫开劫');
+  assert.equal(entry.command_text, '/渡劫开劫');
+  assert.equal(entry.success, false);
+  assert.ok(Number(entry.response_time_ms) > 0);
 });
 
 test('缺失、非法或非 QQ 事件身份不上报，不使用额外手填 AppID', async t => {

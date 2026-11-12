@@ -513,6 +513,10 @@ function createBatchSender<T>(endpoint: string, bufferSize: number, flushMs: num
 
 // ==================== 功能埋点（Feature Events） ====================
 
+export function canTrackFeature(commandText: string, ctx: TrackContext): boolean {
+  return Boolean(classifyFeature(commandText) && getAnalyticsConfig(ctx));
+}
+
 interface FeaturePayload {
   uid: number;
   feature_name: string;
@@ -533,13 +537,11 @@ const featureSender = createBatchSender<FeaturePayload>('/api/v2/track/features'
  * @param _bid 平台用户 ID，保留现有调用签名
  * @param uid 用户ID
  * @param commandText 用户输入的原始文本
- * @param startTime 指令开始处理的时间戳
+ * @param responseTimeMs 从指令处理开始到业务结果返回的耗时
  * @param success 是否成功
  * @param ctx 可选上下文覆盖（不传则用当前事件上下文）
  */
-export function trackFeatureEvent(_bid: string, uid: number, commandText: string, startTime?: number, success = true, ctx?: TrackContext): void {
-  const responseTimeMs = startTime ? Date.now() - startTime : 0;
-
+export function trackFeatureEvent(_bid: string, uid: number, commandText: string, responseTimeMs = 0, success = true, ctx?: TrackContext): void {
   const timestamp = new Date().toISOString();
 
   try {
@@ -556,7 +558,8 @@ export function trackFeatureEvent(_bid: string, uid: number, commandText: string
         uid,
         feature_name: classification.feature_name,
         feature_category: classification.feature_category,
-        command_text: commandText.substring(0, 255),
+        // Free-text arguments can include credentials, confirmation references or private messages.
+        command_text: '/' + classification.feature_name,
         response_time_ms: responseTimeMs,
         success,
         scene: context.scene ?? '',
@@ -657,8 +660,12 @@ export function trackDungeonSweep(uid: number, detail: { dungeonName?: string; t
 }
 
 /** 比试事件 */
-export function trackSpar(uid: number, result: ActionResult, detail: { targetId?: number; totalRounds?: number; totalWaves?: number }): void {
-  trackAction(uid, 'spar', '战斗', result, 0, detail);
+export function trackSpar(
+  uid: number,
+  result: ActionResult,
+  detail: { targetId?: number; totalRounds?: number; totalWaves?: number; settledCount?: number }
+): void {
+  trackAction(uid, 'spar', '战斗', result, detail.settledCount ?? 0, detail);
 }
 
 /** 妖塔挑战事件 */
@@ -704,7 +711,7 @@ export function trackGuild(uid: number, action: string, success: boolean, detail
 export function trackAlchemy(
   uid: number,
   success: boolean,
-  detail: { pillName?: string; quality?: string; exp?: number; isAuto?: boolean; count?: number; failedCount?: number }
+  detail: { pillName?: string; quality?: string; exp?: number; isAuto?: boolean; count?: number; successCount?: number; failedCount?: number }
 ): void {
   trackAction(uid, 'alchemy', '成长', success ? 'success' : 'fail', detail.exp ?? 0, detail);
 }

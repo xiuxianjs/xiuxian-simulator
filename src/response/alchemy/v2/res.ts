@@ -1,3 +1,4 @@
+import { trackAlchemy } from '@src/analytics';
 import { onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
@@ -20,6 +21,13 @@ export default onResponse(selects, async event => {
     const result = await runRobotBusiness(event, 'alchemy.v2', {}, parseAlchemyV2Reply, next);
 
     if (!result.handled) {
+      const settlement = result.data.alchemySettlement;
+
+      if (settlement && !settlement.replayed) {
+        const { count, successCount, failedCount, exp } = settlement;
+
+        trackAlchemy(event.uid, successCount > 0, { count, successCount, failedCount, exp });
+      }
       const key = JSON.stringify([event.Platform, event.BotId, event.UserId, event.uid]);
       const command = event.MessageText ?? '';
       const preview = /^\/炼丹 预览 ([1-9]\d*) ([1-9]\d*)$/.exec(command);

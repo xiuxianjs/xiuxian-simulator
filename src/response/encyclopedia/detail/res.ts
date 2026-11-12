@@ -1,3 +1,4 @@
+import { trackFeatureWithIdentity } from '@src/response/mwFeatureTrack';
 import { onResponse } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { EncyclopediaFormatGui } from '@src/utils/encyclopediaMessage';
@@ -8,4 +9,5 @@ export default onResponse(selects, async e => {
   const [message] = useMessage();
 
   await message.send(EncyclopediaFormatGui({ text: e.MessageText ?? '', detail: true, bid: e.UserId, isPrivate: e.isPrivate ?? false }));
+  trackFeatureWithIdentity(e, true);
 });

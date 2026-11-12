@@ -106,6 +106,75 @@ function assertRewardFormatting(nodes: Node[], rewards: Array<{ name: string; qu
   assert.ok(lines.some((node, index) => node.type === 'MD.text' && node.value === '' && lines[index - 1]?.type === 'MD.newline' && lines[index + 1]?.type === 'MD.newline'));
 }
 
+for (const [command, failure] of [
+  ['/充值 周礼包', false],
+  ['/充值 周礼包', true],
+  ['/查询充值订单 example-order', true],
+  ['/充值 道晶套餐', true]
+] as const) {
+  test(`Logap records one final outcome for ${command}, failure=${failure}`, async t => {
+    const isOrder = command.startsWith('/查询充值订单');
+    const isCatalogFailure = command === '/充值 道晶套餐';
+    const features: Array<{ feature_name: string; success: boolean; uid: number }> = [];
+    const fetchBackend = globalThis.fetch;
+
+    t.mock.method(globalThis, 'fetch', async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      if (String(input).startsWith('https://analytics.invalid/')) {
+        const { events } = JSON.parse(String(init?.body));
+
+        features.push(...events);
+
+        return Response.json({ code: 0, data: { received: events.length } });
+      }
+
+      return fetchBackend(input, init);
+    });
+    const failRequest = (path: string) => failure && (
+      isCatalogFailure ? path.endsWith('/recharge.catalog') : isOrder ? path.includes('/payments/orders/') : path.endsWith('/recharge.periodic-packs')
+    );
+    const { app, requests } = await gameFixture(t, request => {
+      if (failRequest(request.path)) {
+        return { code: 'NOT_FOUND', message: '查询失败' };
+      }
+      if (request.path.endsWith('/recharge.catalog')) {
+        return businessEnvelope(request.bid, catalog);
+      }
+      if (request.path.endsWith('/membership.rights')) {
+        return businessEnvelope(request.bid, rights);
+      }
+      if (request.path.endsWith('/recharge.periodic-packs')) {
+        return businessEnvelope(request.bid, packs);
+      }
+      return { bid: request.bid, account: { status: 'registered', playerId: 1 } };
+    }, request => failRequest(request.path) ? 404 : 200, {
+      analytics_api_url: 'https://analytics.invalid',
+      analytics_api_key: 'offline-analytics-key'
+    });
+    const event = app.events.privateMessage({ text: command, platform: 'qq-bot' });
+
+    Object.assign(event, { BotId: '100017' });
+    delivered(await app.runHandler(isOrder ? orders : recharge, event));
+    assert.ok(requests.some(request => request.path.endsWith(isOrder ? '/membership.rights' : '/recharge.catalog')));
+    if (failure) {
+      assert.ok(requests.some(request => failRequest(request.path)));
+    }
+    if (isCatalogFailure) {
+      for (let turn = 0; requests.length < 2 && turn < 40; turn++) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      assert.equal(requests.length, 2, 'resolve a UID after the first API failed without a business envelope');
+      for (let turn = 0; turn < 8; turn++) await new Promise(resolve => setImmediate(resolve));
+    }
+    mock.timers.tick(5000);
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.deepEqual(features.map(({ feature_name, success, uid }) => ({ feature_name, success, uid })), [
+      { feature_name: isOrder ? '查询充值订单' : '充值', success: !failure, uid: 1 }
+    ]);
+  });
+}
+
+
 for (const [index, tier] of ['30元', '68元', '98元', '288元全包'].entries()) {
   test(`周礼包${tier}真实处理器单档布局、奖励与支付入口`, async t => {
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('recharge.catalog') ? catalog : packs));

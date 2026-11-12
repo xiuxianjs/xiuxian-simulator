@@ -1,3 +1,4 @@
+import { trackDemonTower } from '@src/analytics';
 import { BattleFormatGui } from '@src/utils/battleMemoryMessage';
 import { useMessage } from '@src/utils/useMessage';
 /**
@@ -46,6 +47,12 @@ export default onResponse(selects, async e => {
   }
 
   const d = result.data;
+
+  trackDemonTower(e.uid, d.success, {
+    starsEarned: d.starsEarned,
+    layerCleared: d.layerCleared,
+    nextLayer: d.nextLayer
+  });
   const displayLayer = d.success ? (d.layerCleared ? d.nextLayer - 1 : d.nextLayer) : d.nextLayer;
   const displayStage = d.success ? (d.layerCleared ? 3 : d.nextStage - 1) : d.nextStage;
   const lines: string[] = [];

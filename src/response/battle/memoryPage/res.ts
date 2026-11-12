@@ -1,3 +1,4 @@
+import { trackFeatureWithIdentity } from '@src/response/mwFeatureTrack';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { selects } from '@src/response/config';
 import { battleMemoryPage } from '@src/utils/battleMemoryMessage';
@@ -27,4 +28,5 @@ export default onResponse(selects, async e => {
         bar: false
       })
   );
+  trackFeatureWithIdentity(e, Boolean(page));
 });

@@ -180,3 +180,43 @@ test('天工操作续接原丹方和炉数，且不串玩家导航', async t => 
   const other = await run('/炼丹 天工', 'continuation-other');
   assert.ok(!other.messages[0].commands.includes('/炼丹 预览 7 100'));
 });
+
+test('炼丹结算只上报实际炼制，原回执重放不会重复上报', async t => {
+  const actions: Array<Record<string, unknown>> = [];
+  const fetchBackend = globalThis.fetch;
+
+  t.mock.method(globalThis, 'fetch', async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    if (!String(input).startsWith('https://analytics.invalid/')) {
+      return fetchBackend(input, init);
+    }
+    const { events } = JSON.parse(String(init?.body));
+    if (String(input).includes('/actions')) {
+      actions.push(...events);
+    }
+    return Response.json({ code: 0, data: { received: events.length } });
+  });
+  let replayed = false;
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    ...reply,
+    alchemySettlement: { count: 3, successCount: 2, failedCount: 1, exp: 5, replayed }
+  }), 200, {
+    analytics_api_url: 'https://analytics.invalid',
+    analytics_api_key: 'offline-analytics-key'
+  });
+  for (const replay of [false, true]) {
+    replayed = replay;
+    const event = app.events.privateMessage({ text: '/炼丹 确认 stable-intent', platform: 'qq-bot' });
+
+    Object.assign(event, { BotId: '100017' });
+    const result = await app.runHandler(handler, event);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  }
+  mock.timers.tick(8000);
+  await new Promise(resolve => setImmediate(resolve));
+
+  assert.equal(actions.length, 1);
+  assert.equal(actions[0].action, 'alchemy');
+  assert.equal(actions[0].result, 'success');
+  assert.deepEqual(JSON.parse(String(actions[0].detail)), { count: 3, successCount: 2, failedCount: 1, exp: 5 });
+});

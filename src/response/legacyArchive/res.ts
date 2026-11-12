@@ -1,3 +1,4 @@
+import { trackFeatureWithIdentity } from '@src/response/mwFeatureTrack';
 import { Format, onResponse } from 'alemonjs';
 import { archiveRow, getLegacyArchive, legacySections, type ArchiveRow } from '@src/api/bot/legacy-archive';
 import { archiveItems, archivePage, archiveText, legacyProfileLines, parseLegacyCommand } from '@src/response-apps/legacyArchive/app';
@@ -101,7 +102,9 @@ export default onResponse(selects, async e => {
         bar: false
       })
     );
+    trackFeatureWithIdentity(e, true);
   } catch (error) {
+    trackFeatureWithIdentity(e, false);
     await sendError(error instanceof Error ? error.message : '旧版资料加载失败，请稍后再试。');
   }
 });

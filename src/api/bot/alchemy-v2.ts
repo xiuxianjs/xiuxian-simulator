@@ -5,7 +5,33 @@ import { validMiddlewareNav, type RobotMiddlewareReply } from './middleware-entr
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const button = (value: unknown): boolean => record(value) && typeof value.label === 'string' && typeof value.command === 'string';
 
-export function parseAlchemyV2Reply(value: unknown): RobotMiddlewareReply {
+export type AlchemySettlement = {
+  count: number;
+  successCount: number;
+  failedCount: number;
+  exp: number;
+  replayed: boolean;
+};
+
+function isAlchemySettlement(value: unknown): value is AlchemySettlement {
+  if (!record(value)) {
+    return false;
+  }
+  const { count, successCount, failedCount, exp, replayed } = value;
+  const nonnegativeInteger = (entry: unknown): entry is number => typeof entry === 'number' && Number.isSafeInteger(entry) && entry >= 0;
+
+  return (
+    nonnegativeInteger(count) &&
+    count > 0 &&
+    nonnegativeInteger(successCount) &&
+    nonnegativeInteger(failedCount) &&
+    successCount + failedCount === count &&
+    nonnegativeInteger(exp) &&
+    typeof replayed === 'boolean'
+  );
+}
+
+export function parseAlchemyV2Reply(value: unknown): RobotMiddlewareReply & { alchemySettlement?: AlchemySettlement } {
   if (
     !record(value) ||
     (value.nav !== undefined && !validMiddlewareNav(value.nav)) ||
@@ -28,5 +54,10 @@ export function parseAlchemyV2Reply(value: unknown): RobotMiddlewareReply {
 
   parseTreasureEffects(value.treasureEffects);
 
-  return value as RobotMiddlewareReply;
+  const { alchemySettlement, ...reply } = value;
+
+  return {
+    ...(reply as RobotMiddlewareReply),
+    ...(isAlchemySettlement(alchemySettlement) ? { alchemySettlement } : {})
+  };
 }

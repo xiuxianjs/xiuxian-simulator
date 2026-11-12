@@ -1,3 +1,4 @@
+import { trackFeatureOutcome } from '@src/response/mwFeatureTrack';
 import { getBackendFirstRechargeInfo } from '@src/api/bot/first-recharge-queries';
 import { displayCurrencyText } from '@src/constants/currency';
 import { isPrivateEvent } from '@src/utils/privateEvent';
@@ -57,18 +58,31 @@ export default onResponse(selects, async e => {
     return;
   }
 
+  const startedAt = performance.now();
+  let success = false;
+
   try {
-    const response = await runRobotBusiness(e, 'recharge.catalog', { private: isPrivate }, parseRobotRechargeCatalog, parentNext, async reply => {
-      await message.send(
-        FormatGui({
-          isPrivate,
-          bid,
-          title: pageTitle,
-          content: Format.createMarkdown().addText(activeFeatureText(reply.text)),
-          footer: [{ label: '返回权益', command: '/我的权益', autoEnter: false }]
-        })
-      );
-    });
+    const response = await runRobotBusiness(
+      e,
+      'recharge.catalog',
+      { private: isPrivate },
+      parseRobotRechargeCatalog,
+      parentNext,
+      async reply => {
+        await message.send(
+          FormatGui({
+            isPrivate,
+            bid,
+            title: pageTitle,
+            content: Format.createMarkdown().addText(activeFeatureText(reply.text)),
+            footer: [{ label: '返回权益', command: '/我的权益', autoEnter: false }]
+          })
+        );
+      },
+      undefined,
+      undefined,
+      false
+    );
 
     if (response.handled) {
       return;
@@ -233,7 +247,9 @@ export default onResponse(selects, async e => {
         parseRechargePeriodicPacks,
         parentNext,
         renderFeedback,
-        createBackendRequestContext(e, 'recharge.periodic-packs')
+        createBackendRequestContext(e, 'recharge.periodic-packs'),
+        undefined,
+        false
       );
 
       if (loaded.handled) {
@@ -254,7 +270,9 @@ export default onResponse(selects, async e => {
               parseSpiritVein,
               parentNext,
               undefined,
-              createBackendRequestContext(e, 'spirit-vein.overview')
+              createBackendRequestContext(e, 'spirit-vein.overview'),
+              undefined,
+              false
             )
           : await runRobotBusiness(
               e,
@@ -263,7 +281,9 @@ export default onResponse(selects, async e => {
               parseTreasureDailyPacks,
               parentNext,
               undefined,
-              createBackendRequestContext(e, 'treasures.daily-packs')
+              createBackendRequestContext(e, 'treasures.daily-packs'),
+              undefined,
+              false
             );
 
       if (loaded.handled) {
@@ -299,6 +319,7 @@ export default onResponse(selects, async e => {
         ]
       })
     );
+    success = true;
   } catch (err) {
     logger.error('充值信息渲染失败', err);
 
@@ -314,5 +335,7 @@ export default onResponse(selects, async e => {
         ]
       })
     );
+  } finally {
+    trackFeatureOutcome(e, success, startedAt);
   }
 });

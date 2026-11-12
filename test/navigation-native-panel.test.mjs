@@ -30,6 +30,7 @@ const result = await build({
   stdin: { contents: `export {default as more} from './src/response/more/res.ts';export {default as settings} from './src/response/message/settings/res.ts';export {default as invite} from './src/response/referral/viewCode/res.ts';export {MORE_CATEGORIES} from './src/response-apps/more/app.ts';`, resolveDir: process.cwd() },
   bundle: true, write: false, platform: 'node', format: 'esm',
   plugins: [{ name: 'native-format-business-seams', setup(builder) {
+    builder.onResolve({ filter: /^axios$/ }, () => ({ path: import.meta.resolve('axios'), external: true }));
     builder.onResolve({filter: /^alemonjs$/}, () => ({path:pathToFileURL(resolve('node_modules/alemonjs/lib/index.js')).href,external:true}));
     builder.onResolve({filter: /.*/}, args => mocked.has(args.path) ? {path:args.path,namespace:'seam'} : undefined);
     builder.onLoad({filter: /.*/,namespace:'seam'}, () => ({contents:seam}));

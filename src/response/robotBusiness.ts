@@ -11,7 +11,7 @@ import { seedEventBackendRobotIdentity } from '@src/api/bot/identity';
 import type { GameEvent } from '@src/types/event';
 import type { BackendRequestContext } from '@src/api/bot/context';
 import { presentMiddlewareReply, sendMiddlewareReply } from './middlewareReply';
-import trackFeature from './mwFeatureTrack';
+import trackFeature, { trackFeatureOutcome } from './mwFeatureTrack';
 import compatibility from './mwBan';
 import { sendShortcut } from './task/views';
 import { withBusinessRecovery } from './businessRecovery';
@@ -26,7 +26,8 @@ export async function runRobotBusiness<T>(
   parentNext: Next,
   renderFeedback?: BusinessFeedbackRenderer,
   request?: BackendRequestContext,
-  handleRequestError?: (error: unknown) => Promise<boolean>
+  handleRequestError?: (error: unknown) => Promise<boolean>,
+  trackCommand = true
 ): Promise<{ handled: true } | ({ handled: false; data: T } & RobotBusinessFollowup)> {
   const publicEntry = isRobotPublicEntry(operation) || operation === 'tasks.continue';
 
@@ -39,10 +40,14 @@ export async function runRobotBusiness<T>(
   }
 
   let result: RobotBusinessResult<T>;
+  const startedAt = performance.now();
 
   try {
     result = await requestRobotBusiness(event, operation, args, decode, request);
   } catch (error) {
+    if (trackCommand) {
+      trackFeatureOutcome(event, false, startedAt);
+    }
     if (handleRequestError && (await handleRequestError(error))) {
       return { handled: true };
     }
@@ -90,7 +95,7 @@ export async function runRobotBusiness<T>(
     );
   }
 
-  return finishRobotBusiness(event, result, parentNext, renderFeedback, !publicEntry, operation);
+  return finishRobotBusiness(event, result, parentNext, renderFeedback, trackCommand, operation, startedAt);
 }
 
 export async function finishRobotBusiness<T>(
@@ -99,7 +104,8 @@ export async function finishRobotBusiness<T>(
   parentNext: Next,
   renderFeedback?: BusinessFeedbackRenderer,
   trackCommand = true,
-  operation: RobotBusinessOperation | '' = ''
+  operation: RobotBusinessOperation | '' = '',
+  startedAt?: number
 ): Promise<{ handled: true } | ({ handled: false; data: T } & RobotBusinessFollowup)> {
   transportCheckpoint(`middleware.result.${result.success ? 'success' : 'failure'}.${result.branch}.${result.middleware.reason}`, event);
   const uid = result.middleware.identity.account.playerId;
@@ -111,7 +117,7 @@ export async function finishRobotBusiness<T>(
   }
   measureTransportStageSync('middleware.identity.seed', () => seedEventBackendRobotIdentity(event, result.middleware.identity), event);
   if (trackCommand) {
-    measureTransportStageSync('middleware.feature.track', () => trackFeature(event), event);
+    measureTransportStageSync('middleware.feature.track', () => trackFeature(event, result.success, startedAt), event);
   }
   if (result.middleware.contextWarnings.length) {
     logger.warn('业务请求平台地址未保存', result.middleware.contextWarnings);

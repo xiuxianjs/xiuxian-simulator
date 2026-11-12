@@ -1,3 +1,4 @@
+import trackFeature from '@src/response/mwFeatureTrack';
 import { onResponse } from 'alemonjs';
 import { requestBackend, writeContext } from '@src/api/bot/client';
 import { createBackendRequestContext } from '@src/api/bot/context';
@@ -62,7 +63,9 @@ function signRewards(sign: Sign): string[] {
 
 export default onResponse(selects, async event => {
   const [message] = useMessage();
-  const send = async (payload: Parameters<typeof message.send>[0]) => {
+  let playerId = 0;
+  const send = async (payload: Parameters<typeof message.send>[0], success = true) => {
+    trackFeature(event, success, undefined, playerId);
     await message.send(payload);
   };
   const bid = event.UserId;
@@ -86,14 +89,15 @@ export default onResponse(selects, async event => {
 
   try {
     if (mode === '确认' && (!value || !shortReference.test(value) || extra)) {
-      return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：确认编号无效，请重新预览', footer: [back] }));
+      return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：确认编号无效，请重新预览', footer: [back] }), false);
     }
     const { account } = await getEventBackendRobotIdentity(event, request);
 
     if (account.status !== 'registered' || !account.playerId) {
       throw new Error('半月活动缺少角色身份');
     }
-    const path = { id: account.playerId };
+    playerId = account.playerId;
+    const path = { id: playerId };
 
     if (mode === '确认') {
       const result = (await requestBackend(bid, 'post_players_id_half_month_activity_confirm', {
@@ -144,7 +148,7 @@ export default onResponse(selects, async event => {
       const day = Number(value);
 
       if (!extra || !monthPattern.test(extra) || !Number.isInteger(day) || day < 1 || day > 7) {
-        return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：请在活动中选择签到日期', footer: [back] }));
+        return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：请在活动中选择签到日期', footer: [back] }), false);
       }
       const result = (await requestBackend(bid, 'post_players_id_half_month_activity_sign', {
         path,
@@ -166,7 +170,7 @@ export default onResponse(selects, async event => {
       const makeup = mode === '补签';
 
       if (!Number.isInteger(number) || number < 1 || (makeup ? number >= overview.day : !product)) {
-        return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：请在活动中选择漏签日或商品', footer: [back, shop] }));
+        return await send(errorBubble({ ...base, title: '半月活动', reason: '说明：请在活动中选择漏签日或商品', footer: [back, shop] }), false);
       }
       const quote = (await requestBackend(bid, 'post_players_id_half_month_activity_preview', {
         path,
@@ -264,6 +268,6 @@ export default onResponse(selects, async event => {
 
     return await send(buildBubble({ ...base, title: '半月活动', sections: [{ lines }], footer }));
   } catch (error) {
-    return await send(errorBubble({ ...base, title: '半月活动', reason: `说明：${getCommandErrorMessage(error)}`, footer: [back] }));
+    return await send(errorBubble({ ...base, title: '半月活动', reason: `说明：${getCommandErrorMessage(error)}`, footer: [back] }), false);
   }
 });

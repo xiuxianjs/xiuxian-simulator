@@ -1,3 +1,4 @@
+import { trackFeatureOutcome } from '@src/response/mwFeatureTrack';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { Format, onResponse, useEvent } from 'alemonjs';
@@ -23,13 +24,17 @@ export default onResponse(selects, async event => {
     );
   };
 
-  try {
-    const text = (event.MessageText ?? '').trim().replace(/^[/#＃]/, '');
+  const text = (event.MessageText ?? '').trim().replace(/^[/#＃]/, '');
+  const configuration = text === '开启每日机缘' || text === '关闭每日机缘';
+  const startedAt = performance.now();
+  let configured = false;
 
-    if (text === '开启每日机缘' || text === '关闭每日机缘') {
+  try {
+    if (configuration) {
       const enabled = text === '开启每日机缘';
 
       await configureDailyFortune(event, enabled);
+      configured = true;
       await sendText(
         enabled ? '本群已开启每日机缘。每个游戏角色每天可主动抽取一次，多个群共享领取次数，每日北京时间零点重置。' : '本群已关闭每日机缘。',
         enabled
@@ -46,5 +51,9 @@ export default onResponse(selects, async event => {
     await message.send(FormatGui({ bid: event.UserId, isPrivate: false, title: `每日机缘 · ${loaded.data.tier}`, content: dailyFortuneContent(loaded.data) }));
   } catch (error) {
     await sendText(getCommandErrorMessage(error));
+  } finally {
+    if (configuration) {
+      trackFeatureOutcome(event, configured, startedAt);
+    }
   }
 });

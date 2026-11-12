@@ -1,3 +1,4 @@
+import { trackFeatureWithIdentity } from '../mwFeatureTrack';
 import { randomBytes } from 'node:crypto';
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import App, { MORE_PAGE_SIZE, parseMoreNavigation } from '@src/response-apps/more/app';
@@ -212,12 +213,14 @@ export default onResponse(selects, async e => {
 
   if ('search' in selection && selection.search) {
     await message.send(searchPage(e, selection));
+    trackFeatureWithIdentity(e, true);
 
     return;
   }
 
   if (selection.catalog) {
     await message.send(catalogPage(e.isPrivate ?? false, bid, selection.scope, selection.page));
+    trackFeatureWithIdentity(e, true);
 
     return;
   }
