@@ -32,9 +32,9 @@ export const lingxuJournal: LingxuPage = {
   title: '灵墟洞天 · 行记', privateOnly: false,
   tabs: ['与人', '与怪', '探索', '赶路', '其他'].map(label => ({ label, command: `/灵墟洞天 行记 ${label}` })),
   sections: [
-    { title: '11-11 21:30', id: '5', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 5' }] },
-    { title: '11-11 21:20', id: '4', lines: ['经历：与针背山猪开战。', '结果：战败 · 命数 5→4'], actions: [{ label: '详情', command: '/灵墟洞天 记录 4' }] },
-    { title: '11-11 21:10', id: '3', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 3' }] }
+    { title: '2026.11.12-20:40', id: '5', lines: ['经历：搜寻青岚林。', '收获：修为7、青岚灵芽×1。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 5' }] },
+    { title: '2026.11.12-20:30', id: '4', lines: ['经历：与针背山猪开战。', '结果：战败 · 命数 5→4'], actions: [{ label: '详情', command: '/灵墟洞天 记录 4' }] },
+    { title: '2026.11.12-20:20', id: '3', lines: ['经历：正在前往废弃坊市。', '结果：已抵达。'], actions: [{ label: '详情', command: '/灵墟洞天 记录 3' }] }
   ],
   nav: { page: 1, totalPages: 40, total: 120, command: '/灵墟洞天 行记 {page}' },
   actions: [{ label: '提取回执', command: '/灵墟洞天 提取回执' }, { label: '推送设置', command: '/灵墟洞天 推送设置' }, { label: '返回洞天', command: '/灵墟洞天' }]
@@ -42,7 +42,7 @@ export const lingxuJournal: LingxuPage = {
 
 export const lingxuJournalDetail: LingxuPage = {
   title: '灵墟洞天 · 行动详情', privateOnly: false,
-  sections: [{ title: '11-11 21:20', id: '4', lines: ['地点：青岚林', '经历：与针背山猪开战 · 交战 3 回合', '结果：战败 · 命数 5→4', '消耗：精力 2、元力 2'] }],
+  sections: [{ title: '2026.11.12-20:30', id: '4', lines: ['地点：青岚林', '经历：与针背山猪开战 · 交战 3 回合', '结果：战败 · 命数 5→4', '消耗：精力 2、元力 2'] }],
   actions: [{ label: '返回行记', command: '/灵墟洞天 行记' }]
 };
 
@@ -114,11 +114,11 @@ export const lingxuPages: Array<{ command: string; page: LingxuPage; expected: s
   {
     command: '/灵墟洞天 行记',
     page: lingxuJournal,
-    expected: ['11-11 21:30', '与针背山猪开战', '正在前往废弃坊市', '共120条']
+    expected: ['2026.11.12-20:40', '与针背山猪开战', '正在前往废弃坊市', '共120条']
   },
   {
     command: '/灵墟洞天 记录 4',
     page: lingxuJournalDetail,
-    expected: ['11-11 21:20', '消耗：精力 2、元力 2', '交战 3 回合']
+    expected: ['2026.11.12-20:30', '消耗：精力 2、元力 2', '交战 3 回合']
   }
 ];

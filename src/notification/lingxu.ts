@@ -7,6 +7,9 @@ import type { DataEnums } from 'alemonjs';
 import { deliverPlayerNotification } from './service';
 
 const viewJournal = { label: '查看行记', command: '/灵墟洞天 行记', autoEnter: false };
+const settlementTimeMask = 'YYYY.MM.DD-HH:mm';
+const settlementTimePattern = /^\d{4}\.\d{2}\.\d{2}-\d{2}:\d{2}$/;
+const legacySettlementTimePattern = /^\d{2}-\d{2} \d{2}:\d{2}(?:–(?:\d{2}-\d{2} )?\d{2}:\d{2})?$/;
 
 const choiceCues = {
   FIGHT_NOISE: '你听见不远处传来兵刃声。',
@@ -92,13 +95,13 @@ function lingxuChoiceSection(raw: unknown): BubbleSection | undefined {
   };
 }
 
-export function lingxuNoticeData(summary: unknown, fallback: DataEnums[]): DataEnums[] {
+export function lingxuNoticeData(summary: unknown, fallback: DataEnums[], tick?: unknown): DataEnums[] {
   if (summary && typeof summary === 'object') {
     const { time, lines, choice } = summary as { time?: unknown; lines?: unknown; choice?: unknown };
 
     if (
       typeof time === 'string' &&
-      /^\d{2}-\d{2} \d{2}:\d{2}(?:–(?:\d{2}-\d{2} )?\d{2}:\d{2})?$/.test(time) &&
+      (settlementTimePattern.test(time) || legacySettlementTimePattern.test(time)) &&
       Array.isArray(lines) &&
       lines.length > 0 &&
       lines.length <= 5 &&
@@ -106,10 +109,15 @@ export function lingxuNoticeData(summary: unknown, fallback: DataEnums[]): DataE
     ) {
       const journal = lines.map(line => line.replaceAll('生命点', '命数'));
       const context = lingxuChoiceSection(choice);
+      // Preserve older ranges and use the actual settled round to recover a missing year.
+      const roundTime =
+        !settlementTimePattern.test(time) && !time.includes('–') && typeof tick === 'number' && Number.isSafeInteger(tick) && tick > 0
+          ? (parseGameTime(tick * 1000)?.format(settlementTimeMask) ?? time)
+          : time;
 
       return buildBubble({
         title: '灵墟洞天 · 行记推送',
-        sections: [{ title: time, lines: journal }, ...(context ? [context] : [])],
+        sections: [{ title: roundTime, lines: journal }, ...(context ? [context] : [])],
         footer: [viewJournal],
         bar: false
       }).format.value;
@@ -128,7 +136,8 @@ export async function deliverLingxuNotification(
   queuedAt: string | undefined,
   summary: unknown,
   legacy: DataEnums[],
-  enabled: boolean
+  enabled: boolean,
+  tick?: unknown
 ): Promise<NotificationDelivery> {
   if (!enabled) {
     return { route: 'history', reason: 'proactive_disabled' };
@@ -143,7 +152,7 @@ export async function deliverLingxuNotification(
     return { route: 'history', reason: 'proactive_disabled' };
   }
 
-  return deliverPlayerNotification(userId, bid, () => lingxuNoticeData(summary, legacy), enabled, {
+  return deliverPlayerNotification(userId, bid, () => lingxuNoticeData(summary, legacy, tick), enabled, {
     privateOnly: true,
     async authorize() {
       return (await getLingxuPushDestination(userId, queuedAt)).mode === 'private';

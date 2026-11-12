@@ -28,6 +28,7 @@ type PlayerNotificationPayload = {
   fishingCastId?: unknown;
   fishingBossEventId?: unknown;
   lingxuSummary?: unknown;
+  lingxuTick?: unknown;
   version: 1;
   recipientUserId: number;
   data: DataEnums[];
@@ -170,7 +171,7 @@ async function processPlayerNotification(
         return { route: 'history' as const, reason: 'proactive_disabled' as const };
       }
       if (payload.source === 'lingxu.summary') {
-        return deliverLingxuNotification(ownerUserId, row.recipientBid!, row.occurredAt, payload.lingxuSummary, data, proactiveEnabled());
+        return deliverLingxuNotification(ownerUserId, row.recipientBid!, row.occurredAt, payload.lingxuSummary, data, proactiveEnabled(), payload.lingxuTick);
       }
       if (blackBoxNotice && !row.recipientBid) {
         return Promise.resolve({ route: 'history' as const, reason: 'no_target' as const });

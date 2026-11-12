@@ -29,6 +29,9 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     let pending = true;
     let preferenceReads = 0;
     let platformSends = 0;
+    const legacyRound = scenario === '队员私聊';
+    const summaryTime = legacyRound ? '12-31 20:40' : '2026.11.13-00:20';
+    const lingxuTick = Date.parse(legacyRound ? '2025-12-31T12:40:00Z' : queuedAt) / 1000;
     const isTreasureChoice = scenario === '机缘临场选择';
     const withChoice = isTreasureChoice || ['同一私聊的临场选择', '临场选择到期', '投递时到期', '无效临场选项'].includes(scenario);
     const choice = isTreasureChoice
@@ -48,7 +51,8 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
           eventId: 'lingxu:fixture', recipientUserId: 7, recipientBid: 'recipient', occurredAt: queuedAt,
           payload: {
             version: 1, recipientUserId: 7, source: 'lingxu.summary',
-            lingxuSummary: { time: '11-13 00:20', lines: ['经历：搜寻林间落种', '收获：修为 +7'], ...(withChoice ? { choice } : {}) },
+            lingxuTick,
+            lingxuSummary: { time: summaryTime, lines: ['经历：搜寻林间落种', '收获：修为 +7'], ...(withChoice ? { choice } : {}) },
             data: [{ type: 'Text', value: 'legacy-private-text' }]
           }
         } : null;
@@ -101,13 +105,14 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     assert.equal(message.target?.BotId, privateTarget.BotId);
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(message.nodes);
-    assert.match(view.text, /11-13 00:20/);
     assert.match(view.text, /收获：修为 \+7/);
     assert.doesNotMatch(view.text, /legacy-private-text/);
     const hasChoice = scenario === '同一私聊的临场选择' || isTreasureChoice;
     const verbs = isTreasureChoice ? ['赴机缘', '搜外围'] : ['撤离', '休息'];
     assert.deepEqual(view.commands, [...(hasChoice ? verbs.map(verb => `/灵墟洞天 临场 2026-11-13 00:30 ${verb}`) : []), '/灵墟洞天 行记']);
     const quotes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.blockquote') : []);
+    assert.ok(Array.isArray(quotes[0].value));
+    assert.equal(quotes[0].value.find(child => child.type === 'MD.bold')?.value, legacyRound ? '2025.12.31-20:40' : '2026.11.13-00:20');
     if (hasChoice) {
       assert.equal(quotes.length, 2);
       assert.ok(Array.isArray(quotes[1].value));

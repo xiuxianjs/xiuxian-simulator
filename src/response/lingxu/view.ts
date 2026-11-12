@@ -15,6 +15,11 @@ export const lingxuBottomBar = [
 ];
 
 const manual = (actions: LingxuAction[] = []) => actions.map(action => ({ ...action, autoEnter: false }));
+const manualTabs = (actions?: LingxuAction[]) => manual(actions).map(action => {
+    const selected = action.label.startsWith('▶');
+
+    return { ...action, label: selected ? action.label.slice(1) : action.label, selected };
+  });
 
 const overviewHeader = ['/灵墟洞天 简介', '/灵墟洞天 玩法', '/灵墟洞天 入门', '/阵法师', '/灵墟洞天 行记'];
 const navigationRow = ['/灵墟洞天 行动倾向', '/灵墟洞天 倾向', '/灵墟洞天 地图', '/灵墟洞天 行囊'];
@@ -129,9 +134,10 @@ export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) 
 
   const journalPage = ['灵墟洞天 · 行记', '灵墟洞天 · 行动详情', '灵墟洞天 · 提取回执'].includes(page.title);
   const mapWithTabs = page.title === '灵墟洞天 · 地图' && page.tabs;
+  const subTabs = manualTabs(page.subTabs);
 
-  if (page.subTabs?.length) {
-    renderSubTabs(md, page.subTabs);
+  if (subTabs.length) {
+    renderSubTabs(md, subTabs, subTabs.find(tab => tab.selected)?.label);
   }
 
   for (const [index, entry] of page.sections.entries()) {
@@ -174,7 +180,7 @@ export function lingxuBubble(page: LingxuPage, bid: string, isPrivate: boolean) 
     bid,
     isPrivate,
     title: page.title,
-    header: manual(page.tabs),
+    header: manualTabs(page.tabs),
     content: md,
     footer: [footer.slice(0, 4), footer.slice(4)].filter(row => row.length > 0),
     nav: page.nav ? { current: page.nav.page, total: page.nav.totalPages, count: page.nav.total, command: page.nav.command, autoEnter: false } : undefined,

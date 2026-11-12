@@ -248,7 +248,7 @@ test('map tabs precede the whole ring and each move button shares the region nam
     const view = delivery(result, 13);
     const all = nodes(result.messages[0].nodes);
     const tabs = all.slice(0, all.findIndex(node => node.type === 'MD.blockquote')).filter(node => node.type === 'MD.button');
-    assert.deepEqual(tabs.map(node => node.value), ['‹▶外围›', '‹内围›', '‹核心›']);
+    assert.deepEqual(tabs.map(node => node.value), ['‹▸外围›', '‹内围›', '‹核心›']);
     assert.deepEqual(tabs.map(node => node.options?.data), lingxuOuterMap.tabs?.map(tab => tab.command));
     const quotes = all.filter(node => node.type === 'MD.blockquote');
     assert.equal(quotes.length, 8);
@@ -320,7 +320,7 @@ test('journal filters, stable numbers and detail actions render in their own row
     const onlyMonsters = await app.runHandler(handler, event(String(filterButton?.options?.data)));
     const selected = delivery(onlyMonsters, 13);
     assert.ok(selected.commands.includes(`${filter} 2`));
-    assert.equal(nodes(onlyMonsters.messages[0].nodes).find(node => node.value === '‹▶与怪›')?.options?.data, '/灵墟洞天 行记');
+    assert.equal(nodes(onlyMonsters.messages[0].nodes).find(node => node.value === '‹▸与怪›')?.options?.data, '/灵墟洞天 行记');
     assert.match(selected.text, /【4】/);
     assert.doesNotMatch(selected.text, /【3】|【5】/);
     const detail = delivery(await app.runHandler(handler, event(detailCommand)));
@@ -716,9 +716,11 @@ test('the bag keeps both filter rows, scoped pagination and value-based discard 
   ]);
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, pages.get(String(request.body.messageText))));
   const run = (command: string) => app.runHandler(handler, app.events.groupMessage({ text: command, platform: 'qq-bot', userId: 'lingxu-member' }));
-  const view = delivery(await run(`${purple} 2`), 22);
-  assert.ok(view.text.indexOf('‹▶藏品›') < view.text.indexOf('‹▶紫›'));
-  assert.ok(view.text.indexOf('‹▶紫›') < view.text.indexOf('单件价值'));
+  const result = await run(`${purple} 2`);
+  const view = delivery(result, 22);
+  assert.match(view.text, /‹▸藏品›[\s\S]*‹▸紫›[\s\S]*单件价值/);
+  const selected = nodes(result.messages[0].nodes).filter(node => node.type === 'MD.button' && String(node.value).startsWith('‹▸'));
+  assert.deepEqual(selected.map(node => [node.value, node.options?.data]), [['‹▸藏品›', `${root} 藏品`], ['‹▸紫›', purple]]);
   assert.ok(view.commands.includes(`${purple} 1`));
   assert.ok(view.commands.includes(`${purple} 3`));
   assert.ok(view.commands.includes(choose));
