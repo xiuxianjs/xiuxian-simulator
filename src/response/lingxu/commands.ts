@@ -105,16 +105,6 @@ export function parseLingxuCommand(message: string): LingxuCommand | undefined {
       ? write
       : error;
   }
-  if (action === '组队') {
-    if (words.length === 1) {
-      return read;
-    }
-    if (words.length === 2 && ['创建', '离队', '解散'].includes(arg)) {
-      return write;
-    }
-
-    return words.length === 3 && ['邀请', '加入', '移交'].includes(arg) && uid(value) ? write : error;
-  }
   if (action === '推送设置' && words.length === 2 && ['私聊', '关闭'].includes(arg)) {
     return write;
   }

@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
@@ -420,72 +419,44 @@ test('context choices send only the visible target round and fixed verb', async 
   assert.equal(requests.length, before);
 });
 
-test('team pages keep game UIDs readable and submit each action as the event player', async t => {
-  const team = '/灵墟洞天 组队';
-  const guide = '/灵墟洞天 玩法';
-  const bag = '/灵墟洞天 行囊';
-  const maxUid = '9223372036854775807';
-  const pages: Record<string, LingxuPage> = {
-    [guide]: {
-      title: '灵墟洞天 · 玩法', privateOnly: false,
-      sections: [{ lines: ['玩法：最多三人同行。'], actions: [{ label: '组队', command: team }] }],
-      actions: [{ label: '返回洞天', command: '/灵墟洞天' }]
-    },
-    [team]: {
-      title: '灵墟洞天 · 组队', privateOnly: false,
-      sections: [{ lines: ['状态：尚未组队'], actions: [{ label: '接受邀请', command: `${team} 加入 ${maxUid}` }] }],
-      actions: [{ label: '创建队伍', command: `${team} 创建` }, { label: '返回洞天', command: '/灵墟洞天' }]
-    },
-    [bag]: {
-      title: '灵墟洞天 · 墟行囊', privateOnly: false,
-      sections: [{ lines: ['容量：8/150格 · 暗格1/3', '说明：队伍共享行囊。', '结算：全队成功撤离后随机分配共有战利品。'] }],
-      actions: [{ label: '返回洞天', command: '/灵墟洞天' }]
+test('retired team commands stay local in group chat and private chat', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, lingxuPages[0].page));
+  const formerCommands = ['组队', '组队 创建', '组队 邀请 123', '组队 加入 123', '组队 移交 23', '组队 离队', '组队 解散', '组队 邀请 回显占位词'];
+
+  for (const command of formerCommands) {
+    const text = '/灵墟洞天 ' + command;
+    const options = { text, platform: 'qq-bot', userId: 'lingxu-player' };
+    assert.deepEqual(parseLingxuCommand(text), { error: true });
+
+    for (const event of [app.events.privateMessage(options), app.events.groupMessage({ ...options, groupId: 'lingxu-group' })]) {
+      const view = delivery(await app.runHandler(handler, event));
+      assert.match(view.text, /参数不正确/);
+      assert.doesNotMatch(view.text, /回显占位词/);
+      assert.deepEqual(view.commands, ['/灵墟洞天', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
     }
+  }
+  assert.equal(requests.length, 0);
+});
+
+test('ordinary bag page still renders an existing run that is returning together', async t => {
+  const command = '/灵墟洞天 行囊';
+  const page: LingxuPage = {
+    title: '灵墟洞天 · 墟行囊',
+    privateOnly: false,
+    sections: [{ lines: ['容量：8/150格 · 暗格1/3', '说明：旧同行行囊将在本次安全撤离时分配。'] }],
+    actions: [{ label: '返回洞天', command: '/灵墟洞天' }]
   };
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, pages[String(request.body.messageText)] ?? pages[team]));
-  for (const isPrivate of [false, true]) {
-    const run = (text: string) => {
-      const options = { text, platform: 'qq-bot', userId: 'lingxu-player', botId: '100017' };
-      const event = isPrivate ? app.events.privateMessage(options) : app.events.groupMessage({ ...options, groupId: 'lingxu-group' });
-      return app.runHandler(handler, event);
-    };
-    const menu = delivery(await run(guide));
-    assert.ok(menu.commands.includes(team));
-    assert.deepEqual(parseLingxuCommand(team), { readOnly: true });
-    const teamResult = await run(team);
-    const view = delivery(teamResult);
-    const fixtureDir = process.env.XIUXIAN_LINGXU_NOTIFICATION_FIXTURE_DIR;
-    if (fixtureDir && !isPrivate) {
-      writeFileSync(join(fixtureDir, 'team-menu.json'), JSON.stringify(teamResult.messages[0].nodes), 'utf8');
-    }
-    const invitation = `${team} 加入 ${maxUid}`;
-    assert.ok(view.commands.includes(invitation));
-    const bagResult = await run(bag);
-    const bagView = delivery(bagResult);
-    assert.match(bagView.text, /容量：8\/150格 · 暗格1\/3/);
-    assert.match(bagView.text, /全队成功撤离后随机分配共有战利品/);
-    assert.ok(!bagView.commands.some(command => command.startsWith(`${team} 分配`)));
-    if (fixtureDir && !isPrivate) {
-      writeFileSync(join(fixtureDir, 'team-bag.json'), JSON.stringify(bagResult.messages[0].nodes), 'utf8');
-    }
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, page));
+  const options = { text: command, platform: 'qq-bot', userId: 'lingxu-player' };
+
+  for (const event of [app.events.privateMessage(options), app.events.groupMessage({ ...options, groupId: 'lingxu-group' })]) {
+    const result = await app.runHandler(handler, event);
+    const view = delivery(result);
+    assert.match(view.text, /容量：8\/150格 · 暗格1\/3/);
+    assert.match(view.text, /旧同行行囊将在本次安全撤离时分配/);
+    assert.deepEqual(view.commands, ['/灵墟洞天', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+    assert.equal(requests.at(-1)?.body.messageText, command);
     assert.equal(requests.at(-1)?.bid, 'lingxu-player');
-    const commands = [invitation, `${team} 创建`, `${team} 邀请 ${maxUid}`, `${team} 移交 23`, `${team} 离队`, `${team} 解散`];
-    for (const command of commands) {
-      assert.deepEqual(parseLingxuCommand(command), { readOnly: false });
-      const result = await run(command);
-      delivery(result);
-      assert.equal(result.messages[0].target?.targetId, isPrivate ? 'lingxu-player' : 'lingxu-group');
-      assert.equal(requests.at(-1)?.body.messageText, command);
-      assert.equal(requests.at(-1)?.bid, 'lingxu-player');
-      assert.ok(requests.at(-1)?.idempotencyKey);
-    }
-    const before = requests.length;
-    for (const argument of ['邀请 回显占位词', '加入 0', '移交 9223372036854775808', '分配 随机', '分配 23', '解散 1']) {
-      const invalid = delivery(await run(`${team} ${argument}`));
-      assert.match(invalid.text, /参数不正确/);
-      assert.doesNotMatch(invalid.text, /回显占位词/);
-    }
-    assert.equal(requests.length, before);
   }
 });
 

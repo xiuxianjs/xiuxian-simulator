@@ -15,7 +15,7 @@ const queuedAt = '2026-11-12T16:20:00Z';
 const choiceTick = '2026-11-12T16:30:00Z';
 const beforeChoiceTick = Date.parse('2026-11-12T16:25:00Z');
 
-for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可用', '发送前关闭', '个人停用', '队员私聊', '同一私聊的临场选择', '旧机缘选项已停用', '临场选择到期', '投递时到期', '无效临场选项'] as const) {
+for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可用', '发送前关闭', '个人停用', '旧日期私聊', '同一私聊的临场选择', '旧机缘选项已停用', '临场选择到期', '投递时到期', '无效临场选项'] as const) {
   test(`洞天行记推送：${scenario}`, async t => {
     t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: scenario === '临场选择到期' ? Date.parse(choiceTick) : beforeChoiceTick });
     const app = createTestApp({ config: {
@@ -29,7 +29,7 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     let pending = true;
     let preferenceReads = 0;
     let platformSends = 0;
-    const legacyRound = scenario === '队员私聊';
+    const legacyRound = scenario === '旧日期私聊';
     const summaryTime = legacyRound ? '12-31 20:40' : '2026.11.13-00:20';
     const lingxuTick = Date.parse(legacyRound ? '2025-12-31T12:40:00Z' : queuedAt) / 1000;
     const isTreasureChoice = scenario === '旧机缘选项已停用';
@@ -88,7 +88,7 @@ for (const scenario of ['私聊投递', '旧群设置转私聊', '私聊不可�
     assert.deepEqual(result.errors, []);
     assert.deepEqual(retries, []);
     assert.equal(acknowledgements.length, 1);
-    if (!withChoice && scenario !== '私聊投递' && scenario !== '旧群设置转私聊' && scenario !== '队员私聊') {
+    if (!withChoice && scenario !== '私聊投递' && scenario !== '旧群设置转私聊' && scenario !== '旧日期私聊') {
       assert.deepEqual(result.messages, []);
       assert.equal(platformSends, 0);
       assert.equal(preferenceReads, scenario === '个人停用' ? 0 : scenario === '私聊不可用' ? 1 : 2);
