@@ -6,7 +6,7 @@ import { createTestApp } from 'alemonjs/testing';
 export type BusinessRequest = { path: string; bid: string; body: Record<string, unknown>; idempotencyKey: string };
 
 /** Real project HTTP/parsers/hooks; only the backend response and platform are simulated. */
-export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode: number | ((request: BusinessRequest) => number) = 200, appConfig: Record<string, unknown> = {}) {
+export async function gameFixture(t: TestContext, respond: (request: BusinessRequest) => unknown, statusCode: number | ((request: BusinessRequest) => number) = 200, appConfig: Record<string, unknown> = {}, timeoutMs?: number) {
   const requests: BusinessRequest[] = [];
   const server = createServer(async (req, res) => {
     try {
@@ -35,6 +35,7 @@ export async function gameFixture(t: TestContext, respond: (request: BusinessReq
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('No fixture address');
   const app = createTestApp({
+    timeoutMs,
     config: {
       processor: { repeated_user_time: 0 },
       'qq-bot': { app_id: '100017' },

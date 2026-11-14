@@ -32,8 +32,26 @@ export function realmHelpBubble(
   const tier = stages.indexOf(stage);
   const layer = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'].indexOf(realm.slice(2, -1)) + 1;
   const unlocked = (minLayer: number) => tier > 1 || (tier === 1 && layer >= minLayer);
+  const earlyStage =
+    tier === 1 && layer === 2
+      ? {
+          command: '我的师门',
+          question: '师门今天还能做什么',
+          step: '打开我的师门。还没拜师时先找境界高于自己的道友，已有师父时查看能用的传功和赐丹。',
+          resource: '先领主线宝箱。单人打不过秘境时，到队伍列表找符合该秘境条件的队伍。'
+        }
+      : tier === 1 && layer === 3
+        ? {
+            command: '交易所',
+            question: '缺的材料哪里能买',
+            step: '先在我的境界核对缺哪种材料、缺几个，再到交易所按物品搜索并比较单价。',
+            resource: '通关主线后先查宝箱。材料也可先查秘境掉落，确定缺口后再买。'
+          }
+        : undefined;
+  const artifactAdvice = tier >= 8 ? '如果已炼化本命物，先看仙器升品所缺材料。' : tier >= 6 ? '如果背包已有灵宝，先比较当前本命物和灵宝，再决定是否切换。' : '';
   const power =
-    tier >= 4
+    artifactAdvice ||
+    (tier >= 4
       ? '先查神魂、道途与当前炼化的本命物，按材料缺口推进。主线卡关时仍可检查装备与功法。'
       : tier === 3
         ? '查看本命物升级和升品条件，材料不足时可继续培养经络、功法和装备。'
@@ -41,9 +59,10 @@ export function realmHelpBubble(
           ? '先看真气和冲脉次数，有合适的本命物再查看炼化条件。主线与功法仍可继续推进。'
           : tier === 1
             ? '主线积累修为，秘境补功法和材料。卡关时先检查突破条件与装备功法。'
-            : '创建角色后按引导走，打开「我的境界」查看进入炼气所需修为。';
+            : '创建角色后按引导走，打开「我的境界」查看进入炼气所需修为。');
   const resources =
-    tier >= 2
+    earlyStage?.resource ??
+    (tier >= 2
       ? '先看能领的主线宝箱，再按所缺材料选秘境或灵田。妖塔积分可用于对应商店兑换。'
       : unlocked(9)
         ? '按目标丹方核对材料与工具，缺料时先看灵田、秘境或交易所。'
@@ -55,7 +74,7 @@ export function realmHelpBubble(
               ? '加入宗门后可查看日常和贡献兑换，也可继续领取主线宝箱和签到奖励。'
               : tier === 1
                 ? '优先查看签到、新人目标和主线宝箱，再按秘境资格补材料。'
-                : '注册后可从签到和新人目标获取起步资源。';
+                : '注册后可从签到和新人目标获取起步资源。');
   const materialTopic =
     tier >= 4
       ? '神魂和道途怎么提升'
@@ -121,10 +140,11 @@ export function realmHelpBubble(
       ...(next ? [{ title: '当前下一步', lines: ['说明：' + next.text], actions: [next.action] }] : []),
       {
         title: '本境界怎么玩',
-        lines: ['说明：' + firstStep, '战力：' + power, '奖励：' + resources],
+        lines: ['说明：' + (earlyStage?.step ?? firstStep), '战力：' + power, '奖励：' + resources],
         actions: [
+          ...(artifactAdvice ? [{ label: '我的本命物', command: '/我的本命物' }] : []),
           ...(prepare === '我的灵田' ? [{ label: '灵药师引导', command: '/加入灵药师' }] : []),
-          { label: prepare.replace(/^查看/u, ''), command: '/' + prepare }
+          { label: (earlyStage?.command ?? prepare).replace(/^查看/u, ''), command: '/' + (earlyStage?.command ?? prepare) }
         ]
       }
     ],
@@ -134,7 +154,7 @@ export function realmHelpBubble(
         { label: '查看天书', command: tier === 0 ? '/天书' : '/天书 ' + stage }
       ],
       [
-        { label: materialTopic, command: '/帮助 ' + materialTopic },
+        { label: earlyStage?.question ?? materialTopic, command: '/帮助 ' + (earlyStage?.question ?? materialTopic) },
         { label: '我离突破还有多远', command: '/帮助 我离突破还有多远' }
       ]
     ]
