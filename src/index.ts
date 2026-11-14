@@ -67,7 +67,7 @@ export default defineChildren({
     logger.info('修仙机器人已启动');
   },
   // 事件生命周期开始时触发。
-  onEventStart: async ({ event }) => {
+  onEventStart: ({ event }) => {
     if (!isGameEventEnabled(event)) {
       return;
     }
@@ -78,7 +78,7 @@ export default defineChildren({
       event.UserId = normalizeRobotBid(event.UserId);
     }
     observePlayerGroupActivity(event);
-    await observeChatContact(event);
+    observeChatContact(event);
     // 记录事件处理阶段的时间戳。
     startTransportEvent(event);
   },

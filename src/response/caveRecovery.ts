@@ -272,7 +272,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
       }
     ];
   }
-  if (/24小时内已使用立即催熟/.test(text)) {
+  if (/24小时内已使用立即催熟|今日已使用超额催熟/.test(text)) {
     return [{ label: '核对催熟冷却', command: '/灵田', description: '查看该地块的下次催熟时间；等待冷却恢复，不通过补充灵石或重复催熟绕过限制' }];
   }
   if (/冻结阵法生效中/.test(text)) {
@@ -329,7 +329,7 @@ export function caveAccelerationReceiptTips(text: string, count: string | null =
     return tips.filter((tip, index) => tips.findIndex(other => other.command === tip.command && other.description === tip.description) === index);
   }
   if (
-    /^(当前没有可加速|该灵植数据异常|该灵种本轮最多可使用|灵肥不足|小绿瓶不足|本轮普通加速次数已用完|灵石不足|冻结阵法生效中|该地块24小时内已使用立即催熟|请选择使用【)/.test(
+    /^(当前没有可加速|该灵植数据异常|该灵种本轮最多可使用|灵肥不足|小绿瓶不足|本轮普通加速次数已用完|灵石不足|冻结阵法生效中|该地块(?:24小时内已使用立即催熟|今日已使用超额催熟)|请选择使用【)/.test(
       text
     )
   ) {

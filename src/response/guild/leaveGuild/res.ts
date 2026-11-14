@@ -42,7 +42,7 @@ export default onResponse(selects, async e => {
       md.addNewline();
       md.addText('');
       md.addNewline();
-      md.addText('退出后24小时内无法使用宗门相关功能');
+      md.addText('退宗后，重新入宗需等到北京时间次日零点');
       md.addNewline();
       md.addText('所有待审核的申请将自动撤回');
       md.addNewline();

@@ -11,6 +11,7 @@ export type GuildMemberMutation = {
   targetUserId?: number;
   targetName?: string;
   roleName?: string;
+  cooldownUntil?: string;
 };
 export type GuildLeadershipCandidate = {
   index: number;

@@ -13,12 +13,16 @@ for (const registered of [false, true]) {
     let farmNeedsGuide = false;
     let guildNeedsJoin = true;
     let inTeam = false;
+    let soloFree = 1;
+    let exhausted = false;
+    let dungeonRead: "empty" | "unavailable" | undefined;
+    let extraDungeons = false;
     let explorationStatus: { active: boolean; completed: boolean; remaining: number; settleable: number } | undefined;
     let meditation: { active: boolean; minutes: number; experience: number; trueQi: number; canStart?: boolean; startReason?: string } | undefined;
     let alchemyUnlocked = false;
     let fishingBuild = { level: 0, missingStone: 2500 };
     let realm = '元婴初期';
-    let story = { chapter: 3, cleared: 2, total: 5, chests: 0, nextStage: 3, ready: true, blocker: '', blockerCode: '' };
+    let story = { chapter: 3, cleared: 2, total: 5, chests: 0, nextStage: 3, ready: true, blocker: '', blockerCode: '', allVisibleCleared: false };
     let activityRewards = { daily: 2, weekly: 0 };
     let tower: { started: boolean; finished: boolean; layer: number; stage?: number; targetLayer?: number; sweepable?: boolean; sweepableLayers?: number; canChallenge?: boolean; score?: number };
     let growth = { kind: '突破', experience: 8200, required: 10000, target: '元婴中期', ready: false, reason: '', materials: [] as { itemName: string; currentQuantity: number; requiredQuantity: number }[] };
@@ -45,10 +49,15 @@ for (const registered of [false, true]) {
             tower,
             mental: 3,
             activityRewards,
-            dungeons: [
+            dungeonTotal: dungeonRead === "empty" ? 0 : dungeonRead ? undefined : exhausted ? 3 : 7,
+            dungeons: dungeonRead === "empty" ? [] : dungeonRead ? undefined : [
               { name: '已打完', used: 2, limit: 2, free: 0, cost: 12, single: true, contributionCost: 0 },
-              { name: '组队秘境', used: 0, limit: 2, free: 1, cost: 12, single: false, minPlayers: 3, contributionCost: 0 },
-              { name: '桃花镇', used: 0, limit: 2, free: 1, cost: 12, single: true, contributionCost: 0 }
+              { name: '组队秘境', used: exhausted ? 2 : 0, limit: 2, free: exhausted ? 0 : 1, cost: 12, single: false, minPlayers: 3, contributionCost: 0 },
+              ...(extraDungeons ? [
+                { name: '古阵', used: 2, limit: 2, free: 0, cost: 12, single: true, contributionCost: 0 },
+                { name: '石窟', used: 2, limit: 2, free: 0, cost: 12, single: true, contributionCost: 0 }
+              ] : []),
+              { name: '桃花镇', used: exhausted ? 2 : 0, limit: 2, free: soloFree, cost: 12, single: true, contributionCost: 0 }
             ],
             signed: true,
             ...((request.body.arguments as { topic?: string }).topic === 'tongtian' ? { details: ['通天塔每月 2-28 日开放，当前处于关闭阶段'] } : {}),
@@ -159,11 +168,62 @@ for (const registered of [false, true]) {
       const dungeon = await open('/帮助 今天还能打哪些秘境');
       assert.match(dungeon.text, /已打完.*今日剩 0 次/);
       assert.match(dungeon.text, /组队秘境.*至少 3 人/);
+      assert.match(dungeon.text, /当前显示 3\/7 个秘境/);
       assert.ok(dungeon.commands.includes('/秘境详情 桃花镇'));
       assert.ok(!dungeon.commands.includes('/秘境详情 组队秘境'));
+      extraDungeons = true;
+      const laterDungeon = await open('/帮助 今天还能打哪些秘境');
+      assert.match(laterDungeon.text, /桃花镇.*今日剩 2 次/);
+      assert.match(laterDungeon.text, /当前显示 4\/7 个秘境/);
+      assert.ok(laterDungeon.commands.includes('/秘境详情 桃花镇'));
+      assert.equal(laterDungeon.text.split('\n').filter(line => line.includes('进度：')).length, 4);
+      extraDungeons = false;
+      inTeam = true;
+      const grouped = await open('/帮助 今天还能打哪些秘境');
+      assert.ok(grouped.commands.includes('/我的队伍'));
+      assert.ok(!grouped.commands.includes('/秘境详情 桃花镇'));
+      inTeam = false;
+      soloFree = 0;
+      const teamDungeon = await open('/帮助 今天还能打哪些秘境');
+      assert.match(teamDungeon.text, /先查看队伍和秘境的人数要求/);
+      assert.match(teamDungeon.text, /桃花镇.*精力还差 9/);
+      assert.doesNotMatch(teamDungeon.text, /已打完.*精力还差/);
+      assert.ok(teamDungeon.commands.includes('/帮助 我怎么找队伍'));
+      assert.ok(!teamDungeon.commands.includes('/秘境详情 桃花镇'));
+      exhausted = true;
+      const noAttempts = await open('/帮助 今天还能打哪些秘境');
+      assert.match(noAttempts.text, /今日挑战次数均已用完/);
+      assert.ok(noAttempts.commands.includes('/帮助 怎么获取资源'));
+      assert.ok(!noAttempts.commands.includes('/帮助 我怎么找队伍'));
+      inTeam = true;
+      const noTeamRewards = await open('/帮助 今天还能打哪些秘境');
+      assert.match(noTeamRewards.text, /至少一名队友能获得收益.*仍可参战.*本人无秘境结算奖励/);
+      assert.ok(noTeamRewards.commands.includes('/我的队伍'));
+      inTeam = false;
+      exhausted = false;
+      dungeonRead = 'empty';
+      const emptyDungeons = await open('/帮助 今天还能打哪些秘境');
+      assert.match(emptyDungeons.text, /当前境界范围内暂无可挑战的秘境/);
+      assert.ok(emptyDungeons.commands.includes('/帮助 怎么获取资源'));
+      dungeonRead = 'unavailable';
+      const missingDungeons = await open('/帮助 今天还能打哪些秘境');
+      assert.match(missingDungeons.text, /暂时无法读取秘境进度/);
+      assert.ok(missingDungeons.commands.includes('/秘境列表'));
+      dungeonRead = undefined;
       const experience = await open('/帮助 现在去哪攒修为');
       assert.match(experience.text, /先推主线 3-3/);
       assert.ok(experience.commands.includes('/查看主线 3'));
+      const previousStory = story;
+      story = { ...story, chapter: 2, cleared: 0, nextStage: 1 };
+      const nextChapter = await open('/帮助 主线接下来打哪关');
+      assert.match(nextChapter.text, /2-1.*可查看并挑战/);
+      assert.ok(nextChapter.commands.includes('/查看主线 2'));
+      assert.ok(!nextChapter.commands.includes('/查看主线 3'));
+      story = { ...story, cleared: story.total, nextStage: 0, ready: false, allVisibleCleared: true };
+      const cleared = await open('/帮助 主线接下来打哪关');
+      assert.match(cleared.text, /当前已开放的主线关卡均已通关/);
+      assert.ok(cleared.commands.includes('/帮助 现在去哪攒修为'));
+      story = previousStory;
     }
     if (registered) {
       growth = { ...growth, kind: '渡劫', target: '化神初期', reason: '请准备材料', materials: [{ itemName: '渡劫丹', currentQuantity: 1, requiredQuantity: 3 }] };
@@ -370,7 +430,7 @@ for (const registered of [false, true]) {
       assert.match(progress.text, /已进行 30 分钟.*修为 60.*真气 2/);
       assert.ok(progress.commands.includes('/闭关'));
     }
-    assert.equal(requests.length, registered ? 61 : 6);
+    assert.equal(requests.length, registered ? 70 : 6);
     assert.deepEqual(requests[0].body.arguments, { topic: 'overview' });
     if (registered) assert.deepEqual(requests.slice(1, 4).map(request => request.body.arguments), [
       { topic: 'realm' }, { topic: 'soul' }, { topic: 'farm' }

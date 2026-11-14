@@ -80,7 +80,7 @@ test('stone acceleration preserves exact quoted costs, mutation risk and cooldow
  state.sent=[];
  await framework.run(action, {name:'message.create',UserId:'fixture',uid:1,isPrivate:true,MessageText:'/灵田加速 1'}, ()=>{});
  const p=state.sent[0];const text=render(nodes(p));
- assert.match(text,/7灵石/);assert.match(text,/25灵石/);assert.match(text,/本轮不触发变异/);assert.match(text,/下次催熟：2026-10-20 10:00:00/);
+ assert.match(text,/7灵石/);assert.match(text,/25灵石/);assert.match(text,/本轮不触发变异/);assert.match(text,/超额催熟恢复：10月20日 10:00（北京时间）/);
  assert.ok(commands(p).includes('/灵田加速 1 灵石 1'));assert.ok(commands(p).includes('/灵田加速 1 催熟 1'));assert.doesNotMatch(text,/旧道具|上方灵石方案|每块田24小时/);
  state.preview=saved;
 });

@@ -34,7 +34,7 @@ test('退出宗门保留确认状态、原消息重试和退出冷却', async t 
     envelope = structuredClone(fixture?.envelope); assert.ok(envelope, outcome);
     const call = () => app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, {}), 'ai-plugin');
     const result = await call(); assert.equal(result.value.ok, true, `${action}: ${JSON.stringify(result.value)}`);
-    if (result.value.ok && outcome === 'left') assert.equal((result.value.data as any).result.cooldownHours, 24);
+    if (result.value.ok && outcome === 'left') assert.equal((result.value.data as any).result.cooldownUntil, '2026-10-09T00:00:00+08:00');
     await call(); assert.equal(keys.at(-1), keys.at(-2));
     if (outcome === 'confirmation_required') firstLeaveKey = keys.at(-1)!;
     if (outcome === 'left') assert.notEqual(keys.at(-1), firstLeaveKey);

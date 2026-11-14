@@ -32,7 +32,7 @@ const cases = [
   { handler: action, command: '/灵田加速 2 小绿瓶 1', reason: '小绿瓶不足。', commands: ['/我的信息', '/灵田'], text: '小绿瓶是个人资源' },
   { handler: action, command: '/灵田加速 2 灵肥 1', reason: '该灵种本轮最多可使用 3 次加速道具（灵肥/小绿瓶）。', commands: ['/灵田'], text: '购买更多道具不能增加额度' },
   { handler: action, command: '/灵田加速 2 灵石 1', reason: '本轮普通加速次数已用完', commands: ['/灵田'], text: '其他方式能否使用' },
-  { handler: action, command: '/灵田加速 2 催熟 1', reason: '该地块24小时内已使用立即催熟', commands: ['/灵田'], text: '等待冷却恢复' },
+  { handler: action, command: '/灵田加速 2 催熟 1', reason: '该地块今日已使用超额催熟，次日零点恢复（北京时间）', commands: ['/灵田'], text: '等待冷却恢复' },
   { handler: action, command: '/灵田加速 2 灵石 1', reason: '冻结阵法生效中，请先解除冻结', commands: ['/洞府阵法'], text: '不自动移除阵法' },
   { handler: action, command: '/灵田加速 2 灵肥 1', reason: '当前没有可加速的灵植。', commands: ['/灵田'], text: '无需再购买加速物资' },
   { handler: action, command: '/灵田加速', reason: '请指定灵田编号，例如：/灵田加速 1', commands: ['/灵田'], text: '先查看该地块预览' }
@@ -125,3 +125,20 @@ for (const reason of ['该灵植数据异常，暂时无法加速。', '作物�
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }
+
+test('灵田加速显示北京时间零点并隐藏冷却中的催熟按钮', async t => {
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    mode: 'preview', preview: {
+      found: true, message: '第2块灵田尚余约 480 分钟成熟，本轮已加速 3/3 次。', plotIndex: 2,
+      greenBottleUsedCount: 3, greenBottleLimit: 3, remainingSeconds: 28800, remainingHours: 8,
+      lingfeiCount: 0, greenBottleCount: 0, remainingSlots: 0, maxLingfei: 0, maxGreenBottle: 0,
+      spiritStoneEnabled: true, spiritStone: 500, stoneCost: 0, maxSpiritStone: 0, ripenCost: 400, canRipen: false, ripenNextAt: '2026-11-14T16:00:00Z'
+    }
+  }));
+  const event = app.events.groupMessage({ text: '/灵田加速 2', platform: 'qq-bot' });
+  const view = inspectMessage((await app.runHandler(action, event)).messages[0].nodes);
+  assert.ok(view.text.includes('超额催熟恢复：11月15日 00:00（北京时间）'));
+  assert.ok(!view.commands.includes('/灵田加速 2 催熟 1'));
+  assert.ok(view.commands.includes('/灵田'));
+  assert.ok(view.commands.includes('/商店 万宝楼'));
+});

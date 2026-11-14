@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
+import { startFeatureVisibility } from '../../src/utils/featureVisibility';
 import handler from '../../src/response/message/me/res';
 import readAllHandler from '../../src/response/notification/read-all/res';
 import { validateHomeNotifications } from '../../src/api/bot/home-notification-queries';
@@ -240,3 +241,43 @@ test('主页优先展示 MID，未绑定时回退 UID，交互按钮使用数字
     mid = undefined;
   }
 });
+
+for (const mode of ['combined', 'legacy', 'malformed'] as const) {
+  test(`资料气泡复用当前事件的权限并兼容旧回包 (${mode})`, async t => {
+    const features = { profile: true, bag: true, locked: false };
+    const { app, requests } = await gameFixture(t, request => {
+      if (request.path.endsWith('?view=access')) return { gateVersion: 1, features };
+      if (request.path.endsWith('/content/tianshu')) return {
+        gateVersion: 1, intro: '', realmUnlocks: [], notes: [],
+        commandFeatures: { 储物袋: 'bag', 我的邮件: 'locked', 我的资料: 'profile' },
+        featureCatalog: [{ stageLevel: 0, stageName: '', features: Object.keys(features).map(id => ({
+          id, name: id, realm: '', description: '', realmReached: true, visible: true, conditions: []
+        })) }]
+      };
+      if (request.path.endsWith('/online-encounter.check')) {
+        const tomorrow = new Date(Date.now() + 86400000).toISOString();
+        return businessEnvelope(request.bid, { triggered: false, pending: null, quotaExhausted: false, nextCheckAt: tomorrow, nextGameDayAt: tomorrow });
+      }
+      return businessEnvelope(request.bid, {
+        profile,
+        notifications: [{ type: 'UNREAD_EMAIL', count: 1 }],
+        atmosphere: { text: null, kind: 'none' },
+        ...(mode === 'legacy' ? {} : { presentationAccess: { gateVersion: 1, features: mode === 'combined' ? features : { bag: 'true' } } })
+      });
+    });
+    await app.invoke(app.events.groupMessage(), startFeatureVisibility);
+    for (let i = 0; i < 2; i++) {
+      const result = await app.runHandler(handler, app.events.groupMessage({
+        text: '/我的资料', platform: 'qq-bot', userId: 'profile-' + i, messageId: 'profile-' + i
+      }));
+      assert.deepEqual(result.errors, []);
+      assert.equal(result.messages.length, 1);
+      assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+      const view = inspectMessage(result.messages[0].nodes);
+      assert.ok(view.commands.includes('/储物袋'));
+      assert.ok(!view.commands.includes('/我的邮件'));
+    }
+    assert.equal(requests.filter(r => r.path.endsWith('/home-overview')).length, 2);
+    assert.equal(requests.filter(r => r.path.endsWith('?view=access')).length, mode === 'combined' ? 0 : 2);
+  });
+}

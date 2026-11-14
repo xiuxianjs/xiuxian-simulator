@@ -6,13 +6,21 @@ import { boolean, fields, integer, object, text } from './schema';
 
 const empty = object({});
 const membership = object(
-  { ...fields(text, 'outcome message guildName targetName roleName'), ...fields(integer, 'guildId targetUserId cooldownHours'), confirmationRequired: boolean },
-  ['targetUserId', 'targetName', 'roleName', 'cooldownHours']
+  {
+    ...fields(text, 'outcome message guildName targetName roleName cooldownUntil'),
+    ...fields(integer, 'guildId targetUserId cooldownHours'),
+    confirmationRequired: boolean
+  },
+  ['targetUserId', 'targetName', 'roleName', 'cooldownHours', 'cooldownUntil']
 );
 
 function leave(data: unknown) {
   const result = parseRobotGuildLeave(data);
   const cooldown = (data as Record<string, unknown>).cooldownHours;
+
+  if (result.cooldownUntil !== undefined && !Number.isFinite(Date.parse(result.cooldownUntil))) {
+    throw new Error('退出宗门冷却信息无效');
+  }
 
   if (cooldown !== undefined && (!Number.isSafeInteger(cooldown) || Number(cooldown) < 0)) {
     throw new Error('退出宗门冷却信息无效');

@@ -142,22 +142,29 @@ export function parseFeatureAccess(value: unknown): Record<string, FeatureAccess
   return out;
 }
 
+export function parsePresentationAccess(raw: unknown): Record<string, boolean> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return;
+  }
+  const { gateVersion, features } = raw as Record<string, unknown>;
+
+  if (gateVersion !== 1 || !features || typeof features !== 'object' || Array.isArray(features)) {
+    return;
+  }
+  const entries = Object.entries(features);
+
+  if (entries.length && entries.every(([, reached]) => typeof reached === 'boolean')) {
+    return features as Record<string, boolean>;
+  }
+}
+
 /** Compact, server-evaluated state; static command rules are loaded at startup. */
 export async function getBackendPresentationAccess(bid: string): Promise<Record<string, boolean>> {
   const raw = await requestBackend(bid, 'get_content_tianshu', { query: { view: 'access' } });
+  const features = parsePresentationAccess(raw);
 
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-    const value = raw as Record<string, unknown>;
-
-    if (
-      value.gateVersion === 1 &&
-      value.features &&
-      typeof value.features === 'object' &&
-      !Array.isArray(value.features) &&
-      Object.values(value.features).every(reached => typeof reached === 'boolean')
-    ) {
-      return value.features as Record<string, boolean>;
-    }
+  if (features) {
+    return features;
   }
   // Compatible with servers that still return the complete catalogue for this read.
   const content = parseBackendTianshuContent(raw);

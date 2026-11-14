@@ -110,7 +110,7 @@ for (const [handler, base] of [[approve, '/宗门审核同意'], [reject, '/宗�
 
 test('自动拒绝保留审核失败标题、原因和原返回按钮', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{
-    title: '', heading: '❌ 审核失败', text: '申请人处于退出宗门冷却期',
+    title: '', heading: '❌ 审核失败', text: '申请人处于退出宗门冷却期，11月15日 00:00起可通过审核（北京时间）',
     buttons: [{ label: '返回审核列表', command: '/宗门审核' }], advice: []
   }]));
   const result = await app.runHandler(approve, app.events.groupMessage({ text: '/宗门审核同意 9', platform: 'qq-bot' }));
@@ -119,7 +119,7 @@ test('自动拒绝保留审核失败标题、原因和原返回按钮', async t 
   const message = result.messages[0];
   const view = inspectMessage(message.nodes);
   assert.ok(view.text.includes('❌ 审核失败'));
-  assert.ok(view.text.includes('申请人处于退出宗门冷却期'));
+  assert.ok(view.text.includes('11月15日 00:00起可通过审核（北京时间）'));
   assert.ok(view.text.includes('限制属于申请人'));
   assert.ok(view.commands.includes('/宗门审核'));
   assert.ok(!view.commands.includes('/退出宗门'));
@@ -142,3 +142,21 @@ for (const reason of ['弟子职位配置不存在', '宗门服务未初始化',
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }
+
+test('退宗确认与成功回执展示北京时间零点冷却', async t => {
+  let confirmed = false;
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    guildId: 1, guildName: '青云宗',
+    ...(confirmed
+      ? { outcome: 'left', confirmationRequired: false, message: '您已退出【青云宗】\n重新入宗：11月15日 00:00起可通过审核（北京时间）', cooldownUntil: '2026-11-15T00:00:00+08:00' }
+      : { outcome: 'confirmation_required', confirmationRequired: true, message: '确认退出【青云宗】' })
+  }));
+  const event = () => app.events.groupMessage({ text: '/退出宗门', platform: 'qq-bot' });
+  const prompt = inspectMessage((await app.runHandler(leave, event())).messages[0].nodes);
+  assert.ok(prompt.text.includes('退宗后，重新入宗需等到北京时间次日零点'));
+  assert.ok(prompt.commands.includes('/取消退出宗门'));
+  confirmed = true;
+  const receipt = inspectMessage((await app.runHandler(leave, event())).messages[0].nodes);
+  assert.ok(receipt.text.includes('11月15日 00:00起可通过审核（北京时间）'));
+  assert.ok(receipt.commands.includes('/宗门列表'));
+});

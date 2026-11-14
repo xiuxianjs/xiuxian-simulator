@@ -1,6 +1,12 @@
 // A presentation snapshot belongs to one platform event, never a player cache.
 const snapshots = new WeakMap<object, { bid: string | undefined; pending: Promise<Record<string, boolean>> }>();
 
+export function seedPresentationAccess(event: object & { UserId?: string }, bid: string, features: Record<string, boolean>): void {
+  if (event.UserId === bid) {
+    snapshots.set(event, { bid, pending: Promise.resolve(features) });
+  }
+}
+
 export function presentationAccessFor(event: object & { UserId?: string }, read: () => Promise<Record<string, boolean>>) {
   let snapshot = snapshots.get(event);
 

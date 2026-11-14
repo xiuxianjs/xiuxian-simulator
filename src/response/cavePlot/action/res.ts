@@ -132,7 +132,7 @@ export default onResponse(selects, async e => {
               .addButton(markdownButtonLabel(`立即催熟 · ${preview.ripenCost}灵石`), { data: commandText(`灵田加速 ${preview.plotIndex} 催熟 1`) });
           }
           if (preview.ripenNextAt) {
-            quote.addNewline().addText(`下次催熟：${formatGameTime(preview.ripenNextAt)}`);
+            quote.addNewline().addText(`超额催熟恢复：${formatGameTime(preview.ripenNextAt, 'MM月DD日 HH:mm')}（北京时间）`);
           }
         }
         for (const [item, maxCount] of [

@@ -113,7 +113,17 @@ type Growth = {
   reason: string;
   materials: { itemName: string; requiredQuantity: number; currentQuantity: number }[];
 };
-type Story = { chapter: number; cleared: number; total: number; chests: number; nextStage: number; ready: boolean; blocker?: string; blockerCode?: string };
+type Story = {
+  chapter: number;
+  cleared: number;
+  total: number;
+  chests: number;
+  nextStage: number;
+  ready: boolean;
+  blocker?: string;
+  blockerCode?: string;
+  allVisibleCleared?: boolean;
+};
 type Progress = {
   realm: string;
   features: string[];
@@ -124,6 +134,7 @@ type Progress = {
   mental?: number;
   farm?: { planted: number; mature: number; abnormal: number; empty?: number };
   farmNeedsGuide?: boolean;
+  dungeonTotal?: number;
   dungeons?: { name: string; used: number; limit: number; free: number; cost: number; single?: boolean; minPlayers?: number; contributionCost?: number }[];
   details?: string[];
   meditation?: { active: boolean; minutes: number; experience: number; trueQi: number; canStart?: boolean; startReason?: string };
@@ -444,6 +455,10 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
       if (story.nextStage) {
         lines.push(`状态：${story.chapter}-${story.nextStage} · ${story.ready ? '可查看并挑战' : (story.blocker ?? '请查看挑战条件')}`);
       }
+      if (topic === 'story' && story.allVisibleCleared) {
+        lines.push('状态：当前已开放的主线关卡均已通关。');
+        extraActions.push(questionButton('experience'));
+      }
       if (story.chests) {
         lines.push(`待领取：主线宝箱 ${story.chests} 个`);
         if (topic === 'story') {
@@ -490,26 +505,63 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
     if (mental !== undefined) {
       lines.push(`数量：当前精力 ${mental}`);
     }
-    for (const entry of entries) {
+    if (!entries.length) {
+      const empty = progress.dungeonTotal === 0;
+
+      return buildBubble({
+        ...context,
+        title,
+        sections: [
+          {
+            lines: [empty ? '状态：当前境界范围内暂无可挑战的秘境。' : '状态：暂时无法读取秘境进度。'],
+            actions: [{ label: '查看秘境列表', command }]
+          }
+        ],
+        footer: [back, ...(empty && has('resources') ? [questionButton('resources')] : [])]
+      });
+    }
+    const remaining = entries.filter(entry => entry.limit <= 0 || entry.used < entry.limit);
+    const available = remaining.filter(entry => entry.free > 0 || (mental !== undefined && mental >= entry.cost));
+    const exhausted = entries.length > 0 && progress.dungeonTotal === entries.length && remaining.length === 0;
+    const candidate =
+      progress.inTeam === true
+        ? undefined
+        : available.find(entry => entry.single === true && entry.contributionCost === 0 && /^[\p{L}\p{N}·]{1,32}$/u.test(entry.name));
+    const visible = [...new Set([...(candidate ? [candidate] : []), ...available, ...entries])].slice(0, 4);
+
+    for (const entry of visible) {
       const left = entry.limit > 0 ? Math.max(0, entry.limit - entry.used) : undefined;
       const quota = left === undefined ? '今日不限次' : `今日剩 ${left} 次`;
       const cost = left === 0 ? '' : entry.free > 0 ? ` · 免精力 ${entry.free} 次` : ` · 耗 ${entry.cost} 精力`;
       const group = entry.single === false ? ` · 至少 ${entry.minPlayers ?? 1} 人` : '';
       const contribution = entry.contributionCost ? ` · 需 ${entry.contributionCost} 贡献` : '';
 
-      lines.push(`进度：${entry.name} · ${quota}${cost}${group}${contribution}`);
+      const shortage = left !== 0 && entry.free === 0 && mental !== undefined && mental < entry.cost ? ` · 精力还差 ${entry.cost - mental}` : '';
+
+      lines.push(`进度：${entry.name} · ${quota}${cost}${shortage}${group}${contribution}`);
     }
-    const candidate = entries.find(
-      entry => entry.single === true &&
-        entry.contributionCost === 0 &&
-        (entry.limit <= 0 || entry.used < entry.limit) &&
-        (entry.free > 0 || (mental !== undefined && mental >= entry.cost)) &&
-        /^[\p{L}\p{N}·]{1,32}$/u.test(entry.name)
-    );
+    if (progress.dungeonTotal !== undefined && progress.dungeonTotal > visible.length) {
+      lines.push(`说明：当前显示 ${visible.length}/${progress.dungeonTotal} 个秘境，更多请查看秘境列表。`);
+    }
 
     action = candidate ? { label: '查看' + candidate.name, command: '/秘境详情 ' + candidate.name } : { label: '查看秘境列表', command };
-    if (candidate) {
+    if (exhausted) {
+      lines.unshift('状态：符合境界的秘境今日挑战次数均已用完。');
+      if (progress.inTeam === true && entries.some(entry => entry.single === false)) {
+        lines.push('说明：队伍满足挑战条件，且至少一名队友能获得收益时，你仍可参战，本次本人无秘境结算奖励。');
+        extraActions.push({ label: '查看我的队伍', command: '/我的队伍' });
+      }
+      if (has('resources')) {
+        extraActions.push(questionButton('resources'));
+      }
+    } else if (candidate) {
       extraActions.push({ label: '全部秘境', command });
+    } else if (progress.inTeam === true) {
+      lines.push('说明：当前已入队，先核对队伍人数和队友条件。');
+      extraActions.push({ label: '查看我的队伍', command: '/我的队伍' });
+    } else if (has('team') && available.some(entry => entry.single === false && entry.contributionCost === 0)) {
+      lines.push('说明：可先查看队伍和秘境的人数要求，再决定是否组队挑战。');
+      extraActions.push(questionButton('team'));
     }
   }
   if (topic === 'tower') {

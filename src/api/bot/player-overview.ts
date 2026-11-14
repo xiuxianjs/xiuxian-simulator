@@ -6,6 +6,7 @@ import type { BackendRequestContext } from './context';
 import { validatePlayerProfile } from './player-profile-query';
 import { validateHomeNotifications } from './home-notification-queries';
 import { validatePlayerPreferences } from './player-preferences-queries';
+import { parsePresentationAccess } from './tianshu-content';
 import { validateGroupSubscription } from './group-subscription-queries';
 export async function getBackendHomeOverview(bid: string, uid: number, request?: BackendRequestContext) {
   const facts = getEventAccessFacts(getCurrentEvent(), bid, uid);
@@ -52,11 +53,13 @@ export function validateHomeOverview(data: HomeOverviewData, uid?: number): Home
   }
 
   const guildId = data.guildId;
+  const features = profile.found ? parsePresentationAccess(data.presentationAccess) : undefined;
 
   return {
     profile,
     notifications,
     atmosphere,
+    ...(features ? { presentationAccess: { gateVersion: 1 as const, features } } : {}),
     ...(data.guildName !== undefined ? { guildName: data.guildName } : {}),
     ...(typeof guildId === 'number' && Number.isSafeInteger(guildId) && guildId > 0 ? { guildId } : {})
   };

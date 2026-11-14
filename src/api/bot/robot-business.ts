@@ -7,6 +7,7 @@ import { BackendAPIError, requestBackend, writeContext } from './client';
 import { createBackendReadRequestContext, createBackendRequestContext } from './context';
 import type { BackendRequestContext } from './context';
 import { businessInputFromEvent, parseRobotMiddlewareResult, type RobotMiddlewareResult } from './middleware-entry';
+import { seedPresentationAccess } from './presentation-access-state';
 import { validateHomeOverview } from './player-overview';
 import { logger } from 'alemonjs';
 import { parseOnboarding, type OnboardingView } from './onboarding';
@@ -744,7 +745,13 @@ export async function getRobotHomeOverview(event: GameEvent): Promise<RobotBusin
     }),
     event
   );
-  const result = await requestBackend(event.UserId, 'post_v2_robot_home_overview', input);
+  const bid = event.UserId;
+  const result = await requestBackend(bid, 'post_v2_robot_home_overview', input);
+  const parsed = measureTransportStageSync('home.response.validate', () => parseRobotBusinessResult(result, bid), event);
 
-  return measureTransportStageSync('home.response.validate', () => parseRobotBusinessResult(result, event.UserId), event);
+  if (parsed.success && parsed.branch === 'business' && parsed.data.presentationAccess) {
+    seedPresentationAccess(event, bid, parsed.data.presentationAccess.features);
+  }
+
+  return parsed;
 }

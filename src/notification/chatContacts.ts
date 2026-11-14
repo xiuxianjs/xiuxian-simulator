@@ -11,8 +11,8 @@ const keyOf = (item: { botId: string; openId: string }) => JSON.stringify([item.
 
 type CachedContact = ChatContact & { cachedAt: number };
 
-/** Memory caches acknowledgements; every newer event is durably staged before
- * returning from the hook. HTTP is asynchronous and batched. */
+/** Memory caches acknowledgements. Observations are queued for ordered disk
+ * writes and sent to the backend in batches after persistence. */
 export class ChatContactObserver {
   private groups = new Map<string, ChatGroup & { cachedAt: number }>();
   private contacts = new Map<string, CachedContact>();
@@ -236,7 +236,11 @@ export class ChatContactObserver {
 
 let observer = new ChatContactObserver();
 
-export const observeChatContact = (event: Events[keyof Events]) => observer.observe(event);
+export const observeChatContact = (event: Events[keyof Events]): void => {
+  // Observe enqueues on the current outbox before yielding, so dispose can
+  // drain accepted writes even if the event handler has already finished.
+  void observer.observe(event).catch(error => logger.error('好友状态记录落盘失败', error));
+};
 export const cachedChatContacts = () => observer.snapshot();
 export const resetChatContactObserver = async () => {
   await observer.dispose();
