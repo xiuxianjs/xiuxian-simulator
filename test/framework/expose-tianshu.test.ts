@@ -4,8 +4,8 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import axios from 'axios';
-import { Expose, shutdownLogger } from 'alemonjs';
-import { createTestApp } from 'alemonjs/testing';
+import { Expose, ResultCode, shutdownLogger } from 'alemonjs';
+import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 import handler from '../../src/response/tianshu/res';
@@ -72,5 +72,46 @@ test('天书非本包指令继续事件链', async t => {
     assert.deepEqual(result.errors, []);
     assert.equal(result.nextCalls.length, 1);
     assert.equal(result.messages.length, 0);
+  }
+});
+
+
+test('实际炼气目录逐页压缩并以气泡按钮翻页', async t => {
+  const fixture = fixtures.find(row => row.bid === 'player')!;
+  const app = createTestApp({
+    config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://offline.invalid', robot_auth_token: 'offline' } } }
+  });
+  t.after(() => app.dispose());
+  t.mock.method(axios, 'create', () => ({ request: async () => ({ status: 200, headers: {}, data: JSON.stringify(fixture.envelope) }) }));
+
+  const layers = [
+    ['炼气一层', '炼气二层'],
+    ['炼气三层', '炼气四层'],
+    ['炼气五层', '炼气七层'],
+    ['炼气九层']
+  ];
+  let text = '/天书 炼气';
+  for (const [index, expectedLayers] of layers.entries()) {
+    const event = app.events.groupMessage({ platform: 'qq-bot', userId: fixture.bid, text });
+    const result = await app.runHandler(handler, event);
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const [message] = result.messages;
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.match(view.text, new RegExp(`第${index + 1}/${layers.length}页`));
+    assert.deepEqual(view.commands.filter(command => command.startsWith('/帮助 炼气') && command.endsWith('层')),
+      expectedLayers.map(layer => '/帮助 ' + layer));
+    assert.equal(view.text.split('\n').filter(line => line.includes('玩法：')).length, expectedLayers.length);
+    if (expectedLayers.includes('炼气九层')) {
+      assert.match(view.text, /宗门挖矿和宗门主线须先入宗/);
+      assert.match(view.text, /开塘需 10,000 灵石/);
+    }
+    assert.ok([...view.text].length <= 260, `第 ${index + 1} 页长度 ${[...view.text].length}`);
+    if (index + 1 < layers.length) {
+      const next = view.commands.find(command => command === '/天书 炼气 ' + (index + 2));
+      assert.ok(next);
+      text = next;
+    }
   }
 });

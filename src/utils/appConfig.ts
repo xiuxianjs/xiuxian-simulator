@@ -7,3 +7,13 @@ export const getAppConfig = () => {
 
   return values[packageInfo.name] ?? {};
 };
+
+export const getOfficialGroupButton = () => {
+  const config = getAppConfig();
+  const url = config.official_group_url;
+
+  return {
+    pinned: config.official_group_button_pinned === true,
+    url: typeof url === 'string' ? url.trim() : ''
+  };
+};

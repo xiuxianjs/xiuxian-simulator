@@ -1,6 +1,7 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { compactButtonSpacing } from './compactButtonSpacing';
+import { getOfficialGroupButton } from './appConfig';
 import { isPrivateEvent } from './privateEvent';
 /** 消息发送辅助工具：统一处理文本、分页和按钮。 */
 import { Format, FormatMarkDown, getCurrentEvent, type DataEnums } from 'alemonjs';
@@ -336,6 +337,14 @@ export const FormatGui = (params: {
         bt.addButton(btn.label, commandText(btn.command ?? ''));
       }
     });
+
+    if (bar === undefined) {
+      const { pinned, url } = getOfficialGroupButton();
+
+      if (pinned && url) {
+        bt.addRow().addButton('点击加入群聊', url, { type: 'link' });
+      }
+    }
   }
 
   if (md.value.value.length > 0) {

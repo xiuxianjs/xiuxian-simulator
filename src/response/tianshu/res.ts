@@ -1,4 +1,4 @@
-import { helpRealmName } from '@src/response/help-realm';
+import { helpRealmName, helpRealmStage } from '@src/response/help-realm';
 import { parseBackendTianshuContent, type TianshuFeature } from '@src/api/bot/tianshu-content';
 import { selects } from '@src/response/config';
 import { buildBubble } from '@src/response/presentation';
@@ -29,6 +29,7 @@ const refiningLimits: Readonly<Record<string, string>> = {
   'reputation-shop': '兑换须有足够声望并满足商品条件',
   herbalist: '种植须完成引导，并有种子和可用地块',
   'fishing-build': '开塘需 10,000 灵石',
+  'guild-mining': '宗门挖矿和宗门主线须先入宗',
   alchemy: '炼丹须完成入门，并有丹方、材料和工具'
 };
 
@@ -36,30 +37,34 @@ function refiningSections(features: TianshuFeature[]) {
   const tiers = new Map<string, TianshuFeature[]>();
 
   for (const feature of features) {
-    const tier = tiers.get(feature.realm) ?? [];
+    const realm = normalizeRealm(feature.realm);
+    const tier = tiers.get(realm) ?? [];
 
     tier.push(feature);
-    tiers.set(feature.realm, tier);
+    tiers.set(realm, tier);
   }
 
-  return [...tiers].map(([title, tier]) => ({
-    title,
-    actions: realmHelp(title),
-    lines: [
-      `玩法：${tier.map(feature => feature.name).join('、')}`,
-      ...tier
-        .flatMap(feature => {
-          const conditions = feature.conditions.filter(condition => !mentionsRetiredFeature(condition));
+  const layerNames = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'].map(layer => `炼气${layer}层`);
+  const order = (realm: string) => (layerNames.includes(realm) ? layerNames.indexOf(realm) : layerNames.length);
 
-          return conditions.length > 0
-            ? refiningLimits[feature.id]
-              ? [refiningLimits[feature.id]]
-              : conditions.map(condition => feature.name + ' · ' + condition)
-            : [];
-        })
-        .map(condition => `条件：${condition}`)
-    ]
-  }));
+  return [...tiers]
+    .sort(([a], [b]) => order(a) - order(b))
+    .map(([title, tier]) => ({
+      title,
+      actions: realmHelp(title),
+      lines: [
+        `玩法：${tier.map(feature => feature.name).join('、')}`,
+        ...tier
+          .flatMap(feature => {
+            const conditions = feature.conditions.filter(condition => !mentionsRetiredFeature(condition));
+
+            const limit = refiningLimits[feature.id];
+
+            return limit ? [limit] : conditions.map(condition => feature.name + ' · ' + condition);
+          })
+          .map(condition => `条件：${condition}`)
+      ]
+    }));
 }
 
 export default onResponse(selects, async e => {
@@ -98,7 +103,7 @@ export default onResponse(selects, async e => {
       // Older servers can only identify the next known unlock tier.
       const pending = content.currentStage?.unlocks.find(row => !row.unlocked);
       const fallback = pending ?? content.nextStage?.unlocks[0];
-      const realm = upcoming?.realm ?? fallback?.realm ?? content.nextStage?.stageName;
+      const realm = upcoming?.realm ?? fallback?.realm;
       const names = (upcoming?.features ?? fallback?.features ?? []).filter(feature => !mentionsRetiredFeature(feature));
       const current = groups.find(group => group.stageLevel === content.currentStage?.stageLevel);
 
@@ -110,7 +115,7 @@ export default onResponse(selects, async e => {
             {
               actions: realm ? realmHelp(realm) : [],
               lines: [
-                ...(upcoming ? [] : realm ? ['说明：最近的已知解锁预告。'] : []),
+                ...(upcoming ? [] : realm ? ['说明：以下是最近有已知解锁的境界。'] : []),
                 ...(names.length ? [`玩法：${names.join('、')}`] : [realm ? '状态：暂无新增玩法。' : '状态：暂无下一境界资料。'])
               ]
             }
@@ -124,7 +129,10 @@ export default onResponse(selects, async e => {
 
     const numbered = /^[1-9]\d*$/u.test(name) && match[2] === undefined;
     const page = numbered ? Math.min(Number(name), stages.length) : Number(match[2] ?? 1);
-    const selected = numbered ? stages[page - 1] : groups.find(group => normalizeRealm(group.stageName) === normalizeRealm(name));
+    const realm = helpRealmName(name);
+    const refiningLayer = realm && /^炼气.+层$/u.test(realm) ? realm : undefined;
+    const selectedName = realm ? helpRealmStage(realm) : normalizeRealm(name);
+    const selected = numbered ? stages[page - 1] : groups.find(group => normalizeRealm(group.stageName) === selectedName);
 
     if (!selected) {
       const directoryPageSize = 3;
@@ -163,7 +171,8 @@ export default onResponse(selects, async e => {
           ]
         }));
     const total = Math.max(1, Math.ceil(entries.length / perPage));
-    const current = numbered ? 1 : Math.min(page, total);
+    const layerIndex = refiningLayer ? entries.findIndex(entry => normalizeRealm(entry.title) === refiningLayer) : -1;
+    const current = numbered ? 1 : layerIndex >= 0 ? Math.floor(layerIndex / perPage) + 1 : Math.min(page, total);
     const sections = entries.slice((current - 1) * perPage, current * perPage);
 
     await message.send(

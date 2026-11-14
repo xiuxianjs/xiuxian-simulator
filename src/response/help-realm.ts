@@ -26,7 +26,9 @@ export function helpRealmStage(name: string): string {
 export function realmHelpBubble(
   context: { bid?: string; isPrivate: boolean },
   realm: string,
-  next?: { text: string; action: { label: string; command: string } }
+  next?: { text: string; action: { label: string; command: string } },
+  farm?: { mature: number; abnormal: number; empty?: number },
+  farmNeedsGuide = !next
 ) {
   const stage = helpRealmStage(realm);
   const tier = stages.indexOf(stage);
@@ -63,7 +65,7 @@ export function realmHelpBubble(
   const resources =
     earlyStage?.resource ??
     (tier >= 2
-      ? '先看能领的主线宝箱，再按所缺材料选秘境或灵田。妖塔积分可用于对应商店兑换。'
+      ? '先看能领的主线宝箱，再按所缺材料选秘境或灵田。妖塔有可扫荡层数时先扫荡，再按战力选星级；积分可到积分商店兑换。'
       : unlocked(9)
         ? '按目标丹方核对材料与工具，缺料时先看灵田、秘境或交易所。'
         : unlocked(7)
@@ -102,7 +104,7 @@ export function realmHelpBubble(
         : tier === 2
           ? '经络'
           : unlocked(9)
-            ? '炼丹 丹方'
+            ? '帮助 这炉丹还缺什么'
             : unlocked(7)
               ? '我的灵田'
               : unlocked(5)
@@ -121,9 +123,19 @@ export function realmHelpBubble(
         : tier === 2
           ? '打开经络，先核对真气和剩余次数，再选当前可冲的经络。'
           : unlocked(9)
-            ? '打开炼丹丹方，选要炼的丹药，按缺料清单准备后再预览炼制。'
+            ? '未完成炼丹师引导就先入门。已入门则选丹方，按缺料清单准备后再预览炼制。'
             : unlocked(7)
-              ? '先完成灵药师引导。打开我的灵田，空地选种播种，成熟后收获。'
+              ? farm
+                ? farm.mature > 0
+                  ? '打开我的灵田。先收成熟作物，再按当前缺少的材料选种。'
+                  : farm.abnormal > 0
+                    ? '打开我的灵田，先处理异常地块。'
+                    : farm.empty
+                      ? `还有 ${farm.empty} 块空地，先查看可播种子，按缺料选种。`
+                      : '打开我的灵田，查看作物成熟时间和可用地块。'
+                : farmNeedsGuide
+                  ? '先完成灵药师引导。打开我的灵田，空地选种播种，成熟后收获。'
+                  : '打开我的灵田，查看当前地块和可用操作。'
               : unlocked(5)
                 ? '打开通天塔，核对开放状态、次数和消耗。拿到声望后到声望商店看可换装备。'
                 : unlocked(4)
@@ -142,20 +154,35 @@ export function realmHelpBubble(
         title: '本境界怎么玩',
         lines: ['说明：' + (earlyStage?.step ?? firstStep), '战力：' + power, '奖励：' + resources],
         actions: [
+          ...(tier === 1 && unlocked(9)
+            ? [
+                { label: '我现在能开塘吗', command: '/帮助 我现在能开塘吗' },
+                { label: '宗门今天还能做什么', command: '/帮助 宗门今天还能做什么' }
+              ]
+            : []),
+          ...(tier === 2 ? [{ label: '妖塔接下来打哪层', command: '/帮助 妖塔接下来打哪层' }] : []),
           ...(artifactAdvice ? [{ label: '我的本命物', command: '/我的本命物' }] : []),
-          ...(prepare === '我的灵田' ? [{ label: '灵药师引导', command: '/加入灵药师' }] : []),
-          { label: (earlyStage?.command ?? prepare).replace(/^查看/u, ''), command: '/' + (earlyStage?.command ?? prepare) }
+          ...(prepare === '我的灵田' && farmNeedsGuide && !farm ? [{ label: '灵药师引导', command: '/加入灵药师' }] : []),
+          ...(prepare === '我的灵田' && farm?.empty && !farm.mature && !farm.abnormal ? [{ label: '查看可播种子', command: '/播种' }] : []),
+          {
+            label: prepare === '帮助 这炉丹还缺什么' ? '查看炼丹下一步' : (earlyStage?.command ?? prepare).replace(/^查看/u, ''),
+            command: '/' + (earlyStage?.command ?? prepare)
+          }
         ]
       }
     ],
     footer: [
       [
         { label: '我的进度', command: '/帮助' },
-        { label: '查看天书', command: tier === 0 ? '/天书' : '/天书 ' + stage }
+        { label: '查看天书', command: tier === 0 ? '/天书' : '/天书 ' + (layer > 0 ? realm : stage) },
+        ...(next && tier > 0 ? [{ label: '怎么获取资源', command: '/帮助 怎么获取资源' }] : [])
       ],
       [
-        { label: earlyStage?.question ?? materialTopic, command: '/帮助 ' + (earlyStage?.question ?? materialTopic) },
-        { label: '我离突破还有多远', command: '/帮助 我离突破还有多远' }
+        ...(prepare === '帮助 这炉丹还缺什么'
+          ? []
+          : [{ label: earlyStage?.question ?? materialTopic, command: '/帮助 ' + (earlyStage?.question ?? materialTopic) }]),
+        { label: '我离突破还有多远', command: '/帮助 我离突破还有多远' },
+        ...(next ? [{ label: '怎么提升战力', command: '/帮助 怎么提升战力' }] : [])
       ]
     ]
   });

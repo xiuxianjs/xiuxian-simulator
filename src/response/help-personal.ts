@@ -1,4 +1,4 @@
-import { helpRealmName } from '@src/response/help-realm';
+import { helpRealmName, helpRealmStage } from '@src/response/help-realm';
 import { parseBackendNavigation } from '@src/api/bot/navigation';
 import { buildBubble, type BubbleAction } from '@src/response/presentation';
 
@@ -7,8 +7,11 @@ const topics = {
   realm: ['我离突破还有多远', 'profile', '/我的境界', '查看修为、突破材料和下一个境界。'],
   story: ['主线接下来打哪关', 'storyline', '/查看主线', '首通推进章节。已通关的关卡按星级、精力和次数判断能否扫荡。'],
   experience: ['现在去哪攒修为', 'profile', '/任务面板 修炼', '比较当前可推进的主线和修炼入口。'],
+  exploration: ['秘境探索怎么开始', 'exploration', '/探索秘境', '先选秘境，再核对各时长的精力消耗和可得资源。已出发时，打开同一入口查看进度和返程条件。'],
   dungeon: ['今天还能打哪些秘境', 'dungeons', '/秘境列表', '先核对境界、今日次数和精力；扫荡另有通关要求。'],
+  resources: ['怎么获取资源', 'checkin', '/任务面板', '先查今天可领的奖励。缺特定材料时，再按已开放的渠道找来源。'],
   rewards: ['今天有什么奖励能领', 'checkin', '/任务面板', '从任务面板核对活跃、邮件及活动奖励。'],
+  power: ['怎么提升战力', 'equipment', '/我的装备', '先补空装备位。装备齐了就检查已装备的功法，再按当前开放的培养项补材料。'],
   equipment: ['怎么补装备', 'equipment', '/我的装备', '先检查空装备位，再比较储物袋里满足穿戴条件的装备。'],
   skills: ['功法怎么提升', 'skill-books', '/我的功法', '查看已学功法及可培养项，按当前搭配、材料和实际预览决定。'],
   meditation: ['闭关怎么攒修为', 'profile', '/任务面板 修炼', '先查看当前闭关状态。闭关可积累修为与真气，出关时结算。'],
@@ -45,18 +48,21 @@ export type HelpTopic = Topic | 'overview' | 'unknown';
 const aliases: Partial<Record<Topic, RegExp>> = {
   beginner: /刚入门|刚注册|刚开始|新人怎么|新手先/,
   realm: /突破|晋级|升境界|还差多少修为/,
-  story: /主线|哪关|章节|宝箱/,
+  story: /主线宝箱|主线|哪关|章节|宝箱/,
   experience: /攒修为|赚修为|修为来源/,
-  dungeon: /秘境|副本|探索/,
-  rewards: /签到|邮件|活跃|领奖|奖励.*领|.*什么.*能领/,
+  exploration: /探索秘境|秘境探索|返程/,
+  dungeon: /秘境|副本/,
+  resources: /获取资源|赚资源|资源怎么拿|资源从哪来|资源不够/,
+  rewards: /签到奖励|活跃奖励|签到|邮件|活跃|领奖|奖励.*领|什么.*能领/,
+  power: /提升战力|战力怎么提|提高战力|增加战力|战力太低|战力不够/,
   equipment: /装备|配装/,
   skills: /功法/,
   meditation: /闭关|打坐|出关/,
   forge: /锻造|打造/,
   root: /灵根/,
   master: /师门|拜师|出师|传功/,
-  team: /组队|队伍/,
-  market: /买|卖|交易|小店/,
+  team: /秘境.{0,8}(?:组队|找队|进队)|(?:组队|找队|进队).{0,8}秘境|组队|队伍/,
+  market: /在哪里买|在哪里卖|哪里买|哪里卖|去哪买|去哪卖|怎么买|怎么卖|交易所|买|卖|交易|小店/,
   template: /战斗配置|模板/,
   guild: /宗门|贡献|采矿/,
   tongtian: /通天塔|声望/,
@@ -107,10 +113,11 @@ type Growth = {
   reason: string;
   materials: { itemName: string; requiredQuantity: number; currentQuantity: number }[];
 };
-type Story = { chapter: number; cleared: number; total: number; chests: number; nextStage: number; ready: boolean; blocker?: string };
+type Story = { chapter: number; cleared: number; total: number; chests: number; nextStage: number; ready: boolean; blocker?: string; blockerCode?: string };
 type Progress = {
   realm: string;
   features: string[];
+  lockedRealms?: Record<string, string>;
   growth?: Growth;
   story?: Story;
   signed?: boolean;
@@ -119,9 +126,25 @@ type Progress = {
   farmNeedsGuide?: boolean;
   dungeons?: { name: string; used: number; limit: number; free: number; cost: number; single?: boolean; minPlayers?: number; contributionCost?: number }[];
   details?: string[];
+  meditation?: { active: boolean; minutes: number; experience: number; trueQi: number; canStart?: boolean; startReason?: string };
+  exploration?: { active: boolean; completed: boolean; remaining: number; settleable: number; startReason?: string };
+  alchemyUnlocked?: boolean;
+  guildNeedsJoin?: boolean;
+  inTeam?: boolean;
+  fishingBuild?: { level: number; missingStone: number };
+  missingPulseQi?: number;
   activityRewards?: { daily?: number; weekly?: number };
-  tower?: { started: boolean; finished: boolean; layer: number };
-  seclusion?: { active: boolean; remaining: number; canEnd: boolean; canStart?: boolean; startReason?: string };
+  tower?: {
+    started: boolean;
+    finished: boolean;
+    layer: number;
+    stage?: number;
+    targetLayer?: number;
+    sweepable?: boolean;
+    sweepableLayers?: number;
+    canChallenge?: boolean;
+    score?: number;
+  };
 };
 
 export function parsePersonalHelp(value: unknown) {
@@ -146,25 +169,41 @@ function growthAction(growth?: Growth): BubbleAction {
 }
 
 export function helpNextStep(progress: Progress) {
-  const { growth, story, farm, signed } = progress;
+  const { growth, story, farm, signed, meditation } = progress;
   const missing = growth ? Math.max(0, growth.required - growth.experience) : 0;
   const material = growth?.materials?.find(item => item.currentQuantity < item.requiredQuantity);
   const realmAction = growthAction(growth);
   const storyAction = { label: '查看主线', command: story ? '/查看主线 ' + story.chapter : '/查看主线' };
 
-  return growth?.ready
-    ? { text: `已满足${growth.kind}条件，先${realmAction.label}。`, action: realmAction }
-    : growth?.target && missing === 0 && material
-      ? { text: `${growth.kind}还缺${material.itemName} ${amount(material.requiredQuantity - material.currentQuantity)} 个。`, action: realmAction }
-      : story?.chests
-        ? { text: `主线有 ${story.chests} 个宝箱可领，先查看主线奖励。`, action: { label: '查看主线奖励', command: '/查看主线' } }
-        : story?.ready
-          ? { text: `可以继续挑战主线 ${story.chapter}-${story.nextStage}，推进关卡并积累修为。`, action: storyAction }
-          : farm?.mature
-            ? { text: `有 ${farm.mature} 块灵田已成熟，可以先收获。`, action: { label: '查看灵田', command: '/我的灵田' } }
-            : signed === false
-              ? { text: '今天还未完成日常签到，可以先查看签到奖励。', action: { label: '签到概览', command: '/签到概览' } }
-              : { text: '查看已开放的玩法和待领取资源，按当前缺口选择。', action: { label: '任务面板', command: '/任务面板' } };
+  if (growth?.ready) {
+    return { text: `已满足${growth.kind}条件，先${realmAction.label}。`, action: realmAction };
+  }
+
+  if (meditation?.active && (meditation.experience > 0 || meditation.trueQi > 0)) {
+    return {
+      text: '本次闭关已有预计收益。可打开闭关查看进度，再决定是否出关。',
+      action: { label: '查看闭关进度', command: '/闭关' }
+    };
+  }
+
+  return growth?.target && missing === 0 && material
+    ? { text: `${growth.kind}还缺${material.itemName} ${amount(material.requiredQuantity - material.currentQuantity)} 个。`, action: questionButton('realm') }
+    : story?.chests
+      ? { text: `主线有 ${story.chests} 个宝箱可领，先查看主线奖励。`, action: { label: '查看主线奖励', command: '/查看主线' } }
+      : story?.ready
+        ? { text: `可以继续挑战主线 ${story.chapter}-${story.nextStage}，推进关卡并积累修为。`, action: storyAction }
+        : farm && (farm.mature > 0 || farm.abnormal > 0)
+          ? {
+              text: farm.mature > 0 ? `有 ${farm.mature} 块灵田已成熟，可以先收获。` : `有 ${farm.abnormal} 块灵田异常，可以先处理。`,
+              action: { label: '查看灵田', command: '/我的灵田' }
+            }
+          : signed === false
+            ? { text: '今天还未完成日常签到，可以先查看签到奖励。', action: { label: '签到概览', command: '/签到概览' } }
+            : missing > 0 && meditation?.active
+              ? { text: '当前正在闭关，可以查看剩余时间。', action: { label: '查看闭关进度', command: '/闭关' } }
+              : missing > 0 && meditation?.canStart
+                ? { text: '当前可以闭关攒修为，先查看闭关条件。', action: { label: '查看闭关', command: '/闭关' } }
+                : { text: '查看已开放的玩法和待领取资源，按当前缺口选择。', action: { label: '任务面板', command: '/任务面板' } };
 }
 
 export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }, topic: HelpTopic, progress?: Progress) {
@@ -180,7 +219,7 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
     });
   }
 
-  const { growth, story, signed, farm, tower, seclusion } = progress;
+  const { growth, story, signed, farm, tower, meditation } = progress;
   const has = (key: Topic) => progress.features.includes(topics[key][1]);
   const missing = growth ? Math.max(0, growth.required - growth.experience) : 0;
   const storyAction = { label: '查看主线', command: story ? '/查看主线 ' + story.chapter : '/查看主线' };
@@ -191,25 +230,46 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
   const prioritized: Topic[] = [
     ...(growth?.ready ? ['realm' as const] : []),
     ...(story?.ready ? ['story' as const] : []),
-    ...(farm?.mature ? ['farm' as const] : []),
+    ...(story?.nextStage && !story.ready ? ['story' as const] : []),
+    ...(farm && (farm.mature > 0 || farm.abnormal > 0) ? ['farm' as const] : []),
     ...(signed === false || story?.chests ? ['rewards' as const] : []),
     ...(tower?.started && !tower.finished ? ['tower' as const] : []),
-    ...(seclusion?.active ? ['meditation' as const] : []),
+    ...(meditation?.active ? ['meditation' as const] : []),
     'realm',
-    ...(['soul', 'artifact', 'meridian', 'alchemy', 'farm', 'companion', 'guild', 'market', 'master', 'story', 'dungeon', 'experience'] satisfies Topic[])
+    ...([
+      'soul',
+      'artifact',
+      'meridian',
+      'alchemy',
+      'farm',
+      'companion',
+      'guild',
+      'market',
+      'master',
+      'story',
+      'power',
+      'dungeon',
+      'experience'
+    ] satisfies Topic[])
   ];
-  const questions = [...new Set(prioritized)].filter(has).slice(0, 3).map(questionButton);
   const towerLine = tower ? `妖塔：${tower.finished ? '今日已完成' : tower.started ? '第 ' + tower.layer + ' 层' : '今日未开始'}` : '';
-  const seclusionLine = seclusion?.active ? `闭关：${seclusion.canEnd ? '可查看出关结算' : '还剩 ' + seclusion.remaining + ' 小时'}` : '';
+  const meditationLine = progress.meditation?.active
+    ? `闭关：已进行 ${progress.meditation.minutes} 分钟 · 修为 ${amount(progress.meditation.experience)} · 真气 ${amount(progress.meditation.trueQi)}`
+    : '';
 
   if (topic === 'overview' || topic === 'unknown') {
     const next = helpNextStep(progress);
+    const questions = [...new Set(prioritized)]
+      .filter(has)
+      .map(questionButton)
+      .filter(question => question.command !== next.action.command)
+      .slice(0, 3);
 
     const realm = helpRealmName(progress.realm);
     const liveProgress = [
-      seclusionLine,
+      meditationLine,
       storyLine,
-      farm?.mature ? `灵田：${farm.mature} 块已成熟` : '',
+      farm?.mature ? `灵田：${farm.mature} 块已成熟` : farm?.abnormal ? `灵田：${farm.abnormal} 块异常` : '',
       signed === false ? '签到：今日未签' : '',
       tower?.started && !tower.finished ? towerLine : ''
     ]
@@ -237,16 +297,100 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
   const lines = ['说明：' + description];
 
   if (!has(topic)) {
+    const required = progress.lockedRealms?.[topics[topic][1]];
+    const realm = typeof required === 'string' ? helpRealmName(required) : undefined;
+    const unlockPage = realm && (/^炼气.+层$/u.test(realm) ? realm : helpRealmStage(realm));
+
     return buildBubble({
       ...context,
       title,
-      sections: [{ lines: ['状态：当前境界下此玩法不可用。'] }],
-      footer: [back, tianshu, { label: '境界目录', command: '/天书 目录' }]
+      sections: [{ lines: [realm ? '条件：达到' + realm + '后开放。' : '状态：当前境界下此玩法不可用。'] }],
+      footer: [back, unlockPage ? { label: '查看解锁', command: '/天书 ' + unlockPage } : tianshu, { label: '境界目录', command: '/天书 目录' }]
     });
   }
   let action: BubbleAction = { label: '查看详情', command };
   const extraActions: BubbleAction[] = [];
 
+  if (topic === 'exploration') {
+    action = { label: '查看探索秘境', command };
+    const exploration = progress.exploration;
+
+    if (exploration?.active) {
+      lines.splice(
+        0,
+        1,
+        exploration.completed
+          ? '状态：探索已完成，可打开探索面板返程。'
+          : `状态：探索中 · 剩余约 ${exploration.remaining} 小时 · 可结算 ${exploration.settleable} 小时`
+      );
+      action = { label: '查看探索进度', command };
+    } else if (exploration?.startReason) {
+      lines.unshift('状态：' + exploration.startReason);
+    }
+  }
+  if (topic === 'resources') {
+    action = questionButton('rewards');
+    if (has('dungeon')) {
+      extraActions.push(questionButton('dungeon'));
+    }
+    if (has('farm')) {
+      extraActions.push(questionButton('farm'));
+    }
+  }
+  if (topic === 'power') {
+    action = { label: '检查装备', command };
+    if (has('skills')) {
+      extraActions.push({ label: '检查功法', command: '/我的功法' });
+    }
+    const cultivation = (['soul', 'artifact', 'meridian', 'root'] as const).find(has);
+
+    if (cultivation) {
+      extraActions.push(questionButton(cultivation));
+    }
+  }
+  if (topic === 'fishing' && progress.fishingBuild) {
+    const { level, missingStone } = progress.fishingBuild;
+
+    if (level > 0) {
+      lines.splice(0, 1, `状态：已开辟 ${level} 阶水塘，可以查看当前会话和渔获。`);
+      action = { label: '查看垂钓状态', command };
+    } else if (missingStone > 0) {
+      lines.push(`灵石：开塘还差 ${amount(missingStone)}`);
+    } else {
+      lines.push('状态：灵石已够，可预览开塘。');
+      action = { label: '预览开塘', command: '/垂钓 建塘' };
+    }
+  }
+  if (topic === 'team') {
+    if (progress.inTeam === true) {
+      lines.splice(0, 1, '状态：已在队伍中。先查看队员和队伍要求，再和队友确认要打的玩法。');
+      action = { label: '查看我的队伍', command: '/我的队伍' };
+    } else {
+      action = { label: '查看队伍列表', command };
+    }
+  }
+  if (topic === 'guild') {
+    if (progress.guildNeedsJoin === true) {
+      lines.splice(0, 1, '说明：先打开宗门列表申请加入。入宗后再查看宗门日常和贡献。');
+      action = { label: '查看宗门列表', command: '/宗门列表' };
+    } else {
+      action = { label: '查看我的宗门', command };
+      if (progress.guildNeedsJoin === false && progress.features.includes('guild-mining')) {
+        extraActions.push({ label: '查看挖矿状态', command: '/宗门日常' });
+      }
+      if (progress.guildNeedsJoin === false && progress.features.includes('guild-storyline')) {
+        extraActions.push({ label: '查看宗门主线', command: '/宗门主线' });
+      }
+    }
+  }
+  if (topic === 'alchemy') {
+    if (progress.alchemyUnlocked === false) {
+      lines.splice(0, 1, '说明：先完成炼丹师引导，就能查看已掌握的丹方。');
+      action = { label: '炼丹入门', command: '/炼丹 入门' };
+    } else {
+      action = { label: '查看丹方', command };
+    }
+  }
   if (topic === 'market') {
     const missingMaterials = (growth?.materials ?? []).filter(item => item.currentQuantity < item.requiredQuantity);
 
@@ -266,9 +410,13 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
   }
   if (topic === 'meridian') {
     action = { label: '查看经络', command };
+    if (progress.missingPulseQi && has('meditation')) {
+      lines.splice(0, 1, `真气：还差 ${amount(progress.missingPulseQi)} 点。闭关出关可结算真气。`);
+      extraActions.push(questionButton('meditation'));
+    }
   }
 
-  if (topic === 'realm') {
+  if (topic === 'realm' || (topic === 'tribulation' && growth?.kind === '渡劫')) {
     const materials = (growth?.materials ?? []).filter(item => item.currentQuantity < item.requiredQuantity);
 
     action = growthAction(growth);
@@ -298,10 +446,21 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
       }
       if (story.chests) {
         lines.push(`待领取：主线宝箱 ${story.chests} 个`);
+        if (topic === 'story') {
+          extraActions.push({ label: '查看宝箱领取入口', command: '/查看主线' });
+        }
       }
       action = storyAction;
     } else if (topic === 'story') {
       lines.push('状态：暂无可展示的章节进度。');
+    }
+    if (topic === 'story' && story?.nextStage && !story.ready) {
+      if (story.blockerCode === 'mental' || story.blockerCode === 'daily-limit') {
+        lines.push('说明：可先改用闭关等方式攒修为，等精力或次数恢复再推主线。');
+        extraActions.push(questionButton('experience'));
+      } else if (story.blockerCode === 'team' && has('team')) {
+        extraActions.push({ label: '查看我的队伍', command: '/我的队伍' });
+      }
     }
     if (topic === 'experience') {
       lines.unshift(growthLine);
@@ -310,12 +469,17 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
         lines.push('说明：已满足' + growth.kind + '条件，先' + action.label + '。');
       } else if (story?.ready && story.nextStage > 0) {
         lines.push(`说明：先推主线 ${story.chapter}-${story.nextStage}，通关可获得修为。`);
-      } else if (seclusion?.active || seclusion?.canStart) {
-        action = { label: seclusion.active ? '查看闭关进度' : '查看闭关', command: '/闭关' };
-        lines.push(seclusion.active ? '说明：可查看闭关进度和出关条件。' : '说明：可开始闭关，出关后结算修为。');
+      } else if (progress.meditation?.active) {
+        action = { label: '查看闭关进度', command: '/闭关' };
+        lines.push('说明：当前正在闭关，可查看本次修为和真气。');
+      } else if (meditation?.canStart) {
+        action = { label: '开始闭关', command: '/闭关' };
+        lines.push('说明：可开始闭关，出关后结算修为。');
       } else {
         action = { label: '修炼面板', command };
-        if (seclusion?.startReason) { lines.push('状态：' + seclusion.startReason); }
+        if (meditation?.startReason === 'daily_qi_limit') {
+          lines.push('状态：今日真气已达上限，明日可再闭关。');
+        }
       }
     }
   }
@@ -323,7 +487,9 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
     const { mental } = progress;
     const entries = progress.dungeons ?? [];
 
-    if (mental !== undefined) { lines.push(`数量：当前精力 ${mental}`); }
+    if (mental !== undefined) {
+      lines.push(`数量：当前精力 ${mental}`);
+    }
     for (const entry of entries) {
       const left = entry.limit > 0 ? Math.max(0, entry.limit - entry.used) : undefined;
       const quota = left === undefined ? '今日不限次' : `今日剩 ${left} 次`;
@@ -342,21 +508,44 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
     );
 
     action = candidate ? { label: '查看' + candidate.name, command: '/秘境详情 ' + candidate.name } : { label: '查看秘境列表', command };
-    if (candidate) { extraActions.push({ label: '全部秘境', command }); }
+    if (candidate) {
+      extraActions.push({ label: '全部秘境', command });
+    }
   }
-  if (topic === 'tower' && towerLine) {
-    lines.unshift(towerLine);
+  if (topic === 'tower') {
+    action = { label: '打开妖塔', command };
+    if (tower) {
+      const next = tower.finished
+        ? '今日已结束，可以到积分商店查看能换的物品。'
+        : tower.sweepable && tower.sweepableLayers
+          ? `今天可扫荡前 ${tower.sweepableLayers} 层。从妖塔面板扫荡后，再看下一关。`
+          : tower.canChallenge && tower.targetLayer
+            ? `打开妖塔比较第 ${tower.targetLayer} 层各星级的战力，再选择要打的星级。`
+            : '打开妖塔核对当前关卡和可用操作。';
+
+      lines.splice(0, 1, towerLine + (tower.started && !tower.finished && tower.stage ? ` · 第 ${tower.stage} 关` : ''), '说明：' + next);
+      if (tower.score !== undefined) {
+        lines.push('积分：' + amount(tower.score));
+      }
+      if (tower.finished) {
+        action = { label: '积分商店', command: '/商店 积分' };
+      }
+    }
   }
-  if ((topic === 'meditation' || topic === 'experience') && seclusionLine) {
-    lines.unshift(seclusionLine);
+  if (topic === 'meditation' && progress.meditation?.active) {
+    action = { label: '查看闭关进度', command: '/闭关' };
+  }
+  if ((topic === 'meditation' || topic === 'experience') && meditationLine) {
+    lines.unshift(meditationLine);
   }
   if (topic === 'rewards') {
-    const rewardActions: BubbleAction[] = [];
-    const rewardLines: string[] = [];
+    const sections: { lines: string[]; actions?: BubbleAction[] }[] = [];
 
     if (story?.chests) {
-      rewardLines.push(`待领取：主线宝箱 ${story.chests} 个`);
-      rewardActions.push({ label: '查看主线宝箱', command: '/查看主线' });
+      sections.push({
+        lines: [`待领取：主线宝箱 ${story.chests} 个`],
+        actions: [{ label: '查看主线宝箱', command: '/查看主线' }]
+      });
     }
     for (const [period, label] of [
       ['daily', '日常活跃'],
@@ -365,20 +554,29 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
       const count = progress.activityRewards?.[period];
 
       if (count) {
-        rewardLines.push(`待领取：${label} ${count} 档`);
-        rewardActions.push({ label, command: '/' + label });
+        sections.push({
+          lines: [`待领取：${label} ${count} 档`],
+          actions: [{ label: '查看' + label, command: '/' + label }]
+        });
       }
     }
     if (signed === false) {
-      rewardLines.push('状态：日常签到待完成');
-      rewardActions.push({ label: '查看签到', command: '/签到概览' });
+      sections.push({ lines: ['状态：日常签到待完成'], actions: [{ label: '查看签到', command: '/签到概览' }] });
     }
+
+    // An unavailable data source is different from a completed reward track.
+    const checked =
+      signed === true && (!has('story') || story?.chests === 0) && progress.activityRewards?.daily === 0 && progress.activityRewards?.weekly === 0;
+    const hint =
+      sections.length || !checked
+        ? '说明：邮件和活动奖励可到任务面板核对。'
+        : '状态：签到已完成，当前没有待领的主线宝箱和活跃奖励。邮件及活动可到任务面板核对。';
 
     return buildBubble({
       ...context,
       title,
-      sections: [{ lines: [...rewardLines, '说明：邮件和活动奖励可到任务面板核对。'] }],
-      footer: [rewardActions, [back, { label: '任务面板', command }]]
+      sections: [...sections, { lines: [hint] }],
+      footer: [back, { label: '任务面板', command }]
     });
   }
   if (topic === 'farm') {
@@ -417,7 +615,9 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
       ? extraActions.some(item => item.command === questionButton('experience').command)
         ? ['story']
         : ['experience', 'story']
-      : ['realm', 'rewards'];
+      : topic === 'resources'
+        ? ['market', 'exploration', 'realm']
+        : ['realm', 'rewards'];
   const followUp = related.filter(has).map(questionButton);
 
   return buildBubble({

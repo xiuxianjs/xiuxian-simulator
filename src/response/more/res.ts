@@ -6,7 +6,7 @@ import { COMMAND_CATALOG } from '@src/response-apps/more/commandCatalog';
 import { selects } from '@src/response/config';
 import { buildBubble, type BubbleSection } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
-import { getAppConfig } from '@src/utils/appConfig';
+import { getOfficialGroupButton } from '@src/utils/appConfig';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { commandText, displayCommandText } from '@src/utils/commandPrefix';
 import { FormatGui, type GuiFooter } from '@src/utils/messageHelper';
@@ -302,9 +302,7 @@ export default onResponse(selects, async e => {
 
     return;
   }
-  const configuredGroupUrl = getAppConfig()?.official_group_url;
-
-  const officialGroupUrl = (typeof configuredGroupUrl === 'string' ? configuredGroupUrl.trim() : '') || 'https://qm.qq.com/q/vdFtnG7SEK';
+  const { pinned, url } = getOfficialGroupButton();
 
   const reply = FormatGui({
     isPrivate: e.isPrivate ?? false,
@@ -319,7 +317,7 @@ export default onResponse(selects, async e => {
       { label: '任务设置', command: '/任务设置' }
     ],
     content: md,
-    keyboard: configuredGroupUrl ? [{ label: '加入群聊', command: officialGroupUrl, type: 'link' }] : []
+    keyboard: !pinned && url ? [{ label: '加入群聊', command: url, type: 'link' }] : []
   });
 
   void message.send(reply);

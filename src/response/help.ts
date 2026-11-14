@@ -36,7 +36,15 @@ export default onResponse(selects, async e => {
     const actualRealm = progress && helpRealmName(progress.realm);
     const ownRealm = actualRealm && (realm === actualRealm || realm === helpRealmStage(actualRealm));
 
-    await message.send(realmHelpBubble(context, ownRealm ? actualRealm : realm, ownRealm && progress ? helpNextStep(progress) : undefined));
+    await message.send(
+      realmHelpBubble(
+        context,
+        ownRealm ? actualRealm : realm,
+        ownRealm && progress ? helpNextStep(progress) : undefined,
+        ownRealm ? progress?.farm : undefined,
+        !ownRealm || progress?.farmNeedsGuide === true
+      )
+    );
 
     return;
   }
