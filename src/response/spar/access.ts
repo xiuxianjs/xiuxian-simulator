@@ -28,7 +28,7 @@ export function sendSparLockedPage(params: {
   const md = Format.createMarkdown();
   const targetBid = typeof params.bid === 'string' ? params.bid : params.bid === undefined ? undefined : String(params.bid);
 
-  md.addText(`筑基初期及以上方可发起比试，当前境界：${params.realmName}`);
+  md.addText(`炼气一层及以上方可发起比试，当前境界：${params.realmName}`);
 
   void params.message.send(
     FormatGui({

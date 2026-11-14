@@ -54,7 +54,9 @@ const taskCommands: Record<string, string> = {
   alchemy: '/丹方',
   tongtian_clear: '/通天塔',
   fishing_catch: '/垂钓',
-  farm_work: '/我的灵田'
+  farm_work: '/我的灵田',
+  robbery: '/可打劫道友',
+  spar: '/比试'
 };
 
 function signRewards(sign: Sign): string[] {
