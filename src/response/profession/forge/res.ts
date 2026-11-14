@@ -31,8 +31,7 @@ function earlyForgeProgress(p: ForgePreview): string[] {
   }
 
   return [
-    `经验：本次 +0 · 当前${professionLevel}阶，配方属${recipe.requiredLevel}阶`,
-    '说明：打造本阶配方可获得晋升经验',
+    `经验：本次 +${p.expGained} · 计入匠师第${professionLevel}阶`,
     ...(recipe.assessment ? [`考核：升到${recipe.requiredLevel}阶后计入该阶考核，同一图纸只计一种`] : ['考核：该配方不计入作品考核'])
   ];
 }

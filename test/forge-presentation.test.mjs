@@ -330,23 +330,23 @@ test('forge presentation keeps focused navigation and removes repeated instructi
   assert.ok(out.includes('到期：2026-10-25 08:00'));
 });
 
-test('early weapon preview explains zero experience and the later assessment before confirmation', async () => {
+test('early weapon preview shows current-stage experience and the later assessment before confirmation', async () => {
   const recipe = {
     ...fixture.preview.recipe, id: 22, name: '玄铁剑', earlyCraft: true,
     requiredLevel: 2, craftRequiredLevel: 1, assessment: true
   };
-  const preview = { ...fixture.preview, recipe, tutorial: false, expGained: 0, assessmentNew: false, professionLevel: 1 };
+  const preview = { ...fixture.preview, recipe, tutorial: false, expGained: 20, assessmentNew: false, professionLevel: 1 };
   await render('/打造 22', preview);
   const [message] = framework.result.messages;
   const out = JSON.stringify(message.nodes);
-  assert.ok(out.includes('本次 +0 · 当前1阶，配方属2阶'));
+  assert.ok(out.includes('本次 +20 · 计入匠师第1阶'));
   assert.ok(out.includes('升到2阶后计入该阶考核'));
   assert.ok(out.indexOf('升到2阶后') < out.indexOf('/确认打造 '));
   assert.ok(out.includes('返回图纸'));
 
   const current = await render('/打造 22', { ...preview, professionLevel: 2 });
   assert.ok(!current.includes('升到2阶后'));
-  const order = await render('/委托锻造 1 22 7', { ...fixture.orderPreview, recipe, expGained: 0, professionLevel: 1 });
+  const order = await render('/委托锻造 1 22 7', { ...fixture.orderPreview, recipe, expGained: 20, professionLevel: 1 });
   assert.ok(order.includes('升到2阶后计入该阶考核'));
 });
 
