@@ -1,10 +1,10 @@
-import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
-import { buildBubble, type BubbleSection } from '@src/response/presentation';
-import { commandText } from '@src/utils/commandPrefix';
 import { parseProfessionDashboard } from '@src/api/bot/profession-dashboard-query';
 import { selects } from '@src/response/config';
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
+import { buildBubble, type BubbleSection } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { commandText } from '@src/utils/commandPrefix';
 import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
@@ -102,11 +102,11 @@ export default onResponse(selects, async e => {
           ]
         });
       }
+      rooms.push({ title: '灵塘', lines: [], actions: [{ label: '垂钓', command: '/垂钓', autoEnter: false }] });
+
       if (allowed('cave-formations')) {
         rooms.push({ title: '护府阵法', lines: [], actions: [{ label: '查看阵法', command: '/洞府阵法' }] });
       }
-
-      rooms.push({ title: '灵塘', lines: [], actions: [{ label: '垂钓', command: '/垂钓', autoEnter: false }] });
 
       void message.send(
         buildBubble({
