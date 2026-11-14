@@ -3,6 +3,7 @@ import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import handler from '../../src/response/message/me/res';
+import readAllHandler from '../../src/response/notification/read-all/res';
 import { validateHomeNotifications } from '../../src/api/bot/home-notification-queries';
 import { businessEnvelope, gameFixture } from './fixture';
 
@@ -22,11 +23,22 @@ const profile = {
 for (const privateChat of [false, true]) {
   test(`资料页按服务端事实展示飞信和未送达通知，零计数时移除入口（${privateChat ? '私聊' : '群聊'}）`, async t => {
     let pending = true;
-    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, {
-      profile,
-      notifications: pending ? [{ type: 'UNREAD_EMAIL', count: 1 }, { type: 'UNREAD_FLYMAIL', count: 3 }, { type: 'UNDELIVERED_NOTIFICATION', count: 2 }] : [],
-      atmosphere: { text: null, kind: 'none' }
-    }));
+    const { app, requests } = await gameFixture(t, r => {
+      if (r.path.endsWith('/online-encounter.check')) {
+        const tomorrow = new Date(Date.now() + 86400000).toISOString();
+        return businessEnvelope(r.bid, { triggered: false, pending: null, quotaExhausted: false, nextCheckAt: tomorrow, nextGameDayAt: tomorrow });
+      }
+      if (r.path.endsWith('/notifications.mark-all-read')) {
+        pending = false;
+        return businessEnvelope(r.bid, { count: 6 });
+      }
+
+      return businessEnvelope(r.bid, {
+        profile,
+        notifications: pending ? [{ type: 'UNREAD_EMAIL', count: 1 }, { type: 'UNREAD_FLYMAIL', count: 3 }, { type: 'UNDELIVERED_NOTIFICATION', count: 2 }] : [],
+        atmosphere: { text: null, kind: 'none' }
+      });
+    });
     const event = () => privateChat ? app.events.privateMessage({ text: '/我的资料', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' });
     const result = await app.runHandler(handler, event());
     assert.deepEqual(result.errors, []);
@@ -38,14 +50,24 @@ for (const privateChat of [false, true]) {
     assert.ok(view.commands.includes('/飞信'));
     assert.ok(view.commands.includes('/我的通知'));
     assert.ok(view.commands.includes('/我的邮件'));
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].path, '/api/v2/robot/home-overview');
-    pending = false;
+    assert.deepEqual(requests.filter(r => !r.path.endsWith('/online-encounter.check')).map(r => r.path), ['/api/v2/robot/home-overview']);
+    const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])
+      .flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [node]);
+    const command = view.commands.find(value => value === '/一键通知已读');
+    assert.ok(command);
+    assert.ok(nodes.some(node => node.type === 'MD.button' && node.options?.data === command && node.options.autoEnter === false));
+    const input = { text: command, platform: 'qq-bot' };
+    const receipt = await app.runHandler(readAllHandler, privateChat ? app.events.privateMessage(input) : app.events.groupMessage(input));
+    assert.deepEqual(receipt.errors, []);
+    assert.equal(receipt.actions[receipt.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.match(inspectMessage(receipt.messages[0].nodes).text, /已将 6 条通知标记为已读/);
+    assert.equal(requests.at(-1)?.path, '/api/v2/robot/business/notifications.mark-all-read');
     const cleared = await app.runHandler(handler, event());
     assert.equal(cleared.actions[cleared.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const empty = inspectMessage(cleared.messages[0].nodes);
     assert.doesNotMatch(empty.text, /未读飞信|未送达通知/);
     assert.ok(!empty.commands.includes('/我的通知'));
+    assert.ok(!empty.commands.includes('/一键通知已读'));
   });
 }
 
@@ -70,6 +92,7 @@ test('仅开放队伍飞信时，未读入口直接进入队伍，避免落到�
   assert.match(view.text, /未读飞信 1/);
   assert.ok(view.commands.includes('/飞信 队伍'));
   assert.ok(!view.commands.includes('/飞信'));
+  assert.ok(view.commands.includes('/一键通知已读'));
 });
 
 for (const { guildName, guildId, privateChat, canJoin } of [
@@ -108,7 +131,7 @@ for (const { guildName, guildId, privateChat, canJoin } of [
     } else {
       assert.equal(joinIndex, -1);
     }
-    assert.equal(requests.length, 1);
+    assert.equal(requests.filter(r => !r.path.endsWith('/online-encounter.check')).length, 1);
     assert.equal(requests[0].path, '/api/v2/robot/home-overview');
   });
 }
@@ -132,7 +155,7 @@ for (const privateChat of [false, true]) {
       assert.match(view.text, /UID：1 /);
       assert.match(view.text, /道号：测试道友/);
       assert.ok(view.commands.includes('/改名 测试道友'));
-      assert.equal(requests.length, 1);
+      assert.equal(requests.filter(r => !r.path.endsWith('/online-encounter.check')).length, 1);
     });
   }
 }

@@ -248,6 +248,7 @@ export function createGameRouter() {
     xiuxian.use(['开启群订阅', '关闭群订阅'], () => import('@src/response/groupSubscription/res'));
     xiuxian.use(['通知设置'], () => import('@src/response/notification/settings/res'));
     xiuxian.use(['我的通知', '通知记录'], () => import('@src/response/notification/history/res'));
+    xiuxian.use('一键通知已读', () => import('@src/response/notification/read-all/res'));
 
     xiuxian.use(
       {

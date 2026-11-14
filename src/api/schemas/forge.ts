@@ -38,6 +38,7 @@ export type ForgeRecipe = {
   requiredRealm: string;
   canEquip: boolean;
   requiredLevel: number;
+  baseExp?: number;
   craftRequiredLevel?: number;
   earlyCraft?: boolean;
   learned: boolean;
@@ -70,6 +71,7 @@ export type ForgeOverview = {
 export type ForgeTutorialTool = { templateId: number; name: string; type: string; grade: string; gradeLevel: number; permission: number };
 export type ForgeTutorialToolReward = ForgeTutorialTool & { instanceId: number; equipped: boolean };
 export type ForgePreview = {
+  professionLevel?: number;
   token: string;
   expiresAt: number;
   tutorial: boolean;
@@ -156,6 +158,9 @@ function recipe(value: unknown) {
     ['canEquip', 'learned', 'assessment', 'completed', 'canCraft', 'tradeable']
   );
 
+  if (row.baseExp !== undefined && (!Number.isSafeInteger(row.baseExp) || Number(row.baseExp) < 0)) {
+    throw new Error('锻造基础经验无效');
+  }
   if (row.craftRequiredLevel !== undefined && (!Number.isSafeInteger(row.craftRequiredLevel) || (row.craftRequiredLevel as number) < 0)) {
     throw new Error('锻造制造等级无效');
   }
@@ -208,6 +213,9 @@ export function parseForgePreview(value: unknown): ForgePreview {
   const row = fields(value, ['token'], ['expiresAt', 'expGained'], ['tutorial', 'assessmentNew']);
 
   recipe(row.recipe);
+  if (row.professionLevel !== undefined && (!Number.isSafeInteger(row.professionLevel) || Number(row.professionLevel) < 0)) {
+    throw new Error('锻造职业阶段无效');
+  }
   if (row.tutorialTool !== undefined) {
     parseTutorialTool(row.tutorialTool);
     if (!row.tutorial) {

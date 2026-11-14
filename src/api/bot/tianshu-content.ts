@@ -4,6 +4,7 @@ export type TianshuContent = {
   gateVersion?: number;
   commandFeatures?: Record<string, string>;
   featureCatalog?: Array<{ stageLevel: number; stageName: string; features: TianshuFeature[] }>;
+  upcoming?: { realm: string; features: string[] };
   intro: string;
   realmUnlocks: Array<{ realm: string; features: string[] }>;
   notes: string[];
@@ -93,6 +94,12 @@ export function parseBackendTianshuContent(data: unknown): TianshuContent {
                 feature.conditions.every(condition => typeof condition === 'string')
             )
         ))) ||
+    (content.upcoming !== undefined &&
+      (!content.upcoming ||
+        typeof content.upcoming !== 'object' ||
+        typeof (content.upcoming as { realm?: unknown }).realm !== 'string' ||
+        !Array.isArray((content.upcoming as { features?: unknown }).features) ||
+        !(content.upcoming as { features: unknown[] }).features.every(feature => typeof feature === 'string'))) ||
     typeof content.intro !== 'string' ||
     !Array.isArray(content.realmUnlocks) ||
     !content.realmUnlocks.every(

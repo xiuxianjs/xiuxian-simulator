@@ -5,6 +5,7 @@ import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { section } from '@src/response/presentation/sections';
 import { parseForgeCatalogArguments, forgeRecipesForFilter, forgeCatalogCommand, type ForgeCatalogQuery } from './catalog';
 import {
   parseForgeOrderPreview,
@@ -21,6 +22,20 @@ import {
   type ForgeResult,
   type ForgeHistory
 } from '@src/api/schemas/forge';
+
+function earlyForgeProgress(p: ForgePreview): string[] {
+  const { recipe, professionLevel } = p;
+
+  if (p.tutorial || !recipe.earlyCraft || professionLevel === undefined || professionLevel >= recipe.requiredLevel) {
+    return [];
+  }
+
+  return [
+    `经验：本次 +0 · 当前${professionLevel}阶，配方属${recipe.requiredLevel}阶`,
+    '说明：打造本阶配方可获得晋升经验',
+    ...(recipe.assessment ? [`考核：升到${recipe.requiredLevel}阶后计入该阶考核，同一图纸只计一种`] : ['考核：该配方不计入作品考核'])
+  ];
+}
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -227,29 +242,41 @@ export default onResponse(selects, async e => {
     }
     if (!query) {
       const reason = !v.joined && !v.canJoin ? `境界不足，需要达到${v.entryRealm}` : v.joined && !v.canAdvance ? v.advanceReason : '';
-      const recovery = reason
-        ? withBusinessRecovery('forge.advance', {
-            title: '',
-            heading: '',
-            text: reason,
-            buttons: [],
-            advice: []
-          }).advice
-        : [];
+      const expMissing = v.joined && v.nextTitle && v.assessmentDone >= v.assessmentRequired ? Math.max(0, v.expRequired - v.exp) : 0;
+      const recovery =
+        reason && !expMissing
+          ? withBusinessRecovery('forge.advance', {
+              title: '',
+              heading: '',
+              text: reason,
+              buttons: [],
+              advice: []
+            }).advice
+          : [];
 
       content.addBlockquote(
         createQuoteMarkdown(
           v.joined
             ? [
                 `${v.title} · 等级 ${v.level}`,
-                ...(v.nextTitle ? [`经验：${v.exp}/${v.expRequired}`, `考核：${v.assessmentDone}/${v.assessmentRequired}`] : ['已达最高阶段']),
-                ...(v.canAdvance ? [`可晋升：${v.nextTitle}`] : v.nextTitle && v.advanceReason ? [v.advanceReason] : [])
+                ...(v.nextTitle
+                  ? [`经验：${v.exp}/${v.expRequired}`, `考核：${v.assessmentDone}/${v.assessmentRequired}${expMissing ? ' · 已完成' : ''}`]
+                  : ['已达最高阶段']),
+                ...(expMissing
+                  ? [`进度：晋升还差 ${expMissing} 点锻造经验`]
+                  : v.canAdvance
+                    ? [`可晋升：${v.nextTitle}`]
+                    : v.nextTitle && v.advanceReason
+                      ? [v.advanceReason]
+                      : [])
               ]
             : [`入门境界：${v.entryRealm}${v.canJoin ? ' ✓' : ' · 未满足'}`, '免费教学 · 首件署名装备'],
           v.joined
             ? v.canAdvance
               ? [{ label: '确认晋升', command: `/锻造进阶 ${v.level}` }]
-              : []
+              : expMissing
+                ? [{ label: '查看本阶练习图纸', command: '/锻造图纸 练习' }]
+                : []
             : v.canJoin
               ? [{ label: '免费入门', command: '/加入锻造师' }]
               : []
@@ -284,13 +311,18 @@ export default onResponse(selects, async e => {
     }
     const { filter, page } = query;
 
-    content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
-    title = `锻造图纸 · ${filter === '考核' ? '待考核' : filter}`;
+    if (filter !== '练习') {
+      content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
+    }
+    title = `锻造图纸 · ${filter === '考核' ? '待考核' : filter === '练习' ? '本阶练习' : filter}`;
     pageHeader = [
       { label: '全部', selected: filter === '全部', command: '/锻造图纸' },
       { label: '待考核', selected: filter === '考核', command: '/锻造图纸 考核' },
       { label: '可制作', selected: filter === '可制作', command: '/锻造图纸 可制作' }
     ];
+    if (filter === '练习') {
+      footer = [{ label: '返回锻造进度', command: '/我的锻造' }];
+    }
     const recipes = forgeRecipesForFilter(v, filter);
     const totalPages = Math.max(1, Math.ceil(recipes.length / 5));
 
@@ -301,9 +333,35 @@ export default onResponse(selects, async e => {
     }
     const rows = recipes.slice((page - 1) * 5, page * 5);
 
-    rows.forEach(r => showRecipe(r, true, query));
+    if (filter === '练习') {
+      for (const r of rows) {
+        content.addBlockquote(
+          section({
+            title: r.name,
+            id: r.id,
+            lines: [`经验：基础 +${r.baseExp}`, `消耗：灵石 ${r.spiritStoneCost}`, ...(r.reason ? [`状态：${r.reason}`] : [])],
+            actions: [
+              ...(r.canCraft ? [{ label: '打造', command: `/打造 ${r.id}` }] : []),
+              { label: '详情', command: `/锻造图纸详情 ${r.id} ${filter} ${page}` }
+            ]
+          })
+        );
+      }
+    } else {
+      rows.forEach(r => showRecipe(r, true, query));
+    }
     if (!recipes.length) {
-      content.addText(filter === '考核' ? (v.joined ? '暂无待考核图纸' : '尚未入门') : filter === '可制作' ? '暂无可打造图纸' : '暂无图纸');
+      content.addText(
+        filter === '考核'
+          ? v.joined
+            ? '暂无待考核图纸'
+            : '尚未入门'
+          : filter === '可制作'
+            ? '暂无可打造图纸'
+            : filter === '练习'
+              ? '暂无可提供晋升经验的本阶图纸'
+              : '暂无图纸'
+      );
     }
     nav = {
       current: page,
@@ -320,19 +378,28 @@ export default onResponse(selects, async e => {
 
       return;
     }
+    const early = earlyForgeProgress(p);
+
+    footer = [
+      { label: '返回图纸', command: '/锻造图纸' },
+      { label: '锻造', command: '/我的锻造' }
+    ];
     content.addBlockquote(
-      createQuoteMarkdown(
-        [
-          `${p.recipe.name} · ${p.tutorial || !p.recipe.tradeable ? '不可交易' : '可交易'}`,
+      section({
+        title: p.recipe.name,
+        id: p.recipe.id,
+        suffix: `· ${p.tutorial || !p.recipe.tradeable ? '不可交易' : '可交易'}`,
+        lines: [
           ...p.recipe.attributes.filter(a => a.max > 0).map(a => `${a.name}：${a.min}～${a.max}${a.unit}`),
-          p.tutorial ? '免费教学 · 经验 +0' : `消耗：灵石 ${p.recipe.spiritStoneCost}`,
-          ...(!p.tutorial ? p.recipe.materials.map(m => `${m.name} ×${m.required}（可用 ${m.available}）`) : []),
+          p.tutorial ? '消耗：免费教学 · 经验 +0' : `消耗：灵石 ${p.recipe.spiritStoneCost}`,
+          ...(!p.tutorial ? p.recipe.materials.map(m => `材料：${m.name} ×${m.required}（可用 ${m.available}）`) : []),
           ...(p.tutorialTool ? [`赠送：${p.tutorialTool.name} · ${p.tutorialTool.grade} · 绑定`] : []),
-          ...(!p.tutorial ? [`经验 +${p.expGained}${p.assessmentNew ? ' · 首次考核' : ''}`] : []),
-          `穿戴：${p.recipe.requiredRealm}${p.recipe.canEquip ? ' ✓' : ' · 未满足'}`
+          ...(!p.tutorial ? (early.length ? early : [`经验 +${p.expGained}${p.assessmentNew ? ' · 首次考核' : ''}`]) : []),
+          `穿戴：${p.recipe.requiredRealm}${p.recipe.canEquip ? ' ✓' : ' · 未满足'}`,
+          `时间：请在 ${formatGameTime(p.expiresAt * 1000, 'HH:mm:ss')} 前确认`
         ],
-        [{ label: '确认打造', command: `/确认打造 ${p.token}` }]
-      )
+        actions: [{ label: '确认打造', command: `/确认打造 ${p.token}` }]
+      })
     );
   }
   try {
@@ -432,7 +499,7 @@ export default onResponse(selects, async e => {
       return;
     }
     if (command === '锻造图纸' && !catalogQuery) {
-      content.addText('请使用 /锻造图纸 [全部|考核|可制作] [正整数页码]');
+      content.addText('请使用 /锻造图纸 [全部|考核|可制作|练习] [正整数页码]');
       await send();
 
       return;
@@ -476,6 +543,7 @@ export default onResponse(selects, async e => {
             `托管：灵石 ${p.recipe.spiritStoneCost + p.fee}（制作 ${p.recipe.spiritStoneCost} · 工费 ${p.fee}）`,
             ...p.recipe.materials.map(m => `${m.name} ×${m.required}（可用 ${m.available}）`),
             `委托有效期：${p.lifetimeSeconds / 3600} 小时`,
+            ...earlyForgeProgress(p),
             '接单前可取消退款'
           ],
           [{ label: '确认委托', command: `/确认锻造委托 ${p.token}` }]

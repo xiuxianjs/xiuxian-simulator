@@ -121,9 +121,7 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
             const isEarlyStarter = data.actions.isEarlyStarter;
             const pageTitle = data.profile.title !== '无' ? `主页 - ${data.profile.title}` : '主页 - 我的信息';
 
-            const noticeButtons: Array<{ label: string; command: string }> = [];
-
-            noticeButtons.push(...data.notifications.flatMap(notification => toNotificationButton(notification, data.actions.canUseFifthLayerFeature)));
+            const noticeButtons = data.notifications.flatMap(notification => toNotificationButton(notification, data.actions.canUseFifthLayerFeature));
 
             if (data.bannerImageUrl) {
               // 4.3:1
@@ -131,10 +129,10 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
               contentMd.addNewline();
             }
 
-            if (noticeButtons.length > 0) {
+            if (noticeButtons.length > 0 || data.notifications.some(notification => notification.type === 'UNREAD_NOTICE' && notification.count > 0)) {
               const noticeMd = Format.createMarkdown();
 
-              appendButtons(noticeMd, noticeButtons);
+              appendButtons(noticeMd, [...noticeButtons, { label: '一键通知已读', command: '/一键通知已读' }]);
               contentMd.addBlockquote(noticeMd);
             }
 

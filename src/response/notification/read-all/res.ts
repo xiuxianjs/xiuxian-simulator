@@ -1,0 +1,52 @@
+import { selects } from '@src/response/config';
+import { errorBubble, resultBubble } from '@src/response/presentation';
+import { runRobotBusiness } from '@src/response/robotBusiness';
+import { isPrivateEvent } from '@src/utils/privateEvent';
+import { useMessage } from '@src/utils/useMessage';
+import { logger, onResponse, useEvent } from 'alemonjs';
+
+function parseReadCount(data: unknown): number {
+  const count = (data as { count?: unknown } | null)?.count;
+
+  if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error('通知已读回执无效');
+  }
+
+  return count;
+}
+
+export default onResponse(selects, async e => {
+  const [, next] = useEvent();
+
+  if (!/^[!！/#＃]?一键通知已读$/u.test((e.MessageText ?? '').trim())) {
+    return next();
+  }
+
+  const [message] = useMessage();
+  const bubble = {
+    isPrivate: isPrivateEvent(e),
+    bid: e.UserId,
+    title: '一键通知已读',
+    footer: [
+      { label: '返回资料', command: '/我的资料' },
+      { label: '我的通知', command: '/我的通知' }
+    ]
+  };
+
+  try {
+    const result = await runRobotBusiness(e, 'notifications.mark-all-read', {}, parseReadCount, next);
+
+    if (!result.handled) {
+      await message.send(
+        resultBubble({
+          ...bubble,
+          status: 'done',
+          lines: [result.data > 0 ? `已将 ${result.data} 条通知标记为已读。` : '暂无可标记为已读的通知。']
+        })
+      );
+    }
+  } catch (error) {
+    logger.error('批量标记通知已读失败', error);
+    await message.send(errorBubble({ ...bubble, reason: '暂时无法确认操作结果，请返回资料查看通知栏。' }));
+  }
+});

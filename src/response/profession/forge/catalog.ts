@@ -1,11 +1,11 @@
 import type { ForgeOverview } from '@src/api/schemas/forge';
 
-export type ForgeCatalogFilter = '全部' | '考核' | '可制作';
+export type ForgeCatalogFilter = '全部' | '考核' | '可制作' | '练习';
 export type ForgeCatalogQuery = { filter: ForgeCatalogFilter; page: number };
 
 // Keep the existing numeric page form, while making growth filters explicit.
 export function parseForgeCatalogArguments(args: readonly string[]): ForgeCatalogQuery | null {
-  const filters = ['全部', '考核', '可制作'] as const;
+  const filters = ['全部', '考核', '可制作', '练习'] as const;
   const filtered = filters.some(filter => filter === args[0]);
   const filter = filtered ? (args[0] as ForgeCatalogFilter) : '全部';
   const pages = filtered ? args.slice(1) : args;
@@ -21,6 +21,11 @@ export function parseForgeCatalogArguments(args: readonly string[]): ForgeCatalo
 export function forgeRecipesForFilter(overview: ForgeOverview, filter: ForgeCatalogFilter) {
   if (filter === '可制作') {
     return overview.recipes.filter(recipe => recipe.canCraft);
+  }
+  if (filter === '练习') {
+    return overview.joined && overview.nextTitle && overview.exp < overview.expRequired
+      ? overview.recipes.filter(recipe => recipe.requiredLevel === overview.level && (recipe.baseExp ?? 0) > 0)
+      : [];
   }
   if (filter === '考核') {
     return overview.joined ? overview.recipes.filter(recipe => recipe.requiredLevel === overview.level && recipe.assessment && !recipe.completed) : [];

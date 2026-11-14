@@ -329,3 +329,55 @@ test('forge presentation keeps focused navigation and removes repeated instructi
   const out = await render('/确认锻造委托 signed-token', order);
   assert.ok(out.includes('到期：2026-10-25 08:00'));
 });
+
+test('early weapon preview explains zero experience and the later assessment before confirmation', async () => {
+  const recipe = {
+    ...fixture.preview.recipe, id: 22, name: '玄铁剑', earlyCraft: true,
+    requiredLevel: 2, craftRequiredLevel: 1, assessment: true
+  };
+  const preview = { ...fixture.preview, recipe, tutorial: false, expGained: 0, assessmentNew: false, professionLevel: 1 };
+  await render('/打造 22', preview);
+  const [message] = framework.result.messages;
+  const out = JSON.stringify(message.nodes);
+  assert.ok(out.includes('本次 +0 · 当前1阶，配方属2阶'));
+  assert.ok(out.includes('升到2阶后计入该阶考核'));
+  assert.ok(out.indexOf('升到2阶后') < out.indexOf('/确认打造 '));
+  assert.ok(out.includes('返回图纸'));
+
+  const current = await render('/打造 22', { ...preview, professionLevel: 2 });
+  assert.ok(!current.includes('升到2阶后'));
+  const order = await render('/委托锻造 1 22 7', { ...fixture.orderPreview, recipe, expGained: 0, professionLevel: 1 });
+  assert.ok(order.includes('升到2阶后计入该阶考核'));
+});
+
+test('completed assessment links to same-stage positive experience recipes, including blocked recipes', async () => {
+  const recipe = fixture.overview.recipes[0];
+  const overview = {
+    ...fixture.overview, level: 1, joined: true, nextTitle: '玄铁匠师', exp: 60, expRequired: 120,
+    assessmentDone: 3, assessmentRequired: 3, canAdvance: false, advanceReason: '职业经验不足',
+    recipes: [
+      { ...recipe, id: 33, name: '铁锤', requiredLevel: 1, baseExp: 20, canCraft: true, reason: '' },
+      { ...recipe, id: 32, name: '铁甲', requiredLevel: 1, baseExp: 20, canCraft: false, reason: '灵石不足' },
+      { ...recipe, id: 22, name: '玄铁剑', requiredLevel: 2, craftRequiredLevel: 1, earlyCraft: true, baseExp: 30, canCraft: true },
+      { ...recipe, id: 99, name: '零经验配方', requiredLevel: 1, baseExp: 0, canCraft: true }
+    ]
+  };
+  const home = await render('/我的锻造', overview);
+  assert.ok(home.includes('晋升还差 60 点锻造经验'));
+  assert.ok(home.includes('/锻造图纸 练习'));
+  assert.ok(!home.includes('/锻造进阶 '));
+  const list = await render('/锻造图纸 练习', overview);
+  assert.ok(list.includes('铁锤'));
+  assert.ok(list.includes('铁甲'));
+  assert.ok(list.includes('灵石不足'));
+  assert.ok(list.includes('/打造 33'));
+  assert.ok(!list.includes('/打造 32'));
+  assert.ok(!list.includes('玄铁剑'));
+  assert.ok(!list.includes('零经验配方'));
+  const detail = await render('/锻造图纸详情 32 练习 1', overview);
+  assert.ok(detail.includes('/锻造图纸 练习 1'));
+  for (const state of [{ assessmentDone: 2 }, { exp: 120 }, { nextTitle: '' }]) {
+    const out = await render('/我的锻造', { ...overview, ...state });
+    assert.ok(!out.includes('/锻造图纸 练习'));
+  }
+});
