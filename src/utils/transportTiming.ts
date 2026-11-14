@@ -41,9 +41,10 @@ export function recordTransportStage(
   event: TraceEvent | undefined = getCurrentEvent()
 ): void {
   try {
-    // Keep this reported slow command observable in deployed production bots.
     if (process.env.NODE_ENV === 'production' && !isLearnedBooksTimingEvent(event)) {
-      return;
+      if (!isHomeTimingEvent(event) || !getBackendConfig().logTransportTimings) {
+        return;
+      }
     }
     const durationMs = Number((finishedAt - startedAt).toFixed(3));
 

@@ -11,7 +11,7 @@ after(() => shutdownLogger());
 const panel = {
   daoName: '青岚', uid: 1, mid: '100001', realmName: '金丹初期', theme: null,
   maxAttributeBonus: 3, strength: 1480, maxStrength: 5350, intelligence: 169, maxIntelligence: 535,
-  constitution: 157, maxConstitution: 535, agility: 118, maxAgility: 535, luck: 56, maxLuck: 535,
+  constitution: 157, maxConstitution: 535, agility: 1, maxAgility: 236, luck: 56, maxLuck: 535,
   combatPower: 1255, physicalAttack: 1616, physicalDefense: 844, magicAttack: 1679, magicDefense: 881,
   spiritualPower: 920, mentalPower: 100, hp: 5630, speed: 177, critRate: 20, critDamage: 164,
   antiCritRate: 0, hitRate: 0, dodgeRate: 0, mpRecoveryEfficiency: 5, mentalRecoveryEfficiency: 1234.56789,
@@ -49,9 +49,15 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] 
     assert.match(controls.text, /回灵效率：5%/);
     assert.match(controls.text, /回念效率：8%/);
     if (mode !== 'group' && mode !== 'private') {
-      for (const text of ['MID：100001', '战力：1,255', '力量　1,480 / 5,350', '| 物理攻击 | 1,616 | 物理防御 | 844 |', '1,234.56789%']) {
+      for (const text of [
+        'MID：100001', '战力：1,255', '自由属性 · 上限加成 +3%',
+        '力量（28%）　1,480 / 5,350', '智慧（32%）　169 / 535', '体质（29%）　157 / 535',
+        '敏捷（1%）　1 / 236', '气运（10%）　56 / 535',
+        '| 物理攻击 | 1,616 | 物理防御 | 844 |', '1,234.56789%'
+      ]) {
         assert.ok(controls.text.includes(text), text);
       }
+      assert.doesNotMatch(controls.text, /[▓░]/);
     }
     for (const command of ['/服用 培元丹 1', '/服用 培元丹 3', '/服用 培元丹 5', '/我的装备', '/我的功法', '/天师宝录', '/经络', '/道途印证']) {
       assert.ok(controls.commands.includes(command), command);

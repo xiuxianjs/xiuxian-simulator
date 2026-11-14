@@ -5,7 +5,7 @@ import { selects } from '@src/response/config';
 import { section } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { renderCachedImage } from '@src/utils/imageRender';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { recoverySummaryMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, ResultCode, useEvent } from 'alemonjs';
@@ -73,12 +73,13 @@ const response = onResponse(selects, async e => {
   const footerButtons = [
     { label: '装备', command: '/我的装备' },
     { label: '功法', command: '/我的功法' },
+    { label: '宝物', command: '/宝物' },
     { label: '宝录', command: '/天师宝录' },
     ...(d.access.canUseSoulArtifact ? [{ label: '本命', command: '/我的本命物' }] : []),
     ...(d.access.canUseSoulPath ? [{ label: '道途印证', command: '/道途印证' }] : []),
     ...(d.access.canUseMeridian ? [{ label: '经络', command: '/经络' }] : [{ label: '闭关', command: '/闭关' }])
   ];
-  const footer = [footerButtons.slice(0, 3), footerButtons.slice(3)];
+  const footer = [footerButtons.slice(0, 4), footerButtons.slice(4)];
 
   if (/^\/?属性面板图$/.test(e.MessageText?.trim() ?? '')) {
     let imageSent = false;
@@ -126,18 +127,14 @@ const response = onResponse(selects, async e => {
     ['敏捷', d.agility, d.maxAgility],
     ['气运', d.luck, d.maxLuck]
   ] as const;
-  const attributeLines: string[] = [];
+  const attributeLines = attributes.map(([label, value, max]) => {
+    const percent = value > 0 && max > 0 ? Math.max(1, Math.min(100, Math.round((value / max) * 100))) : 0;
 
-  for (const [label, value, max] of attributes) {
-    const filled = max > 0 ? Math.max(0, Math.min(10, Math.floor((value / max) * 10))) : 0;
+    return `${label}（${percent}%）\u3000${formatPanelNumber(value)} / ${formatPanelNumber(max)}`;
+  });
+  const attributeQuote = section({ lines: [...attributeLines, '', '服用培元丹'] });
 
-    if (attributeLines.length > 0) {
-      attributeLines.push('');
-    }
-    attributeLines.push(`${label}\u3000${formatPanelNumber(value)} / ${formatPanelNumber(max)}`, '▓'.repeat(filled) + '░'.repeat(10 - filled));
-  }
-  attributeLines.push('', '服用培元丹');
-  contentMd.addBlockquote(createQuoteMarkdown(attributeLines, pillActions));
+  contentMd.addBlockquote(addOptions(attributeQuote, pillActions));
   contentMd.addNewline().addBold('战斗属性').addNewline().addNewline();
   contentMd.addContent(
     [

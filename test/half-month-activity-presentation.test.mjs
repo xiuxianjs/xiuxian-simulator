@@ -78,6 +78,28 @@ test('opening the activity before launch resolves the QQ player identity before 
   assert.match(result.text, /11-15 00:00/);
 });
 
+test('shop keeps product numbers across filters and puts currency switches after pagination', async () => {
+  const spring = { id: 'spring', currency: 'JADE', price: 18, limit: 10, reward: { name: '灵泉液', quantity: 3, category: 'item', itemId: 25 } };
+  const staff = { id: 'staff', currency: 'SPIRIT_MILK', price: 980, limit: 1, reward: { name: '星落杖', quantity: 1, category: 'soul_artifact', soulArtifactId: 17 } };
+  const shelf = { ...overview, products: [staff, product, { ...product, id: 'second' }, { ...product, id: 'third' }, spring] };
+  const first = await render('/半月活动 商店 仙玉', { [get]: shelf });
+  assert.ok(first.commands.includes('/半月活动 兑换 2'));
+  assert.ok(first.commands.indexOf('/半月活动 商店 仙玉 2') < first.commands.indexOf('/半月活动 商店 道晶'));
+  const second = await render('/半月活动 商店 仙玉 2', { [get]: shelf });
+  assert.match(second.text, /▸\s*仙玉/);
+  assert.match(second.text, /余额：98 仙玉/);
+  assert.match(second.text, /灵泉液 ×3/);
+  assert.match(second.text, /18 仙玉／份 · 本月剩余 10／10 份/);
+  assert.ok(second.commands.includes('/半月活动 兑换 5'));
+  assert.ok(second.commands.includes('/物品详情 物品 25'));
+
+  shelf.progress = { ...shelf.progress, bought: { staff: 1 } };
+  const sold = await render('/半月活动 商店 道晶', { [get]: shelf });
+  assert.match(sold.text, /本月已兑完/);
+  assert.ok(sold.commands.includes('/图鉴详情 本命 17'));
+  assert.ok(!sold.commands.some(command => command.startsWith('/半月活动 兑换')));
+});
+
 test('shop confirmation round-trips a complete server reference within QQ budget', async () => {
   const quote = { ref: reference, currency: 'JADE', price: 35, reward: product.reward, expiresAt: overview.endsAt };
   const view = await render('/半月活动 兑换 1', { [get]: overview, [preview]: quote });

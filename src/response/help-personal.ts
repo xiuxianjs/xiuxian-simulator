@@ -36,7 +36,7 @@ const topics = {
   treasure: ['宝录怎么继续收录', 'tianshi-baolu', '/天师宝录', '查看已收录进度、下一项条件以及当前持有物。'],
   island: ['仙岛现在开放吗', 'island', '/活动大厅', '仙岛按活动时间开放，先查看当前活动和参与资格。'],
   ladder: ['我能挑战登天梯吗', 'tianjiao', '/登天梯', '达到当前大境界最高层后，再核对挑战次数和对手资格。'],
-  spar: ['今天还能比试吗', 'pvp', '/任务面板', '比试消耗元力且有每日次数，按实际战斗配置参与。'],
+  spar: ['今天还能比试吗', 'pvp', '/比试', '炼气一层开放。可用 UID 或 @道友指定已注册的其他玩家。'],
   bounty: ['悬赏怎么获得奖励', 'bounty', '/悬赏榜', '查看可接受的悬赏和有效期，奖励取决于实际完成情况。'],
   relics: ['上古遗珍怎么获得', 'items', '/上古遗珍', '查看免费探索、兑换和已持有遗珍，按实际效果与消耗决定。'],
   robbery: ['打劫有什么收益', 'robbery', '/可打劫道友', '实际收益随目标、胜负和结算变化，先查看目标资格和元力消耗。']
@@ -79,7 +79,7 @@ const aliases: Partial<Record<Topic, RegExp>> = {
   treasure: /宝录/,
   island: /仙岛|海岛/,
   ladder: /登天梯|天骄/,
-  spar: /比试/,
+  spar: /比试|切磋/,
   bounty: /悬赏/,
   relics: /遗珍/,
   robbery: /打劫/
@@ -135,6 +135,7 @@ type Progress = {
   farm?: { planted: number; mature: number; abnormal: number; empty?: number };
   farmNeedsGuide?: boolean;
   dungeonTotal?: number;
+  spar?: { qi: number; requiredQi: number; dailyLimit: number; remaining?: number };
   dungeons?: { name: string; used: number; limit: number; free: number; cost: number; single?: boolean; minPlayers?: number; contributionCost?: number }[];
   details?: string[];
   meditation?: { active: boolean; minutes: number; experience: number; trueQi: number; canStart?: boolean; startReason?: string };
@@ -370,6 +371,21 @@ export function personalHelpBubble(context: { bid?: string; isPrivate: boolean }
     } else {
       lines.push('状态：灵石已够，可预览开塘。');
       action = { label: '预览开塘', command: '/垂钓 建塘' };
+    }
+  }
+  if (topic === 'spar') {
+    const spar = progress.spar;
+
+    action = { label: '找比试对象', command };
+    if (spar) {
+      lines.unshift(
+        `数量：元力 ${amount(spar.qi)} · 发起需 ${amount(spar.requiredQi)}`,
+        spar.remaining === undefined ? '状态：暂时无法读取今日次数。' : `次数：今日剩 ${spar.remaining}/${spar.dailyLimit} 次`
+      );
+      if (spar.remaining === 0 || spar.qi < spar.requiredQi) {
+        lines.push(spar.remaining === 0 ? '状态：今日比试次数已用完。' : `状态：元力还差 ${amount(spar.requiredQi - spar.qi)} 点。`);
+        action = { label: '查看我的面板', command: '/我的面板' };
+      }
     }
   }
   if (topic === 'team') {

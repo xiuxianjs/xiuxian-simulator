@@ -257,7 +257,14 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
           e
         );
 
-        await checkEncounterAfterPanel(e, 'profile', message, message.send(payload));
+        const sent = message.send(payload).then(receipts => {
+          transportCheckpoint('home.panel.receipt', e);
+
+          return receipts;
+        });
+
+        await checkEncounterAfterPanel(e, 'profile', message, sent);
+        transportCheckpoint('home.encounter.finished', e);
       } catch (error) {
         logger.error(error);
         const md = Format.createMarkdown();

@@ -154,6 +154,7 @@ export function realmHelpBubble(
         title: '本境界怎么玩',
         lines: ['说明：' + (earlyStage?.step ?? firstStep), '战力：' + power, '奖励：' + resources],
         actions: [
+          ...(tier === 1 && layer === 1 ? [{ label: '今天还能比试吗', command: '/帮助 今天还能比试吗' }] : []),
           ...(tier === 1 && unlocked(9)
             ? [
                 { label: '我现在能开塘吗', command: '/帮助 我现在能开塘吗' },

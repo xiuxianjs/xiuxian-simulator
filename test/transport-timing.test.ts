@@ -92,3 +92,34 @@ test('home timing always logs sub-millisecond spans while retaining fractional o
   assert.equal(facts[1].durationMs, 0.125);
   assert.equal(facts[1].elapsedFromEventStartMs, 0.125);
 });
+
+test('production home timing follows the opt-in for both profile aliases', async t => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  t.after(() => {
+    if (previous === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previous;
+    }
+  });
+  const config = { log_transport_timings: false };
+  mockBackendConfig(t, config);
+  const stages: string[] = [];
+  t.mock.method(logger, 'info', (_label: string, value: { stage: string }) => { stages.push(value.stage); });
+
+  for (const text of ['/我', '/我的资料']) {
+    const event = { name: 'message.create', MessageText: text, UserId: 'local', MessageId: 'one' } as GameEvent;
+    startTransportEvent(event);
+    await measureTransportStage('platform.send', async () => true, event);
+  }
+  assert.deepEqual(stages, []);
+
+  config.log_transport_timings = true;
+  for (const text of ['/我', '/我的资料', '/签到']) {
+    const event = { name: 'message.create', MessageText: text, UserId: 'local', MessageId: 'two' } as GameEvent;
+    startTransportEvent(event);
+    await measureTransportStage('platform.send', async () => true, event);
+  }
+  assert.deepEqual(stages, ['event.received', 'platform.send', 'event.received', 'platform.send']);
+});

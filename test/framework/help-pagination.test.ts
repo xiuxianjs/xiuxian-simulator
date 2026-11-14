@@ -14,6 +14,7 @@ for (const registered of [false, true]) {
     let guildNeedsJoin = true;
     let inTeam = false;
     let soloFree = 1;
+    let spar = { qi: 18, requiredQi: 10, dailyLimit: 10, remaining: 2 };
     let exhausted = false;
     let dungeonRead: "empty" | "unavailable" | undefined;
     let extraDungeons = false;
@@ -34,7 +35,7 @@ for (const registered of [false, true]) {
         ...(registered && (request.body.arguments as { topic?: string }).topic ? {
           progress: {
             realm,
-            features: ['profile', 'storyline', 'dungeons', 'exploration', 'herbalist', 'soul-path', 'checkin', 'tongtian-tower', 'meridians', 'market', 'demon-tower', 'teams', 'equipment', 'skill-books', 'alchemy', 'fishing-build', 'tribulation', 'guilds', 'guild-mining', 'guild-storyline'],
+            features: ['profile', 'storyline', 'dungeons', 'exploration', 'herbalist', 'soul-path', 'checkin', 'tongtian-tower', 'meridians', 'market', 'demon-tower', 'teams', 'equipment', 'skill-books', 'alchemy', 'fishing-build', 'tribulation', 'guilds', 'guild-mining', 'guild-storyline', 'pvp'],
             growth,
             story,
             farm,
@@ -45,6 +46,7 @@ for (const registered of [false, true]) {
             fishingBuild,
             guildNeedsJoin,
             inTeam,
+            spar,
             seclusion: { active: true, canEnd: true, remaining: 0 },
             tower,
             mental: 3,
@@ -430,7 +432,24 @@ for (const registered of [false, true]) {
       assert.match(progress.text, /已进行 30 分钟.*修为 60.*真气 2/);
       assert.ok(progress.commands.includes('/闭关'));
     }
-    assert.equal(requests.length, registered ? 70 : 6);
+    if (registered) {
+      realm = '炼气一层';
+      const guide = await open('/帮助 炼气一层');
+      const question = guide.commands.find(command => command === '/帮助 今天还能比试吗');
+      assert.ok(question);
+      const ready = await open(question);
+      assert.match(ready.text, /元力 18.*发起需 10/);
+      assert.match(ready.text, /今日剩 2\/10 次/);
+      assert.ok(ready.commands.includes('/比试'));
+      spar = { ...spar, qi: 7 };
+      const shortage = await open('/帮助 切磋');
+      assert.match(shortage.text, /元力还差 3 点/);
+      assert.ok(!shortage.commands.includes('/比试'));
+      spar = { ...spar, remaining: 0 };
+      const exhausted = await open(question);
+      assert.match(exhausted.text, /今日比试次数已用完/);
+    }
+    assert.equal(requests.length, registered ? 74 : 6);
     assert.deepEqual(requests[0].body.arguments, { topic: 'overview' });
     if (registered) assert.deepEqual(requests.slice(1, 4).map(request => request.body.arguments), [
       { topic: 'realm' }, { topic: 'soul' }, { topic: 'farm' }

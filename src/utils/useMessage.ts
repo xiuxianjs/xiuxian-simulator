@@ -3,7 +3,7 @@ import { Format, getCurrentEvent, useMessage as useFrameworkMessage, type DataEn
 import { compactButtonSpacing } from './compactButtonSpacing';
 import { manualCommandLinks } from './manualCommandLinks';
 import { filterFeatureFormat, filterOutgoingFeatures, presentationCommandFilter } from './featureVisibility';
-import { isLearnedBooksTimingEvent, measureTransportStage } from './transportTiming';
+import { isDetailedTimingEvent, measureTransportStage } from './transportTiming';
 
 type MessageClient = ReturnType<typeof useFrameworkMessage>[0];
 
@@ -13,7 +13,7 @@ export function timedMessageClient(message: MessageClient, traceEvent: Parameter
     ...message,
     edit: params => message.edit({ ...params, format: prefixCommandData(params.format) }),
     send: async params => {
-      const allowed = isLearnedBooksTimingEvent(traceEvent)
+      const allowed = isDetailedTimingEvent(traceEvent)
         ? await measureTransportStage('presentation.access', () => presentationCommandFilter(traceEvent), traceEvent)
         : await presentationCommandFilter(traceEvent);
       const filter = (value: Format | DataEnums[]) => {

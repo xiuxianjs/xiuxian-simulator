@@ -25,7 +25,6 @@ const PERSONAL_ROWS = [
   { label: '成就', command: '/成就', introduction: '天才只是见我的门槛' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
   { label: '上古遗珍', command: '/上古遗珍', introduction: '夺天地之造化' },
-  { label: '宝物', command: '/宝物', introduction: '你的宝物，与我有缘' },
   { label: '通天塔', command: '/通天塔', introduction: '既见仙人，为何不拜' },
   { label: '镇妖塔', command: '/妖塔', introduction: '魔可虾，妖亦可虾' },
   { label: '登天梯', command: '/登天梯', introduction: '谁敢言不败，谁敢言无敌' },

@@ -13,9 +13,19 @@ const currencyNames = { JADE: '仙玉', SPIRIT_MILK: '道晶', SPIRIT_CRYSTAL: '
 
 type Currency = keyof typeof currencyNames;
 type Reward = { name: string; amount: number };
-type Product = { id: string; currency: Currency; price: number; limit: number; reward: { name: string; quantity: number } };
+type ProductReward = {
+  name: string;
+  quantity: number;
+  category?: string;
+  itemId?: number;
+  equipmentId?: number;
+  skillBookId?: number;
+  soulArtifactId?: number;
+};
+type Product = { id: string; currency: Currency; price: number; limit: number; reward: ProductReward };
 type Sign = { crystals: number; jade: number };
 type SignResult = { signs: Array<Sign | null>; boxPool?: unknown[]; boxResult?: unknown[] };
+type Task = { name: string; action: string; tiers: Array<{ count: number; jade: number }> };
 type Overview = {
   month: string;
   day: number;
@@ -23,7 +33,8 @@ type Overview = {
   endsAt: string;
   jade: number;
   makeupPrice?: number;
-  task?: { name: string; action: string; tiers: Array<{ count: number; jade: number }> };
+  task?: Task;
+  tasks?: Task[];
   products?: Product[];
   unopened: string[];
   progress: {
@@ -45,6 +56,9 @@ type Quote = {
 
 const back = { label: '返回活动', command: '/半月活动' };
 const shop = { label: '活动商店', command: '/半月活动 商店' };
+const shopCurrencies: Currency[] = ['JADE', 'SPIRIT_CRYSTAL', 'SPIRIT_MILK'];
+// Three cards with two actions each leave room for all four footer buttons.
+const shopPageSize = 3;
 const shortReference = /^r1_[0-9a-z]{1,13}_hm_[0-9a-z]{1,13}_[0-9a-f]{24}$/;
 const monthPattern = /^\d{4}-\d{2}$/;
 const taskCommands: Record<string, string> = {
@@ -61,6 +75,21 @@ const taskCommands: Record<string, string> = {
 
 function signRewards(sign: Sign): string[] {
   return [`灵晶 ×${sign.crystals}`, `仙玉 ×${sign.jade}`];
+}
+
+function productDetails(reward: ProductReward): BubbleAction[] {
+  switch (reward.category) {
+    case 'item':
+      return reward.itemId ? [{ label: '详情', command: `/物品详情 物品 ${reward.itemId}` }] : [];
+    case 'equipment':
+      return reward.equipmentId ? [{ label: '详情', command: `/物品详情 装备 ${reward.equipmentId}` }] : [];
+    case 'skill_book':
+      return reward.skillBookId ? [{ label: '详情', command: `/物品详情 功法 ${reward.skillBookId}` }] : [];
+    case 'soul_artifact':
+      return reward.soulArtifactId ? [{ label: '详情', command: `/图鉴详情 本命 ${reward.soulArtifactId}` }] : [];
+    default:
+      return [];
+  }
 }
 
 export default onResponse(selects, async event => {
@@ -199,33 +228,77 @@ export default onResponse(selects, async event => {
       );
     }
 
-    if (mode === '商店') {
-      const currency = (Object.keys(currencyNames) as Currency[]).find(code => currencyNames[code] === value) ?? 'JADE';
-      const products = (overview.products ?? []).map((product, index) => ({ product, index })).filter(entry => entry.product.currency === currency);
-      const total = Math.max(1, Math.ceil(products.length / 6));
-      const current = Math.min(total, Math.max(1, Math.trunc(Number(extra) || 1)));
-      const items = products.slice((current - 1) * 6, current * 6).map(({ product, index }) => {
-        const remaining = product.limit - (overview.progress.bought[product.id] ?? 0);
+    if (mode === '任务') {
+      const tasks = (overview.tasks ?? (overview.task ? [overview.task] : [])).map((task, index) => {
+        const dayIndex = overview.tasks ? index : overview.day - 1;
+        const count = overview.progress.taskCounts[dayIndex];
+        const maximum = task.tiers.at(-1)?.count ?? 0;
+        const command = taskCommands[task.action];
 
         return {
-          title: product.reward.name,
+          title: `第 ${dayIndex + 1} 天 · ${task.name}`,
+          lines: [
+            `进度：${count}/${maximum} · 已获 ${overview.progress.taskJade[dayIndex]} 仙玉`,
+            task.tiers.map(tier => `${tier.count} 次 +${tier.jade}`).join(' / ')
+          ],
+          actions: count < maximum && command ? [{ label: '前往任务', command }] : []
+        };
+      });
+      const total = Math.max(1, Math.ceil(tasks.length / 3));
+      const current = Math.min(total, Math.max(1, Math.trunc(Number(value) || 1)));
+
+      return await send(
+        listBubble({
+          ...base,
+          title: '半月活动 · 已解锁任务',
+          items: tasks.length ? tasks.slice((current - 1) * 3, current * 3) : [{ lines: ['当前没有已解锁任务'] }],
+          nav: total > 1 ? { current, total, count: tasks.length, command: '/半月活动 任务 {page}' } : undefined,
+          footer: [back]
+        })
+      );
+    }
+
+    if (mode === '商店') {
+      const currency = shopCurrencies.find(code => currencyNames[code] === value) ?? 'JADE';
+      const currencyName = currencyNames[currency];
+      const products = (overview.products ?? []).map((product, index) => ({ product, index })).filter(entry => entry.product.currency === currency);
+      const total = Math.max(1, Math.ceil(products.length / shopPageSize));
+      const current = Math.min(total, Math.max(1, Math.trunc(Number(extra) || 1)));
+      const items = products.slice((current - 1) * shopPageSize, current * shopPageSize).map(({ product, index }) => {
+        const remaining = Math.max(0, product.limit - (overview.progress.bought[product.id] ?? 0));
+        const actions = productDetails(product.reward);
+
+        if (remaining > 0) {
+          actions.unshift({ label: '兑换', command: `/半月活动 兑换 ${index + 1}` });
+        }
+
+        return {
+          title: `${product.reward.name} ×${product.reward.quantity}`,
           id: index + 1,
-          lines: [`数量：×${product.reward.quantity} · 支付：${product.price} ${currencyNames[currency]}`, `剩余：${remaining} 次`],
-          actions: remaining > 0 ? [{ label: '兑换', command: `/半月活动 兑换 ${index + 1}` }] : []
+          lines: [`价格：${product.price} ${currencyName}／份 · 本月剩余 ${remaining}／${product.limit} 份`, ...(remaining === 0 ? ['状态：本月已兑完'] : [])],
+          actions
         };
       });
 
       return await send(
         listBubble({
           ...base,
-          title: `半月商店 · ${currencyNames[currency]}`,
-          header: Object.values(currencyNames).map(name => ({ label: name, command: `/半月活动 商店 ${name}` })),
+          title: `半月商店 · ${currencyName}`,
           items: [
-            { lines: [`时间：兑换至 ${formatGameTime(overview.endsAt, 'MM-DD HH:mm')}`, ...(!products.length ? ['状态：当前没有开放商品'] : [])] },
+            {
+              lines: [
+                ...(currency === 'JADE' ? [`余额：${overview.jade} 仙玉`] : []),
+                `时间：兑换至 ${formatGameTime(overview.endsAt, 'M 月 D 日 HH:mm')}`,
+                ...(!products.length ? ['状态：当前没有开放商品'] : [])
+              ]
+            },
             ...items
           ],
-          nav: total > 1 ? { current, total, count: products.length, command: `/半月活动 商店 ${currencyNames[currency]} {page}` } : undefined,
-          footer: [back]
+          nav: total > 1 ? { current, total, count: products.length, command: `/半月活动 商店 ${currencyName} {page}` } : undefined,
+          footer: [
+            ...shopCurrencies.map(code => ({ label: currencyNames[code], selected: code === currency, command: `/半月活动 商店 ${currencyNames[code]}` })),
+            back
+          ]
         })
       );
     }
@@ -256,6 +329,9 @@ export default onResponse(selects, async event => {
       }
       if (taskCommands[overview.task.action]) {
         footer.push({ label: '前往任务', command: taskCommands[overview.task.action] });
+      }
+      if (overview.tasks?.length) {
+        footer.push({ label: '已解锁任务', command: '/半月活动 任务' });
       }
       footer.push(shop);
     }
