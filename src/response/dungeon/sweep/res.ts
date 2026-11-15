@@ -9,11 +9,13 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { dungeonSweepArguments, parseRobotDungeonSweep, parseRobotDungeonFreeSweep } from '@src/api/bot/dungeon-sweep-robot-query';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { selects } from '@src/response/config';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
+import { buildBubble } from '@src/response/presentation';
+import { freeSweepSections } from './freeView';
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -45,58 +47,15 @@ export default onResponse(selects, async e => {
     if (loaded.handled) {
       return;
     }
-    const result = { data: loaded.data };
-
-    const md = Format.createMarkdown();
-
-    const experience = result.data.normalExperienceGained ?? result.data.totalExp;
-
-    md.addText(`共结算 ${result.data.sweptDungeons.length} 个秘境 | 免费扫荡 ${result.data.totalTimes} 次 | 修为 +${experience}`);
-    md.addNewline();
-    md.addNewline();
-
-    for (const item of result.data.sweptDungeons) {
-      md.addText(`${item.dungeonName} × ${item.times} | 修为 +${item.totalExp}`);
-      if (item.experienceBonusText?.trim()) {
-        md.addNewline().addText('其中：' + item.experienceBonusText);
-      }
-      md.addNewline();
-      if (item.totalCurrencyText) {
-        md.addText(item.totalCurrencyText);
-        md.addNewline();
-      }
-      if (item.totalItemsText) {
-        md.addNewline();
-        md.addText(`掉落：${item.totalItemsText}`);
-        md.addNewline();
-      }
-      md.addNewline();
-    }
-
-    if (result.data.skippedDungeons.length > 0) {
-      md.addText('未完成的秘境');
-      md.addNewline();
-      for (const item of result.data.skippedDungeons) {
-        const recovery = withBusinessRecovery('dungeon.sweep', { title: '', heading: '', text: item.message, buttons: [], advice: [] });
-
-        md.addBlockquote(
-          createQuoteMarkdown(
-            [`${item.dungeonName}：${item.message}`, ...recovery.advice.map(tip => tip.description)],
-            recovery.advice.map(tip => ({ label: tip.command, command: tip.command }))
-          )
-        ).addNewline();
-      }
-    }
-
-    appendTreasureEffects(md, result.data.treasureEffects);
+    const data = loaded.data;
     const footer = [
       { label: '查看秘境', command: '/查看秘境' },
-      ...(result.data.skippedDungeons.length ? [] : [{ label: '再次结算', command: '/扫荡免费秘境' }])
+      ...(data.skippedDungeons.length ? [] : [{ label: '再次结算', command: '/扫荡免费秘境' }])
     ];
 
-    const sent = message.send(FormatGui({ isPrivate, bid, title: '秘境免费扫荡', content: md, footer }));
+    const sent = message.send(buildBubble({ isPrivate, bid, title: '秘境免费扫荡', sections: freeSweepSections(data), footer }));
 
-    if (result.data.totalTimes > 0) {
+    if (data.totalTimes > 0) {
       await checkEncounterAfterPanel(e, 'dungeon-sweep', message, sent);
     } else {
       void sent;

@@ -159,8 +159,9 @@ test('免费秘境部分成功逐条附建议，不以重试抹掉已结算结�
   assert.equal(result.messages.length, 1);
   const message = result.messages[0];
   const view = inspectMessage(message.nodes);
-  assert.ok(view.text.includes('免费扫荡 2 次 | 修为 +20'));
-  assert.ok(view.text.includes('溪谷 × 2'));
+  assert.ok(view.text.includes('1 个秘境 · 免费扫荡 2 次'));
+  assert.ok(view.text.includes('溪谷'));
+  assert.ok(view.text.includes('扫荡 2 次 · 修为 +20'));
   assert.ok(view.text.includes('已高于该秘境允许范围'));
   assert.ok(view.text.includes('已经结算的次数和奖励'));
   assert.ok(!view.commands.includes('/扫荡免费秘境'));

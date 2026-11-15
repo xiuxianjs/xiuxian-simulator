@@ -1,7 +1,7 @@
 import { createBackendRequestContext } from '@src/api/bot/context';
 import { parseNotificationHistory } from '@src/api/bot/notification-history-queries';
 import { requestRobotBusiness } from '@src/api/bot/robot-business';
-import { fishingBossNoticeCommand, fishingNotificationLayout, notificationTextLayout } from '@src/notification/presentation';
+import { fishingBossNoticeCommand, fishingNotificationLayout, notificationTextLayout, pkHistoryReportLayout } from '@src/notification/presentation';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
@@ -74,10 +74,12 @@ export default onResponse(selects, async e => {
       const fishingCastId = item.fishingCastId ?? /^fishing\.result:(fc_[0-9a-f]{32}):[1-9]\d*$/.exec(item.id)?.[1];
       const fishing = fishingCastId === undefined ? undefined : fishingNotificationLayout(item.text, fishingCastId);
       const { title, lines } = fishing ?? notificationTextLayout(item.text);
-      const quote = createQuoteMarkdown([`【${index + 1}】${title}`, `时间：${formatGameTime(item.time)}`, '', ...lines]);
+      const pk = pkHistoryReportLayout(item.id, lines);
+      const quote = createQuoteMarkdown([`【${index + 1}】${title}`, `时间：${formatGameTime(item.time)}`, '', ...pk.lines]);
+      const reportCommand = fishing?.reportCommand ?? pk.reportCommand;
 
-      if (fishing?.reportCommand) {
-        quote.addNewline().addButton(markdownButtonLabel('查看战报'), { data: commandText(fishing.reportCommand), autoEnter: false });
+      if (reportCommand) {
+        quote.addNewline().addButton(markdownButtonLabel('查看战报'), { data: commandText(reportCommand), autoEnter: false });
       }
       const encounterCommand = fishingBossNoticeCommand(item.fishingBossEventId);
 

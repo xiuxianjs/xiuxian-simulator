@@ -174,7 +174,15 @@ for(const scenario of koiScenarios){
   test(`锦鲤说明保留宝物分拆且不重复计数 ${scenario.slug}`,async t=>{
     const {app}=await gameFixture(t,r=>businessEnvelope(r.bid,scenario.data));
     const result=await app.runHandler(scenario.handler,app.events.privateMessage({text:scenario.command,platform:'qq-bot'}));
-    const {view,message}=assertNotices(result,scenario.expected);
+    const {view,message}=scenario.slug === 'koi-free'
+      ? assertFreeSweepReceipt(result, ['奖励：玉净瓶 · 修为 +20'])
+      : assertNotices(result,scenario.expected);
+    if (scenario.slug === 'koi-free') {
+      assert.match(view.text, /修为 \+130（含宝物 \+20）/);
+      assert.match(view.text, /修为 \+110（含锦鲤赐福 \+10）/);
+      assert.equal(view.text.split('锦鲤赐福').length - 1, 1);
+      return;
+    }
     const blessing = ['koi-dungeon', 'koi-exploration'].includes(scenario.slug) ? '其中：锦鲤赐福额外 +10 修为' : koiText;
     assert.equal(view.text.split(blessing).length - 1, 1, '锦鲤说明只出现一次');
     assert.match(view.text,/110/);
@@ -275,13 +283,94 @@ function assertNotices(result: TestRunResult, expected: TreasureEffectNotice[]) 
   return { message, view };
 }
 
+function assertFreeSweepReceipt(result: TestRunResult, rewards: string[]) {
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.equal(view.text.split('宝物加成').length - 1, 1);
+  for (const reward of rewards) assert.equal(view.text.split(reward).length - 1, 1);
+  assert.ok(view.commands.includes('/查看秘境'));
+  assert.ok(view.commands.includes('/扫荡免费秘境'));
+  return { message, view };
+}
+
+const freeSweepNoEncounter = { triggered: false, pending: null, nextCheckAt: '2099-01-01T00:00:00Z', nextGameDayAt: '2099-01-01T16:00:00Z', quotaExhausted: false };
+
+test('七个免费秘境的总收益与宝物掉落合并显示', async t => {
+  const rows = [
+    ['桃花镇', 244, 48, 660, '元灵树种×1、冰封万里×2、寒冰箭×1、山崩地裂×1、灵锄×1、灵雾液×2、疾风刺×2、矿石精华×1'],
+    ['鳌山书院', 391, 77, 825, '冰封万里×1、凝气树种×1、山崩地裂×1、聚灵草种×1、雷球术×1、飞霜术×1'],
+    ['万毒谷', 414, 81, 1485, '万雷天牢×2、烈日灼心×2、疾风连斩×2、真灵草种×1、矿石精华×3、紫心果×1、紫心树种×2、紫电贯日×1'],
+    ['金銮殿', 561, 111, 2640, '凤凰天焰×3、矿石精华×5、苍龙出海×1'],
+    ['血色禁地', 316, 62, 990, '天灵果×1、天雷破空×1、烈焰斩×2、矿石精华×4、追风剑×1'],
+    ['昆吾山', 635, 125, 2970, '净心莲×1、出窍引×1、矿石精华×2、神魂露×1、通灵草种×1'],
+    ['地渊', 1027, 202, 4950, '灵锄×1、矿石精华×11、通灵草×1']
+  ] as const;
+  const lampAmounts = [6, 9, 11, 14, 8, 15, 25];
+  const jadeAmounts = [15, 24, 25, 34, 20, 39, 63];
+  const effects = [
+    notice(402, '长明青灯', '灯焰轻摇，照得修行中的感悟愈发澄明。', ...lampAmounts.map(amount => `额外获得 修为×${amount}`)),
+    { ...jade, benefits: jadeAmounts.map(amount => `额外获得 修为×${amount}`) },
+    { ...bag, benefits: ['额外获得 灵雾液×1', '额外获得 疾风刺×1', '额外获得 灵锄×1', '额外获得 矿石精华×1', '额外获得 矿石精华×2'] }
+  ];
+  const data = {
+    sweptDungeons: rows.map(([dungeonName, exp, koi, stones, drops], index) => ({
+      dungeonName,
+      times: 3,
+      totalSpiritCost: 0,
+      totalExp: exp + lampAmounts[index] + jadeAmounts[index],
+      normalExperienceGained: exp,
+      experienceBonusText: `锦鲤赐福+${koi}`,
+      currency: [{ category: 'SPIRIT_STONE', name: index % 2 ? '灵石' : 'SPIRIT_STONE', amount: stones }],
+      items: drops.split('、').map(drop => {
+        const [name, amount] = drop.split('×');
+        return { category: 'item', name, amount: Number(amount) };
+      })
+    })),
+    totalTimes: 21,
+    totalExp: 3896,
+    normalExperienceGained: 3588,
+    totalSpiritCost: 0,
+    treasureEffects: effects
+  };
+  const { app, requests } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, request.path.endsWith('/online-encounter.check') ? freeSweepNoEncounter : data)
+  );
+  const result = await app.runHandler(dungeonSweep, app.events.groupMessage({ text: '/扫荡免费秘境', platform: 'qq-bot' }));
+  assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/dungeon.sweep-free', '/api/v2/robot/business/online-encounter.check']);
+  const { message, view } = assertFreeSweepReceipt(result, [
+    '奖励：长明青灯 · 修为 +88',
+    '奖励：玉净瓶 · 修为 +220',
+    '掉落：万宝乾坤袋 · 灵雾液×1、疾风刺×1、灵锄×1、矿石精华×3'
+  ]);
+  assert.match(view.text, /奖励：修为 \+3896（含宝物 \+308） · 灵石 \+14520/);
+  for (const [name, exp, koi, stones, drops] of rows) {
+    assert.ok(view.text.includes(name));
+    assert.ok(view.text.includes(`结果：扫荡 3 次 · 修为 +${exp}（含锦鲤赐福 +${koi}） · 灵石 +${stones}`));
+    assert.ok(view.text.includes(`掉落：${drops}`));
+  }
+  assert.doesNotMatch(view.text, /额外获得|灯焰轻摇|洒落清润灵露|袋口流转玄光/);
+  previews.push({ slug: 'free-sweep-seven', text: view.text, commands: view.commands, nodes: message.nodes, rows, effects });
+});
+
 for (const scenario of scenarios) for (const isPrivate of [true, false]) {
   test(`宝物收益独立段落 ${scenario.slug} private=${isPrivate}`, async t => {
-    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, scenario.data));
+    const freeSweep = scenario.slug === 'dungeon-free-summary';
+    const { app, requests } = await gameFixture(t, request =>
+      businessEnvelope(request.bid, freeSweep && request.path.endsWith('/online-encounter.check') ? freeSweepNoEncounter : scenario.data)
+    );
     const options = { text: scenario.command, platform: 'qq-bot' };
     const result = await app.runHandler(scenario.handler, isPrivate ? app.events.privateMessage(options) : app.events.groupMessage(options));
-    const { message, view } = assertNotices(result, scenario.expected);
-    assert.equal(requests.length, 1);
+    const { message, view } = freeSweep
+      ? assertFreeSweepReceipt(result, ['掉落：万宝乾坤袋 · 赤灵果×2'])
+      : assertNotices(result, scenario.expected);
+    if (freeSweep) {
+      assert.deepEqual(requests.map(request => request.path), ['/api/v2/robot/business/dungeon.sweep-free', '/api/v2/robot/business/online-encounter.check']);
+    } else {
+      assert.equal(requests.length, 1);
+    }
     if (scenario.slug === '04-mental-waiver-defeat') assert.ok(!view.text.includes(bag.description), '队友宝物收益不能冒充本人');
     if (scenario.slug === 'dungeon-loot-normal') {
       assert.match(view.text, /修为 \+100/);

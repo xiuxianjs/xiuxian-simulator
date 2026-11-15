@@ -7,6 +7,7 @@ import { createMarkdownText } from '../../node_modules/@alemonjs/qq-bot/lib/form
 import { flyMailNoticeData } from '../../src/utils/flyMailPresentation';
 import { notificationNoticeData } from '../../src/notification/presentation';
 import robberyRecords from '../../src/response/robberyRecord/res';
+import pkReport from '../../src/response/pkReport/res';
 import notificationHistory from '../../src/response/notification/history/res';
 import { businessEnvelope, gameFixture } from './fixture';
 
@@ -109,9 +110,40 @@ test('打劫记录明确进攻视角并分开损失与物品状态，只给允�
   assert.ok(message.commands.includes('/打劫记录 2'));
 });
 
+test('原战报提供反击资格与规则说明，结束记录保留结算结果', async t => {
+  const { app } = await gameFixture(t, request => {
+    const { reportId } = request.body.arguments as { reportId: number };
+    const canCounterAttack = reportId === 22033;
+
+    return businessEnvelope(request.bid, {
+      summary: {
+        reportId, viewerRole: 'victim', opponentUid: 2, opponentName: '青云',
+        createdAt: '2026-11-15T16:23:51Z', resultText: '对方普通打劫成功 · 被打修为 +40',
+        moneyText: '灵石 -100（已即时结算，反击不退）', originalAssetText: '本次无暂存原物',
+        counterStatusText: canCounterAttack ? '可免费反击一次' : '反击窗口已结束',
+        counterDeadline: '2026-11-16T16:23:51Z', canCounterAttack
+      },
+      hasOrdinaryReplay: true,
+      hasCounterReplay: false
+    });
+  });
+
+  for (const reportId of [22033, 22035]) {
+    const result = await app.runHandler(pkReport, app.events.privateMessage({ text: `/争夺战报 ${reportId}`, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.match(message.text, /被打修为 \+40/);
+    assert.match(message.text, /反击不退/);
+    assert.equal(message.text.includes('修为按原战报的秘境基准结算'), reportId === 22033);
+    assert.equal(message.commands.includes(`/回击 ${reportId}`), reportId === 22033);
+  }
+});
+
 test('通知历史每条独立引用块，保留空行、北京时间与原文，投递状态放在末尾', async t => {
   const items = [
-    { id: 'one', time: '2026-10-21T00:00:00Z', text: '【物品交付更新】\n\n普通打劫战报#42\n物品：待交付\n\n查看战报：/争夺战报 42', delivery: '已发送至私聊' },
+    { id: 'pk:71:delivery:1', time: '2026-10-21T00:00:00Z', text: '【物品交付更新】\n\n普通打劫战报#42\n物品：待交付\n\n查看战报：/争夺战报 42', delivery: '已发送至私聊' },
     { id: 'two', time: '2026-10-20T00:00:00Z', text: '旧通知第一行\n旧通知第二行', delivery: '等待发送，内容可先查阅' }
   ];
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('/notifications.history-delivered') ? { confirmed: true } : { items, page: 2, totalPages: 3, hasNext: true }));
@@ -120,16 +152,17 @@ test('通知历史每条独立引用块，保留空行、北京时间与原文�
   assert.equal(requests.length, 2);
   assert.equal(requests[0].path, '/api/v2/robot/business/notifications.history');
   assert.equal(requests[1].path, '/api/v2/robot/business/notifications.history-delivered');
-  assert.deepEqual(requests[1].body.arguments, { eventIds: ['one', 'two'] });
+  assert.deepEqual(requests[1].body.arguments, { eventIds: ['pk:71:delivery:1', 'two'] });
   assert.notEqual(requests[0].idempotencyKey, requests[1].idempotencyKey);
   const message = result.messages[0];
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const quotes = quoteLines(message.nodes);
   assert.equal(quotes.length, 2);
   assert.deepEqual(quotes.map(quote => quote.filter(node => node.type === 'MD.text').map(node => node.value)), [
-    ['【1】物品交付更新', '时间：2026-10-21 08:00:00', '', '普通打劫战报#42', '物品：待交付', '', '查看战报：/争夺战报 42'],
+    ['【1】物品交付更新', '时间：2026-10-21 08:00:00', '', '普通打劫战报#42', '物品：待交付', ''],
     ['【2】修仙 · 通知', '时间：2026-10-20 08:00:00', '', '旧通知第一行', '旧通知第二行']
   ]);
+  assert.ok(message.commands.includes('/争夺战报 42'));
   assert.match(inspectMessage(message.nodes).text, /第2\/3页/);
   assert.doesNotMatch(inspectMessage(message.nodes).text, /返回主页/);
   assert.ok(message.commands.includes('/我'));

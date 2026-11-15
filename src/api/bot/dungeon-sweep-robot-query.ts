@@ -38,8 +38,4 @@ export function parseRobotDungeonSweep(value: unknown) {
 
   return { outcome: 'result' as const, dungeonId, data: dungeonSweepView(parseDungeonSweep(result.data)) };
 }
-export function parseRobotDungeonFreeSweep(value: unknown) {
-  const data = parseDungeonFreeSweep(value);
-
-  return { ...data, sweptDungeons: data.sweptDungeons.map(dungeonSweepView) };
-}
+export const parseRobotDungeonFreeSweep = parseDungeonFreeSweep;
