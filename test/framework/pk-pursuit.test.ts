@@ -77,3 +77,15 @@ test('自填赏金预览与确认仅传服务端短引用', async t => {
   assert.match(inspectMessage(result.messages[0].nodes).text, /已发布，托管 600 灵晶/);
   assert.deepEqual(requests.map(r => r.body.arguments), [{ reportId: offer.reportId, bounty: 600 }, { confirmation: publish }]);
 });
+
+test('追击榜读取失败时返回活动入口', async t => {
+  const reason = '追击榜暂时无法读取，请稍后再试。';
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, undefined, [{ title: '', heading: '', text: reason, buttons: [], advice: [] }]));
+  const result = await app.runHandler(pursuit, app.events.privateMessage({ text: '/追击榜', platform: 'qq-bot' }));
+  assert.equal(result.messages.length, 1);
+  assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.ok(view.text.includes(reason));
+  assert.ok(view.commands.includes('/我的活动'));
+  assert.ok(!view.commands.includes('/追击榜'));
+});

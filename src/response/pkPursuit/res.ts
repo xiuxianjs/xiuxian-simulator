@@ -27,7 +27,9 @@ export default onResponse(selects, async e => {
   const args = raw ? raw.split(/\s+/) : [];
   const reportId = parsePKCommandInteger(args[0]);
   const feedback = async (reason: string) => {
-    await message.send(errorBubble({ ...common, title: '追击', reason, footer: [backToBoard] }));
+    const back = action === '追击榜' ? { label: '返回我的活动', command: '/我的活动' } : backToBoard;
+
+    await message.send(errorBubble({ ...common, title: '追击', reason, footer: [back] }));
   };
   const reject = () => feedback('指令参数无效，请从追击榜或原战报重新操作。');
 
