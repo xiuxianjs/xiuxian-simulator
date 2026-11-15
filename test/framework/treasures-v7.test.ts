@@ -83,7 +83,7 @@ for (const pageVersion of [version, 'treasure-v8-first-guards-20261029']) for (c
   assert.equal(done.messages.length, 1);
   assert.equal(done.actions[done.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(done.messages[0].nodes);
-  assert.match(view.text, /上古遗珍\n\n综合概率\n单抽出整品概率12%/);
+  assert.match(view.text, /上古遗珍 · 概率公示\n\n综合概率\n单抽出整品概率12%/);
   for (const text of ['单抽综合概率 4.058%', '单抽综合概率 1.704%', '单抽综合概率 0.958%', '十连综合概率 5%', '十连综合概率 2.1%', '十连综合概率 1.18%', '保底(13/20)', '保底(28/50)', '保底(119/120)']) {
     assert.ok(view.text.includes(text), text);
   }
@@ -92,7 +92,7 @@ for (const pageVersion of [version, 'treasure-v8-first-guards-20261029']) for (c
   assert.match(view.text, /十连至少出一件整品/);
   assert.ok(view.text.indexOf('单抽出整品概率12%') < view.text.indexOf('十连至少出一件整品'));
   assert.ok(view.text.indexOf('十连至少出一件整品') < view.text.indexOf('单抽综合概率'));
-  assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/充值 灵脉租契', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+  assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
   const nodes = done.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   const blocks = nodes.filter(node => node.type === 'MD.blockquote');
   assert.equal(blocks.length, 3);

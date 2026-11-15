@@ -7,7 +7,7 @@ import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import handler from '../../src/response/fishing/res';
 import { fishingWeightGrams, parseFishingCommand } from '../../src/response/fishing/commands';
 import { parseFishingView, validFishingReference, type FishingView } from '../../src/api/bot/fishing';
-import { matchesGameCommand } from '../../src/router';
+import { createGameRouter, matchesGameCommand } from '../../src/router';
 import { parseBackendNormalPaymentSettlement } from '../../src/api/bot/sponsor-payment';
 import { businessEnvelope, gameFixture } from './fixture';
 import { ImageCache } from '../../src/utils/imageCdn';
@@ -49,6 +49,47 @@ function delivered(result: TestRunResult, command: string, messages = 1) {
   captures.push({ command, text: view.text, commands: view.commands, nodes: message.nodes });
   return view;
 }
+
+test('垂钓紧凑主页配置按钮和商店渔市经真实路由发送', async t => {
+  const rodId = 'fr_' + 'a'.repeat(32);
+  const startCommand = `/垂钓 按配置开钓 1 4 ${rodId}`;
+  const section = (lines: string[], actions: FishingView['footer'] = []) => ({ title: '', id: '', suffix: '', lines, actions });
+  const { app, requests } = await gameFixture(t, request => {
+    const { view, sku } = request.body.arguments as { view?: string; sku?: string };
+    if (request.path.endsWith('/fishing.start-current')) {
+      return businessEnvelope(request.bid, base({ view: 'receipt', title: '已开钓', sections: [section(['状态：垂钓中'])], footer: [] }));
+    }
+    if (view === 'shop') {
+      assert.equal(sku, 'store');
+      return businessEnvelope(request.bid, base({
+        view: 'shop', title: '渔市 · 货币兑换', sections: [section(['余额：3,200灵鳞钱']), section(['今日剩余：280／400灵晶'])],
+        navRows: [[{ label: '转为出售', command: '/储物袋 渔获' }], [{ label: '货币兑换', command: '/商店 渔市 货币兑换' }]],
+        footer: [{ label: '返回渔市', command: '/商店 渔市' }]
+      }));
+    }
+    if (view === 'start') {
+      return businessEnvelope(request.bid, base({ view: 'start', title: '垂钓 · 调整配置', sections: [section(['时长上限：4小时'])],
+        footer: [{ label: '按此配置开钓', command: startCommand }]
+      }));
+    }
+    assert.equal(view, 'overview');
+    return businessEnvelope(request.bid, base({ status: 'home-compact', sections: [section(['预计可钓：8小时（上限12小时）'], [
+      { label: '调整配置', command: '/垂钓 配置' }
+    ])], footer: [] }));
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const send = async (command: string) => delivered(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
+  const home = await send('/垂钓');
+  assert.match(home.text, /预计可钓：8小时/);
+  const config = await send(home.commands.find(command => command === '/垂钓 配置')!);
+  assert.match(config.text, /时长上限：4小时/);
+  await send(config.commands.find(command => command === startCommand)!);
+  assert.deepEqual(requests[2].body.arguments, { kind: 'start-current', sku: 'config', waterLevel: 1, hours: 4, rodId });
+  const shop = await send('/商店 渔市 货币兑换');
+  assert.match(shop.text, /今日剩余：280／400灵晶/);
+  assert.ok(shop.commands.includes('/商店 渔市'));
+  assert.deepEqual(requests[3].body.arguments, { view: 'shop', sku: 'store', shopCategory: 'exchange', page: 1 });
+});
 
 after(async () => {
   mock.timers.reset();
@@ -207,7 +248,7 @@ for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显�
   assert.match(view.text,/收益周期：9分钟/);
   assert.match(view.text,/窝料：升灵散 · 余03:27/);
   assert.match(view.text,/杂获：3件[^\n]*‹查询›/);
-  assert.match(view.text,/‹我的渔获›‹渔市›\n‹礼包›‹设置›‹帮助›/);
+  assert.match(view.text,/‹我的渔获›‹渔市›‹锦鲤赐福›\n‹礼包›‹设置›‹帮助›‹沧澜钓仙会›/);
   assert.ok(view.commands.includes('/垂钓 礼包'));
   assert.doesNotMatch(view.text,/水域异动|查看异兽/);
   assert.equal(view.commands.includes('/垂钓 奇遇'), false);
@@ -219,7 +260,7 @@ for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显�
   const waterAt=markdown.value.findIndex(node=>node.type==='MD.text'&&node.value==='水域：炼气水域');
   assert.ok(waterAt >= 0);
   assert.deepEqual(markdown.value.slice(0,waterAt).filter(node=>node.type==='MD.button').map(node=>node.value), [
-    '‹锦鲤赐福›', '‹沧澜钓仙会›', ...(hasBoss ? ['‹垂钓奇遇›'] : [])
+    ...(hasBoss ? ['‹垂钓奇遇›'] : [])
   ]);
   const statusAt=markdown.value.findIndex(node=>node.type==='MD.bold'&&node.value==='🎣持续垂钓中🎣');
   assert.ok(statusAt >= 0);

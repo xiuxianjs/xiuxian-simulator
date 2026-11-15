@@ -92,25 +92,39 @@ for (const scenario of scenarios) {
     assert.match(views[1].text, /^上古遗珍探索完成\n/);
     assert.ok(views[1].text.includes(`操作编号 ${operationId}`));
     assert.ok(!views[1].text.includes('宝物操作回执'));
-    assert.deepEqual(views[1].commands.slice(-8), ['/上古遗珍', '/宝物', '/充值 灵脉租契', ...bottomCommands]);
+    assert.deepEqual(views[1].commands.slice(-7), ['/上古遗珍', '/宝物', ...bottomCommands]);
     assert.equal(requests.length, 1);
     if (scenario.preview) previews.set(scenario.preview, `## 探索叙事与结果（${scenario.preview}）\n\n离线真实处理器示例：仅本次直接获得的完整本体决定紫、金、红叙事；碎片及自动合成不提升场景。结算先完成，再分别发送以下两条消息。\n\n第一条消息（探索叙事与通用底栏）：\n\n${views[0].text}\n\n等待3秒后，第二条消息：\n\n${views[1].text}\n\n结果中的蓝链只填写指令，仍引用原操作结果。\n`);
   });
 }
 
-test('直接本体保留星标，自动合成用➥且不重复奖励', async t => {
-  const rewards = [body, { ...fragment(5), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned: true }, ...Array.from({ length: 8 }, () => fragment())];
+test('同一宝物本体和碎片分别合并，累计合成数并保留最终余片', async t => {
+  const fragments = [
+    { ...fragment(5), quantity: 3, autoSynthesized: 1, fragmentsRemaining: 2, newlyOwned: true },
+    { ...fragment(5), quantity: 3, fragmentsRemaining: 5 },
+    { ...fragment(5), quantity: 2, fragmentsRemaining: 7 },
+    { ...fragment(5), quantity: 3, autoSynthesized: 1 },
+    { ...fragment(5), quantity: 1, fragmentsRemaining: 1 }
+  ];
+  const repeatedBody = { ...fragment(5), kind: 'body' };
+  const rewards = [body, ...fragments, repeatedBody, fragment(), repeatedBody, fragment()];
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, receipt(rewards)));
   const { pending } = await start(app);
   await app.clock.advance(3000);
   const views = delivered(await pending);
   assert.match(views[1].text, /⭐ 乾坤鼎 · 本体 ×1 · 已激活/);
-  assert.match(views[1].text, /万木春符 · 碎片 ×3/);
+  assert.equal(views[1].text.match(/万木春符 · 碎片 ×\d+/g)?.length, 1);
+  assert.match(views[1].text, /万木春符 · 碎片 ×12 · 已激活/);
+  assert.match(views[1].text, /万木春符 · 本体 ×2/);
+  assert.equal(views[1].text.match(/万木春符 · 本体 ×\d+/g)?.length, 1);
+  assert.match(views[1].text, /锈剑残片 · 碎片 ×2/);
   assert.doesNotMatch(views[1].text, /⭐ .* · 碎片|直接完整本体/);
-  assert.match(views[1].text, /➥ 自动合成1本体，余片2/);
+  assert.match(views[1].text, /➥ 自动合成2本体，余片1/);
   assert.doesNotMatch(views[1].text, /⭐ 自动合成/);
   assert.equal(views[1].text.match(/⭐ 乾坤鼎/g)?.length, 1);
-  assert.equal(views[1].text.match(/自动合成1本体/g)?.length, 1);
+  assert.equal(views[1].text.match(/自动合成2本体/g)?.length, 1);
+  const detailCommands = views[1].commands.filter(command => command.startsWith('/宝物 详情 '));
+  assert.equal(detailCommands.length, new Set(rewards.map(reward => reward.treasureId)).size);
 });
 
 test('探索结果仅操作与消耗引用，奖励和查看同行在框外，合成独立下一行', async t => {
@@ -123,12 +137,12 @@ test('探索结果仅操作与消耗引用，奖励和查看同行在框外，�
   const nodes = result.messages[1].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   const quotes = nodes.filter(node => node.type === 'MD.blockquote');
   assert.equal(quotes.length, 2);
-  assert.ok(JSON.stringify(quotes[0]).includes(operationId));
-  assert.ok(JSON.stringify(quotes[1]).includes('宝物经验 +1000'));
+  assert.ok(JSON.stringify(quotes[1]).includes(operationId));
+  assert.ok(JSON.stringify(quotes[0]).includes('宝物经验 +1000'));
   assert.doesNotMatch(JSON.stringify(quotes), /乾坤鼎|九天息壤|自动合成|查看/);
   const bodyIndex = nodes.findIndex(node => node.type === 'MD.text' && String(node.value).startsWith('⭐ 乾坤鼎'));
   const viewButton = nodes[bodyIndex + 1];
-  assert.ok(bodyIndex > nodes.indexOf(quotes[1]));
+  assert.ok(bodyIndex > nodes.indexOf(quotes[0]) && bodyIndex < nodes.indexOf(quotes[1]));
   assert.ok(viewButton.type === 'MD.button');
   assert.equal(viewButton.options?.data, '/宝物 详情 603');
   assert.equal(viewButton.options?.autoEnter, false);

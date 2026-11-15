@@ -520,6 +520,43 @@ function scopedDecomposition(envelope: Record<string, unknown>, value: unknown, 
 
   return { rarity: selectedRarity, items, portions, duplicates, fragments, xianYun };
 }
+function treasureCultivationChange(envelope: Record<string, unknown>) {
+  if (envelope.cultivationChange === undefined) {
+    return undefined;
+  }
+  if (envelope.kind !== 'upgrade' && envelope.kind !== 'promote') {
+    return invalid();
+  }
+  const change = row(envelope.cultivationChange);
+
+  return {
+    before: { attributes: attributes(change.beforeAttributes), percentAttributes: attributes(change.beforePercentAttributes) },
+    after: { attributes: attributes(change.afterAttributes), percentAttributes: attributes(change.afterPercentAttributes) }
+  };
+}
+
+export type TreasureDecompositionView = { rarity: number; page: number };
+
+function treasureDecompositionView(envelope: Record<string, unknown>): TreasureDecompositionView | undefined {
+  if (envelope.decompositionView === undefined) {
+    return undefined;
+  }
+  const view = row(envelope.decompositionView);
+  const page = integer(view.page);
+  const selectedRarity = rarity(view.rarity);
+
+  if (
+    envelope.kind !== 'decompose' ||
+    page < 1 ||
+    page > 999999999 ||
+    (envelope.decomposeRarity !== undefined && envelope.decomposeRarity !== selectedRarity)
+  ) {
+    return invalid();
+  }
+
+  return { rarity: selectedRarity, page };
+}
+
 export function parseTreasureConfirmation(value: unknown) {
   const item = row(value);
 
@@ -536,6 +573,7 @@ export function parseTreasureConfirmation(value: unknown) {
     kind: item.kind as TreasurePreviewKind,
     summary: array(item.summary, text),
     decomposition: scopedDecomposition(item, item.data, 'totalXianYun'),
+    cultivationChange: treasureCultivationChange(item),
     confirmationRef,
     expiresAt: date(item.expiresAt),
     operationId: text(item.operationId)
@@ -627,6 +665,7 @@ export function parseTreasureReceipt(value: unknown) {
     kind: item.kind as TreasurePreviewKind,
     operationId: text(item.operationId),
     decomposition: scopedDecomposition(item, result, 'xianYun'),
+    decompositionView: treasureDecompositionView(item),
     result: {
       operationId: text(result.operationId),
       message: text(result.message),

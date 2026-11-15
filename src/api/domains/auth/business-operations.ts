@@ -474,6 +474,7 @@ const robotBusinessOperations = [
   'storage.lootboxes',
   'storage.materials',
   'storage.menu',
+  'storage.search',
   'storage.profession-tools',
   'storage.props',
   'storage.skill-books',

@@ -70,7 +70,8 @@ for (const [stage, counter, cap] of [[0, 14, 120], [1, 84, 90], [2, 54, 60], [2,
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
     const event = privateChat ? app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' });
     const view = delivered(await app.runHandler(handler, event));
-    assert.ok(view.text.includes(`保底(${counter}/120)`));
+    assert.ok(view.text.includes(`保底(${counter}/${cap})`));
+    assert.equal(view.text.includes('已达当前保底'), stage > 0 && counter >= cap);
     assert.match(view.text, /保底按实际探索累计/);
     assert.ok(view.text.includes('单抽综合概率 1.236%'));
     assert.ok(view.text.includes('十连综合概率 1.253%'));
@@ -121,7 +122,9 @@ test('v10旧响应允许缺少保护字段，v11提供真实消息节点预览',
     pages[`home${key}`] = { text: home.text, commands: home.commands, nodes: homeResult.messages[0].nodes };
   }
   const normalize = (value: unknown) => String((value as { text: string }).text).replace(/\d+(?:\.\d+)?%/g, '<概率>');
-  assert.equal(normalize(pages.before), normalize(pages.after));
+  assert.match((pages.before as { text: string }).text, /保底\(84\/120\)/);
+  assert.match((pages.after as { text: string }).text, /保底\(84\/90\)/);
+  assert.equal(normalize(pages.before).replace('84/120', '84/90'), normalize(pages.after));
   assert.equal((pages.homebefore as { text: string }).text, (pages.homeafter as { text: string }).text);
   if (process.env.TREASURE_V11_PREVIEW_OUTPUT) writeFileSync(process.env.TREASURE_V11_PREVIEW_OUTPUT, JSON.stringify(pages, null, 2));
 });

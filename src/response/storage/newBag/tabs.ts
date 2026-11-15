@@ -7,6 +7,8 @@ import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import type { GuiButton } from '@src/utils/messageHelper';
 import type { FormatMarkDown } from 'alemonjs';
 
+export const bagSearchButton: GuiButton = { label: '搜索', command: '/储物袋 搜索 ', autoEnter: false };
+
 /** 一级分类定义；鱼实例复用统一储物袋入口，另走渔获实例页。 */
 const PRIMARY_TABS_ROW1: GuiButton[] = [
   { label: '道具', command: '/储物袋 道具 丹药' },
@@ -30,7 +32,7 @@ export function createPrimaryTabsBar(selected?: string): GuiButton[][] {
   return [
     PRIMARY_TABS_ROW1.map(tab => ({ ...tab, selected: tab.label === selected })),
     PRIMARY_TABS_ROW2.map(tab => ({ ...tab, selected: tab.label === selected })),
-    [{ label: '我的主页', command: '/我' }]
+    [...(selected ? [] : [bagSearchButton]), { label: '我的主页', command: '/我' }]
   ];
 }
 

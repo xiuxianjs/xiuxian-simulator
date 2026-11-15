@@ -54,7 +54,7 @@ for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
     assert.match(first.text, /有效至/);
     const confirm = first.commands.find(command => command.startsWith('/确认宝物 '));
     assert.equal(confirm, `/确认宝物 ${confirmationRef}`);
-    assert.ok(first.commands.includes('/宝物'));
+    assert.ok(first.commands.includes('/宝物 批量培养'));
     assert.deepEqual(requests[0].body.arguments, { kind });
     for (let repeat = 0; repeat < 2; repeat++) {
       const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: confirm!, platform: 'qq-bot' })));
@@ -62,6 +62,11 @@ for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
       assert.ok(view.text.includes(`操作编号 ${operationId}`));
       const totals = receipt(kind).result;
       assert.ok(view.text.includes(`总消耗：宝物经验 ${totals.experienceCost} · 重复本体 ${totals.duplicatesCost} · 仙蕴 ${totals.xianYunCost}`));
+      const resultIndex = view.text.indexOf(`总结果：${totals.message}`);
+      const costIndex = view.text.indexOf('总消耗：');
+      const detailIndex = view.text.indexOf('神农鼎');
+      assert.ok(resultIndex >= 0 && resultIndex < costIndex && costIndex < detailIndex);
+      assert.ok(view.text.indexOf(`操作编号 ${operationId}`) > detailIndex);
       assert.match(view.text, /神农鼎/);
       assert.match(view.text, /乾坤鼎/);
       if (kind === 'batch-upgrade') {
@@ -75,6 +80,7 @@ for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
         assert.match(view.text, /消耗：宝物经验 0 · 重复本体 1 · 仙蕴 0/);
         assert.match(view.text, /消耗：宝物经验 0 · 重复本体 3 · 仙蕴 200/);
       }
+      assert.ok(view.commands.includes('/宝物 批量培养'));
       assert.ok(view.commands.includes('/宝物 详情 504'));
       assert.ok(view.commands.includes('/宝物 详情 603'));
       assert.doesNotMatch(view.text, /你踏|你越|你横|上古遗珍探索完成|⭐/);

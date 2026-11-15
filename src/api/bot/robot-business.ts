@@ -188,6 +188,7 @@ export type RobotBusinessOperation =
   | 'storage.profession-tools'
   | 'storage.lootboxes'
   | 'storage.menu'
+  | 'storage.search'
   | 'storage.props'
   | 'storage.materials'
   | 'notifications.history'

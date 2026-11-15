@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
@@ -169,6 +170,80 @@ for (const isPrivate of [false, true]) {
     });
   }
 }
+
+test('活动大厅的锻造委托入口打开委托列表', async t => {
+  const { overview, orderPreview, orderCreated } = JSON.parse(readFileSync(new URL('../fixtures/forge-contracts.json', import.meta.url), 'utf8'));
+  const token = 'r1_1_f_abc_0123456789abcdef01234567';
+  const responses: Record<string, unknown> = {
+    'forge.orders': { page: 1, hasMore: false, items: [] },
+    'forge.overview': {
+      ...overview,
+      recipes: Array.from({ length: 6 }, (_, index) => ({ ...overview.recipes[0], id: index + 1, canCraft: false, learned: false }))
+    },
+    'forge.order-preview': { ...orderPreview, crafterId: 2, fee: 0, recipe: { ...orderPreview.recipe, id: 6 }, token },
+    'forge.order-create': { ...orderCreated, crafterId: 2, fee: 0 },
+    'activity.hub': {
+        limitedEvent: { activeCount: 0 }, guildCompetition: { phase: 'INACTIVE' },
+        guildSecretRealmWar: { phase: 'INACTIVE', activeStartAt: '', activeEndAt: '', maxAttackPerWeek: 0, remainingAttackCount: 0 },
+        access: { hasGuild: false, canAccessOverseasIsland: false }, newcomerVisible: false, giftCodesVisible: false
+    }
+  };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, responses[request.path.split('/').at(-1) ?? '']));
+  await app.mount({ responseRouter: router });
+  const dispatch = (text: string) => app.dispatch(app.events.groupMessage({ text, platform: 'qq-bot' }));
+  const personal = await dispatch('/我的活动');
+  const entry = inspectMessage(personal.messages[0].nodes).commands.find(command => command === '/锻造委托');
+  assert.ok(entry);
+  assert.equal(personal.actions[personal.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+
+  const orders = await dispatch(entry);
+  assert.ok(requests.some(request => request.path.endsWith('/forge.orders')));
+  const orderView = inspectMessage(orders.messages[0].nodes);
+  assert.match(orderView.text, /暂无委托/);
+  const start = orderView.commands.find(command => command === '/委托锻造');
+  assert.ok(start);
+  assert.equal(orders.actions[orders.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+
+  const catalog = await dispatch(start);
+  const catalogView = inspectMessage(catalog.messages[0].nodes);
+  assert.match(catalogView.text, /选择委托图纸/);
+  const nextPage = catalogView.commands.find(command => command === '/委托锻造 列表 2');
+  assert.ok(nextPage);
+  const secondPage = await dispatch(nextPage);
+  const selected = inspectMessage(secondPage.messages[0].nodes).commands.find(command => command === '/委托锻造 图纸 6 2');
+  assert.ok(selected);
+
+  const guide = await dispatch(selected);
+  const guideView = inspectMessage(guide.messages[0].nodes);
+  assert.match(guideView.text, /匠师 UID 和灵石工费/);
+  assert.ok(guideView.commands.includes(nextPage));
+  const fill = guideView.commands.find(command => command === '/委托锻造 填写 6 ');
+  assert.ok(fill);
+  assert.match(JSON.stringify(guide.messages[0].nodes), /"data":"\/委托锻造 填写 6 ","autoEnter":false/);
+  assert.equal(guide.actions[guide.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  const invalid = await dispatch(fill + '无效输入 0');
+  assert.match(inspectMessage(invalid.messages[0].nodes).text, /请填写有效的匠师 UID/);
+  assert.ok(!JSON.stringify(invalid.messages[0].nodes).includes('无效输入'));
+  assert.ok(!requests.some(request => request.path.endsWith('/forge.order-preview')));
+
+  const preview = await dispatch(fill + '2 0');
+  assert.deepEqual(requests.find(request => request.path.endsWith('/forge.order-preview'))?.body.arguments, {
+    crafterId: 2, recipeId: 6, fee: 0
+  });
+  assert.ok(!requests.some(request => request.path.endsWith('/forge.order-create')));
+  const previewView = inspectMessage(preview.messages[0].nodes);
+  assert.match(previewView.text, /工费 0/);
+  assert.match(previewView.text, /前确认/);
+  const confirm = previewView.commands.find(command => command === `/确认锻造委托 ${token}`);
+  assert.ok(confirm);
+  assert.equal(preview.actions[preview.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  const published = await dispatch(confirm);
+  assert.deepEqual(requests.find(request => request.path.endsWith('/forge.order-create'))?.body.arguments, { token });
+  assert.equal(published.actions[published.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+
+  const guild = await dispatch('/宗门活动');
+  assert.ok(!inspectMessage(guild.messages[0].nodes).commands.includes(entry));
+});
 
 test('洞府垂钓入口沿用已配置前缀且不增加RPC查询', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, professionData('joined')));

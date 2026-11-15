@@ -1,8 +1,27 @@
 import { Format } from 'alemonjs';
-import type { parseTreasureConfirmation, TreasurePreviewKind } from '@src/api/bot/treasures';
-import { addOptions, createQuoteMarkdown } from '@src/utils/messageHelper';
+import { treasureAttributeNames, type parseTreasureConfirmation, type TreasurePreviewKind } from '@src/api/bot/treasures';
+import { createQuoteMarkdown } from '@src/utils/messageHelper';
 
-type Confirmation = Pick<ReturnType<typeof parseTreasureConfirmation>, 'summary' | 'expiresAt' | 'confirmationRef'>;
+type Confirmation = Pick<ReturnType<typeof parseTreasureConfirmation>, 'summary' | 'expiresAt' | 'confirmationRef'> &
+  Partial<Pick<ReturnType<typeof parseTreasureConfirmation>, 'cultivationChange'>>;
+
+function battleChanges({ before, after }: NonNullable<Confirmation['cultivationChange']>): string[] {
+  const changes: string[] = [];
+  const number = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format;
+
+  for (const key of Object.keys(treasureAttributeNames) as Array<keyof typeof treasureAttributeNames>) {
+    const label = treasureAttributeNames[key];
+
+    if (before.attributes[key] !== after.attributes[key]) {
+      changes.push(`${label} +${number(before.attributes[key])} → ${label} +${number(after.attributes[key])}`);
+    }
+    if (before.percentAttributes[key] !== after.percentAttributes[key]) {
+      changes.push(`${label} +${number(before.percentAttributes[key])}% → ${label} +${number(after.percentAttributes[key])}%`);
+    }
+  }
+
+  return changes.length ? changes : ['战斗属性不变'];
+}
 
 // Only grade labels change here; the frozen server summary remains untouched.
 const displayGrades = (line: string) => line
@@ -13,8 +32,10 @@ const displayGrades = (line: string) => line
 export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily-pack-free', data: Confirmation, returnCommand?: string) {
   const content = Format.createMarkdown();
 
+  const expiresAt = data.expiresAt.replace('T', ' ').replace(/\.\d+Z$/, 'Z');
+
   if (kind === 'explore') {
-    content.addBlockquote(createQuoteMarkdown([data.summary[0]]));
+    content.addBlockquote(createQuoteMarkdown([data.summary[0], `有效期：至 ${expiresAt}`]));
   } else {
     const descriptions: string[] = [];
     const batch = kind === 'batch-upgrade' || kind === 'batch-promote';
@@ -30,19 +51,21 @@ export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily
       .addNewline()
       .addBlockquote(
         createQuoteMarkdown([
+          ...(data.cultivationChange ? battleChanges(data.cultivationChange) : []),
           ...descriptions,
-          `有效至 ${data.expiresAt.replace('T', ' ').replace(/\.\d+Z$/, 'Z')}`,
+          `有效至 ${expiresAt}`,
           '确认后按本次预览结算；重复确认只返回原操作结果。'
         ])
       );
   }
   content.addNewline();
-  addOptions(content, [
+  const actions = [
     { label: '确认', command: `/${kind === 'daily-pack-free' ? '确认礼包' : '确认宝物'} ${data.confirmationRef}`, autoEnter: false },
     {
       label: '取消并返回',
-      command: returnCommand ?? (
-        kind === 'daily-pack-free'
+      command:
+        returnCommand ??
+        (kind === 'daily-pack-free'
           ? '/充值 日礼包 30元全包'
           : kind === 'merchant-exchange'
             ? '/上古遗珍 秘宝商人'
@@ -53,7 +76,7 @@ export function buildTreasureConfirmationView(kind: TreasurePreviewKind | 'daily
                 : '/宝物'),
       autoEnter: false
     }
-  ]);
+  ];
 
-  return content;
+  return { content, actions };
 }

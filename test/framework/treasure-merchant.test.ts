@@ -94,7 +94,7 @@ test('秘宝商人沿用商店商品引用布局，仅展示一条藏宝图且�
   const view = delivered(result, command);
 
   assert.match(view.text, /仙蕴：5000/);
-  assert.equal([...view.text.matchAll(/【\d】藏宝图 ×1/g)].length, 1);
+  assert.equal([...view.text.matchAll(/^> 藏宝图$/gm)].length, 1);
   for (const text of ['价格：10仙蕴', '价格：12仙蕴', '价格：25仙蕴', '价格：60仙蕴', '价格：160仙蕴', '价格：400仙蕴', '价格：1,000仙蕴', '周限购50 · 剩余50', '月限购5 · 剩余5', '开启时自选一件同稀有度完整宝物']) assert.ok(view.text.includes(text), text);
   assert.equal(view.commands.filter(command => command.startsWith('/上古遗珍 兑换 ')).length, 7);
   assert.equal(requests.length, 1);
@@ -109,7 +109,7 @@ test('秘宝商人沿用商店商品引用布局，仅展示一条藏宝图且�
   for (const [index, quote] of quotes.entries()) {
     assert.ok(Array.isArray(quote.value));
     assert.equal(quote.value[0].type, 'MD.bold');
-    assert.equal(quote.value[0].value, `【${index + 1}】${merchant().products[index].name} ×1`);
+    assert.equal(quote.value[0].value, merchant().products[index].name);
   }
 });
 
@@ -138,24 +138,23 @@ test('月礼盒预览携带本月周期和服务端价格，不按周重置或�
   assert.deepEqual(requests[1].body.arguments, { kind: 'merchant-exchange', sku: 'mythic_box', quantity: 1, expectedUnitPrice: 1000, expectedPeriodKey: '2026-10-01' });
 });
 
-test('确认兑换后自动展示新价商店，重复确认沿原引用查询不生成另一笔预览', async t => {
+test('确认兑换只发回执，可手动刷新新价商店，重复确认沿用原引用', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('/treasures.merchant') ? merchant(15) : { kind: 'merchant-exchange', operationId, result: { operationId, message: '兑换藏宝图10张，消耗100仙蕴。' } }));
   const command = `/确认宝物 ${confirmationRef}`;
 
   for (let i = 0; i < 2; i++) {
     const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
-    const view = delivered(result, command, 2);
-
-    assert.match(inspectMessage(result.messages[0].nodes).text, /兑换藏宝图10张/);
-    assert.match(view.text, /价格：15仙蕴/);
-    assert.doesNotMatch(view.text, /价格：10仙蕴/);
+    const view = delivered(result, command);
+    assert.match(view.text, /兑换藏宝图10张/);
+    assert.ok(view.commands.includes('/上古遗珍 秘宝商人'));
   }
-  assert.equal(requests.length, 4);
-  const confirmations = requests.filter(request => request.path.endsWith('/treasures.confirm'));
-
-  assert.equal(confirmations.length, 2);
-  assert.ok(confirmations.every(request => request.body.arguments && (request.body.arguments as Record<string, unknown>).confirmationRef === confirmationRef));
-  assert.ok(requests.every(request => !request.path.endsWith('/treasures.preview')));
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(request => request.path.endsWith('/treasures.confirm') && (request.body.arguments as Record<string, unknown>).confirmationRef === confirmationRef));
+  const refresh = '/上古遗珍 秘宝商人';
+  const shop = delivered(await app.runHandler(handler, app.events.privateMessage({ text: refresh, platform: 'qq-bot' })), refresh);
+  assert.match(shop.text, /价格：15仙蕴/);
+  assert.doesNotMatch(shop.text, /价格：10仙蕴/);
+  assert.equal(requests.length, 3);
 });
 
 for (const args of ['treasure_map 0', 'treasure_map -1', 'treasure_map 1.5', 'treasure_map 9007199254740992', 'unknown 1', 'treasure_map 1 extra']) {
@@ -303,7 +302,7 @@ for (const isPrivate of [true, false]) {
     assert.deepEqual(state(), { xianYun: 5000, treasureMaps: 0, settled: 0, conflicts: 0, ledger: 2 });
   });
 
-  test(`确认与商店刷新独立幂等，原引用换消息确认只到账一次 private=${isPrivate}`, async t => {
+  test(`原引用换消息确认只到账一次，商店由玩家刷新 private=${isPrivate}`, async t => {
     const { app, requests, state } = await merchantReplayFixture(t);
     const command = `/确认宝物 ${confirmationRef}`;
     const options = { text: command, platform: 'qq-bot', messageId: 'merchant-confirm-original' };
@@ -312,17 +311,22 @@ for (const isPrivate of [true, false]) {
     const retry = isPrivate ? app.events.privateMessage(nextOptions) : app.events.groupMessage(nextOptions);
     for (const input of [event, event, retry]) {
       const result = await app.runHandler(handler, input);
-      const view = delivered(result, command, 2);
-      assert.match(inspectMessage(result.messages[0].nodes).text, /兑换藏宝图3张/);
-      assert.match(view.text, /仙蕴：4970/);
+      const view = delivered(result, command);
+      assert.match(view.text, /兑换藏宝图3张/);
       assert.doesNotMatch(view.text, /Idempotency-Key/);
     }
-    assert.notEqual(requests[0].idempotencyKey, requests[1].idempotencyKey);
-    assert.equal(requests[0].idempotencyKey, createBackendRequestContext(event).idempotencyKey, '确认写操作仍保留原事件键');
-    assert.deepEqual(requests.slice(2, 4).map(request => request.idempotencyKey), requests.slice(0, 2).map(request => request.idempotencyKey));
-    assert.notEqual(requests[4].idempotencyKey, requests[0].idempotencyKey);
-    assert.ok(requests.filter(request => request.path.endsWith('/treasures.confirm')).every(request => (request.body.arguments as Record<string, unknown>).confirmationRef === confirmationRef));
-    assert.deepEqual(state(), { xianYun: 4970, treasureMaps: 3, settled: 1, conflicts: 0, ledger: 4 });
+    assert.equal(requests.length, 3);
+    assert.equal(requests[0].idempotencyKey, createBackendRequestContext(event).idempotencyKey);
+    assert.equal(requests[1].idempotencyKey, requests[0].idempotencyKey);
+    assert.notEqual(requests[2].idempotencyKey, requests[0].idempotencyKey);
+    assert.ok(requests.every(request => request.path.endsWith('/treasures.confirm') && (request.body.arguments as Record<string, unknown>).confirmationRef === confirmationRef));
+    const refresh = '/上古遗珍 秘宝商人';
+    const refreshOptions = { text: refresh, platform: 'qq-bot', messageId: 'merchant-manual-refresh' };
+    const refreshEvent = isPrivate ? app.events.privateMessage(refreshOptions) : app.events.groupMessage(refreshOptions);
+    const shop = delivered(await app.runHandler(handler, refreshEvent), refresh);
+    assert.match(shop.text, /仙蕴：4970/);
+    assert.notEqual(requests[3].idempotencyKey, requests[0].idempotencyKey);
+    assert.deepEqual(state(), { xianYun: 4970, treasureMaps: 3, settled: 1, conflicts: 0, ledger: 3 });
   });
 }
 

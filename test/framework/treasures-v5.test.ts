@@ -87,13 +87,16 @@ for (const mode of ['old-version', 'missing-version', 'old-scope', 'missing-scop
   assert.doesNotMatch(view.text, /%|完整|形态|保底|综合概率/);
   for (const command of ['/上古遗珍 概率', '/上古遗珍', '/宝物']) assert.ok(view.commands.includes(command));
   const normal = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
-  assert.match(inspectMessage(normal.messages[0].nodes).text, /当前账户/);
+  assert.match(inspectMessage(normal.messages[0].nodes).text, /物品：灵晶/);
   assert.equal(requests.length, 2);
 });
 
 test('探索记录保留本体、碎片、合成余片与费用，不显示隐藏形态说明', async t => {
   const result = priorityResult(10);
   Object.assign(result.rewards[0], { quantity: 2, autoSynthesized: 1, fragmentsRemaining: 1 });
+  result.rewards.slice(1, 8).forEach((reward, index) => { reward.fragmentsRemaining = index + 2; });
+  result.rewards[8] = { ...result.rewards[9], pullIndex: 9, forcedComplete: false };
+  result.rewards[9].forcedComplete = false;
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
     serverDate: '2026-10-29', balances: { spiritCrystal: 0, daoCrystal: 0, treasureMaps: 0 }, freeAvailable: true,
     spiritTenDiscountAvailable: true, totalExplorations: 10, milestoneProgress: 10, pendingSelections: 0,
@@ -104,9 +107,47 @@ test('探索记录保留本体、碎片、合成余片与费用，不显示隐�
   assert.equal(done.messages.length, 1);
   assert.equal(done.actions[done.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(done.messages[0].nodes);
-  assert.match(view.text, /九天息壤本体 ×1/);
-  assert.match(view.text, /锈剑残片碎片 ×2/);
-  assert.match(view.text, /自动合成1本体，余片1/);
-  assert.match(view.text, /消耗 10800/);
+  assert.equal(view.text.match(/九天息壤本体 ×\d+/g)?.length, 1);
+  assert.match(view.text, /九天息壤本体 ×2/);
+  assert.equal(view.text.match(/锈剑残片碎片 ×\d+/g)?.length, 1);
+  assert.match(view.text, /锈剑残片碎片 ×9/);
+  assert.match(view.text, /自动合成1本体，余片8/);
+  assert.match(view.text, /消耗：10,800灵晶/);
   assert.doesNotMatch(view.text, /完整池|完整判定|直接完整|形态|保底/);
+});
+
+test('探索记录按三笔分页，末页可看到第20笔且保留返回', async t => {
+  const result = priorityResult(10);
+  const records = Array.from({ length: 20 }, (_, i) => ({
+    ...result,
+    operationId: `page-record-${String(i + 1).padStart(2, '0')}`,
+    createdAt: '2026-10-29T10:00:00+08:00'
+  }));
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    serverDate: '2026-10-29', balances: { spiritCrystal: 0, daoCrystal: 0, treasureMaps: 0 }, freeAvailable: true,
+    spiritTenDiscountAvailable: true, totalExplorations: 200, milestoneProgress: 200, pendingSelections: 1,
+    shapeRates: { singleComplete: .12, tenExpectedComplete: 1.48, tenAverageComplete: .148 },
+    pity: [], wholeRates: [], rules: [], records
+  }));
+  const run = async (text: string) => {
+    const data = await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' }));
+    assert.equal(data.messages.length, 1);
+    assert.equal(data.actions[data.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+    return inspectMessage(data.messages[0].nodes);
+  };
+  const first = await run('/上古遗珍 记录');
+  assert.match(first.text, /第1\/7页/);
+  assert.deepEqual(first.text.match(/page-record-\d+/g), ['page-record-01', 'page-record-02', 'page-record-03']);
+  assert.doesNotMatch(first.text, /神话自选/);
+  assert.ok(first.commands.includes('/上古遗珍 记录 p2'));
+  const second = await run(first.commands.find(command => command.endsWith('记录 p2'))!);
+  assert.deepEqual(second.text.match(/page-record-\d+/g), ['page-record-04', 'page-record-05', 'page-record-06']);
+  const last = await run('/上古遗珍 记录 p999');
+  assert.match(last.text, /第7\/7页/);
+  assert.deepEqual(last.text.match(/page-record-\d+/g), ['page-record-19', 'page-record-20']);
+  assert.ok(last.commands.includes('/上古遗珍 记录 p6'));
+  assert.ok(last.commands.includes('/上古遗珍'));
+  const invalid = await run('/上古遗珍 记录 p0');
+  assert.match(invalid.text, /参数错误/);
+  assert.equal(requests.length, 3);
 });

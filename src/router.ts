@@ -284,11 +284,15 @@ export function createGameRouter() {
     // xiuxian.use('关闭主题', () => import('@src/response/theme/deactivateTheme/res')); // 主题切换下架
     // xiuxian.use('切换墨色模式', () => import('@src/response/theme/switchInkMode/res')); // 主题切换下架
     xiuxian.use(['切换', '替换'], () => import('@src/response/profession/replaceEquip/res'));
+    xiuxian.use('商店 渔市', () => import('@src/response/fishing/res'));
     xiuxian.use(
       '商店',
       withCommandCatalog('shop', () => measureTransportStage('route.import', () => import('@src/response/shop/hub/res')))
     );
     xiuxian.use(['储物袋', '背包', '纳戒', '我的储物袋', '我的背包', '我的纳戒'], () => import('@src/response/storage/newBag/main/res'));
+    const bagSearchRoutes = ['储物袋', '背包', '我的储物袋', '我的背包'].flatMap(name => [`${name} 搜索`, `${name} 搜索续`]);
+
+    xiuxian.use([...bagSearchRoutes, '储物袋搜索', '储物袋搜索续'], () => import('@src/response/storage/newBag/search/res'));
     xiuxian.use(['储物袋 道具', '背包 道具', '我的储物袋 道具', '我的背包 道具'], () => import('@src/response/storage/newBag/props/res'));
     xiuxian.use(['储物袋 材料', '背包 材料', '我的储物袋 材料', '我的背包 材料'], () => import('@src/response/storage/newBag/materials/res'));
     xiuxian.use(['储物袋 装备', '背包 装备', '我的储物袋 装备', '我的背包 装备'], () => import('@src/response/storage/newBag/equipments/res'));

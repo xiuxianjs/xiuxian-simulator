@@ -46,6 +46,7 @@ test('奇遇先送达活动总览，再异步发盲选气泡，选完揭晓原�
   const markup = JSON.stringify(panel.messages.flatMap(message => message.nodes));
   const button = '/奇遇选择 18446744073709551615 1';
   assert.ok(markup.includes(button));
+  assert.ok(markup.includes('/垂钓 大赛'));
   assert.ok(!markup.includes('灵肥'));
   assert.ok([...button].length <= 80);
   for (const message of panel.messages) assert.equal(panel.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
@@ -63,6 +64,45 @@ test('奇遇先送达活动总览，再异步发盲选气泡，选完揭晓原�
 });
 
 const noEncounter = { triggered: false, pending: null, nextCheckAt: '2099-11-10T11:15:00Z', nextGameDayAt: '2099-11-10T16:00:00Z', quotaExhausted: false };
+
+test('活动大厅独立显示进行中的垂钓奇遇，宗门页和我的奇遇不显示', async t => {
+  const id = 'fb_' + 'a'.repeat(32);
+  const ordinary = { id: '1', title: '药农还礼', intro: '药农留下了两样谢礼。', options: ['取布袋', '取纸包'], expiresAt: '2099-11-10T11:15:00Z' };
+  let fishingBossEventId: string | undefined;
+  const { app } = await gameFixture(t, request => {
+    if (request.path.endsWith('/online-encounter.check')) return businessEnvelope(request.bid, noEncounter);
+    if (request.path.endsWith('/online-encounter.pending')) return businessEnvelope(request.bid, { pending: ordinary, fishingBossEventId });
+    assert.ok(request.path.endsWith('/activity.hub'));
+    return businessEnvelope(request.bid, {
+      limitedEvent: { activeCount: 0 }, guildCompetition: { phase: '' }, newcomerVisible: false, giftCodesVisible: false,
+      guildSecretRealmWar: { phase: '', activeStartAt: '', activeEndAt: '', maxAttackPerWeek: 0, remainingAttackCount: 0 },
+      access: { hasGuild: true, canAccessOverseasIsland: false },
+      fishingBossEventId
+    });
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  app.actions.on('message.send', () => [createResult(ResultCode.Ok, '已送达', { id: 'activity-receipt' })]);
+
+  for (const example of [
+    { command: '/我的活动', eventId: undefined, boss: false, ordinary: false },
+    { command: '/我的活动', eventId: id, boss: true, ordinary: false },
+    { command: '/我的活动', eventId: 'invalid-placeholder', boss: false, ordinary: false },
+    { command: '/宗门活动', eventId: id, boss: false, ordinary: false },
+    { command: '/我的奇遇', eventId: id, boss: false, ordinary: true }
+  ]) {
+    fishingBossEventId = example.eventId;
+    const result = await app.dispatch(app.events.privateMessage({ text: example.command, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const [message] = result.messages;
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const markup = JSON.stringify(message.nodes);
+    assert.equal(markup.includes('/垂钓 奇遇 ' + id), example.boss);
+    assert.equal(message.text.includes('上古龙鲤现身'), example.boss);
+    assert.equal(markup.includes('/奇遇选择 1 1'), example.ordinary);
+    assert.doesNotMatch(markup, /invalid-placeholder/);
+  }
+});
 
 for (const scenario of [
   { command: '/一键打理灵田', operation: 'cave.tend-all', panel: 'cave-tend', text: '收获：聚灵草 ×3',

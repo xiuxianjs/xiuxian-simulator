@@ -394,9 +394,9 @@ for (const active of [false, true]) test(`垂钓主页礼包始终在设置左�
       [action(active ? '收杆' : '甩杆', active ? '/垂钓 收竿' : '/垂钓 开钓'), action('使用渔具', '/垂钓 渔具')])], footer });
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
   const [page] = sent(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })));
-  assert.match(page.text, /‹使用渔具›\s+‹我的渔获›‹渔市›\n‹礼包›‹设置›‹帮助›/);
+  assert.match(page.text, /‹使用渔具›\s+‹我的渔获›‹渔市›‹锦鲤赐福›\n‹礼包›‹设置›‹帮助›/);
   assert.ok(page.commands.includes(active ? '/垂钓 收竿' : '/垂钓 开钓'));
-  assert.deepEqual(page.commands.slice(-10), [...footer.filter(item => item.label !== '锦鲤赐福').map(item => item.command), '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+  assert.deepEqual(page.commands.slice(-11), [...footer.map(item => item.command), '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
 });
 
 for (const preview of [true, false]) test(`渔市购买${preview ? '确认' : '完成'}使用普通商店正文句式，不触发客户端自动确认`, async t => {

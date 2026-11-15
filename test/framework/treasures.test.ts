@@ -241,11 +241,11 @@ for (const privateChat of [false, true]) {
         for (const row of rows) assert.ok(view.text.includes(row), row);
         assert.equal(view.text.match(/ 综合概率 /g)?.length, rows.length);
         assert.doesNotMatch(view.text, /普通|优秀|精良|完整|形态|保底|下一次|下一概率|直接完整率|期望|子探索|直出|累计探索|本轮|神话自选|每300|随机碎片|119\/120|12%/);
-        assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/充值 灵脉租契', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+        assert.deepEqual(view.commands, ['/上古遗珍', '/宝物', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
         assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
       else {
-        assert.match(view.text, /当前账户/);
+        assert.match(view.text, /物品：灵晶/);
         assert.ok(view.commands.includes('/上古遗珍 免费探索'));
         assert.ok(view.commands.includes('/上古遗珍 十连探索 道晶'));
         assert.ok(view.commands.includes('/上古遗珍 探索 道晶'));
@@ -262,26 +262,31 @@ for (const used of [false, true]) {
     const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
     const view = facts(result);
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
-    const top = nodes.filter(node => node.type === 'MD.button').slice(0, 6);
-    assert.deepEqual(top.map(node => node.type === 'MD.button' ? node.options?.data : ''), [
-      '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴', '/充值 日礼包', '/日常活跃', '/上古遗珍 秘宝商人'
+    const footer = nodes.filter(node => node.type === 'MD.button').filter(node => node.options?.data && [
+      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
+    ].includes(node.options.data));
+    assert.deepEqual(footer.map(node => node.options?.data), [
+      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
     ]);
-    const positions = top.map(button => nodes.indexOf(button));
-    assert.ok(!nodes.slice(positions[0] + 1, positions[1]).some(node => node.type === 'MD.newline'));
-    assert.ok(!nodes.slice(positions[1] + 1, positions[2]).some(node => node.type === 'MD.newline'));
-    assert.ok(nodes.slice(positions[2] + 1, positions[3]).filter(node => node.type === 'MD.newline').length >= 2);
-    assert.ok(!nodes.slice(positions[3] + 1, positions[4]).some(node => node.type === 'MD.newline'));
-    assert.ok(!nodes.slice(positions[4] + 1, positions[5]).some(node => node.type === 'MD.newline'));
+    assert.ok(footer.every(node => node.options?.autoEnter === false));
+    const positions = footer.map(button => nodes.indexOf(button));
+    for (const index of [0, 1, 2, 4, 5]) {
+      assert.ok(!nodes.slice(positions[index] + 1, positions[index + 1]).some(node => node.type === 'MD.newline'));
+    }
+    assert.ok(nodes.slice(positions[3] + 1, positions[4]).some(node => node.type === 'MD.newline'));
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
-    assert.ok(nodes.indexOf(quotes[0]) > positions[5]);
-    assert.ok(!view.commands.includes('/周常活跃'));
-    assert.ok(nodes.some(node => node.type === 'MD.bold' && node.value === '单发整品概率12%，十连至少出一个整品'));
-    assert.match(view.text, /本轮 0\/300/);
-    assert.equal(view.text.match(/神话自选待领取/g)?.length ?? 0, used ? 0 : 1);
-    assert.doesNotMatch(view.text, /累计探索|可领取神话自选|来自邮件|每笔十连至少/);
+    assert.ok(Array.isArray(quotes[0]?.value));
+    const status = inspectMessage([{ type: 'Markdown', value: quotes[0].value }]);
+    assert.ok(positions[0] > nodes.indexOf(quotes.at(-1)!));
+    assert.ok(nodes.indexOf(quotes[0]) < nodes.findIndex(node => node.type === 'MD.text' && String(node.value).startsWith('灵晶探索')));
+    assert.deepEqual(status.commands, []);
+    assert.match(status.text, /说明：单发整品概率12%，十连至少出一个整品/);
+    assert.match(status.text, /进度：神话自选 0\/300/);
+    assert.match(status.text, /物品：灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
+    assert.equal(status.text.includes('待领取：神话自选 1份'), !used);
+    assert.match(status.text, used ? /每日免费探索已使用/ : /每日免费探索可用/);
     assert.equal(view.commands.includes('/上古遗珍 自选'), !used);
     assert.equal(view.commands.includes('/上古遗珍 免费探索'), !used);
-    assert.match(view.text, used ? /每日免费探索：已使用/ : /‹每日免费探索›/);
     assert.match(view.text, used ? /灵晶探索 · 今日首十连半价已使用/ : /灵晶探索 · 每日首次十连半价/);
     for (const [name, single, ten] of [['灵晶', 1200, used ? 12000 : 6000], ['道晶', 12, used ? 108 : 60], ['藏宝图', 1, 10]] as const) {
       assert.ok(nodes.some(node => node.type === 'MD.text' && String(node.value).startsWith(`${name}探索`)));
@@ -301,10 +306,7 @@ for (const used of [false, true]) {
         assert.equal(costNode.value, ` 消耗${cost}${name}`);
       }
     }
-    assert.ok(nodes.some(node => node.type === 'MD.text' && node.value === '当前账户'));
-    assert.ok(view.text.indexOf('当前账户') > view.text.indexOf('藏宝图探索'));
-    assert.match(view.text, /灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
-    assert.deepEqual(view.commands.slice(-7), ['/宝物', '/上古遗珍', '/我', '/属性面板', '/查看主线', '/我的活动', '/商店']);
+    assert.ok(!view.commands.includes('/上古遗珍'));
     assert.ok(!view.commands.includes('/充值 灵脉租契'));
     assert.equal(requests.length, 1);
     if (used) previews.set('/上古遗珍（免费与首十连已使用）', view);
@@ -360,7 +362,7 @@ test('分解说明准确告知满品一键包含重复本体与碎片', async t 
   const view = facts(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解', platform: 'qq-bot' })));
   assert.match(view.text, /一键只处理满品宝物的全部重复本体与碎片；未满品材料须手动指定/);
   assert.doesNotMatch(view.text, /不处理碎片/);
-  assert.ok(view.commands.includes('/宝物 一键分解'));
+  assert.ok(view.commands.some(command => command.startsWith('/宝物 一键分解 d')));
   assert.equal(requests.length, 1);
 });
 
@@ -388,16 +390,25 @@ for (const [command, kind, input] of [
     previews.set(`${command}（确认预览）`, initial);
     if (command === '/宝物 一键分解') assert.match(initial.text, /12份（每份1碎片）× 22仙蕴＝264仙蕴/);
     if (kind === 'explore') {
-      assert.match(initial.text, /^操作确认\n/);
+      assert.match(initial.text, /^上古遗珍探索确认\n/);
       assert.ok(initial.text.includes(preview(kind, input).summary[0]));
-      assert.doesNotMatch(initial.text, /24小时有效|有效至|重复确认只返回|20／50／120|每300次探索/);
+      assert.match(initial.text, /有效期：至 2026-10-28 10:00:00\+08:00/);
+      assert.doesNotMatch(initial.text, /重复确认只返回|20／50／120|每300次探索/);
       const body = initial.text.split('\n').filter(line => line.startsWith('>'));
-      assert.equal(body.length, 1);
+      assert.equal(body.length, 2);
     } else {
       assert.match(initial.text, /24小时有效/);
       assert.match(initial.text, /有效至/);
     }
-    assert.ok(initial.commands.some(c => ['/宝物', '/上古遗珍', '/灵脉租契'].includes(c)));
+    if (kind === 'select-mythic') {
+      assert.match(initial.text, /^神话自选确认/);
+      assert.ok(initial.commands.includes('/上古遗珍 自选'));
+    } else if (kind === 'upgrade' || kind === 'promote') {
+      assert.ok(initial.commands.includes('/宝物 详情 504'));
+    } else if (kind === 'decompose') {
+      assert.ok(initial.commands.includes('/宝物 分解'));
+    }
+    if (command.startsWith('/宝物')) assert.ok(!initial.commands.includes('/充值 灵脉租契'));
     assert.deepEqual(requests[0].body.arguments, { kind, ...input });
     for (let i = 0; i < 2; i++) {
       const execution = app.dispatch(app.events.privateMessage({ text: confirm!, platform: 'qq-bot' }));
@@ -409,6 +420,7 @@ for (const [command, kind, input] of [
       }
       assert.match(done.text, kind === 'explore' ? /上古遗珍探索完成/ : /原操作已结算/);
       if (kind === 'explore') assert.match(done.text, /乾坤鼎/);
+      if (kind === 'select-mythic') assert.match(done.text, /^神话自选领取完成/);
     }
     assert.equal(requests.length, 3);
     for (const request of requests.slice(1)) {

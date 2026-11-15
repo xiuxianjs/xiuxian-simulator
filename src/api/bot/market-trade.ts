@@ -37,6 +37,7 @@ export type BackendMarketPriceRange = {
   minPrice: number;
   maxPrice: number;
   referencePrice: number;
+  referenceFee?: number;
   source: 'median' | 'base_price' | 'fallback' | 'fish_weight_anchor';
   credibilityReady: boolean;
   templateItemId: number;
@@ -64,6 +65,8 @@ export function assertMarketPriceRange(value: unknown, message: string): asserts
   if (
     !range ||
     !['minPrice', 'maxPrice', 'referencePrice', 'templateItemId', 'maxListingQuantity'].every(key => integer(range[key])) ||
+    (range.referenceFee !== undefined &&
+      (!integer(range.referenceFee) || !integer(range.referencePrice) || range.referenceFee < 0 || range.referenceFee > range.referencePrice)) ||
     typeof range.source !== 'string' ||
     !['median', 'base_price', 'fallback', 'fish_weight_anchor'].includes(range.source) ||
     typeof range.credibilityReady !== 'boolean' ||

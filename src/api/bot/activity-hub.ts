@@ -18,6 +18,7 @@ export interface RobotActivityHub {
   overseasIslandRequiredRealm?: string;
   newcomerVisible: boolean;
   giftCodesVisible: boolean;
+  fishingBossEventId?: string;
 }
 
 /** Decode the bubble projection; never fetch missing activity, catalog or realm data. */

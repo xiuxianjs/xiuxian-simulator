@@ -12,8 +12,7 @@
     "lodash-es": "^4.17.21",
     "minio": "^8.0.7",
     "node-schedule": "^2.1.1",
-    "qrcode": "^1.5.4",
-    "sharp": "^0.34.3"
+    "qrcode": "^1.5.4"
   },
   "description": "修仙",
   "devDependencies": {
@@ -46,8 +45,7 @@
     "tailwindcss": "3",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
     "typescript-eslint": "^8.19.1",
-    "yaml": "^2.6.0",
-    "tsx": "^4.23.12"
+    "yaml": "^2.6.0"
   },
   "exports": {
     ".": "./lib/index.js",

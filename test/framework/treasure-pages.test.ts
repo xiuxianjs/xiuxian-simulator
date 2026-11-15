@@ -82,30 +82,31 @@ async function run(t: TestContext, data: ReturnType<typeof overview>, command: s
   return { ...result, nodes: delivered.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []) };
 }
 
-test('宝物默认普通，仅显示当前档已激活主件，气运不混入总览', async t => {
+test('宝物默认展示全部已激活宝物，多个品质时提供筛选', async t => {
   const result = await run(t, overview([item(101), item(401), item(601, 6, false)]), '/宝物');
 
-  assert.match(result.text, /宝物101/);
+  assert.match(result.text, /^我的宝物/m);
+  assert.match(result.text, /已激活 2 件宝物/);
+  assert.match(result.text, /宝物101 #101/);
+  assert.match(result.text, /宝物401 #401/);
   assert.match(result.text, /星尘1 · Lv\.1/);
-  assert.doesNotMatch(result.text, /宝物401|宝物601|鸿蒙气运 1\/20级|碎片/);
+  assert.doesNotMatch(result.text, /宝物601|鸿蒙气运 1\/20级|碎片/);
   assert.ok(result.commands.includes('/宝物 品质 1'));
   assert.ok(result.commands.includes('/宝物 品质 4'));
   assert.ok(!result.commands.includes('/宝物 品质 6'));
   assert.ok(result.commands.includes('/宝物 详情 101'));
-  assert.ok(result.commands.includes('/宝物 一键突破'));
-  assert.ok(result.commands.includes('/宝物 一键升级'));
-  assert.ok(result.nodes.some(node => node.type === 'MD.text' && node.value === '宝物101'));
-  assert.ok(result.nodes.some(node => node.type === 'MD.button' && node.options?.data === '/宝物 一键突破'));
+  assert.ok(result.commands.includes('/宝物 详情 401'));
   const itemQuote = result.nodes.find(node => node.type === 'MD.blockquote' && JSON.stringify(node.value).includes('/宝物 详情 101'));
-  assert.ok(itemQuote?.type === 'MD.blockquote' && !JSON.stringify(itemQuote.value).includes('宝物101'));
+  assert.ok(itemQuote?.type === 'MD.blockquote' && JSON.stringify(itemQuote.value).includes('宝物101'));
 });
 
-test('无普通时默认最低已有档，空账户和指定未拥有档有明确空态', async t => {
+test('默认展示全部已有品质，空账户和指定未拥有档有明确空态', async t => {
   const owned = overview([item(301), item(501), item(101, 1, false)]);
   const defaultView = await run(t, owned, '/宝物');
 
   assert.match(defaultView.text, /宝物301/);
-  assert.doesNotMatch(defaultView.text, /宝物501|宝物101/);
+  assert.match(defaultView.text, /宝物501/);
+  assert.doesNotMatch(defaultView.text, /宝物101/);
   const missing = await run(t, owned, '/宝物 品质 1');
 
   assert.match(missing.text, /尚未拥有普通宝物/);
@@ -115,6 +116,7 @@ test('无普通时默认最低已有档，空账户和指定未拥有档有明�
   assert.match(empty.text, /尚未拥有宝物/);
   assert.doesNotMatch(empty.text, /宝物401|碎片/);
   assert.ok(!empty.commands.some(command => command.startsWith('/宝物 品质 ')));
+  assert.ok(empty.commands.includes('/上古遗珍'));
 });
 
 test('旧图鉴指令只转到新的持有页，不再展示混合气运与未拥有图鉴', async t => {
@@ -122,7 +124,8 @@ test('旧图鉴指令只转到新的持有页，不再展示混合气运与未�
 
   assert.match(result.text, /宝物504/);
   assert.doesNotMatch(result.text, /宝物601|全部图鉴|分解与仙蕴|鸿蒙气运 · Lv|鸿蒙气运 1\/20/);
-  assert.ok(result.commands.includes('/宝物 气运'));
+  assert.ok(!result.commands.includes('/宝物 气运'));
+  assert.ok(!result.commands.some(command => command.startsWith('/宝物 品质 ')));
   assert.ok(!result.commands.some(command => command.startsWith('/宝物 图鉴')));
 });
 
@@ -131,9 +134,9 @@ test('品质筛选只列对应档，6件分页保留所选品质', async t => {
   const data = overview([...Array.from({ length: 7 }, (_, index) => item(101 + index)), item(401)]);
   const first = await run(t, data, '/宝物 品质 1');
 
-  assert.match(first.text, /第 1\/2 页/);
+  assert.match(first.text, /第1\/2页/);
   assert.ok(first.commands.includes('/宝物 品质 1 p2'));
-  assert.ok(!first.commands.includes('/宝物 详情 107'));
+  assert.ok(!first.commands.some(command => command.startsWith('/宝物 详情 107')));
   assert.equal(first.commands.filter(command => command.startsWith('/宝物 详情 ')).length, 6);
   const second = await run(t, data, '/宝物 品质 1 p2');
 
@@ -144,6 +147,44 @@ test('品质筛选只列对应档，6件分页保留所选品质', async t => {
 
   assert.match(purple.text, /宝物401/);
   assert.doesNotMatch(purple.text, /宝物101|宝物107/);
+});
+
+test('全部列表可翻到其他品质，单品质档没有多余筛选', async t => {
+  const data = overview([...Array.from({ length: 6 }, (_, index) => item(101 + index)), item(401)]);
+  const first = await run(t, data, '/宝物');
+  assert.match(first.text, /第1\/2页/);
+  assert.ok(first.commands.includes('/宝物 p2'));
+  const second = await run(t, data, '/宝物 p2');
+  assert.match(second.text, /宝物401/);
+  assert.ok(second.commands.includes('/宝物 p1'));
+
+  const single = await run(t, overview([item(401)]), '/宝物');
+  assert.ok(!single.commands.some(command => command === '/宝物' || command.startsWith('/宝物 品质 ')));
+  assert.ok(!single.commands.includes('/上古遗珍'));
+});
+
+test('从宝物列表进入详情后恢复原品质和页码', async t => {
+  // Include an extra fixture entry to exercise page two within one quality.
+  const data = overview([item(100, 1), ...Array.from({ length: 6 }, (_, index) => item(101 + index)), item(401)]);
+  for (const [source, id, hidden] of [
+    ['/宝物 品质 4', 401, 101],
+    ['/宝物 p2', 401, 101],
+    ['/宝物 品质 1 p2', 106, 401]
+  ] as const) {
+    const list = await run(t, data, source);
+    const detail = list.commands.find(command => command.startsWith(`/宝物 详情 ${id} `));
+    assert.ok(detail);
+    const page = await run(t, data, detail);
+    const back = page.nodes.find(node => node.type === 'MD.button' && node.value === '‹返回›');
+    const returnCommand = back?.type === 'MD.button' ? back.options?.data : undefined;
+    assert.equal(returnCommand, source);
+    const returned = await run(t, data, returnCommand!);
+    assert.match(returned.text, new RegExp(`宝物${id} #${id}`));
+    assert.doesNotMatch(returned.text, new RegExp(`宝物${hidden} #${hidden}`));
+  }
+
+  const direct = await run(t, data, '/宝物 详情 401');
+  assert.ok(direct.commands.includes('/宝物'));
 });
 
 test('鸿蒙气运独立展示两页导航，满级不计算虚构的下级差额', async t => {
@@ -172,10 +213,37 @@ test('效果总览只汇总已拥有宝物的战斗属性与当前生活效果',
 
   assert.match(result.text, /生命 \+605/);
   assert.match(result.text, /生命 \+1%/);
-  assert.match(result.text, /宝物504\n> 炼丹时，3%概率返还本炉整份实际消耗药材。/);
+  assert.match(result.text, /宝物504 #504\n> 炼丹时，3%概率返还本炉整份实际消耗药材。/);
   assert.doesNotMatch(result.text, /生活效果504|当前：3%/);
   assert.doesNotMatch(result.text, /宝物604|生活效果604|生命 \+1,209/);
   assert.ok(result.commands.includes('/宝物 气运'));
+});
+
+test('效果总览按六项生活特效分页，每页保留全体战斗属性', async t => {
+  const effects = [401, 402, 403, 404, 405, 406, 501].map(id => ({ ...item(id), currentEffect: `生效特效${id}` }));
+  const data = overview([...effects, { ...item(601, 6, false), currentEffect: '未激活特效' }]);
+  const first = await run(t, data, '/宝物 效果总览');
+  assert.match(first.text, /第1\/2页/);
+  assert.match(first.text, /生命 \+2,922/);
+  assert.equal(first.text.match(/生效特效\d+/g)?.length, 6);
+  assert.doesNotMatch(first.text, /生效特效501|未激活特效/);
+
+  const next = first.commands.find(command => command === '/宝物 效果 p2');
+  assert.ok(next);
+  const second = await run(t, data, next);
+  assert.match(second.text, /生命 \+2,922/);
+  assert.deepEqual(second.text.match(/生效特效\d+/g), ['生效特效501']);
+  assert.ok(second.commands.includes('/宝物 效果 p1'));
+  const fortune = second.commands.find(command => command === '/宝物 气运 p2');
+  assert.ok(fortune);
+  assert.ok(first.commands.includes('/宝物 气运'));
+  const fortunePage = await run(t, data, fortune);
+  const back = fortunePage.nodes.find(node => node.type === 'MD.button' && node.value === '‹返回›');
+  const returnCommand = back?.type === 'MD.button' ? back.options?.data : undefined;
+  assert.equal(returnCommand, '/宝物 效果 p2');
+  const returned = await run(t, data, returnCommand!);
+  assert.match(returned.text, /第2\/2页/);
+  assert.deepEqual(returned.text.match(/生效特效\d+/g), ['生效特效501']);
 });
 
 function shennong() {
@@ -237,56 +305,27 @@ for (const [grade, immortalRank, rate] of [[17, 2, '15.3%'], [24, 9, '18%']] as 
   });
 }
 
-test('详情培养只展示当前特效，变化与消耗均使用服务端预览，资源不足仍可打开确认', async t => {
+test('详情展示当前状态，升级与升品预览从各自按钮打开', async t => {
   const result = await run(t, overview([shennong()]), '/宝物 详情 504');
 
   assert.match(result.text, /当前拥有：经验 100 · 仙蕴 5/);
   assert.match(result.text, /【史诗】神农鼎/);
-  assert.doesNotMatch(result.text, /504 神农鼎|星尘1阶|晓月|纯阳|仙藏/);
   assert.match(result.text, /星尘1 · 等级 1\/10/);
   assert.match(result.text, /3%概率返还本炉整份实际消耗药材/);
-  assert.match(result.text, /升品至 星尘2/);
-  assert.match(result.text, /生命 \+600 → 生命 \+780/);
-  assert.match(result.text, /需要本体 1 · 仙蕴 0/);
-  assert.match(result.text, /升级至 Lv\.2/);
-  assert.match(result.text, /生命 \+600 → 生命 \+612/);
-  assert.match(result.text, /需要经验 20/);
-  assert.doesNotMatch(result.text, /生命 \+2% →|生命 \+601|生命 \+620/);
-  assert.ok(result.commands.includes('/宝物 升品 504'));
-  assert.ok(result.commands.includes('/宝物 升级 504'));
-  for (const title of ['【史诗】神农鼎', '战斗属性', '特殊属性', '升品至 星尘2 ', '升级至 Lv.2 ']) {
-    assert.ok(result.nodes.some(node => node.type === 'MD.text' && node.value === title), title);
-  }
-  for (const command of ['/宝物 升品 504', '/宝物 升级 504']) {
+  assert.match(result.text, /生命 \+600/);
+  assert.doesNotMatch(result.text, /→|升品至|升级至|需要本体|需要经验/);
+  for (const command of ['/宝物 升品 504', '/宝物 升级 504', '/宝物']) {
     assert.ok(result.nodes.some(node => node.type === 'MD.button' && node.options?.data === command));
   }
-  const quoted = result.nodes.flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : []);
-  for (const bold of ['星尘1 · 等级 1/10', '生命 +600 → 生命 +780', '生命 +600 → 生命 +612']) {
-    assert.ok(quoted.some(node => node.type === 'MD.bold' && node.value === bold), bold);
-  }
 });
 
-test('详情采用服务器返回的下一状态，不用本地倍率或等级增量猜测', async t => {
-  const entry = shennong();
-
-  entry.promotionPreview.attributes.hp = 825;
-  entry.upgradePreview.attributes.hp = 617.25;
-  entry.nextLevelCost = 37;
-  const result = await run(t, overview([entry]), '/宝物 详情 504');
-
-  assert.match(result.text, /生命 \+600 → 生命 \+825/);
-  assert.match(result.text, /生命 \+600 → 生命 \+617\.25/);
-  assert.match(result.text, /需要经验 37/);
-  assert.doesNotMatch(result.text, /生命 \+780|生命 \+612/);
-});
-
-test('旧响应缺少下一状态时不伪造属性，满境界等级和满品不提供可执行培养按钮', async t => {
+test('旧详情缺少预测数据仍可查看预览，满境界等级和满品不提供操作', async t => {
   const legacy = { ...shennong(), upgradePreview: undefined, promotionPreview: undefined };
   const result = await run(t, overview([legacy]), '/宝物 详情 504');
 
-  assert.match(result.text, /刷新后查看下一阶属性/);
   assert.doesNotMatch(result.text, /生命 \+600 →/);
-  assert.ok(!result.commands.some(command => /\/宝物 (升级|升品) /.test(command)));
+  assert.ok(result.commands.includes('/宝物 升级 504'));
+  assert.ok(result.commands.includes('/宝物 升品 504'));
   legacy.level = 10;
   legacy.grade = 24;
   const capped = await run(t, overview([legacy]), '/宝物 详情 504');

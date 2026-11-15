@@ -24,9 +24,10 @@ const activityHub = object(
     overseasIsland: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'UNKNOWN'] },
     overseasIslandRequiredRealm: text,
     newcomerVisible: boolean,
-    giftCodesVisible: boolean
+    giftCodesVisible: boolean,
+    fishingBossEventId: text
   },
-  ['overseasIsland', 'overseasIslandRequiredRealm']
+  ['overseasIsland', 'overseasIslandRequiredRealm', 'fishingBossEventId']
 );
 
 export const activityActions = {

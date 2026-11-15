@@ -212,11 +212,11 @@ export default onResponse(selects, async e => {
     const canBuy = it.canPurchase;
     const typeLabel = it.itemCategoryLabel;
     const fish = it.itemCategory === 'fish';
-    const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName}×${it.quantity}`];
+    const lines = [fish ? `${it.itemName} #${it.listingId}` : `【${it.listingId}】【${typeLabel}】 ${it.itemName}×${it.quantity}`];
     const mktBtns: { label: string; command: string; autoEnter?: boolean }[] = [];
 
     if (canBuy) {
-      mktBtns.push({ label: '购买', command: `/选购 ${it.listingId}${fish ? ' 1' : ''}`, autoEnter: false });
+      mktBtns.push({ label: fish ? '购买1尾' : '购买', command: `/选购 ${it.listingId}${fish ? ' 1' : ''}`, autoEnter: false });
     }
 
     const detailCN = CATEGORY_DETAIL_MAP[it.itemCategory];
@@ -226,6 +226,12 @@ export default onResponse(selects, async e => {
     }
 
     if (fish) {
+      if (Number.isSafeInteger(it.weightG) && it.weightG! > 0) {
+        const weight = `${Math.trunc(it.weightG! / 1000)}.${String(it.weightG! % 1000).padStart(3, '0')} kg`;
+        const realm = ['凡鱼', '炼气', '筑基', '金丹', '元婴', '化神', '洞虚', '合体', '大乘', '仙'][it.fishRealm ?? 0];
+
+        lines.push(`重量：${weight}${realm ? ` · 境界：${realm}` : ''}`);
+      }
       mktBtns.push({ label: '查看', command: `/珍宝楼 查看鱼类 ${it.listingId}`, autoEnter: false });
     } else {
       const extra = it.attributeView;
@@ -237,7 +243,7 @@ export default onResponse(selects, async e => {
         lines.push(`提示：${it.upgradeHint}`);
       }
     }
-    lines.push(`单价：${it.unitPriceAmount} ${it.currencyName}  卖家：${it.sellerName}`);
+    lines.push(`${fish ? '整尾价格' : '单价'}：${it.unitPriceAmount} ${it.currencyName}  卖家：${it.sellerName}`);
     contentMd.addBlockquote(createQuoteMarkdown(lines, mktBtns));
   });
 

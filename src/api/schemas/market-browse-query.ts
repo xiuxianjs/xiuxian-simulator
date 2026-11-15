@@ -5,6 +5,7 @@ export type MarketBrowseSort = 'latest' | 'price_asc' | 'price_desc' | 'grade_as
 export interface MarketBrowseItem {
   catchId?: string;
   weightG?: number;
+  fishRealm?: number;
   listingId: number;
   sellerUserId: number;
   sellerName: string;

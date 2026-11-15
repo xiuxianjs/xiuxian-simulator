@@ -38,7 +38,7 @@ function delivered(result: TestRunResult) {
   return view;
 }
 
-test('QQ真实Go新成长50级详情使用下一等级属性与服务端指数经验报价', async t => {
+test('QQ真实Go新成长50级详情只显示当前属性', async t => {
   const data = fixtures['overview-50'];
   const item = data.items.find((entry: { definition: { id: number } }) => entry.definition.id === 504);
   assert.equal(item.level, 50);
@@ -48,9 +48,8 @@ test('QQ真实Go新成长50级详情使用下一等级属性与服务端指数�
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 详情 504', platform: 'qq-bot' })));
   assert.match(view.text, /等级 50\/110/);
-  assert.match(view.text, /生命 \+4,308 → 生命 \+4,692/);
-  assert.match(view.text, /升级至 Lv\.51/);
-  assert.ok(view.text.includes(`需要经验 ${item.nextLevelCost}`));
+  assert.match(view.text, /生命 \+4,308/);
+  assert.doesNotMatch(view.text, /→|升级至|需要经验/);
   assert.doesNotMatch(view.text, /生命 \+1,188|生命 \+1,200/);
   assert.ok(view.commands.includes('/宝物 升级 504'));
   assert.equal(requests.length, 1);
@@ -71,7 +70,7 @@ test('QQ真实Go110级详情按新成长显示246228生命，满级不提供升�
   assert.equal(requests.length, 1);
 });
 
-test('QQ真实Go51级详情显示指数曲线下一次640经验，不沿用旧报价', async t => {
+test('QQ真实Go51级详情不混入下一等级的报价', async t => {
   const data = fixtures['overview-51'];
   const item = data.items.find((entry: { definition: { id: number } }) => entry.definition.id === 504);
   assert.equal(item.level, 51);
@@ -79,8 +78,7 @@ test('QQ真实Go51级详情显示指数曲线下一次640经验，不沿用旧�
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 详情 504', platform: 'qq-bot' })));
   assert.match(view.text, /等级 51\/110/);
-  assert.match(view.text, /升级至 Lv\.52/);
-  assert.ok(view.text.includes(`需要经验 ${item.nextLevelCost}`));
+  assert.doesNotMatch(view.text, /升级至|需要经验/);
   assert.doesNotMatch(view.text, /需要经验 (?:120|121)(?:\s|$)/);
   assert.equal(requests.length, 1);
 });
@@ -93,6 +91,7 @@ for (const [key, command, kind] of [
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, preview));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
   for (const line of preview.summary) assert.ok(view.text.includes(line), line);
+  if (kind === 'upgrade') assert.match(view.text, /生命 \+4,308 → 生命 \+4,692/);
   assert.ok(view.commands.includes(`/确认宝物 ${preview.confirmationRef}`));
   assert.deepEqual(requests[0].body.arguments, kind === 'upgrade' ? { kind, treasureId: 504 } : { kind });
   assert.equal(requests.length, 1);

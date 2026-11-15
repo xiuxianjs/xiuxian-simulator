@@ -17,8 +17,8 @@ const parentCommands = new Map([
   ['catalog', '/储物袋 渔获']
 ]);
 const footerRows = (data: FishingView, actions: FishingAction[]): GuiFooter => {
-  if (data.view === 'overview') {
-    return [actions.slice(0, 2), actions.slice(2)].filter(row => row.length > 0).map(manual);
+  if (data.view === 'overview' && data.status !== 'home-compact') {
+    return [actions.slice(0, 3), actions.slice(3)].filter(row => row.length > 0).map(manual);
   }
   const width = data.view.startsWith('contest') ? 3 : 4;
 
@@ -168,15 +168,20 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   const sections = encounter ? data.sections.filter(section => section !== encounter) : data.sections;
 
   if (data.view === 'overview') {
-    const top = footer.filter(action => action.label === '锦鲤赐福' || action.label === '沧澜钓仙会');
     const encounterPrefix = '/垂钓 奇遇 ';
     const entry = encounter?.actions.find(({ command }) => command.startsWith(encounterPrefix) && validFishingEventID(command.slice(encounterPrefix.length)));
 
-    overviewHeader = entry ? [...top, { ...entry, label: '垂钓奇遇' }] : top;
-    footer = footer.filter(action => !top.includes(action) && action.label !== '垂钓奇遇');
+    overviewHeader = entry ? [{ ...entry, label: '垂钓奇遇' }] : undefined;
+    footer = footer.filter(action => action.label !== '垂钓奇遇');
+  } else if (data.view === 'contest') {
+    footer = [...footer, { label: '返回活动', command: '/我的活动' }];
   }
 
-  if (data.view === 'overview' && sections.length === 4) {
+  if (data.view === 'overview' && data.status === 'home-compact') {
+    sections.forEach(section => block(section, true));
+  } else if (data.view === 'start' && data.status === 'config-compact') {
+    sections.forEach(section => block(section, true, section.lines.length >= section.actions.length));
+  } else if (data.view === 'overview' && sections.length === 4) {
     sections.forEach((section, index) => {
       if (index === sections.length - 1) {
         section.lines.forEach(line => {
@@ -278,7 +283,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     }
     const tabs = footer.filter(action => ['灵鳞钱', '灵石', '灵晶', '道晶'].includes(action.label));
 
-    const categories = ['饵料', '窝料', '钓具', '渔具', '素材', '鱼类'];
+    const categories = ['饵料', '窝料', '钓具', '渔具', '素材', '货币兑换', '鱼类'];
     const serverCategories = data.navRows?.flat().filter(action => categories.includes(action.label)) ?? [];
     const typeActions = serverCategories.length
       ? serverCategories
@@ -298,7 +303,11 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     const confirm = footer.find(action => action.command === command) ?? { label: '确认', command };
     const cancel = footer.find(action => action.label.includes('取消')) ?? { label: '取消', command: '/垂钓' };
 
-    footer = [confirm, cancel];
+    const adjust = footer.find(
+      action => (action.label === '调整范围' && action.command === '/出售 渔获') || (action.label === '更换水域' && action.command === '/垂钓 渔具 水域')
+    );
+
+    footer = adjust ? [confirm, adjust, cancel] : [confirm, cancel];
     if (data.view !== 'rod-upgrade-preview' && !data.sections.some(section => section.lines.some(line => /5分钟|有效期|有效.*分钟/.test(line)))) {
       md.addText('预览有效5分钟，确认后按本次原预览结算。').addNewline();
     }

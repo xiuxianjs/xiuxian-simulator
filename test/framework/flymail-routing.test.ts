@@ -137,3 +137,41 @@ test('真实任务忽略旧组织群和管理员路由，旧告警不再转发�
  }
  const old=acknowledgements.find(row=>row.eventId==='flymail.subscription.required:99');assert.equal(old.delivery.route,'history');
 });
+
+test('飞信任务合并同群收件人，正文保密，原事件分别确认', async t => {
+  const {run,state,queue,acknowledgements} = fixture(t);
+  state.private = false;
+  t.mock.timers.enable({apis: ['setTimeout']});
+  for (const [index,bid] of ['first-recipient','second-recipient','third-recipient'].entries()) {
+    const uid = index + 7;
+    queue.push({
+      eventId: `flymail.message:${index + 1}:received:${uid}`,
+      eventType: 'player.notification.dispatch',
+      recipientUserId: uid,
+      recipientBid: bid,
+      payload: {version: 1, recipientUserId: uid, source: 'flymail.message.received', data: content}
+    });
+  }
+
+  const result = await run(async () => {
+    const delivery = PushMessageTask();
+    await new Promise<void>(resolve => setImmediate(resolve));
+    assert.equal(acknowledgements.length, 0);
+    t.mock.timers.tick(2_000);
+    await delivery;
+  });
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const [message] = result.messages;
+  assert.equal(message.target?.targetId, 'active-group');
+  const mentions = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).filter(node => node.type === 'MD.mention');
+  assert.deepEqual(mentions.map(node => node.value), ['first-recipient','second-recipient','third-recipient']);
+  const view = inspectMessage(message.nodes);
+  assert.equal(view.text.match(/你有新的飞信/g)?.length, 1);
+  assert.doesNotMatch(view.text, /秘密|41/);
+  assert.deepEqual(view.commands, ['/通知设置 flymail 关闭', '/通知设置', '/我的通知']);
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.equal(new Set(acknowledgements.map(row => row.eventId)).size, 3);
+  assert.ok(acknowledgements.every(row => row.delivery.route === 'group'));
+});

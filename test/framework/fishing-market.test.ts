@@ -159,6 +159,26 @@ test('已有 Go 鱼挂牌 z 原引用仍可取回原回执与重放', async t =>
   assert.ok(requests.every(request => request.path.endsWith('/market.sell')));
 });
 
+test('修改鱼价先显示原报价确认，回执不会直接挂单', async t => {
+  const { app, requests } = await gameFixture(t, request => {
+    const { mode } = request.body.arguments as { mode: string };
+
+    return businessEnvelope(request.bid, {
+      mode: 'start', range: { ...range, referenceFee: 3 }, catchId, weightG: 1840, itemName: '金须鲤',
+      ...(mode === 'quote' ? { fishConfirmation: marketPreview.fishConfirmation } : {})
+    });
+  });
+  const send = async (text: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' })));
+  const listing = await send(`${pickerCommand} ${catchId}`);
+  assert.match(listing.text, /净得60灵晶/);
+  assert.match(listing.text, /仍占1个渔获位置/);
+  const quote = listing.commands.find(command => command === `${pickerCommand} 报价 ${catchId} 63`);
+  assert.ok(quote);
+  const confirmation = await send(quote.replace(/63$/, '114'));
+  assert.ok(confirmation.commands.includes(`${pickerCommand} 确认 ${reference}`));
+  assert.deepEqual(requests[1].body.arguments, { mode: 'quote', category: 'fish', catchId, firstNumber: 114 });
+});
+
 test('鱼类只查单尾报价，发送带价蓝链直接上架并使用原消息幂等键', async t => {
   const { catchId: originalFish } = marketPreview;
   const receipt = wire['listing-confirm'].data.data.fishConfirmation;

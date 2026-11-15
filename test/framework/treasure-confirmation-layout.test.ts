@@ -86,6 +86,28 @@ for (const scenario of [
   });
 }
 
+test('升级和升品确认展示该次服务端返回的属性变化与消耗', async t => {
+  const stats = { physicalAttack: 0, magicAttack: 0, physicalDefense: 0, magicDefense: 0, hp: 0 };
+  for (const [kind, label, afterHP, cost] of [
+    ['upgrade', '升级', 617.25, '消耗宝物经验37'],
+    ['promote', '升品', 825, '消耗重复本体2、仙蕴11']
+  ] as const) {
+    const { app } = await gameFixture(t, request => businessEnvelope(request.bid, {
+      kind, operationId: 'cultivation-change', confirmationRef, expiresAt,
+      summary: [`「神农鼎」${cost}。`],
+      cultivationChange: {
+        beforeAttributes: { ...stats, hp: 600 }, beforePercentAttributes: { ...stats, hp: 2 },
+        afterAttributes: { ...stats, hp: afterHP }, afterPercentAttributes: { ...stats, hp: kind === 'promote' ? 2.5 : 2 }
+      }
+    }));
+    const result = delivered(await app.runHandler(handler, app.events.privateMessage({ text: `/宝物 ${label} 504`, platform: 'qq-bot' })));
+    confirmOutsideQuote(result, `/确认宝物 ${confirmationRef}`, '/宝物 详情 504');
+    assert.ok(result.view.text.includes(cost));
+    assert.ok(result.view.text.includes(`生命 +600 → 生命 +${afterHP}`));
+    assert.equal(result.view.text.includes('生命 +2% → 生命 +2.5%'), kind === 'promote');
+  }
+});
+
 for (const [command, source, count, cost, unit] of [
   ['/上古遗珍 十连探索 灵晶', 'spirit_crystal', 10, 6000, '灵晶'],
   ['/上古遗珍 探索 道晶', 'dao_crystal', 1, 12, '道晶'],
@@ -93,7 +115,7 @@ for (const [command, source, count, cost, unit] of [
   ['/上古遗珍 探索 藏宝图', 'treasure_map', 1, 1, '张藏宝图'],
   ['/上古遗珍 免费探索', 'free', 1, 0, '']
 ] as const) {
-  test(`${source}/${count}探索确认只保留原摘要在块内，确认取消在块外`, async t => {
+  test(`${source}/${count}探索确认展示原摘要和有效期，确认取消在页脚`, async t => {
     const action = source === 'free'
       ? '上古遗珍：使用每日免费探索次数1次，获得100点宝物经验；免费探索1次。'
       : `上古遗珍：消耗${cost}${unit}，获得${count * 100}点宝物经验；附赠${count}次探索。`;
@@ -103,8 +125,10 @@ for (const [command, source, count, cost, unit] of [
     }));
     const result = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
     confirmOutsideQuote(result, `/确认宝物 ${confirmationRef}`, '/上古遗珍');
-    assert.equal(plainText(result.quotes[0]), action);
-    assert.match(result.view.text, /^操作确认\n/);
+    assert.ok(plainText(result.quotes[0]).includes(action));
+    assert.ok(plainText(result.quotes[0]).includes(`有效期：至 ${expiresAt.replace('T', ' ')}`));
+    assert.ok(!result.view.commands.includes('/充值 灵脉租契'));
+    assert.match(result.view.text, /^上古遗珍探索确认\n/);
     assert.doesNotMatch(result.view.text, /内部完整判定|24小时有效|有效至|重复确认只返回/);
     assert.deepEqual(requests[0].body.arguments, { kind: 'explore', source, count });
     assert.equal(requests.length, 1);
@@ -124,7 +148,7 @@ for (const kind of ['batch-promote', 'batch-upgrade'] as const) {
     }));
     const command = kind === 'batch-promote' ? '/宝物 一键突破' : '/宝物 一键升级';
     const result = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })));
-    confirmOutsideQuote(result, `/确认宝物 ${confirmationRef}`, '/宝物');
+    confirmOutsideQuote(result, `/确认宝物 ${confirmationRef}`, '/宝物 批量培养');
     for (const line of [...action.map(line => line.replace(/((?:星尘|纯阳|仙藏)\d+)阶/gu, '$1')), total]) {
       const index = result.nodes.findIndex(node => node.type === 'MD.text' && node.value === line);
       assert.ok(index >= 0 && index < result.nodes.indexOf(result.quotes[0]));

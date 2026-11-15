@@ -207,6 +207,8 @@ export const createShopListHandler = (shopCode?: string) => {
           }
         };
         const shopHeader = getShopHeader(access, selection);
+
+        shopHeader.push({ label: '渔市', command: '/商店 渔市', selected: false });
         const categoryFooter = createShopCategoryFooter(selection);
         const accessDeniedReason = access.deniedReason;
         const meta = activeShopCode ? SHOP_META[activeShopCode] : undefined;

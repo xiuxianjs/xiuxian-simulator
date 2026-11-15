@@ -1,9 +1,9 @@
-import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { getRobotHomeOverview } from '@src/api/bot/robot-business';
 import type { HomeNotificationItem, HomeNotificationType } from '@src/api/schemas/home-notification-query';
 import App from '@src/response-apps/message/me/app';
 import { selects } from '@src/response/config';
 import compatibility from '@src/response/mwBan';
+import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { finishRobotBusiness, interceptTaskCompatibility } from '@src/response/robotBusiness';
 import type { GameEvent } from '@src/types/event';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
@@ -227,7 +227,8 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
                     [
                       // { label: '主题', command: '/我的主题' }, // 主题切换下架
                       { label: '改签名', command: '/改签名 ', autoEnter: false },
-                      ...(!isEarlyStarter ? [{ label: '改称号', command: '/我的称号' }] : [])
+                      ...(!isEarlyStarter ? [{ label: '改称号', command: '/我的称号' }] : []),
+                      { label: '设置', command: '/我的设置 ', autoEnter: false }
                     ]
                   ]
                 : []),

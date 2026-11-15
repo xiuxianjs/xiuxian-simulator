@@ -2,9 +2,9 @@ import { notificationSettingsData } from './presentation';
 import { Format, type DataEnums } from 'alemonjs';
 import { acquireFlyMailGroupReminder, readPlatformAvailability, readPlatformGroupCandidates } from '@src/api/bot/notification-cache';
 import { type NotificationDelivery } from '@src/types/notification';
-import { FormatGui } from '@src/utils/messageHelper';
 import { notificationChannel, getNotificationPrivateTarget } from './channel';
 import { deliverNotification, legacyNotificationTarget } from './delivery';
+import { withFlyMailGroupReminder } from './flymailBuffer';
 import { deliverNotificationOnce } from './service';
 
 /** 所有飞信仅向收件人私聊发送正文；群内仅发送不含会话信息的提醒。 */
@@ -27,11 +27,7 @@ export async function deliverFlyMailNotification(eventId: string, bid: string, d
   if (privateDelivery.route === 'private') {
     return privateDelivery;
   }
-  const reminder = FormatGui({
-    bid,
-    bar: false,
-    content: Format.createMarkdown().addText('你有新的飞信，请私聊机器人发送 /飞信 查看。')
-  }).format.value;
+  const reminder = Format.create().addMarkdown(Format.createMarkdown().addText('你有新的飞信，请私聊机器人发送 /飞信 查看。')).value;
   const groups = await readPlatformGroupCandidates(platform, bid);
 
   // All active groups share the recipient’s cooldown.
@@ -47,9 +43,10 @@ export async function deliverFlyMailNotification(eventId: string, bid: string, d
       }
       acquiredGroupReminder = true;
     }
-    const delivery = await deliverNotification(
-      { group: target, recipientBid: bid, data: notificationSettingsData(reminder, 'flymail.message.received'), enabled, fallbackOnFailure: true },
-      notificationChannel
+    const delivery = await withFlyMailGroupReminder(bid, () => deliverNotification(
+        { group: target, recipientBid: bid, data: notificationSettingsData(reminder, 'flymail.message.received'), enabled, fallbackOnFailure: true },
+        notificationChannel
+      )
     );
 
     if (delivery.route === 'group') {

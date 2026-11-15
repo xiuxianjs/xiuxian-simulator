@@ -148,30 +148,88 @@ function topButtonRows(nodes: Node[]) {
   return rows;
 }
 
-for (const command of ['/宝物', '/宝物 效果']) {
-  test(`${command} 的分解按钮与顶部导航同排并先于首个引用块`, async t => {
-    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, overview));
-    const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
-    const rows = topButtonRows(view.nodes);
+test('宝物首页只用页脚进入效果、批量培养和分解，子页有各自的返回', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    ...overview, items: overview.items.map(item => ({ ...item, canUpgrade: item.owned, canPromote: item.owned }))
+  }));
+  const run = async (command: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
+  const footerCommands = (view: Awaited<ReturnType<typeof run>>) => view.nodes
+    .filter(node => node.type === 'MD.button').map(node => node.options?.data);
 
-    assert.equal(rows.length, 1);
-    assert.deepEqual(new Set(rows[0].map(node => node.options?.data)), new Set(['/宝物', '/宝物 气运', '/宝物 效果', '/宝物 分解', '/宝物 记录']));
-    assert.equal(plainText(rows[0].find(node => node.options?.data === '/宝物 分解')!), '‹分解›');
+  const home = await run('/宝物');
+  assert.deepEqual(topButtonRows(home.nodes), []);
+  assert.deepEqual(footerCommands(home), ['/属性面板', '/宝物 效果', '/宝物 批量培养', '/宝物 分解']);
+  assert.ok(!home.commands.includes('/宝物 一键升级'));
+  assert.ok(!home.commands.includes('/宝物 一键突破'));
+  assert.ok(!home.commands.includes('/宝物 记录'));
+  assert.ok(!home.commands.includes('/充值 灵脉租契'));
+
+  const batch = await run(footerCommands(home)[2] as string);
+  assert.match(batch.text, /宝物 · 批量培养/);
+  assert.ok(batch.commands.includes('/宝物 一键升级'));
+  assert.ok(batch.commands.includes('/宝物 一键突破'));
+  assert.deepEqual(footerCommands(batch), ['/宝物', '/宝物 记录']);
+
+  const records = await run(footerCommands(batch)[1] as string);
+  assert.match(records.text, /暂无宝物操作记录/);
+  assert.deepEqual(footerCommands(records), ['/宝物 批量培养']);
+
+  const effects = await run(footerCommands(home)[1] as string);
+  assert.deepEqual(footerCommands(effects), ['/宝物', '/宝物 气运']);
+  const fortune = await run(footerCommands(effects)[1] as string);
+  assert.deepEqual(footerCommands(fortune), ['/宝物 效果']);
+  assert.ok(requests.every(request => request.path.endsWith('/treasures.overview')));
+});
+
+test('批量培养只提供服务端判定为可用的操作', async t => {
+  const command = '/宝物 批量培养';
+  for (const [canUpgrade, canPromote] of [[false, false], [true, false], [false, true]]) {
+    const data = { ...overview, items: overview.items.map(item => ({
+      ...item, canUpgrade: item.owned && canUpgrade, canPromote: item.owned && canPromote
+    })) };
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+    const page = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
+    assert.equal(page.commands.includes('/宝物 一键升级'), canUpgrade);
+    assert.equal(page.commands.includes('/宝物 一键突破'), canPromote);
+    assert.equal(page.text.includes('当前没有满足培养条件的宝物'), !canUpgrade && !canPromote);
+    assert.ok(page.commands.includes('/宝物 记录'));
     assert.equal(requests.length, 1);
-    assert.equal(requests[0].path, '/api/v2/robot/business/treasures.overview');
-  });
-}
+    assert.ok(requests[0].path.endsWith('/treasures.overview'));
+  }
+});
 
-test('上古遗珍首排图鉴与概率、记录同列，秘宝商人在第二排日常活跃右侧', async t => {
+test('宝物操作记录使用标准分页并返回批量培养', async t => {
+  const data = {
+    ...overview,
+    records: Array.from({ length: 6 }, (_, index) => ({
+      operationId: `cultivation-op-${index + 1}`,
+      kind: 'upgrade',
+      createdAt: '2026-11-15T12:00:00+08:00',
+      message: '宝物升级完成'
+    }))
+  };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  const run = async (command: string) => delivered(await app.runHandler(handler, app.events.groupMessage({ text: command, platform: 'qq-bot' })), command);
+  const first = await run('/宝物 记录');
+  assert.match(first.text, /第1\/2页/);
+  assert.equal(first.text.match(/cultivation-op-\d/g)?.length, 5);
+  const next = first.commands.find(command => command === '/宝物 记录 p2');
+  assert.ok(next);
+  const second = await run(next);
+  assert.deepEqual(second.text.match(/cultivation-op-\d/g), ['cultivation-op-6']);
+  assert.ok(second.commands.includes('/宝物 记录 p1'));
+  assert.ok(second.commands.includes('/宝物 批量培养'));
+});
+
+test('上古遗珍功能导航在探索操作之后', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, relics));
   const command = '/上古遗珍';
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
-  const rows = topButtonRows(view.nodes);
 
-  assert.equal(rows.length, 2);
-  assert.deepEqual(rows[0].map(node => node.options?.data), ['/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 图鉴']);
-  assert.deepEqual(rows[0].map(plainText), ['‹概率公示›', '‹探索记录›', '‹宝物图鉴›']);
-  assert.deepEqual(rows[1].map(node => node.options?.data), ['/充值 日礼包', '/日常活跃', '/上古遗珍 秘宝商人']);
+  assert.deepEqual(topButtonRows(view.nodes), []);
+  assert.deepEqual(view.commands.slice(-12, -5), [
+    '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
+  ]);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].path, '/api/v2/robot/business/ancient-relics.overview');
 });
@@ -181,9 +239,10 @@ test('宝物图鉴按稀有度展示，六档按钮可达未拥有条目并保�
   const run = async (command: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
   const first = await run('/上古遗珍 图鉴');
 
-  assert.ok(first.text.includes('‹▸宝物图鉴›'));
+  assert.match(first.text, /^宝物图鉴/m);
+  assert.ok(!first.commands.includes('/上古遗珍 图鉴'));
 
-  assert.deepEqual([...first.text.matchAll(/【[^】]+】宝物(\d+)/g)].map(match => Number(match[1])), catalogIds.slice(0, 6));
+  assert.deepEqual([...first.text.matchAll(/宝物(\d+) #\d+/g)].map(match => Number(match[1])), catalogIds.slice(0, 6));
   assert.match(first.text, /物攻 \+101/);
   assert.match(first.text, /生命 \+1,010/);
   assert.match(first.text, /暂无特殊效果/);
@@ -193,7 +252,7 @@ test('宝物图鉴按稀有度展示，六档按钮可达未拥有条目并保�
   assert.ok(next);
   const second = await run(next);
 
-  assert.deepEqual([...second.text.matchAll(/【[^】]+】宝物(\d+)/g)].map(match => Number(match[1])), [401]);
+  assert.deepEqual([...second.text.matchAll(/宝物(\d+) #\d+/g)].map(match => Number(match[1])), [401]);
   assert.match(second.text, /稀有 1 件/);
   assert.match(second.text, /基础生活效果401/);
   assert.ok(!second.commands.some(command => /^\/上古遗珍 图鉴 p\d/.test(command)));
@@ -202,7 +261,7 @@ test('宝物图鉴按稀有度展示，六档按钮可达未拥有条目并保�
   assert.match(empty.text, /该稀有度暂无宝物资料/);
   const last = await run('/上古遗珍 图鉴 p3');
 
-  assert.deepEqual([...last.text.matchAll(/【[^】]+】宝物(\d+)/g)].map(match => Number(match[1])), [601, 602, 603, 604, 605]);
+  assert.deepEqual([...last.text.matchAll(/宝物(\d+) #\d+/g)].map(match => Number(match[1])), [601, 602, 603, 604, 605]);
   assert.ok(last.text.includes('‹▸神话›'));
   assert.ok(last.commands.includes('/上古遗珍 图鉴 品质 6'));
   assert.equal(requests.length, 4);
@@ -242,7 +301,7 @@ for (const command of [
   });
 }
 
-test('实际顶部分解按钮进入合并份数库存，份数与旧形态选择都只生成预览', async t => {
+test('实际页脚分解按钮进入合并份数库存，份数与旧形态选择都只生成预览', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('/treasures.preview') ? {
     kind: 'decompose',
     summary: ['「宝物101」分解清单；主宝物不消耗，分解后不能撤销。', '确认凭据24小时有效；状态变化时请重新预览。'],
@@ -252,7 +311,7 @@ test('实际顶部分解按钮进入合并份数库存，份数与旧形态选�
   } : overview));
   const run = async (command: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
   const owned = await run('/宝物');
-  const entry = topButtonRows(owned.nodes)[0].find(node => node.options?.data === '/宝物 分解');
+  const entry = owned.nodes.find(node => node.type === 'MD.button' && node.options?.data === '/宝物 分解');
 
   assert.ok(entry);
   const inventory = await run(entry.options!.data as string);
@@ -260,7 +319,7 @@ test('实际顶部分解按钮进入合并份数库存，份数与旧形态选�
   assert.match(inventory.text, /本体2 · 碎片3/);
   assert.match(inventory.text, /可分解23份，每份1仙蕴/);
   assert.doesNotMatch(inventory.text, /宝物601/);
-  assert.ok(inventory.commands.includes('/宝物 分解 份数 101 1'));
+  assert.ok(inventory.commands.includes('/宝物 分解 份数 101 d1p1 1'));
   const portionPreview = await run('/宝物 分解 份数 101 7');
 
   assert.ok(portionPreview.commands.includes(`/确认宝物 ${confirmationRef}`));
@@ -282,7 +341,7 @@ test('实际顶部分解按钮进入合并份数库存，份数与旧形态选�
   ]);
 });
 
-test('QQ分解按六档稀有度切换，精确显示13份与真实每份价值，零库存不生成数量入口', async t => {
+test('QQ分解按六档稀有度切换，精确显示13份与真实每份价值，零库存不展示条目', async t => {
   const data = structuredClone(overview);
   const rare = data.items.find(item => item.definition.id === 401)!;
 
@@ -299,13 +358,13 @@ test('QQ分解按六档稀有度切换，精确显示13份与真实每份价值�
   assert.ok(view.commands.includes(switchCommand));
   const chooser = delivered(await app.runHandler(handler, app.events.privateMessage({ text: switchCommand, platform: 'qq-bot' })), switchCommand);
   for (let rarity = 1; rarity <= 6; rarity++) assert.ok(chooser.commands.includes(`/宝物 分解 品质 ${rarity}`));
-  assert.ok(view.commands.includes('/宝物 分解 份数 401 1'));
+  assert.ok(view.commands.includes('/宝物 分解 份数 401 d4p1 1'));
   assert.ok(!view.commands.includes('/宝物 一键分解'));
   const empty = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解 品质 5', platform: 'qq-bot' })), '/宝物 分解 品质 5');
 
-  assert.match(empty.text, /宝物501/);
-  assert.match(empty.text, /本体0 · 碎片0/);
-  assert.match(empty.text, /可分解0份，每份22仙蕴/);
+  assert.doesNotMatch(empty.text, /宝物501|本体0 · 碎片0|可分解0份/);
+  assert.equal(empty.text.match(/暂无/g)?.length, 1);
+  assert.match(empty.text, /本品质暂无可分解库存/);
   assert.ok(!empty.commands.some(value => value.startsWith('/宝物 分解 份数 ')));
   assert.equal(requests.length, 2);
 });
@@ -325,6 +384,8 @@ test('QQ分解默认最低有库存档，空库存仍可查看六档分类', asy
   const empty = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/宝物 分解', platform: 'qq-bot' })), '/宝物 分解（空库存）');
 
   assert.ok(empty.commands.includes('/宝物 分解 切换品质 1'));
+  assert.equal(empty.text.match(/暂无/g)?.length, 1);
+  assert.match(empty.text, /状态：暂无可分解库存/);
   assert.ok(!empty.commands.some(value => value.startsWith('/宝物 分解 份数 ')));
   assert.ok(!empty.commands.includes('/宝物 一键分解'));
 });
@@ -340,7 +401,7 @@ test('QQ满品一键入口在列表下方，非当前稀有度满品余片也符
   } : data));
   const command = '/宝物 分解 品质 1';
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
-  const oneClickIndex = view.nodes.findIndex(node => node.type === 'MD.button' && node.options?.data === '/宝物 一键分解');
+  const oneClickIndex = view.nodes.findIndex(node => node.type === 'MD.button' && node.options?.data === '/宝物 一键分解 d1p1');
   const lastInventoryIndex = view.nodes.findLastIndex(node => node.type === 'MD.blockquote' && plainText(node).includes('可分解'));
 
   assert.ok(lastInventoryIndex >= 0 && oneClickIndex > lastInventoryIndex);
@@ -381,11 +442,11 @@ test('完整36件旧图鉴p4映射稀有分类，默认普通且品质切换不�
   const run = async (command: string) => delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
   const legacy = await run('/上古遗珍 图鉴 p4');
 
-  assert.match(legacy.text, /共 36 件宝物 · 稀有 6 件 · 第 1\/1 页/);
-  assert.deepEqual([...legacy.text.matchAll(/【[^】]+】宝物(\d+)/g)].map(match => Number(match[1])), [401, 402, 403, 404, 405, 406]);
+  assert.match(legacy.text, /共 36 件宝物 · 稀有 6 件/);
+  assert.deepEqual([...legacy.text.matchAll(/宝物(\d+) #\d+/g)].map(match => Number(match[1])), [401, 402, 403, 404, 405, 406]);
   const mythic = await run('/上古遗珍 图鉴 品质 6');
 
-  assert.deepEqual([...mythic.text.matchAll(/【[^】]+】宝物(\d+)/g)].map(match => Number(match[1])), [601, 602, 603, 604, 605, 606]);
+  assert.deepEqual([...mythic.text.matchAll(/宝物(\d+) #\d+/g)].map(match => Number(match[1])), [601, 602, 603, 604, 605, 606]);
 });
 
 for (const command of [
@@ -431,17 +492,17 @@ test('QQ 按品质满品分解从真实按钮到预览和结算，旧响应及�
     return delivered(result, command, hasKeyboard);
   };
   const inventory = await run('/宝物 分解 品质 4');
-  const scoped = inventory.commands.find(command => command === '/宝物 一键分解 品质 4');
+  const scoped = inventory.commands.find(command => command === '/宝物 一键分解 品质 4 d4p1');
 
   assert.ok(scoped);
-  assert.ok(inventory.commands.includes('/宝物 一键分解'));
+  assert.ok(inventory.commands.includes('/宝物 一键分解 d4p1'));
   const quote = await run(scoped, false);
   const confirm = quote.commands.find(command => command.startsWith('/确认宝物 '));
 
   assert.equal(confirm, `/确认宝物 ${confirmationRef}`);
   assert.ok(quote.commands.includes('/宝物 分解 品质 4'));
   assert.match(quote.text, /预计获得 230 仙蕴/);
-  assert.deepEqual(requests.at(-1)?.body.arguments, { kind: 'decompose', decomposeRarity: 4 });
+  assert.deepEqual(requests.at(-1)?.body.arguments, { kind: 'decompose', decomposeRarity: 4, decompositionView: { rarity: 4, page: 1 } });
   const receipt = await run(confirm);
 
   assert.match(receipt.text, /分解完成 · 稀有/);
@@ -455,4 +516,78 @@ test('QQ 按品质满品分解从真实按钮到预览和结算，旧响应及�
 
     assert.ok(!failed.commands.some(command => command.startsWith('/确认宝物 ')));
   }
+});
+
+test('分解第2页的确认、取消、切换品质和操作记录保留原路', async t => {
+  const item = overview.items.find(row => row.definition.id === 401)!;
+  const items = Array.from({ length: 6 }, (_, i) => ({
+    ...item, owned: true, level: 1, grade: 15, gradeName: '纯阳5', fragments: 1,
+    definition: { ...item.definition, id: 401 + i, name: `稀有宝物${i + 1}` }
+  }));
+  const records = Array.from({ length: 6 }, (_, i) => ({
+    operationId: `decomposition-record-${i + 1}`, kind: 'decompose',
+    createdAt: '2026-11-15T12:00:00+08:00', message: '分解完成'
+  }));
+  const operationId = 'decomposition-page-two';
+  const origin = { rarity: 4, page: 2 };
+  const originCommand = '/宝物 分解 品质 4 p2';
+  const line = { treasureId: 405, name: '稀有宝物5', rarity: 4, kind: 'portion', quantity: 1, unitXianYun: 10, xianYun: 10 };
+  let scoped = false;
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/treasures.preview')) {
+      const args = request.body.arguments as Record<string, unknown>;
+
+      assert.deepEqual(args.decompositionView, origin);
+      scoped = args.decomposeRarity !== undefined;
+      return businessEnvelope(request.bid, {
+        kind: 'decompose', operationId, confirmationRef, summary: ['预计获得仙蕴10。'], expiresAt: '2026-11-16T12:00:00+08:00',
+        ...(scoped ? { decomposeRarity: 4, data: { allMaxed: true, items: [line], totalXianYun: 10 } } : {})
+      });
+    }
+    if (request.path.endsWith('/treasures.confirm')) {
+      assert.deepEqual(request.body.arguments, { confirmationRef });
+      return businessEnvelope(request.bid, {
+        kind: 'decompose', operationId, decompositionView: origin,
+        ...(scoped ? { decomposeRarity: 4 } : {}),
+        result: { operationId, message: '分解完成', items: [line], xianYun: 10 }
+      });
+    }
+    return businessEnvelope(request.bid, { ...overview, items, records });
+  });
+  const run = async (text: string, hasKeyboard = true) => delivered(
+    await app.runHandler(handler, app.events.privateMessage({ text, platform: 'qq-bot' })), text, hasKeyboard
+  );
+  const page = await run(originCommand);
+  const recordCommand = page.commands.find(command => command.startsWith('/宝物 记录 '));
+  assert.ok(recordCommand);
+  const history = await run(recordCommand);
+  assert.ok(history.commands.includes(originCommand));
+  const next = history.commands.find(command => command.startsWith('/宝物 记录 ') && command.endsWith(' p2'));
+  assert.ok(next);
+  assert.ok((await run(next)).commands.includes(originCommand));
+  const toggle = page.commands.find(command => command.startsWith('/宝物 分解 切换品质 '));
+  assert.ok(toggle);
+  assert.ok((await run(toggle)).commands.includes(originCommand));
+
+  for (const command of ['/宝物 分解 份数 405 d4p2 1', '/宝物 一键分解 d4p2', '/宝物 一键分解 品质 4 d4p2']) {
+    assert.ok(page.commands.includes(command));
+    const preview = await run(command, !command.startsWith('/宝物 一键分解 品质'));
+    assert.ok(preview.commands.includes(originCommand));
+    const confirm = preview.commands.find(value => value.startsWith('/确认宝物 '));
+    assert.equal(confirm, `/确认宝物 ${confirmationRef}`);
+    assert.ok(confirm && [...confirm].length <= 80);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      assert.ok((await run(confirm!)).commands.includes(originCommand));
+    }
+  }
+  assert.equal(requests.filter(request => request.path.endsWith('/treasures.confirm')).length, 6);
+
+  for (const item of items.slice(4)) {
+    item.fragments = 0;
+    item.duplicates = 0;
+  }
+  const returned = await run(originCommand);
+  assert.match(returned.text, /稀有宝物1/);
+  assert.doesNotMatch(returned.text, /稀有宝物[56]/);
+  assert.ok(!returned.commands.includes(originCommand));
 });

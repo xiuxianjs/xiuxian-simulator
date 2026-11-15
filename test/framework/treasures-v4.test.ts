@@ -70,7 +70,10 @@ for (const count of [1, 10] as const) test(`历史v4 ${count}次探索多本体�
     assert.match(receipt.text, new RegExp(`探索 ${count}次.*宝物经验 \\+${count * 100}`));
     for (const name of ['九天息壤', '万木春符', '采薇竹篮']) assert.match(receipt.text, new RegExp(`⭐ ${name} · 本体 ×1`));
     if (count === 1 && attempt === 0) historicalPreview = `## 历史 v4 已结算回执恢复（单次三本体）\n\n以下为旧v4成功订单的兼容恢复示例；当前v5每次探索只返回一条奖励，不会按本例新增三件本体。两条消息来自真实处理器离线输出，恢复仅核对原操作。\n\n第一条消息：\n\n${story.text}\n\n等待3秒后，第二条消息：\n\n${receipt.text}\n\n所有按钮均为手动发送（autoEnter:false）。\n`;
-    assert.equal(receipt.commands.filter(command => command.startsWith('/宝物 详情 ')).length, result.rewards.length);
+    assert.deepEqual(
+      receipt.commands.filter(command => command.startsWith('/宝物 详情 ')),
+      [...new Set(result.rewards.map(reward => `/宝物 详情 ${reward.treasureId}`))]
+    );
     assert.equal(requests.length, attempt + 1);
   }
   assert.equal(requests[0].idempotencyKey, requests[1].idempotencyKey);

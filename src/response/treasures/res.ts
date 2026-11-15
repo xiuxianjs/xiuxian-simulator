@@ -16,6 +16,7 @@ import {
   mythicDispersionRulesVersion,
   type OwnedTreasure,
   type TreasureOverview,
+  type TreasureDecompositionView,
   type TreasurePreviewKind
 } from '@src/api/bot/treasures';
 import type { RobotBusinessOperation } from '@src/api/bot/robot-business';
@@ -23,7 +24,7 @@ import { createBackendRequestContext, type BackendRequestContext } from '@src/ap
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { addOptions, createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { buildDailyPackProductPage, buildSpiritVeinProductBlock, dailyPackSku } from '../recharge/productView';
 import {
@@ -35,7 +36,7 @@ import {
   buildTreasureEffectsPage,
   buildTreasureDetailPage
 } from './treasurePages';
-import { buildBubble, resultBubble, type GuiNav } from '../presentation';
+import { buildBubble, resultBubble, section, type GuiNav } from '../presentation';
 import { buildTreasureConfirmationView } from './confirmationView';
 import { buildTreasureMerchantPage, treasureMerchantNavigation } from './treasureMerchantPage';
 import { isPrivateEvent } from '@src/utils/privateEvent';
@@ -50,6 +51,34 @@ type Button = GuiButton & { command: string };
 const manual = (buttons: Button[]) => buttons.map(button => ({ ...button, autoEnter: false }));
 const sources: Record<string, string> = { 灵晶: 'spirit_crystal', 道晶: 'dao_crystal', 藏宝图: 'treasure_map' };
 const sourceNames: Record<string, string> = { free: '每日免费', spirit_crystal: '灵晶', dao_crystal: '道晶', treasure_map: '藏宝图' };
+
+type ExplorationReward = ReturnType<typeof parseRelicsOverview>['records'][number]['rewards'][number];
+
+function mergeExplorationRewards(rewards: ExplorationReward[]): ExplorationReward[] {
+  const displayed: ExplorationReward[] = [];
+  const grouped = new Map<string, ExplorationReward>();
+
+  for (const reward of rewards) {
+    const key = `${reward.treasureId}:${reward.kind}`;
+    const existing = grouped.get(key);
+
+    if (existing) {
+      existing.quantity += reward.quantity;
+      existing.autoSynthesized += reward.autoSynthesized;
+      existing.newlyOwned ||= reward.newlyOwned;
+      // The server omits a zero remainder. Always use the latest pull.
+      existing.fragmentsRemaining = reward.fragmentsRemaining;
+    } else {
+      const entry = { ...reward };
+
+      grouped.set(key, entry);
+      displayed.push(entry);
+    }
+  }
+
+  return displayed;
+}
+
 const explorationStory = (rarity: number) => {
   if (rarity === 6) {
     return '你踏尽四海八荒，越过星陨之渊，终于抵达天地尽头的遗迹。九重古阵轰然洞开，沉寂万古的道音响彻诸天；赤霞自混沌深处升起，映得星河倒卷，万山俯首。';
@@ -76,6 +105,22 @@ const navigation: Button[] = [
   { label: '上古遗珍', command: '/上古遗珍' },
   { label: '灵脉租契', command: '/充值 灵脉租契' }
 ];
+const relicsFooter: Button[] = [navigation[0]];
+const cultivationCommand = '/宝物 批量培养';
+const ownedFooter: Button[] = [
+  { label: '效果总览', command: '/宝物 效果' },
+  { label: '批量培养', command: cultivationCommand },
+  { label: '分解', command: '/宝物 分解' }
+];
+
+function decompositionOrigin(value: string | undefined): TreasureDecompositionView | undefined {
+  const match = /^d([1-6])p([1-9]\d{0,8})$/.exec(value ?? '');
+
+  return match ? { rarity: Number(match[1]), page: Number(match[2]) } : undefined;
+}
+
+const decompositionReturn = ({ rarity, page }: TreasureDecompositionView) => `/宝物 分解 品质 ${rarity}${page > 1 ? ` p${page}` : ''}`;
+
 const parentCommands: Record<string, string> = {
   宝物: '/宝物',
   上古遗珍: '/上古遗珍',
@@ -90,7 +135,8 @@ export default onResponse(selects, async event => {
   const match = /^\s*[/#＃]?(宝物|上古遗珍|灵脉租契|确认宝物|确认礼包)(?:\s+(.*?))?\s*$/.exec(event.MessageText ?? '');
   const command = match?.[1];
   const args = match?.[2]?.split(/\s+/).filter(Boolean) ?? [];
-  let backCommand = command && (args.length || command.startsWith('确认')) ? parentCommands[command] : undefined;
+  let backCommand =
+    command === '宝物' && !args.length ? '/属性面板' : command && (args.length || command.startsWith('确认')) ? parentCommands[command] : undefined;
   let title = command ?? '宝物';
   let content = Format.createMarkdown();
   let operation: RobotBusinessOperation | undefined;
@@ -100,9 +146,12 @@ export default onResponse(selects, async event => {
   let originalFreeRef: string | undefined;
   let dailyClaimConfirmed = false;
   const quote = (lines: string[], buttons: Button[] = []) => content.addBlockquote(createQuoteMarkdown(lines, manual(buttons)));
-  const send = (footer: Button[] = navigation, back = backCommand, nav?: GuiNav) => {
+  const defaultFooter = command === '宝物' || command === '确认宝物' ? [] : command === '上古遗珍' ? relicsFooter : navigation;
+  const send = (footer: Button[] = defaultFooter, back = backCommand, nav?: GuiNav) => {
     const actions = back ? [{ label: '返回', command: back }, ...footer.filter(button => button.command !== back)] : footer;
-    const body = { bid: event.UserId, isPrivate: isPrivateEvent(event), title, content, nav, footer: manual(actions) };
+    const buttons = manual(actions);
+    const rows = buttons.length > 4 ? [buttons.slice(0, 4), buttons.slice(4)] : buttons;
+    const body = { bid: event.UserId, isPrivate: isPrivateEvent(event), title, content, nav, footer: rows };
 
     return message.send(FormatGui(body));
   };
@@ -136,7 +185,7 @@ export default onResponse(selects, async event => {
 
     return response.handled ? undefined : response.data;
   };
-  const preview = async (kind: TreasurePreviewKind, input: Record<string, unknown> = {}) => {
+  const preview = async (kind: TreasurePreviewKind, input: Record<string, unknown> = {}, view?: TreasureDecompositionView) => {
     const selectedRarity = typeof input.decomposeRarity === 'number' ? input.decomposeRarity : undefined;
 
     switch (kind) {
@@ -144,8 +193,12 @@ export default onResponse(selects, async event => {
       case 'promote':
         backCommand = `/宝物 详情 ${input.treasureId}`;
         break;
+      case 'batch-upgrade':
+      case 'batch-promote':
+        backCommand = cultivationCommand;
+        break;
       case 'decompose':
-        backCommand = selectedRarity === undefined ? '/宝物 分解' : `/宝物 分解 品质 ${selectedRarity}`;
+        backCommand = view ? decompositionReturn(view) : selectedRarity === undefined ? '/宝物 分解' : decompositionReturn({ rarity: selectedRarity, page: 1 });
         break;
       case 'merchant-exchange':
         backCommand = '/上古遗珍 秘宝商人';
@@ -156,7 +209,7 @@ export default onResponse(selects, async event => {
     }
     const data = await call(
       'treasures.preview',
-      { kind, ...input },
+      { kind, ...input, ...(view ? { decompositionView: view } : {}) },
       parseTreasureConfirmation,
       kind === 'merchant-exchange' ? createBackendRequestContext(event, 'treasures.preview') : undefined
     );
@@ -203,7 +256,7 @@ export default onResponse(selects, async event => {
                 actions: manual([{ label: '确认分解', command: `/确认宝物 ${data.confirmationRef}` }])
               }
             ],
-            footer: manual([{ label: '取消并返回', command: `/宝物 分解 品质 ${selectedRarity}` }]),
+            footer: manual([{ label: '取消并返回', command: backCommand ?? '/宝物 分解' }]),
             bar: false
           })
         )
@@ -212,9 +265,18 @@ export default onResponse(selects, async event => {
       return;
     }
     originalRef = data.confirmationRef;
-    title = kind === 'merchant-exchange' ? '秘宝商人兑换确认' : kind === 'explore' ? '操作确认' : '宝物操作确认';
-    content = buildTreasureConfirmationView(kind, data, backCommand);
-    await send(navigation, '');
+    const confirmation = buildTreasureConfirmationView(kind, data, backCommand);
+    const relicsConfirmation = kind === 'explore' || kind === 'select-mythic' || kind === 'merchant-exchange';
+
+    title =
+      kind === 'merchant-exchange' ? '秘宝商人兑换确认' : kind === 'explore' ? '上古遗珍探索确认' : kind === 'select-mythic' ? '神话自选确认' : '宝物操作确认';
+    content = confirmation.content;
+    if (relicsConfirmation || command === '宝物') {
+      await send(confirmation.actions, '');
+    } else {
+      addOptions(content, confirmation.actions);
+      await send(navigation, '');
+    }
   };
   const showItem = (item: OwnedTreasure, data: TreasureOverview) => {
     content = buildTreasureDetailPage(item, data);
@@ -275,10 +337,15 @@ export default onResponse(selects, async event => {
         return;
       }
       mutationConfirmed = true;
+      if (data.decompositionView) {
+        backCommand = decompositionReturn(data.decompositionView);
+      }
       if (data.decomposition) {
         const plan = data.decomposition;
 
-        backCommand = `/宝物 分解 品质 ${plan.rarity}`;
+        const view = data.decompositionView ?? { rarity: plan.rarity, page: 1 };
+
+        backCommand = decompositionReturn(view);
         requireSent(
           await message.send(
             resultBubble({
@@ -294,7 +361,7 @@ export default onResponse(selects, async event => {
               ],
               footer: manual([
                 { label: `返回${rarityNames[plan.rarity - 1]}分解`, command: backCommand },
-                { label: '切换品质', command: `/宝物 分解 切换品质 ${plan.rarity}` }
+                { label: '切换品质', command: `/宝物 分解 切换品质 ${plan.rarity}${view.page > 1 ? ` p${view.page}` : ''}` }
               ])
             })
           )
@@ -303,17 +370,9 @@ export default onResponse(selects, async event => {
         return;
       }
       if (data.kind === 'merchant-exchange') {
-        backCommand = '/上古遗珍 秘宝商人';
         title = '秘宝商人兑换完成';
         quote([data.result.message, `操作编号 ${data.operationId}`]);
-        requireSent(await send(treasureMerchantNavigation));
-        const merchant = await call('treasures.merchant', {}, parseTreasureMerchant, createBackendRequestContext(event, 'treasures.merchant'));
-
-        if (merchant) {
-          title = '秘宝商人';
-          content = buildTreasureMerchantPage(merchant);
-          await send([], '');
-        }
+        requireSent(await send(treasureMerchantNavigation, ''));
 
         return;
       }
@@ -335,26 +394,33 @@ export default onResponse(selects, async event => {
         );
         await new Promise<void>(resolve => scheduleTimeout(resolve, 3000));
         title = '上古遗珍探索完成';
-        quote([`操作编号 ${data.operationId}`]);
         const unit = data.result.source ? sourceNames[data.result.source] : '';
+        const linkedTreasureIds = new Set<number>();
 
         quote([`探索 ${data.result.count}次 · 消耗 ${data.result.paidAmount}${unit} · 宝物经验 +${data.result.experienceGranted}`]);
-        for (const r of data.result.rewards) {
-          content
-            .addText(`${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''} `)
-            .addButton(markdownButtonLabel('查看'), { data: commandText(`宝物 详情 ${r.treasureId}`), autoEnter: false })
-            .addNewline();
+        for (const r of mergeExplorationRewards(data.result.rewards)) {
+          const showDetails = !linkedTreasureIds.has(r.treasureId);
+
+          content.addText(
+            `${r.kind === 'body' ? '⭐ ' : ''}${r.name} · ${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? ' · 已激活' : ''}${showDetails ? ' ' : ''}`
+          );
+          if (showDetails) {
+            content.addButton(markdownButtonLabel('查看'), { data: commandText(`宝物 详情 ${r.treasureId}`), autoEnter: false });
+            linkedTreasureIds.add(r.treasureId);
+          }
+          content.addNewline();
           if (r.autoSynthesized) {
             content.addText(`➥ 自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`).addNewline();
           }
           content.addNewline();
         }
-        requireSent(await send());
+        quote([`操作编号 ${data.operationId}`]);
+        requireSent(await send(relicsFooter));
 
         return;
       }
       title = '宝物操作回执';
-      if (data.kind === 'decompose') {
+      if (data.kind === 'decompose' && !data.decompositionView) {
         backCommand = '/宝物 分解';
       }
       if (data.kind === 'claimLease') {
@@ -362,10 +428,14 @@ export default onResponse(selects, async event => {
       }
       if (data.kind === 'select-mythic') {
         backCommand = '/上古遗珍 自选';
+        title = '神话自选领取完成';
       }
-      quote([data.result.message, `操作编号 ${data.operationId}`]);
       if ((data.kind === 'batch-upgrade' || data.kind === 'batch-promote') && data.result.items) {
-        quote([`总消耗：宝物经验 ${data.result.experienceCost} · 重复本体 ${data.result.duplicatesCost} · 仙蕴 ${data.result.xianYunCost}`]);
+        backCommand = cultivationCommand;
+        quote([
+          `总结果：${data.result.message}`,
+          `总消耗：宝物经验 ${data.result.experienceCost} · 重复本体 ${data.result.duplicatesCost} · 仙蕴 ${data.result.xianYunCost}`
+        ]);
         for (const item of data.result.items) {
           quote(
             [
@@ -375,11 +445,14 @@ export default onResponse(selects, async event => {
             [{ label: '详情与培养', command: `/宝物 详情 ${item.treasureId}` }]
           );
         }
+        quote([`操作编号 ${data.operationId}`]);
+      } else {
+        quote([data.result.message, `操作编号 ${data.operationId}`]);
       }
       if (data.kind === 'claimLease') {
         quote([`领取 ${data.result.days}收益日 · 灵晶 +${data.result.spiritCrystal}`]);
       }
-      await send();
+      await send(data.kind === 'select-mythic' ? relicsFooter : data.kind === 'claimLease' ? navigation : []);
 
       return;
     }
@@ -398,10 +471,14 @@ export default onResponse(selects, async event => {
         return;
       }
       if (action === '一键分解') {
-        if (args.length === 1) {
-          await preview('decompose', { allMaxed: true });
-        } else if (args.length === 3 && args[1] === '品质' && /^[1-6]$/.test(args[2])) {
-          await preview('decompose', { decomposeRarity: Number(args[2]) });
+        const globalView = decompositionOrigin(args[1]);
+        const scopedView = decompositionOrigin(args[3]);
+        const rarity = Number(args[2]);
+
+        if (args.length === 1 || (args.length === 2 && globalView)) {
+          await preview('decompose', { allMaxed: true }, globalView);
+        } else if (args[1] === '品质' && /^[1-6]$/.test(args[2]) && (args.length === 3 || (args.length === 4 && scopedView?.rarity === rarity))) {
+          await preview('decompose', { decomposeRarity: rarity }, scopedView);
         } else {
           quote(['参数错误：/宝物 一键分解 品质 <1-6>。']);
           await send();
@@ -409,7 +486,13 @@ export default onResponse(selects, async event => {
 
         return;
       }
-      if (action === '分解' && args[1] === '切换品质' && args.length === 3 && /^[1-6]$/.test(args[2])) {
+      if (
+        action === '分解' &&
+        args[1] === '切换品质' &&
+        /^[1-6]$/.test(args[2]) &&
+        (args.length === 3 || (args.length === 4 && /^p[1-9]\d{0,8}$/.test(args[3])))
+      ) {
+        const origin = { rarity: Number(args[2]), page: Number(args[3]?.slice(1) ?? 1) };
         const qualities = manual(rarityNames.map((label, index) => ({ label, command: `/宝物 分解 品质 ${index + 1}` })));
 
         await message.send(
@@ -418,7 +501,7 @@ export default onResponse(selects, async event => {
             isPrivate: isPrivateEvent(event),
             title: '宝物分解 · 切换品质',
             sections: [{ lines: ['说明：选择要查看的宝物品质。'] }],
-            footer: [qualities.slice(0, 3), [...qualities.slice(3), { label: '取消并返回', command: `/宝物 分解 品质 ${Number(args[2])}`, autoEnter: false }]]
+            footer: [qualities.slice(0, 3), [...qualities.slice(3), { label: '取消并返回', command: decompositionReturn(origin), autoEnter: false }]]
           })
         );
 
@@ -441,20 +524,22 @@ export default onResponse(selects, async event => {
 
           title = `宝物分解 · ${rarityNames[page.rarity - 1]}`;
           content = page.content;
-          await send([...page.actions, { label: '返回宝物', command: '/宝物' }], '', page.nav);
+          await send([...page.actions, { label: '操作记录', command: `/宝物 记录 ${page.origin}` }], '/宝物', page.nav);
         }
 
         return;
       }
       if (action === '分解' && args.length > 1) {
         const id = treasureID(args[2]);
-        const quantity = Number(args[3]);
+        const view = args.length === 5 ? decompositionOrigin(args[3]) : undefined;
+        const quantityArg = args.at(-1) ?? '';
+        const quantity = Number(quantityArg);
 
         if (
-          args.length !== 4 ||
+          (args.length !== 4 && (args.length !== 5 || view?.rarity !== Math.floor((id ?? 0) / 100))) ||
           !['本体', '碎片', '份数'].includes(args[1]) ||
           id === undefined ||
-          !/^\d+$/.test(args[3]) ||
+          !/^\d+$/.test(quantityArg) ||
           !Number.isSafeInteger(quantity) ||
           quantity < 1
         ) {
@@ -463,23 +548,71 @@ export default onResponse(selects, async event => {
 
           return;
         }
-        await preview('decompose', { items: [{ treasureId: id, kind: args[1] === '本体' ? 'body' : args[1] === '份数' ? 'portion' : 'fragment', quantity }] });
+        await preview(
+          'decompose',
+          { items: [{ treasureId: id, kind: args[1] === '本体' ? 'body' : args[1] === '份数' ? 'portion' : 'fragment', quantity }] },
+          view
+        );
 
         return;
       }
-      if (action === '记录' && args.length === 1) {
+      if (action === '记录') {
+        title = '宝物 · 操作记录';
+        const view = decompositionOrigin(args[1]);
+        const pageArg = args[view ? 2 : 1];
+
+        backCommand = view ? decompositionReturn(view) : cultivationCommand;
+        if (args.length > (view ? 3 : 2) || (pageArg !== undefined && !/^p[1-9]\d{0,8}$/.test(pageArg))) {
+          quote(['参数错误：/宝物 记录 [pN]。']);
+          await send();
+
+          return;
+        }
         const data = await call('treasures.overview', {}, parseTreasureOverview);
 
         if (!data) {
           return;
         }
-        for (const record of data.records) {
-          quote([record.createdAt, record.message, `操作编号 ${record.operationId}`]);
+        const size = 5;
+        const total = Math.max(1, Math.ceil(data.records.length / size));
+        const current = Math.min(total, Number(pageArg?.slice(1) ?? 1));
+        const nav: GuiNav | undefined =
+          total > 1 ? { current, total, count: data.records.length, command: `/宝物 记录${view ? ` ${args[1]}` : ''} p{page}`, autoEnter: false } : undefined;
+
+        for (const record of data.records.slice((current - 1) * size, current * size)) {
+          quote([`时间：${record.createdAt}`, record.message, `说明：操作编号 ${record.operationId}`]);
         }
         if (!data.records.length) {
           quote(['暂无宝物操作记录。']);
         }
-        await send();
+        await send([], backCommand, nav);
+
+        return;
+      }
+      if (action === '批量培养' && args.length === 1) {
+        title = '宝物 · 批量培养';
+        const data = await call('treasures.overview', {}, parseTreasureOverview);
+
+        if (!data) {
+          return;
+        }
+        const owned = data.items.filter(item => item.owned);
+        const actions = [
+          ...(owned.some(item => item.canUpgrade) ? [{ label: '一键升级', command: '/宝物 一键升级' }] : []),
+          ...(owned.some(item => item.canPromote) ? [{ label: '一键突破', command: '/宝物 一键突破' }] : [])
+        ];
+
+        content.addBlockquote(
+          section({
+            lines: [
+              `数量：已激活 ${owned.length} 件宝物`,
+              `物品：宝物经验 ${number(data.experience)} · 仙蕴 ${number(data.xianYun)}`,
+              actions.length ? '说明：先查看本次培养清单和消耗。' : '状态：当前没有满足培养条件的宝物。'
+            ],
+            actions: manual(actions)
+          })
+        );
+        await send([{ label: '操作记录', command: '/宝物 记录' }]);
 
         return;
       }
@@ -499,16 +632,21 @@ export default onResponse(selects, async event => {
       }
       const isLegacyCatalog = action === '图鉴';
       const isFiltered = action === '品质';
-      const pageArg = isFiltered ? args[2] : isLegacyCatalog ? args[1] : action;
       const isDetail = action === '详情';
       const isFortune = action === '气运';
       const isEffects = action === '效果' || action === '效果总览';
+      const detailRarity = isDetail && args[2] === '品质' ? (args[3] ?? '') : undefined;
+      const detailPageIndex = detailRarity === undefined ? 2 : 4;
+      const pageArg = isDetail ? args[detailPageIndex] : isFiltered ? args[2] : isLegacyCatalog || isEffects || isFortune ? args[1] : action;
       const validPage = pageArg === undefined || /^p[1-9]\d{0,8}$/.test(pageArg);
 
       if (
-        (isDetail && (args.length !== 2 || treasureID(args[1]) === undefined)) ||
-        (isFortune && args.length !== 1) ||
-        (isEffects && args.length !== 1) ||
+        (isDetail &&
+          (treasureID(args[1]) === undefined ||
+            args.length > detailPageIndex + 1 ||
+            !validPage ||
+            (detailRarity !== undefined && !/^[1-6]$/.test(detailRarity)))) ||
+        ((isFortune || isEffects) && (args.length > 2 || !validPage)) ||
         (isFiltered && (args.length < 2 || args.length > 3 || !/^[1-6]$/.test(args[1]) || !validPage)) ||
         (!isDetail && !isFortune && !isEffects && !isFiltered && (args.length > (isLegacyCatalog ? 2 : 1) || !validPage))
       ) {
@@ -517,12 +655,18 @@ export default onResponse(selects, async event => {
 
         return;
       }
+      if (isFortune) {
+        backCommand = pageArg ? `/宝物 效果 ${pageArg}` : '/宝物 效果';
+      } else if (isDetail) {
+        backCommand = ['/宝物', ...(detailRarity === undefined ? [] : ['品质', detailRarity]), ...(pageArg ? [pageArg] : [])].join(' ');
+      }
       const data = await call('treasures.overview', {}, parseTreasureOverview);
 
       if (!data) {
         return;
       }
       if (isDetail) {
+        title = '宝物详情';
         const item = data.items.find(item => item.definition.id === Number(args[1]));
 
         if (item) {
@@ -534,12 +678,26 @@ export default onResponse(selects, async event => {
 
         return;
       }
-      content = isFortune
-        ? buildTreasureFortunePage(data)
-        : isEffects
-          ? buildTreasureEffectsPage(data)
-          : buildOwnedTreasurePage(data, { rarity: isFiltered ? Number(args[1]) : undefined, page: Number(pageArg?.slice(1) ?? 1) });
-      await send();
+      if (isFortune) {
+        title = '宝物 · 鸿蒙气运';
+        content = buildTreasureFortunePage(data);
+        await send();
+      } else if (isEffects) {
+        title = '宝物 · 效果总览';
+        const page = buildTreasureEffectsPage(data, Number(pageArg?.slice(1) ?? 1));
+
+        content = page.content;
+        const current = page.nav?.current ?? 1;
+        const fortuneCommand = current > 1 ? `/宝物 气运 p${current}` : '/宝物 气运';
+
+        await send([{ label: '鸿蒙气运', command: fortuneCommand }], backCommand, page.nav);
+      } else {
+        title = '我的宝物';
+        const page = buildOwnedTreasurePage(data, { rarity: isFiltered ? Number(args[1]) : undefined, page: Number(pageArg?.slice(1) ?? 1) });
+
+        content = page.content;
+        await send(ownedFooter, '/属性面板', page.nav);
+      }
 
       return;
     }
@@ -552,7 +710,7 @@ export default onResponse(selects, async event => {
         }
         title = '秘宝商人';
         content = buildTreasureMerchantPage(data);
-        await send([], '');
+        await send(treasureMerchantNavigation, '');
 
         return;
       }
@@ -579,7 +737,7 @@ export default onResponse(selects, async event => {
 
           quote([reason === undefined || reason.length === 0 ? '本次数量超过当前商品可兑换份数，请核对剩余限购。' : reason]);
           content.absorb(buildTreasureMerchantPage(merchant));
-          await send([], '');
+          await send(treasureMerchantNavigation, '');
 
           return;
         }
@@ -602,11 +760,13 @@ export default onResponse(selects, async event => {
 
         if (data) {
           title = '宝物图鉴';
-          content = buildTreasureCatalogPage(
+          const page = buildTreasureCatalogPage(
             data,
             filtered ? { rarity: Number(args[2]), page: Number(pageArgument?.slice(1) ?? 1) } : pageArgument === undefined ? {} : Number(pageArgument.slice(1))
           );
-          await send(navigation.slice(0, 2));
+
+          content = page.content;
+          await send(relicsFooter, backCommand, page.nav);
         }
 
         return;
@@ -618,7 +778,10 @@ export default onResponse(selects, async event => {
           return;
         }
         title = '每日礼包领取确认';
-        content = buildTreasureConfirmationView('daily-pack-free', data);
+        const confirmation = buildTreasureConfirmationView('daily-pack-free', data);
+
+        content = confirmation.content;
+        addOptions(content, confirmation.actions);
         await send(navigation, '');
 
         return;
@@ -659,7 +822,9 @@ export default onResponse(selects, async event => {
 
         return;
       }
-      if (args.length > 1 || (args.length && !['概率', '记录', '自选'].includes(args[0]))) {
+      const recordPage = args[0] === '记录' && args.length === 2 && /^p[1-9]\d{0,8}$/.test(args[1]) ? Number(args[1].slice(1)) : undefined;
+
+      if ((args.length > 1 && recordPage === undefined) || (args.length && !['概率', '记录', '自选'].includes(args[0]))) {
         quote(['参数错误：/上古遗珍 [秘宝商人|图鉴|概率|记录|自选]，探索请选灵晶、道晶或藏宝图。']);
         await send();
 
@@ -670,10 +835,10 @@ export default onResponse(selects, async event => {
       if (!data) {
         return;
       }
-      if (args.length && args[0] !== '概率') {
-        quote([`本轮 ${data.milestoneProgress}/300`, `可领取神话自选 ${data.pendingSelections}份 · 每300次额外获得一份`]);
-      }
+      let nav: GuiNav | undefined;
+
       if (args[0] === '概率') {
+        title = '上古遗珍 · 概率公示';
         const rates = data.wholeRates.filter(rate => rate.rarity >= 4);
         const byMode = [
           'treasure-v7-v5-shape12-20261029',
@@ -729,9 +894,10 @@ export default onResponse(selects, async event => {
           for (const rate of rates) {
             const counters = data.pity.filter(item => item.rarity === rate.rarity);
             const pity = counters.length === 1 ? counters[0] : undefined;
+            const cap = pity && (data.rulesVersion === mythicDispersionRulesVersion ? (pity.effectiveHardPity ?? pity.hardPity) : pity.hardPity);
             const progress =
               pity && pity.hardPity > 0 && (actualPity ? pity.counter <= pity.hardPity + 3 : pity.counter < pity.hardPity)
-                ? `保底(${pity.counter}/${pity.hardPity})${actualPity && pity.counter >= pity.hardPity ? ' · 已到保底／高档优先待发' : ''}`
+                ? `保底(${pity.counter}/${cap})${actualPity && cap !== undefined && pity.counter >= cap ? (cap < pity.hardPity ? ' · 已达当前保底' : ' · 已到保底／高档优先待发') : ''}`
                 : '保底信息暂未同步';
 
             const tenProbability = rate.tenProbability === undefined ? '暂未同步' : probability(rate.tenProbability);
@@ -748,10 +914,20 @@ export default onResponse(selects, async event => {
           }
         }
       } else if (args[0] === '记录') {
-        for (const record of data.records.slice(0, 10)) {
+        title = '上古遗珍 · 探索记录';
+        const pageSize = 3;
+        const total = Math.max(1, Math.ceil(data.records.length / pageSize));
+        const current = Math.min(recordPage ?? 1, total);
+
+        if (data.records.length) {
+          nav = { current, total, count: data.records.length, command: '/上古遗珍 记录 p{page}', autoEnter: false };
+          quote([`数量：近期探索记录 ${data.records.length} 笔`]);
+        }
+        for (const record of data.records.slice((current - 1) * pageSize, current * pageSize)) {
           quote([
-            `${record.createdAt} · ${sourceNames[record.source]}探索 ${record.count}次 · 消耗 ${record.paidAmount}`,
-            ...record.rewards.flatMap(r => [
+            `时间：${record.createdAt}`,
+            `消耗：${record.source === 'free' ? '免费探索次数' : `${number(record.paidAmount)}${sourceNames[record.source]}`} · 探索 ${record.count} 次`,
+            ...mergeExplorationRewards(record.rewards).flatMap(r => [
               `${r.name}${r.kind === 'body' ? '本体' : '碎片'} ×${r.quantity}${r.newlyOwned ? '；已激活' : ''}`,
               ...(r.autoSynthesized ? [`自动合成${r.autoSynthesized}本体，余片${r.fragmentsRemaining ?? 0}`] : [])
             ]),
@@ -762,6 +938,8 @@ export default onResponse(selects, async event => {
           quote(['暂无探索记录。']);
         }
       } else if (args[0] === '自选') {
+        title = '上古遗珍 · 神话自选';
+        quote([`进度：神话自选 ${data.milestoneProgress}/300`, `待领取：神话自选 ${data.pendingSelections}份`]);
         const treasures = await call('treasures.overview', {}, parseTreasureOverview, createBackendRequestContext(event, 'treasures.overview'));
 
         if (!treasures) {
@@ -769,39 +947,44 @@ export default onResponse(selects, async event => {
         }
         quote(['可选择任一神话，包括已拥有宝物；领取自选不会改变随机探索概率。']);
         for (const item of treasures.items.filter(item => item.definition.rarity === 6)) {
-          quote(
-            [`${item.definition.id} ${item.definition.name} · ${item.owned ? item.gradeName : '未拥有'}`],
-            data.pendingSelections > 0 ? [{ label: '预览领取', command: `/上古遗珍 自选 ${item.definition.id}` }] : []
+          content.addBlockquote(
+            section({
+              title: item.definition.name,
+              id: item.definition.id,
+              lines: [`状态：${item.owned ? item.gradeName : '未拥有'}`],
+              actions: data.pendingSelections > 0 ? manual([{ label: '预览领取', command: `/上古遗珍 自选 ${item.definition.id}` }]) : []
+            })
           );
         }
       } else {
-        for (const row of [
-          [
-            { label: '概率公示', command: '/上古遗珍 概率' },
-            { label: '探索记录', command: '/上古遗珍 记录' },
-            { label: '宝物图鉴', command: '/上古遗珍 图鉴' }
-          ],
-          [
-            { label: '每日礼包', command: '/充值 日礼包' },
-            { label: '日常活跃', command: '/日常活跃' },
-            { label: '秘宝商人', command: '/上古遗珍 秘宝商人' }
-          ]
-        ]) {
-          for (const button of row) {
-            content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
-          }
+        const { spiritCrystal, daoCrystal, treasureMaps } = data.balances;
+
+        content
+          .addBlockquote(
+            section({
+              lines: [
+                `物品：灵晶 ${number(spiritCrystal)} · 道晶 ${number(daoCrystal)} · 藏宝图 ${treasureMaps}张`,
+                `进度：神话自选 ${data.milestoneProgress}/300`,
+                `状态：每日免费探索${data.freeAvailable ? '可用' : '已使用'}`,
+                ...(data.pendingSelections ? [`待领取：神话自选 ${data.pendingSelections}份`] : []),
+                `说明：${isActualExplorationPityRulesVersion(data.rulesVersion) ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
+              ]
+            })
+          )
+          .addNewline()
+          .addNewline();
+
+        const explorationActions = [
+          ...(data.freeAvailable ? [{ label: '每日免费探索', command: '/上古遗珍 免费探索' }] : []),
+          ...(data.pendingSelections ? [{ label: '选择神话', command: '/上古遗珍 自选' }] : [])
+        ];
+
+        for (const button of explorationActions) {
+          content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
+        }
+        if (explorationActions.length) {
           content.addNewline().addNewline();
         }
-        quote([`本轮 ${data.milestoneProgress}/300`]);
-        if (data.pendingSelections) {
-          quote([`神话自选待领取 ${data.pendingSelections}份`], [{ label: '选择神话', command: '/上古遗珍 自选' }]);
-        }
-        if (data.freeAvailable) {
-          content.addButton(markdownButtonLabel('每日免费探索'), { data: commandText('上古遗珍 免费探索'), autoEnter: false });
-        } else {
-          content.addText('每日免费探索：已使用');
-        }
-        content.addNewline().addNewline();
         const spiritTenReady = data.spiritTenCost === (data.spiritTenDiscountAvailable ? 6000 : 12000);
         const daoTenReady = typeof data.daoTenDiscountAvailable === 'boolean' && data.daoTenCost === (data.daoTenDiscountAvailable ? 60 : 108);
 
@@ -849,19 +1032,31 @@ export default onResponse(selects, async event => {
           }
           content.addBlockquote(block).addNewline();
         }
-        content
-          .addBold(
-            `${isActualExplorationPityRulesVersion(data.rulesVersion) ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
-          )
-          .addNewline()
-          .addNewline();
-        content.addText('当前账户').addNewline().addNewline();
-        quote([`灵晶 ${number(data.balances.spiritCrystal)} · 道晶 ${number(data.balances.daoCrystal)} · 藏宝图 ${data.balances.treasureMaps}张`]);
-        await send(navigation.slice(0, 2));
+        await message.send(
+          FormatGui({
+            bid: event.UserId,
+            isPrivate: isPrivateEvent(event),
+            title,
+            content,
+            footer: [
+              manual([
+                navigation[0],
+                { label: '宝物图鉴', command: '/上古遗珍 图鉴' },
+                { label: '概率公示', command: '/上古遗珍 概率' },
+                { label: '探索记录', command: '/上古遗珍 记录' }
+              ]),
+              manual([
+                { label: '秘宝商人', command: '/上古遗珍 秘宝商人' },
+                { label: '日常活跃', command: '/日常活跃' },
+                { label: '每日礼包', command: '/充值 日礼包' }
+              ])
+            ]
+          })
+        );
 
         return;
       }
-      await send();
+      await send(relicsFooter, backCommand, nav);
 
       return;
     }
