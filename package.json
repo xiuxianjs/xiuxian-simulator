@@ -12,8 +12,7 @@
     "lodash-es": "^4.17.21",
     "minio": "^8.0.7",
     "node-schedule": "^2.1.1",
-    "qrcode": "^1.5.4",
-    "sharp": "^0.34.3"
+    "qrcode": "^1.5.4"
   },
   "description": "修仙",
   "exports": {
@@ -55,6 +54,6 @@
     "test:framework:audit": "node tools/audit-framework-tests.mjs"
   },
   "type": "module",
-  "version": "0.0.95",
-  "gitHead": "6af13c034fa9019cea8360f05a3c4d5016a10d5f"
+  "version": "0.0.96",
+  "gitHead": "35e0a4ff34828e06793fe941fd486035ba6c5495"
 }
