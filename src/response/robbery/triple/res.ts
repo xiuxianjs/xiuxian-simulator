@@ -108,7 +108,7 @@ export default onResponse(selects, async e => {
     if (result.normalExperienceGained !== undefined || experience > 0) {
       lines.push(`修为 +${experience}`);
     }
-    if (pk) {
+    if (pk?.counterDeadline) {
       lines.push(`对方反击截止：${formatGameTime(pk.counterDeadline)}`);
     }
     if (result.losingStreakText) {

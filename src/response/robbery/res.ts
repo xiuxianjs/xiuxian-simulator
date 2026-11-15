@@ -123,7 +123,7 @@ export default onResponse(selects, async e => {
     if (rewards.length) {
       md.addNewline().addBlockquote(createQuoteMarkdown(rewards));
     }
-    if (pk) {
+    if (pk?.counterDeadline) {
       possessions.push(`对方反击截止：${formatGameTime(pk.counterDeadline)}`);
     }
     if (possessions.length) {

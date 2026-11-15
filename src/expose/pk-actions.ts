@@ -112,7 +112,7 @@ export const pkActions = {
         throw new Error('争夺战报编号不匹配');
       }
 
-      return result;
+      return { summary: result.summary, hasOrdinaryReplay: result.hasOrdinaryReplay, hasCounterReplay: result.hasCounterReplay };
     }
   ),
   get_pk_replay: observation<{ reportId: number; phase: 'ordinary' | 'counter'; page?: number }>(

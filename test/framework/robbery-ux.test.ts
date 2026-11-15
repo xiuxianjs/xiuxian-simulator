@@ -20,7 +20,7 @@ for(const isPrivate of [false,true]){
   const {app,requests}=await gameFixture(t,r=>businessEnvelope(r.bid,receipt));
   const event=isPrivate?app.events.privateMessage({text:'/打劫 2',platform:'qq-bot'}):app.events.groupMessage({text:'/打劫 2',platform:'qq-bot'});
   const result=await app.runHandler(robbery,event);
-  assert.equal(requests.length,1);assert.deepEqual(requests[0].body.arguments,{target:{uid:2}});
+  assert.equal(requests.length,1);assert.deepEqual(requests[0].body.arguments,{target:{uid:2},suggestTargets:true});
   assert.equal(result.messages.length,isPrivate?1:2);
   for(const message of result.messages)assert.equal(result.actions[message.actionIndex].results?.[0].code,ResultCode.Ok);
   const rows=cards(result.messages[0].nodes);assert.equal(rows.length,3);
@@ -38,6 +38,20 @@ test('失败保留修为和连败状态，不展示获胜奖励或群播报',asy
  const result=await app.runHandler(robbery,app.events.groupMessage({text:'/打劫 2',platform:'qq-bot'}));
  assert.equal(result.messages.length,1);const message=result.messages[0];assert.equal(result.actions[message.actionIndex].results?.[0].code,ResultCode.Ok);
  const view=inspectMessage(message.nodes);assert.match(view.text,/打劫失败/);assert.match(view.text,/修为 \+12/);assert.match(view.text,/连败保护已生效/);assert.doesNotMatch(view.text,/灵石\+|灵晶\+|青锋剑|煞气 \+/);
+});
+test('新版无暂存物的打劫只展示结算和战报', async t => {
+  const data = { ...receipt, pkRulesVersion: 2, pkState: 'ordinary_settled', pkDeliveryState: 'none', counterDeadline: undefined, droppedItem: null };
+  const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
+  const result = await app.runHandler(robbery, app.events.privateMessage({ text: '/打劫 2', platform: 'qq-bot' }));
+
+  assert.equal(requests.length, 1);
+  assert.equal(result.messages.length, 1);
+  const view = inspectMessage(result.messages[0].nodes);
+
+  assert.match(view.text, /打劫成功/);
+  assert.match(view.text, /灵石\+60.*灵晶\+2/s);
+  assert.doesNotMatch(view.text, /反击截止|暂存/);
+  assert.ok(view.commands.includes('/争夺战报 71'));
 });
 for(const [state,delivery,expected]of [['counter_won','restored','物品已归还原主'],['counter_lost','pending','物品已确定归打劫者，待交付'],['counter_lost','delivered','物品已交付打劫者']]as const){
  test(`免费反击按真实回执显示物品归属：${delivery}`,async t=>{

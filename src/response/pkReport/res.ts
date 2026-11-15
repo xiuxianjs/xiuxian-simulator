@@ -55,8 +55,32 @@ export default onResponse(selects, async e => {
     }
     const actions: { label: string; command: string }[] = [];
 
+    if (data.pursuitState) {
+      const state = { open: '等待道友出战', fighting: '正在交手', expired_settling: '已到期，结算中', paid: '已追回并付赏', refunded: '赏金已退还' }[
+        data.pursuitState
+      ];
+
+      if (state) {
+        lines.push(`委托状态：${state}`);
+      }
+    }
+    if (data.latestPursuit) {
+      const latest = data.latestPursuit;
+
+      lines.push(
+        latest.state === 'won'
+          ? '追击结果：原物已归还'
+          : latest.state === 'lost'
+            ? `追击结果：未追回 · 反劫分成 ${latest.share} 灵晶 · 回收 ${latest.recycled} 灵晶`
+            : '追击结果：本场作废，已退还出战灵晶'
+      );
+    }
     if (row.canCounterAttack) {
-      actions.push({ label: '免费反击', command: `/回击 ${row.reportId}` });
+      lines.push('说明：反击采用双方当时的实力，修为按原战报的秘境基准结算。');
+      actions.push({ label: data.canPublishPursuit || data.pursuitState ? '亲自反击' : '免费反击', command: `/回击 ${row.reportId}` });
+    }
+    if (data.canPublishPursuit) {
+      actions.push({ label: '委托追回', command: `/委托追回 ${row.reportId}` });
     }
     if (data.hasOrdinaryReplay) {
       actions.push({ label: '原战回放', command: `/争夺回放 ${row.reportId} 原战 1` });

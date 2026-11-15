@@ -462,6 +462,7 @@ export function createGameRouter() {
     xiuxian.use('煞气', () => import('@src/response/shaQi/res'));
     xiuxian.use('杀神榜', () => import('@src/response/killGodList/res'));
     xiuxian.use('领取杀神称号', () => import('@src/response/killGodList/claimTitle/res'));
+    xiuxian.use(['追击榜', '委托追回', '确认追回', '帮追回', '确认追击'], () => import('@src/response/pkPursuit/res'));
     xiuxian.use('悬赏榜', () => import('@src/response/bounty/list/res'));
     xiuxian.use(
       {

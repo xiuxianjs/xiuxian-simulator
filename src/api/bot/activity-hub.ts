@@ -19,6 +19,7 @@ export interface RobotActivityHub {
   newcomerVisible: boolean;
   giftCodesVisible: boolean;
   fishingBossEventId?: string;
+  pursuitAvailable?: boolean;
 }
 
 /** Decode the bubble projection; never fetch missing activity, catalog or realm data. */

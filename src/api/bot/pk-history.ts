@@ -1,3 +1,4 @@
+import { parsePursuitReceipt } from './pk-pursuit';
 import { parseGameTime } from '@src/utils/gameTime';
 
 export const pkHistoryScopes = { all: '全部', attacks: '我发起', defenses: '我被打', pending: '未决' } as const;
@@ -84,7 +85,14 @@ export function parsePKHistory(value: unknown) {
 export function parsePKReport(value: unknown) {
   const data = record(value);
 
-  return { summary: parsePKHistoryEntry(data.summary), hasOrdinaryReplay: boolean(data.hasOrdinaryReplay), hasCounterReplay: boolean(data.hasCounterReplay) };
+  return {
+    summary: parsePKHistoryEntry(data.summary),
+    hasOrdinaryReplay: boolean(data.hasOrdinaryReplay),
+    hasCounterReplay: boolean(data.hasCounterReplay),
+    canPublishPursuit: data.canPublishPursuit === true,
+    pursuitState: data.pursuitState === undefined ? undefined : text(data.pursuitState),
+    latestPursuit: data.latestPursuit === undefined ? undefined : parsePursuitReceipt(data.latestPursuit)
+  };
 }
 export function parsePKReplay(value: unknown) {
   const data = record(value);

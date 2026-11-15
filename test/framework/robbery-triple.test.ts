@@ -30,7 +30,12 @@ function assertSent(result: Awaited<ReturnType<Awaited<ReturnType<typeof gameFix
 for (const privateChat of [true, false]) {
   test(`三连按实际境界消耗汇总，败场继续，奖励和战报各自保留（${privateChat ? '私聊' : '群聊'}）`, async t => {
     let count = 0;
-    const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, receipt(++count)));
+    const { app, requests } = await gameFixture(t, r => {
+      const row = receipt(++count);
+      return businessEnvelope(r.bid, count === 2
+        ? { ...row, pkRulesVersion: 2, pkState: 'ordinary_settled', pkDeliveryState: 'none', counterDeadline: undefined }
+        : row);
+    });
     const event = privateChat ? app.events.privateMessage({ text: '/三连打劫 2', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/三连打劫 2', platform: 'qq-bot' });
     const result = await app.runHandler(triple, event);
     assert.equal(requests.length, 3);
@@ -56,10 +61,11 @@ for (const privateChat of [true, false]) {
     }
     const quotes = result.messages[0].nodes?.flatMap(n => n.type === 'Markdown' ? n.value.filter(c => c.type === 'MD.blockquote') : []) ?? [];
     assert.equal(quotes.length, 3);
-    for (const q of quotes) {
+    for (const [index, q] of quotes.entries()) {
       assert.ok(Array.isArray(q.value));
       const card = inspectMessage([{ type: 'Markdown', value: q.value as never }]);
       assert.equal(card.commands.filter(c => c.startsWith('/争夺战报')).length, 1);
+      assert.equal(card.text.includes('对方反击截止'), index !== 1);
     }
   });
 }

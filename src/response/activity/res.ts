@@ -74,6 +74,10 @@ export default onResponse(selects, async e => {
     isGuild ? GUILD_ROWS : [...(fishingBoss ? [{ label: '垂钓奇遇', command: fishingBoss, introduction: '上古龙鲤现身，查看挑战' }] : []), ...PERSONAL_ROWS]
   ).filter(entry => allowed(entry.command));
 
+  if (!isGuild && loaded.data.pursuitAvailable === true && allowed('/追击榜')) {
+    entries.push({ label: '追击榜', command: '/追击榜', introduction: '帮道友追回被劫原物' });
+  }
+
   for (const entry of entries) {
     const row = Format.createMarkdown()
       .addButton(markdownButtonLabel(`${entry.label}`), { data: commandText(entry.command), autoEnter: false })

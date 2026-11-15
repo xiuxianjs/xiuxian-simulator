@@ -5,7 +5,9 @@ import { mutation } from './mutation';
 import { boolean, fields, integer, list, number, object, text } from './schema';
 
 const id = { type: 'integer' as const, minimum: 1, maximum: Number.MAX_SAFE_INTEGER };
-const pk = object({ ...fields(integer, 'pkRulesVersion pkEventId'), ...fields(text, 'actorSide pkState pkDeliveryState counterDeadline'), won: boolean });
+const pk = object({ ...fields(integer, 'pkRulesVersion pkEventId'), ...fields(text, 'actorSide pkState pkDeliveryState counterDeadline'), won: boolean }, [
+  'counterDeadline'
+]);
 const unit = object({ name: text, hp: integer, maxHp: integer, isDead: boolean });
 const drop = object({ ...fields(text, 'name category'), quantity: integer });
 const battle = object({ totalRounds: integer, finalState: object({ sideA: list(unit), sideB: list(unit) }) });
