@@ -61,7 +61,8 @@ export default onResponse(selects, async e => {
         [
           `真气：${data.trueQi}`,
           `今日冲脉：${data.dailyPulseRemaining}次`,
-          `基础 ${data.basePulseRemaining}/${config.DAILY_PULSE_MAX} · 额外 ${data.extraPulseRemaining}/${config.DAILY_EXTRA_PULSE_MAX}`
+          `基础 ${data.basePulseRemaining}/${config.DAILY_PULSE_MAX} · 额外 ${data.extraPulseRemaining}/${config.DAILY_EXTRA_PULSE_MAX}`,
+          ...(data.extraPulseBalance === undefined ? [] : [`额外冲脉余额：${data.extraPulseBalance} 次`])
         ],
         [{ label: '服丹', command: '/服用 真灵丹 1' }]
       )

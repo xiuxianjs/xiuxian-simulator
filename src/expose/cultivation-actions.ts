@@ -54,7 +54,7 @@ const end = object(
 const pulse = object({
   ...fields(
     integer,
-    'index phase phaseIndex normalPulsesRemaining Progress RequiredProgress progressBefore basePulseRemaining extraPulseRemaining trueQiRemaining dailyPulseRemaining'
+    'index phase phaseIndex normalPulsesRemaining Progress RequiredProgress progressBefore basePulseRemaining extraPulseRemaining extraPulseBalance trueQiRemaining dailyPulseRemaining'
   ),
   ...fields(text, 'phaseName Name Category Description pulseBlockedReason'),
   ...fields(boolean, 'completed tailJumpEscalation phaseCompleted allCompleted canPulse jumped'),

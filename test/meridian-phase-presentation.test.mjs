@@ -45,7 +45,7 @@ async function render(kind, payload, isPrivate) {
   return JSON.stringify(state.sent[0]);
 }
 
-test('phase2 bubble uses server ordinal, both phase counts, cumulative total and VIP base quota', async () => {
+test('phase2 bubble uses server ordinal, both phase counts, cumulative total and month card quota', async () => {
   for (const isPrivate of [false, true]) {
     const text = await render('view', fixtures['view:phase2'], isPrivate);
     assert.ok(text.includes('经络 · 第2期 淬脉'));
@@ -56,6 +56,7 @@ test('phase2 bubble uses server ordinal, both phase counts, cumulative total and
     assert.ok(text.includes('第2期 淬脉 0/20'));
     assert.ok(text.includes('第1期 贯通 20/20'));
     assert.ok(text.includes('基础 4/7'));
+    assert.ok(text.includes('额外冲脉余额：2 次'));
     assert.ok(text.includes('/服用 真灵丹 1'));
   }
 });
@@ -63,6 +64,7 @@ test('phase2 bubble uses server ordinal, both phase counts, cumulative total and
 test('committed second-phase receipt names the phase and all-complete view removes pulse actions', async () => {
   const text = await render('pulse', fixtures['pulse:phase2'], true);
   assert.ok(text.includes('进度：'));
+  assert.ok(text.includes('额外冲脉余额：2 次'));
   assert.ok(text.includes('第2期 淬脉'));
   const done = await render('view', fixtures['view:complete'], true);
   assert.ok(done.includes('已开放经脉全部圆满'));

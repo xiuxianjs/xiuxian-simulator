@@ -34,6 +34,7 @@ export interface MeridianSchemas {
     currentPhaseName: string;
     basePulseRemaining: number;
     extraPulseRemaining: number;
+    extraPulseBalance?: number;
     canPulse: boolean;
     pulseBlockedReason: string;
     TrueQi: number;
@@ -59,6 +60,7 @@ export interface MeridianSchemas {
     progressBefore: number;
     basePulseRemaining: number;
     extraPulseRemaining: number;
+    extraPulseBalance?: number;
     jumped: boolean;
     trueQiRemaining: number;
     talentTrueQiRefund?: number;

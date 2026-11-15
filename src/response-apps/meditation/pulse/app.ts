@@ -26,6 +26,7 @@ type PulseResult =
         dailyPulseRemaining?: number;
         basePulseRemaining?: number;
         extraPulseRemaining?: number;
+        extraPulseBalance?: number;
         config: Schemas['MeridianConfig'];
       };
     }
@@ -66,6 +67,7 @@ export default async function App(params: {
         dailyPulseRemaining: remote.dailyPulseRemaining,
         basePulseRemaining: remote.basePulseRemaining,
         extraPulseRemaining: remote.extraPulseRemaining,
+        extraPulseBalance: remote.extraPulseBalance,
         config: remote.config
       }
     };

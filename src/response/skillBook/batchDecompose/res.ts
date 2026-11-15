@@ -16,7 +16,7 @@ import { useMessage } from '@src/utils/useMessage';
  */
 import { selects } from '@src/response/config';
 import type { GuiButton } from '@src/utils/messageHelper';
-import { FormatGui, createQuoteMarkdown } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useSubscribe, useEvent } from 'alemonjs';
 
 const response = onResponse(selects, async e => {
@@ -116,19 +116,16 @@ const response = onResponse(selects, async e => {
     }
 
     previewMd.addNewline();
-    previewMd.addText('确认有效期60秒');
-    previewMd.addNewline().addText('确认时重新筛选当前品级范围；要保留的功法请先锁定');
+    previewMd.addText('确认时重新筛选当前品级范围；要保留的功法请先锁定');
 
     const confirmFooter = [
       { label: '确认分解', command: '确认分解' },
       { label: '取消', command: '取消' }
     ] satisfies GuiButton[];
 
-    previewMd
-      .addNewline()
-      .addBlockquote(createQuoteMarkdown([`请在60秒内回复【${displayCommandText('确认分解')}】或【${displayCommandText('取消')}】。`], confirmFooter));
+    previewMd.addNewline().addText(`请在 60 秒内发送 ${displayCommandText('确认分解')} 或 ${displayCommandText('取消')}。`);
 
-    void message.send(FormatGui({ isPrivate, bid, title: '', content: previewMd, keyboard: [confirmFooter] }));
+    void message.send(FormatGui({ isPrivate, bid, title: '', content: previewMd, footer: [confirmFooter] }));
 
     // 进入订阅等待确认
     const sub = subscribe.mount(

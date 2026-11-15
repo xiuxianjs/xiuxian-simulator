@@ -76,3 +76,38 @@ test('batch confirmation middleware uses current event and hook continuation; ca
   const actual=await run('current');assert.deepEqual(withoutDecomposeRecovery(actual,choice==='timeout'?'确认超时':choice==='取消'?'已取消分解':''),await run('original'));
  }
 });
+
+
+test('batch preview sends confirmation instructions in plain body text and runnable footer buttons', async () => {
+  const preview = rows.find(row => row.state === 'ready' && row.arguments.gradeName === '全部' && row.result.success);
+  assert.ok(preview);
+  for (const isPrivate of [false, true]) {
+    const sent = await initial('current', preview, isPrivate);
+    assert.equal(sent.length, 1);
+    assert.equal(s.calls.length, 1);
+    const body = sent[0].find(node => node.type === 'Markdown')?.value;
+    assert.ok(body?.some(node => node.type === 'MD.text' && node.value === '请在 60 秒内发送 /确认分解 或 /取消。'));
+    const commands = body.filter(node => node.type === 'MD.button').map(node => node.options.data);
+    assert.deepEqual(commands, ['/确认分解', '/取消']);
+    for (const command of commands) {
+      assert.ok([...command].length <= 80);
+    }
+
+    // The fallback is executable, even when QQ hides the inline buttons.
+    assert.ok(s.subscription);
+    const cancel = event(commands[1]);
+    await framework.invoke(cancel, () => s.subscription(cancel, () => {}));
+    assert.equal(s.sent.length, 2);
+    assert.match(JSON.stringify(s.sent[1]), /已取消分解操作/);
+    assert.equal(s.calls.length, 1);
+
+    await initial('current', preview, isPrivate);
+    s.row = rows.find(row => row.op === 'equipment.batch-decompose' && row.arguments.gradeId === null && row.result.success);
+    assert.ok(s.row);
+    const confirm = event(commands[0]);
+    await framework.invoke(confirm, () => s.subscription(confirm, () => {}));
+    assert.deepEqual(s.calls[1], { op: s.row.op, args: s.row.arguments });
+    assert.equal(s.sent.length, 2);
+    assert.match(JSON.stringify(s.sent[1]), /分解成功/);
+  }
+});

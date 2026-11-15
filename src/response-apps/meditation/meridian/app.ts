@@ -21,6 +21,7 @@ type MeridianViewResult =
         currentPhaseName: string;
         basePulseRemaining: number;
         extraPulseRemaining: number;
+        extraPulseBalance?: number;
         canPulse: boolean;
         pulseBlockedReason: string;
         trueQi: number;
@@ -86,6 +87,7 @@ export default async function App(params: {
         currentPhaseName: data.currentPhaseName,
         basePulseRemaining: data.basePulseRemaining,
         extraPulseRemaining: data.extraPulseRemaining,
+        extraPulseBalance: data.extraPulseBalance,
         canPulse: data.canPulse,
         pulseBlockedReason: data.pulseBlockedReason,
         trueQi: data.TrueQi,

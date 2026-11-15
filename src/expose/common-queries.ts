@@ -167,7 +167,7 @@ const meridianItem = object({
 });
 const meridians = object(
   {
-    ...fields(integer, 'currentPhase basePulseRemaining extraPulseRemaining TrueQi DailyPulseRemaining CompletedCount progressPercent'),
+    ...fields(integer, 'currentPhase basePulseRemaining extraPulseRemaining extraPulseBalance TrueQi DailyPulseRemaining CompletedCount progressPercent'),
     ...fields(text, 'currentPhaseName pulseBlockedReason'),
     ...fields(boolean, 'canPulse isLocked allCompleted'),
     current: meridianItem,

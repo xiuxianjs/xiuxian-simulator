@@ -44,6 +44,7 @@ export function parseMeridianView(data: any): BackendMeridianView {
     !data.meridians.every(meridianStatus) ||
     !meridianConfig(data.config) ||
     !meridianPhases(data.phases) ||
+    (data.extraPulseBalance !== undefined && (!integer(data.extraPulseBalance) || data.extraPulseBalance < 0)) ||
     ![data.currentPhase, data.basePulseRemaining, data.extraPulseRemaining].every(integer) ||
     typeof data.currentPhaseName !== 'string' ||
     typeof data.canPulse !== 'boolean' ||
@@ -79,6 +80,7 @@ export function parseMeridianPulse(data: any): BackendMeridianPulse {
     !meridianStatus(data) ||
     !meridianConfig(data?.config) ||
     !meridianPhases(data.phases) ||
+    (data.extraPulseBalance !== undefined && (!integer(data.extraPulseBalance) || data.extraPulseBalance < 0)) ||
     typeof data.phaseCompleted !== 'boolean' ||
     typeof data.allCompleted !== 'boolean' ||
     typeof data.canPulse !== 'boolean' ||
