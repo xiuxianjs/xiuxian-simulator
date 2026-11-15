@@ -24,7 +24,8 @@ const shopCodes: Record<string, string> = {
   神奇: 'SHENQI',
   神奇商店: 'SHENQI',
   声望: 'REPUTATION',
-  声望商店: 'REPUTATION'
+  声望商店: 'REPUTATION',
+  渔市: 'FISHING'
 };
 
 // Pure parsers shared with the original renderers; do not change their defaults.

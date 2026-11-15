@@ -16,6 +16,14 @@ import {
 
 // Fish are player-owned instances traded in the market, not shop products.
 const SHOP_FILTER_PRIMARY_LABELS = MARKET_FILTER_PRIMARY_LABELS.filter(label => label !== '鱼类');
+const FISHING_FILTERS: Record<string, { category: string; subtype?: string }> = {
+  饵料: { category: 'prop', subtype: 'fishing_bait' },
+  窝料: { category: 'prop', subtype: 'fishing_chum' },
+  钓具: { category: 'fishing_rod' },
+  渔具: { category: 'prop', subtype: 'fishing_net' },
+  素材: { category: 'material', subtype: 'fishing_material' },
+  货币兑换: { category: 'currency' }
+};
 
 export interface ShopFilters {
   category?: string;
@@ -60,10 +68,14 @@ export function parseShopBrowseCommand(text: string, defaultShopCode?: string) {
   let secondaryLabel: string | undefined;
 
   const categoryIndex = tokens.indexOf('筛选');
-  const primary = tokens[categoryIndex + 1];
+  const fishingAlias = parsed.shopCode === 'FISHING' ? tokens.find(token => Object.hasOwn(FISHING_FILTERS, token)) : undefined;
+  const primary = (categoryIndex >= 0 ? tokens[categoryIndex + 1] : undefined) ?? fishingAlias;
 
-  if (categoryIndex >= 0 && primary) {
-    if (primary === '兑换') {
+  if (primary) {
+    if (parsed.shopCode === 'FISHING' && Object.hasOwn(FISHING_FILTERS, primary)) {
+      Object.assign(filters, FISHING_FILTERS[primary]);
+      categoryLabel = primary;
+    } else if (primary === '兑换') {
       filters.category = 'currency';
       categoryLabel = primary;
     } else if (isMarketFilterPrimaryLabel(primary) && primary !== '鱼类') {
@@ -137,7 +149,9 @@ export function appendShopSearch(md: ReturnType<typeof Format.createMarkdown>, s
 }
 
 export function createShopCategoryFooter(selection: ShopSelection) {
-  return SHOP_FILTER_PRIMARY_LABELS.map(label => ({
+  const labels = selection.shopCode === 'FISHING' ? ['全部', ...Object.keys(FISHING_FILTERS)] : SHOP_FILTER_PRIMARY_LABELS;
+
+  return labels.map(label => ({
     label,
     selected: selection.categoryLabel === label,
     command: buildShopBrowseCommand(selection, { categoryLabel: label, secondaryLabel: undefined })

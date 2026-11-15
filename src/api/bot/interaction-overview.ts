@@ -172,13 +172,31 @@ export function parseShopPurchaseOverview(value: unknown) {
   if (data.purchaseError !== undefined && typeof data.purchaseError !== 'string') {
     throw new Error('商店结算响应不完整');
   }
+  if (data.reference !== undefined && !isShopPurchaseReference(data.reference)) {
+    throw new Error('商店原购买引用不完整');
+  }
 
   return {
     preview: decodeShopPreview(data.preview),
     result: data.result === null ? null : purchaseResult(data.result),
     purchaseError: data.purchaseError,
+    reference: data.reference,
     checkinAlternative: data.checkinAlternative === null || data.checkinAlternative === undefined ? undefined : decodeShopPreview(data.checkinAlternative)
   };
+}
+
+export function isShopPurchaseReference(value: unknown): value is string {
+  return typeof value === 'string' && /^r1_[1-9a-z][0-9a-z]{0,12}_s_[1-9a-z][0-9a-z]{0,12}_[0-9a-f]{24}$/.test(value);
+}
+
+export function parseShopPurchaseReferenceResult(value: unknown, reference: string) {
+  const data = record(value);
+
+  if (data.reference !== reference) {
+    throw new Error('原购买回执不匹配');
+  }
+
+  return purchaseResult(data.result);
 }
 export async function purchaseBackendCompanionShopOverview(
   bid: string | undefined,

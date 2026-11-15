@@ -8,7 +8,7 @@ import { measureTransportStageSync } from '@src/utils/transportTiming';
 import { useMessage } from '@src/utils/useMessage';
 import { decodeShopData } from '@src/api/bot/companion-shop-queries';
 import { BackendAPIError } from '@src/api';
-import { parseShopPurchaseOverview } from '@src/api/bot/interaction-overview';
+import { isShopPurchaseReference, parseShopPurchaseOverview, parseShopPurchaseReferenceResult } from '@src/api/bot/interaction-overview';
 /**
  * 通用商店 handler 工厂
  * 生成可直接作为路由 handler 使用的 onResponse 回调
@@ -19,6 +19,7 @@ import { parseShopPurchaseOverview } from '@src/api/bot/interaction-overview';
  */
 import { toCurrencyName } from '@src/constants';
 import { displayCurrencyText } from '@src/constants/currency';
+import { formatNumber } from '@src/utils/formatHelper';
 import type { ShopListProductItem } from '@src/api/schemas/companion-shop-query';
 import { SHOP_META } from '@src/response/shop/meta';
 import { selects } from '@src/response/config';
@@ -75,7 +76,8 @@ const SHOP_HEADER_BASE = [
   { label: '积分', command: '/商店 积分' },
   { label: '道侣', command: '/商店 道侣' },
   { label: '神奇', command: '/商店 神奇' },
-  { label: '声望', command: '/商店 声望' }
+  { label: '声望', command: '/商店 声望' },
+  { label: '渔市', command: '/商店 渔市' }
 ];
 
 const SHOP_CODE_MAP: Record<string, string> = {
@@ -89,7 +91,8 @@ const SHOP_CODE_MAP: Record<string, string> = {
   神奇: 'SHENQI',
   神奇商店: 'SHENQI',
   声望: 'REPUTATION',
-  声望商店: 'REPUTATION'
+  声望商店: 'REPUTATION',
+  渔市: 'FISHING'
 };
 
 type ShopAccessState = {
@@ -97,15 +100,27 @@ type ShopAccessState = {
   deniedReason: string | null;
 };
 
-const getShopHeader = (access: ShopAccessState, selection: ReturnType<typeof parseShopBrowseCommand>) => SHOP_HEADER_BASE.filter(item => access.visibleShopCodes.includes(SHOP_CODE_MAP[item.command.slice('/商店 '.length)])).map(item => ({
-    ...item,
-    selected: selection.shopCode === SHOP_CODE_MAP[item.command.slice('/商店 '.length)],
-    command: buildShopBrowseCommand(selection, {
-      shopCode: SHOP_CODE_MAP[item.command.slice('/商店 '.length)],
-      currencyCode: undefined,
-      filters: { ...selection.filters, sort: undefined }
-    })
-  }));
+const getShopHeader = (access: ShopAccessState, selection: ReturnType<typeof parseShopBrowseCommand>) => SHOP_HEADER_BASE.flatMap(item => {
+    const shopCode = SHOP_CODE_MAP[item.command.slice('/商店 '.length)];
+
+    if (shopCode !== 'FISHING' && !access.visibleShopCodes.includes(shopCode)) {
+      return [];
+    }
+    const changingFishingShop = (shopCode === 'FISHING') !== (selection.shopCode === 'FISHING');
+
+    return [
+      {
+        ...item,
+        selected: selection.shopCode === shopCode,
+        command: buildShopBrowseCommand(selection, {
+          shopCode,
+          currencyCode: undefined,
+          filters: { ...selection.filters, sort: undefined },
+          ...(changingFishingShop ? { categoryLabel: '全部', secondaryLabel: undefined } : {})
+        })
+      }
+    ];
+  });
 
 // ==================== 列表 handler ====================
 
@@ -199,6 +214,9 @@ export const createShopListHandler = (shopCode?: string) => {
         const selection = { ...parsed, searchReference: searching ? shopQuery.searchReference : undefined };
         const renderCurrency = (md: ReturnType<typeof Format.createMarkdown>) => {
           appendCurrencyCardToMd(md, shopQuery.currencies, { hideZero: true });
+          if (activeShopCode === 'FISHING' && shopQuery.currencies.fishingCoin !== undefined) {
+            md.addText(`灵鳞钱：${formatNumber(shopQuery.currencies.fishingCoin)}`).addNewline();
+          }
           if (!shopQuery.access.deniedReason) {
             appendShopSearch(md, parsed);
             if (searching && !selection.searchReference) {
@@ -208,7 +226,6 @@ export const createShopListHandler = (shopCode?: string) => {
         };
         const shopHeader = getShopHeader(access, selection);
 
-        shopHeader.push({ label: '渔市', command: '/商店 渔市', selected: false });
         const categoryFooter = createShopCategoryFooter(selection);
         const accessDeniedReason = access.deniedReason;
         const meta = activeShopCode ? SHOP_META[activeShopCode] : undefined;
@@ -273,7 +290,16 @@ export const createShopListHandler = (shopCode?: string) => {
           const soldOut = item.limit > 0 && item.remaining === 0;
 
           if (item.unlocked && !soldOut) {
-            shopBtns.push({ label: '购买', command: `/${buyCmd} ${item.productId}` });
+            if (item.shopCode === 'FISHING') {
+              shopBtns.push({ label: '买1份', command: `/${buyCmd} ${item.productId} 1` });
+              if (item.limit === -1 || item.remaining > 1) {
+                const count = item.limit === -1 ? 10 : Math.min(10, item.remaining);
+
+                shopBtns.push({ label: `买${count}份`, command: `/${buyCmd} ${item.productId} ${count}` });
+              }
+            } else {
+              shopBtns.push({ label: '购买', command: `/${buyCmd} ${item.productId}` });
+            }
 
             if (detailCommand) {
               shopBtns.push({ label: '详情', command: detailCommand });
@@ -352,7 +378,37 @@ export const shopBuyHandler = onResponse(selects, async e => {
   const [message] = useMessage();
   const bid = e?.UserId;
   const fallbackTitle = '商店';
-  const match = (e.MessageText?.trim() ?? '').match(/(\d+)(?:\s+(\d+))?(\s+确认)?$/);
+  const command = e.MessageText?.trim() ?? '';
+  const referenceCommand = /^(?:[!！/#＃]\s*)?购买\s+确认(?:\s+(.*))?$/.exec(command);
+
+  if (referenceCommand) {
+    const reference = referenceCommand[1];
+    const content = Format.createMarkdown();
+
+    try {
+      if (!isShopPurchaseReference(reference) || [...command].length > 80) {
+        throw new Error('购买引用无效');
+      }
+      const business = await loadFinalBusiness(e, next, 'shops.purchase', { mode: 'reference', reference }, data => parseShopPurchaseReferenceResult(data, reference)
+      );
+
+      if (business.handled) {
+        return;
+      }
+      const result = await business.load();
+
+      if (!result) {
+        throw new Error('购买回执不完整');
+      }
+      content.addText(`购买成功：${result.name}，支付${displayCurrencyText(result.paid)}，获得×${result.granted}`);
+    } catch (error) {
+      content.addText(error instanceof BackendAPIError ? error.message : '购买结果未确认，请使用原确认入口核对。');
+    }
+    await message.send(FormatGui({ isPrivate: e.isPrivate ?? false, bid, title: '渔市', content, footer: [{ label: '返回渔市', command: '/商店 渔市' }] }));
+
+    return;
+  }
+  const match = command.match(/(\d+)(?:\s+(\d+))?(\s+确认)?$/);
 
   if (!match) {
     const business = await loadFinalBusiness(e, next, 'shops.purchase', { mode: 'usage' }, value => value);
@@ -405,8 +461,8 @@ export const shopBuyHandler = onResponse(selects, async e => {
     );
   };
 
-  if (preview.needsConfirmation && !confirmed) {
-    const confirmCmd = `/${meta?.buyCmd ?? '购买'} ${productId}${count > 1 ? ` ${count}` : ''} 确认`;
+  if (isShopPurchaseReference(overview.reference) || (preview.needsConfirmation && !confirmed)) {
+    const confirmCmd = overview.reference ? `/购买 确认 ${overview.reference}` : `/${meta?.buyCmd ?? '购买'} ${productId}${count > 1 ? ` ${count}` : ''} 确认`;
     const content = Format.createMarkdown();
 
     content.addText('⚠️ 大额购买提醒');

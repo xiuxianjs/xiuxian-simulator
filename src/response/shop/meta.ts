@@ -2,7 +2,7 @@
  * 通用商店配置
  * 每个商店的元信息：名称、货币、指令等
  */
-type ShopCode = 'WANBAOLOU' | 'SHENQI' | 'REPUTATION' | 'CHECKIN' | 'TOWER_SCORE' | 'DAOLV';
+type ShopCode = 'WANBAOLOU' | 'SHENQI' | 'REPUTATION' | 'CHECKIN' | 'TOWER_SCORE' | 'DAOLV' | 'FISHING';
 
 export interface ShopMeta {
   /** 商店代号 */
@@ -24,6 +24,13 @@ export interface ShopMeta {
 const UNIFIED_BUY_CMD = '购买';
 
 export const SHOP_META: Record<string, ShopMeta> = {
+  FISHING: {
+    code: 'FISHING',
+    name: '渔市',
+    currencyName: '灵鳞钱/灵石/灵晶/道晶',
+    listCmd: '商店 渔市',
+    buyCmd: UNIFIED_BUY_CMD
+  },
   WANBAOLOU: {
     code: 'WANBAOLOU',
     name: '万宝楼',

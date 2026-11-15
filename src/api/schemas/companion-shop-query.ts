@@ -33,7 +33,7 @@ export interface ShopListProductsResult {
 export interface CompanionShopQueryData {
   nextCursor?: string;
   access: { hasCompanion: boolean; isFoundationRealm: boolean; canUseReputationShop: boolean; visibleShopCodes: string[]; deniedReason: string | null };
-  currencies: CurrencyCardData;
+  currencies: CurrencyCardData & { fishingCoin?: number | bigint };
   products: Array<{
     shopCode: string;
     discountRate: number | null;

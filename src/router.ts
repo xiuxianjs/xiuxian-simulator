@@ -284,7 +284,6 @@ export function createGameRouter() {
     // xiuxian.use('关闭主题', () => import('@src/response/theme/deactivateTheme/res')); // 主题切换下架
     // xiuxian.use('切换墨色模式', () => import('@src/response/theme/switchInkMode/res')); // 主题切换下架
     xiuxian.use(['切换', '替换'], () => import('@src/response/profession/replaceEquip/res'));
-    xiuxian.use('商店 渔市', () => import('@src/response/fishing/res'));
     xiuxian.use(
       '商店',
       withCommandCatalog('shop', () => measureTransportStage('route.import', () => import('@src/response/shop/hub/res')))

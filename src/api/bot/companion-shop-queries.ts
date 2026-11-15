@@ -25,7 +25,7 @@ export async function getBackendUnifiedShop(bid: string | undefined, uid: number
   if (currencyCode && currencyCode !== 'SPIRIT_STONE' && currencyCode !== 'SPIRIT_CRYSTAL' && currencyCode !== 'SPIRIT_MILK') {
     throw new Error('商店币种参数无效');
   }
-  if (shopCode && !['WANBAOLOU', 'SHENQI', 'CHECKIN', 'TOWER_SCORE', 'DAOLV', 'REPUTATION'].includes(shopCode)) {
+  if (shopCode && !['WANBAOLOU', 'SHENQI', 'CHECKIN', 'TOWER_SCORE', 'DAOLV', 'REPUTATION', 'FISHING'].includes(shopCode)) {
     throw new Error('商店分类参数无效');
   }
   const inline = getEventCatalog(getCurrentEvent(), bid, uid, { kind: 'shop', args: { page, shopCode: shopCode ?? null, currencyCode: currencyCode ?? null } });
@@ -58,6 +58,7 @@ export function decodeShopData(data: Record<string, unknown>) {
     !nullableText(access.deniedReason) ||
     !['spiritStone', 'spiritsCrystal', 'spiritsMilk', 'signInCoin', 'towerScore', 'reputation', 'tongxin', 'greenBottle'].every(key => isExactBalance(currencies[key])
     ) ||
+    (currencies.fishingCoin !== undefined && !isExactBalance(currencies.fishingCoin)) ||
     !Array.isArray(data.products) ||
     !integer(data.page) ||
     data.page < 1 ||

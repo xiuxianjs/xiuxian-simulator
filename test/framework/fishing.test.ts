@@ -50,22 +50,14 @@ function delivered(result: TestRunResult, command: string, messages = 1) {
   return view;
 }
 
-test('垂钓紧凑主页配置按钮和商店渔市经真实路由发送', async t => {
+test('垂钓紧凑主页配置按钮经真实路由发送', async t => {
   const rodId = 'fr_' + 'a'.repeat(32);
   const startCommand = `/垂钓 按配置开钓 1 4 ${rodId}`;
   const section = (lines: string[], actions: FishingView['footer'] = []) => ({ title: '', id: '', suffix: '', lines, actions });
   const { app, requests } = await gameFixture(t, request => {
-    const { view, sku } = request.body.arguments as { view?: string; sku?: string };
+    const { view } = request.body.arguments as { view?: string };
     if (request.path.endsWith('/fishing.start-current')) {
       return businessEnvelope(request.bid, base({ view: 'receipt', title: '已开钓', sections: [section(['状态：垂钓中'])], footer: [] }));
-    }
-    if (view === 'shop') {
-      assert.equal(sku, 'store');
-      return businessEnvelope(request.bid, base({
-        view: 'shop', title: '渔市 · 货币兑换', sections: [section(['余额：3,200灵鳞钱']), section(['今日剩余：280／400灵晶'])],
-        navRows: [[{ label: '转为出售', command: '/储物袋 渔获' }], [{ label: '货币兑换', command: '/商店 渔市 货币兑换' }]],
-        footer: [{ label: '返回渔市', command: '/商店 渔市' }]
-      }));
     }
     if (view === 'start') {
       return businessEnvelope(request.bid, base({ view: 'start', title: '垂钓 · 调整配置', sections: [section(['时长上限：4小时'])],
@@ -85,10 +77,6 @@ test('垂钓紧凑主页配置按钮和商店渔市经真实路由发送', async
   assert.match(config.text, /时长上限：4小时/);
   await send(config.commands.find(command => command === startCommand)!);
   assert.deepEqual(requests[2].body.arguments, { kind: 'start-current', sku: 'config', waterLevel: 1, hours: 4, rodId });
-  const shop = await send('/商店 渔市 货币兑换');
-  assert.match(shop.text, /今日剩余：280／400灵晶/);
-  assert.ok(shop.commands.includes('/商店 渔市'));
-  assert.deepEqual(requests[3].body.arguments, { view: 'shop', sku: 'store', shopCategory: 'exchange', page: 1 });
 });
 
 after(async () => {

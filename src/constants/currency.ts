@@ -23,7 +23,8 @@ const CURRENCY_DISPLAY_NAMES: Record<string, string> = {
   ...CURRENCY_NAME_MAP,
   SPIRITS_CRYSTAL: '灵晶',
   SPIRITS_MILK: '道晶',
-  SIGN_IN_COIN: '签到币'
+  SIGN_IN_COIN: '签到币',
+  FISHING_COIN: '灵鳞钱'
 };
 const CURRENCY_DISPLAY_PATTERN = new RegExp(`\\b(?:${Object.keys(CURRENCY_DISPLAY_NAMES).join('|')})\\b`, 'gi');
 
