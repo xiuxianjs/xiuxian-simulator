@@ -1,6 +1,6 @@
 import { BackendAPIError } from './client';
 import { parseTreasureEffects } from './treasure-effects';
-import { validMiddlewareNav, type RobotMiddlewareReply } from './middleware-entry';
+import { validMiddlewareBlockRows, validMiddlewareNav, type RobotMiddlewareReply } from './middleware-entry';
 
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const button = (value: unknown): boolean => record(value) && typeof value.label === 'string' && typeof value.command === 'string';
@@ -46,6 +46,7 @@ export function parseAlchemyV2Reply(value: unknown): RobotMiddlewareReply & { al
           block => record(block) &&
             typeof block.text === 'string' &&
             typeof block.quoted === 'boolean' &&
+            (block.rows === undefined || (block.quoted && validMiddlewareBlockRows(block.rows))) &&
             (block.inlineButtons === undefined || (Array.isArray(block.inlineButtons) && block.inlineButtons.every(button)))
         )))
   ) {

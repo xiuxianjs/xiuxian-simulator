@@ -1,10 +1,12 @@
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 import { formatGameTime } from '@src/utils/gameTime';
+import { markdownButtonLabel } from '@src/utils/buttonLabel';
+import { commandCharacterLength, commandText } from '@src/utils/commandPrefix';
 import { useMessage } from '@src/utils/useMessage';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
-import { createQuoteMarkdown, FormatGui, type GuiButton } from '@src/utils/messageHelper';
+import { addOptions, createQuoteMarkdown, FormatGui, type GuiButton, type GuiFooter } from '@src/utils/messageHelper';
 import { section } from '@src/response/presentation/sections';
 import { parseForgeCatalogArguments, forgeRecipesForFilter, forgeCatalogCommand, type ForgeCatalogQuery } from './catalog';
 import {
@@ -13,10 +15,12 @@ import {
   parseForgeOrders,
   type ForgeOrder,
   parseForgeOverview,
+  parseForgeLearnBlueprintResult,
   parseForgePreview,
   parseForgeResult,
   parseForgeHistory,
   type ForgeOverview,
+  type ForgeLearnableBlueprint,
   type ForgeRecipe,
   type ForgePreview,
   type ForgeResult,
@@ -36,40 +40,59 @@ function earlyForgeProgress(p: ForgePreview): string[] {
   ];
 }
 
+function forgeToolSwitchCommand(typeName?: string): string {
+  const command = typeName ? `/替换 列表 1 ${typeName}` : '/替换';
+
+  return commandCharacterLength(command) <= 80 ? command : '/替换';
+}
+
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const [, next] = useEvent();
   const text = e.MessageText.trim().replace(/^[!！/#＃]/, '');
   const [command, ...rest] = text.split(/\s+/);
   const arg = rest.join(' ');
-  const catalogQuery = command === '锻造图纸' ? parseForgeCatalogArguments(rest) : null;
+  const isForgeHome = command === '我的锻造';
+  const isForgeCatalog = command === '锻造图纸';
+  const isForgeHistory = command === '锻造记录';
+  const isForgeGuide = command === '锻造指引';
+  const catalogQuery = isForgeCatalog ? parseForgeCatalogArguments(rest) : null;
   const content = Format.createMarkdown();
-  let title = '锻造师';
+  let title = isForgeHome ? '我的洞府 · 锻造坊' : '锻造师';
   const orderCommand = command.includes('委托');
-  const header = [
-    { label: '工具', command: '/储物袋 天工' },
-    { label: '切换工具', command: '/替换' },
-    { label: '装备', command: '/储物袋 装备' }
+  const toolBag = { label: '工具', command: '/储物袋 天工', autoEnter: false };
+  const acquireTool = { label: '获取天工', command: '/商店 万宝楼 筛选 天工', autoEnter: false };
+  const switchTool = { label: '切换工具', command: '/替换', autoEnter: false };
+  const equipment = { label: '装备', command: '/储物袋 装备', autoEnter: false };
+  const header = [toolBag, switchTool];
+  const craftLinks = [
+    equipment,
+    { label: '委托', command: '/锻造委托', autoEnter: false }
   ];
   const base = { bid: e.UserId, isPrivate: e.isPrivate ?? false };
-  let pageHeader: GuiButton[] | undefined = command === '我的锻造' ? header : undefined;
+  let pageHeader: GuiButton[] | undefined =
+    isForgeHome || isForgeCatalog || isForgeHistory || isForgeGuide
+      ? [
+          { label: '职业', selected: isForgeHome, command: isForgeHome ? undefined : '/我的锻造', autoEnter: false },
+          { label: '图谱', selected: isForgeCatalog, command: isForgeCatalog ? undefined : '/锻造图纸', autoEnter: false },
+          { label: '记录', selected: isForgeHistory, command: isForgeHistory ? undefined : '/锻造记录', autoEnter: false },
+          { label: '指引', selected: isForgeGuide, command: isForgeGuide ? undefined : '/锻造指引', autoEnter: false }
+        ]
+      : undefined;
   let nav: Parameters<typeof FormatGui>[0]['nav'];
-  let footer: GuiButton[] = orderCommand
+  let footer: GuiFooter = orderCommand
     ? [
         { label: '委托', command: '/锻造委托' },
         { label: '锻造', command: '/我的锻造' }
       ]
-    : command === '我的锻造'
-      ? [
-          { label: '图纸', command: '/锻造图纸' },
-          { label: '作品', command: '/锻造作品' },
-          { label: '委托', command: '/锻造委托' },
-          { label: '指引', command: '/锻造指引' }
-        ]
-      : [
-          { label: '图纸', command: '/锻造图纸' },
-          { label: '锻造', command: '/我的锻造' }
-        ];
+    : isForgeHome
+      ? [header, craftLinks]
+      : isForgeCatalog
+        ? []
+        : [
+            { label: '图纸', command: '/锻造图纸' },
+            { label: '锻造', command: '/我的锻造' }
+          ];
   const send = () => message.send(
       FormatGui({
         ...base,
@@ -181,7 +204,12 @@ export default onResponse(selects, async e => {
       showResult(o.result, false, true, true);
     }
   }
-  function showRecipe(r: ForgeRecipe, summary = false, origin: ForgeCatalogQuery = { filter: '全部', page: 1 }) {
+  function showRecipe(
+    r: ForgeRecipe,
+    summary = false,
+    origin: ForgeCatalogQuery = { filter: '全部', page: 1 },
+    blueprint?: ForgeLearnableBlueprint
+  ) {
     if (!summary) {
       footer = [{ label: '返回图纸', command: forgeCatalogCommand(origin) }];
     }
@@ -216,10 +244,12 @@ export default onResponse(selects, async e => {
             : []),
           ...(r.assessment ? [r.completed ? '考核已完成 ✓' : '◇ 考核图纸'] : []),
           ...(r.reason ? [`🔒 ${r.reason}`] : []),
+          ...(blueprint ? [`储物袋：${blueprint.name}`] : []),
           ...recovery.map(tip => tip.description)
         ],
         [
           ...(r.canCraft ? [{ label: '打造', command: `/打造 ${r.id}` }] : []),
+          ...(blueprint ? [{ label: '学习', command: `/学习锻造图纸 ${blueprint.storageId}`, autoEnter: false }] : []),
           ...recovery.map(tip => ({ label: tip.command, command: tip.command })),
           ...(!summary && r.toolType && !r.canCraft && /缺少符合品阶的|缺少约定的锻造工具/.test(r.reason)
             ? [
@@ -235,7 +265,7 @@ export default onResponse(selects, async e => {
   }
   function showOverview(v: ForgeOverview, query?: ForgeCatalogQuery, compact = false) {
     if (!v.available) {
-      content.addBlockquote(createQuoteMarkdown([v.reason.length ? v.reason : '当前锻造暂不可用'], [{ label: '查看职业', command: '/我的职业' }]));
+      content.addBlockquote(createQuoteMarkdown([v.reason.length ? v.reason : '当前锻造暂不可用'], [{ label: '洞府', command: '/我的洞府' }]));
 
       return;
     }
@@ -252,33 +282,87 @@ export default onResponse(selects, async e => {
               advice: []
             }).advice
           : [];
+      const advanceStatus = expMissing
+        ? [`进度：晋升还差 ${expMissing} 点锻造经验`]
+        : v.canAdvance
+          ? [`可晋升：${v.nextTitle}`]
+          : v.nextTitle && v.advanceReason
+            ? [v.advanceReason]
+            : [];
+      const progressActions = v.joined
+        ? v.canAdvance
+          ? [{ label: isForgeHome ? '进阶' : '确认晋升', command: `/锻造进阶 ${v.level}`, autoEnter: false }]
+          : expMissing
+            ? [{ label: '查看本阶练习图纸', command: '/锻造图纸 练习', autoEnter: false }]
+            : []
+        : v.canJoin
+          ? [{ label: '免费入门', command: '/加入锻造师', autoEnter: false }]
+          : [];
+      const entry = `入门境界：${v.entryRealm}${v.canJoin ? ' ✓' : ' · 未满足'}`;
+      const assessment = `考核：${v.assessmentDone}/${v.assessmentRequired}${expMissing ? ' · 已完成' : ''}`;
+      const catalogueActions = [
+        { label: `待考核 ${forgeRecipesForFilter(v, '考核').length}`, command: '/锻造图纸 考核', autoEnter: false },
+        { label: `可制作 ${forgeRecipesForFilter(v, '可制作').length}`, command: '/锻造图纸 可制作', autoEnter: false }
+      ];
+
+      if (isForgeHome) {
+        const tools = v.equippedTools;
+        const row = createQuoteMarkdown(v.joined ? [v.title, `等级：${v.level}`] : ['状态：未入门', entry], v.canAdvance || !v.joined ? progressActions : []);
+
+        if (v.joined) {
+          if (!v.canAdvance) {
+            row.addNewline();
+          }
+          row.absorb(createQuoteMarkdown([`经验：${v.exp}${v.nextTitle ? ` / ${v.expRequired}` : ''}`], v.canAdvance ? [] : progressActions));
+          if (v.canAdvance || progressActions.length === 0) {
+            row.addNewline();
+          }
+          row.absorb(createQuoteMarkdown([v.nextTitle ? assessment : '状态：已达最高阶段'], v.nextTitle ? [catalogueActions[0]] : []));
+        }
+        content.addText('我的职业').addNewline();
+        content.addBlockquote(row);
+        if (v.joined) {
+          const unlockedSets = v.unlockedSets?.map(name => `已解锁${name}${name.endsWith('套装') ? '' : '套装'}`);
+
+          content
+            .addText('当前等级效果')
+            .addNewline()
+            .addBlockquote(section({ lines: unlockedSets?.length ? unlockedSets : [unlockedSets ? '暂无已解锁套装' : '套装信息暂不可读取'] }));
+        }
+        if (tools?.length) {
+          addOptions(content.addText('我的天工'), [acquireTool]);
+          const toolQuote = Format.createMarkdown();
+
+          for (const tool of tools) {
+            toolQuote.absorb(
+              createQuoteMarkdown(
+                [`${tool.typeName}：${tool.name}`],
+                [{ label: '切换', command: forgeToolSwitchCommand(tool.typeName), autoEnter: false }]
+              )
+            );
+          }
+          content.addBlockquote(toolQuote);
+        } else {
+          const typeName = v.recipes.find(recipe => recipe.toolType)?.toolType;
+
+          addOptions(content.addText('我的天工'), [acquireTool, { ...switchTool, command: forgeToolSwitchCommand(typeName) }]);
+          content.addBlockquote(section({ lines: [`已装备天工：${tools ? '未装备' : '暂不可读取'}`] }));
+        }
+        footer = [craftLinks, [{ label: '返回洞府', command: '/我的洞府', autoEnter: false }]];
+
+        return;
+      }
 
       content.addBlockquote(
         createQuoteMarkdown(
           v.joined
             ? [
                 `${v.title} · 等级 ${v.level}`,
-                ...(v.nextTitle
-                  ? [`经验：${v.exp}/${v.expRequired}`, `考核：${v.assessmentDone}/${v.assessmentRequired}${expMissing ? ' · 已完成' : ''}`]
-                  : ['已达最高阶段']),
-                ...(expMissing
-                  ? [`进度：晋升还差 ${expMissing} 点锻造经验`]
-                  : v.canAdvance
-                    ? [`可晋升：${v.nextTitle}`]
-                    : v.nextTitle && v.advanceReason
-                      ? [v.advanceReason]
-                      : [])
+                ...(v.nextTitle ? [`经验：${v.exp}/${v.expRequired}`, assessment] : ['已达最高阶段']),
+                ...advanceStatus
               ]
-            : [`入门境界：${v.entryRealm}${v.canJoin ? ' ✓' : ' · 未满足'}`, '免费教学 · 首件署名装备'],
-          v.joined
-            ? v.canAdvance
-              ? [{ label: '确认晋升', command: `/锻造进阶 ${v.level}` }]
-              : expMissing
-                ? [{ label: '查看本阶练习图纸', command: '/锻造图纸 练习' }]
-                : []
-            : v.canJoin
-              ? [{ label: '免费入门', command: '/加入锻造师' }]
-              : []
+            : [entry, '免费教学 · 首件署名装备'],
+          progressActions
         )
       );
       if (recovery.length) {
@@ -292,36 +376,46 @@ export default onResponse(selects, async e => {
       if (compact) {
         return;
       }
-      const ready = forgeRecipesForFilter(v, '可制作').length;
-      const candidates = forgeRecipesForFilter(v, '考核').length;
-
       content.addBlockquote(
         createQuoteMarkdown(
           [],
-          [
-            { label: `待考核 ${candidates}`, command: '/锻造图纸 考核' },
-            { label: `可制作 ${ready}`, command: '/锻造图纸 可制作' },
-            { label: '职业总览', command: '/我的职业' }
-          ]
+          [...catalogueActions, { label: '洞府', command: '/我的洞府' }]
         )
       );
 
       return;
     }
     const { filter, page } = query;
+    const learnable = new Map<number, ForgeLearnableBlueprint>();
 
-    if (filter !== '练习') {
-      content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
+    for (const blueprint of v.learnableBlueprints ?? []) {
+      if (!learnable.has(blueprint.recipeId)) {
+        learnable.set(blueprint.recipeId, blueprint);
+      }
     }
-    title = `锻造图纸 · ${filter === '考核' ? '待考核' : filter === '练习' ? '本阶练习' : filter}`;
-    pageHeader = [
+
+    const filters = [
       { label: '全部', selected: filter === '全部', command: '/锻造图纸' },
       { label: '待考核', selected: filter === '考核', command: '/锻造图纸 考核' },
       { label: '可制作', selected: filter === '可制作', command: '/锻造图纸 可制作' }
     ];
-    if (filter === '练习') {
-      footer = [{ label: '返回锻造进度', command: '/我的锻造' }];
+
+    if (learnable.size > 0 || filter === '可学习') {
+      filters.push({ label: `可学习 ${learnable.size}`, selected: filter === '可学习', command: '/锻造图纸 可学习' });
     }
+
+    content.addNewline();
+    filters.forEach(({ label, selected, command: filterCommand }, index) => {
+      if (index > 0) {
+        content.addText(' ');
+      }
+      content.addButton(markdownButtonLabel(label, selected), { data: commandText(filterCommand), autoEnter: false });
+    });
+    content.addNewline();
+    if (filter !== '练习' && filter !== '可学习') {
+      content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
+    }
+    title = '我的洞府 · 锻造坊';
     const recipes = forgeRecipesForFilter(v, filter);
     const totalPages = Math.max(1, Math.ceil(recipes.length / 5));
 
@@ -347,7 +441,7 @@ export default onResponse(selects, async e => {
         );
       }
     } else {
-      rows.forEach(r => showRecipe(r, true, query));
+      rows.forEach(r => showRecipe(r, true, query, learnable.get(r.id)));
     }
     if (!recipes.length) {
       content.addText(
@@ -359,7 +453,9 @@ export default onResponse(selects, async e => {
             ? '暂无可打造图纸'
             : filter === '练习'
               ? '暂无可提供晋升经验的本阶图纸'
-              : '暂无图纸'
+              : filter === '可学习'
+                ? '储物袋里暂无可学习图纸'
+                : '暂无图纸'
       );
     }
     nav = {
@@ -402,16 +498,41 @@ export default onResponse(selects, async e => {
     );
   }
   try {
-    if (command === '锻造指引') {
+    if (isForgeGuide) {
       title = '锻造指引';
       content.addBlockquote(
+        createQuoteMarkdown([
+          '入门与图谱',
+          '在职业页核对入门境界。免费教学完成后可获得首件署名装备。',
+          '达到对应锻造等级后自动解锁图纸。已掌握的图纸可在图谱中查看。'
+        ])
+      );
+      content.addBlockquote(
         createQuoteMarkdown(
-          ['亲手打造', '本阶图纸获得经验 · 不同考核图纸推进考核'],
+          ['亲手打造', '选择已掌握且能制作的图纸，在预览中核对经验、成本和天工要求。'],
           [
-            { label: '我的锻造', command: '/我的锻造' },
-            { label: '选图纸', command: '/锻造图纸' },
-            ...header.slice(0, 2),
-            { label: '工具交易', command: '/珍宝楼 筛选 天工 价格升序 1' }
+            ...header,
+            { label: '工具交易', command: '/珍宝楼 筛选 天工 价格升序 1', autoEnter: false },
+            { label: '可制作', command: '/锻造图纸 可制作', autoEnter: false }
+          ]
+        )
+      );
+      content.addBlockquote(
+        createQuoteMarkdown(
+          [
+            '进阶与考核',
+            '职业页显示当前阶段、经验和考核进度。制作本阶图纸可获得锻造经验。',
+            '每种考核图纸只计一次。同一图纸重复制作不能替代其他图纸的考核。',
+            '经验不足时可查看能获得经验的本阶练习图纸。经验、考核和境界均达标后，可在职业页进阶。',
+            '境界不足时可核对当前修为与突破材料，或通过主线、闭关积累修为。已达最高锻造阶段后可继续制作已解锁的图纸。'
+          ],
+          [
+            { label: '待考核', command: '/锻造图纸 考核', autoEnter: false },
+            { label: '本阶练习', command: '/锻造图纸 练习', autoEnter: false },
+            { label: '我的境界', command: '/我的境界', autoEnter: false },
+            { label: '我的信息', command: '/我的信息', autoEnter: false },
+            { label: '查看主线', command: '/查看主线', autoEnter: false },
+            { label: '闭关', command: '/闭关', autoEnter: false }
           ]
         )
       );
@@ -424,11 +545,12 @@ export default onResponse(selects, async e => {
           ]
         )
       );
+      footer = [];
       await send();
 
       return;
     }
-    if (command === '锻造图纸详情' || command === '锻造委托详情' || command === '锻造作品详情') {
+    if (command === '锻造图纸详情' || command === '锻造委托详情' || command === '锻造记录详情') {
       const id = Number(rest[0]);
       const page = Number(rest[1]);
       const recipeDetail = command === '锻造图纸详情';
@@ -455,7 +577,7 @@ export default onResponse(selects, async e => {
         const recipe = response.data.recipes.find(r => r.id === id);
 
         if (recipe) {
-          showRecipe(recipe, false, recipeQuery ?? undefined);
+          showRecipe(recipe, false, recipeQuery ?? undefined, response.data.learnableBlueprints?.find(blueprint => blueprint.recipeId === id));
         } else {
           content.addText('图纸暂不可查看');
         }
@@ -480,8 +602,8 @@ export default onResponse(selects, async e => {
         if (response.handled) {
           return;
         }
-        title = '作品详情';
-        footer = [{ label: '返回作品', command: `/锻造作品 ${page}` }];
+        title = '锻造记录详情';
+        footer = [{ label: '返回记录', command: `/锻造记录 ${page}` }];
         const item = response.data.items.find(item => item.result.craftId === id);
 
         if (item) {
@@ -490,7 +612,7 @@ export default onResponse(selects, async e => {
             content.addText(!item.exists ? '装备已不存在' : '装备当前不属于你');
           }
         } else {
-          content.addText('作品列表已更新，请重新查看。');
+          content.addText('锻造记录列表已更新，请重新查看。');
         }
       }
       await send();
@@ -498,7 +620,7 @@ export default onResponse(selects, async e => {
       return;
     }
     if (command === '锻造图纸' && !catalogQuery) {
-      content.addText('请使用 /锻造图纸 [全部|考核|可制作|练习] [正整数页码]');
+      content.addText('请使用 /锻造图纸 [全部|考核|可制作|可学习|练习] [正整数页码]');
       await send();
 
       return;
@@ -705,15 +827,15 @@ export default onResponse(selects, async e => {
       }
       title = '打造结果';
       footer = [
-        { label: '作品', command: '/锻造作品' },
+        { label: '记录', command: '/锻造记录' },
         { label: '图纸', command: '/锻造图纸' }
       ];
       showResult(response.data);
-    } else if (command === '锻造作品') {
+    } else if (isForgeHistory) {
       const page = arg ? Number(arg) : 1;
 
       if (!Number.isSafeInteger(page) || page < 1) {
-        content.addText('请使用 /锻造作品 正整数页码');
+        content.addText('请使用 /锻造记录 正整数页码');
         await send();
 
         return;
@@ -725,7 +847,7 @@ export default onResponse(selects, async e => {
       }
       const v: ForgeHistory = response.data;
 
-      title = '锻造作品';
+      title = '锻造记录';
       footer = [
         { label: '图纸', command: '/锻造图纸' },
         { label: '锻造', command: '/我的锻造' }
@@ -738,16 +860,34 @@ export default onResponse(selects, async e => {
               `匠师：${item.result.crafter}${item.result.tutorial ? '' : ` · 经验 +${item.result.expGained}`}`,
               ...(!item.exists ? ['装备已不存在'] : !item.owned ? ['已转手'] : [])
             ],
-            [{ label: '详情', command: `/锻造作品详情 ${item.result.craftId} ${v.page}` }]
+            [{ label: '详情', command: `/锻造记录详情 ${item.result.craftId} ${v.page}` }]
           )
         );
       });
       if (!v.items.length) {
-        content.addText('尚无作品');
+        content.addText('暂无锻造记录');
       }
-      nav = { current: v.page, hasNext: v.hasMore, command: '/锻造作品 {page}' };
+      nav = { current: v.page, hasNext: v.hasMore, command: '/锻造记录 {page}' };
+    } else if (command === '学习锻造图纸' && arg) {
+      const storageId = /^\d+$/.test(arg) ? Number(arg) : 0;
+
+      if (!Number.isSafeInteger(storageId) || storageId < 1) {
+        content.addText('请在 /锻造图纸 可学习 中选择图纸。');
+        await send();
+
+        return;
+      }
+      const response = await runRobotBusiness(e, 'forge.learn', { storageId }, parseForgeLearnBlueprintResult, next, feedback);
+
+      if (response.handled) {
+        return;
+      }
+      title = '锻造图纸';
+      content.addText(`已掌握【${response.data.recipeName}】锻造图纸。`).addNewline();
+      footer = [{ label: '返回图谱', command: '/锻造图纸' }];
     } else {
       const advancing = command === '锻造进阶';
+      const learning = command === '学习锻造图纸';
       const expectedLevel = Number(arg);
 
       if (advancing && (!arg || !Number.isSafeInteger(expectedLevel) || expectedLevel < 0)) {
@@ -758,7 +898,7 @@ export default onResponse(selects, async e => {
       }
       const response = await runRobotBusiness(
         e,
-        advancing ? 'forge.advance' : command === '学习锻造图纸' ? 'forge.learn' : 'forge.overview',
+        advancing ? 'forge.advance' : learning ? 'forge.learn' : 'forge.overview',
         advancing ? { expectedLevel } : {},
         parseForgeOverview,
         next,
@@ -771,12 +911,12 @@ export default onResponse(selects, async e => {
       if (advancing) {
         title = '锻造晋升';
         content.addBold('✨ 晋升成功').addNewline();
-      } else if (command === '学习锻造图纸') {
+      } else if (learning) {
         title = '锻造图纸';
         content.addText('达到对应锻造等级后自动解锁图纸。').addNewline();
         content.addText(`掌握图纸：${response.data.recipes.filter(recipe => recipe.learned).length} 张`).addNewline();
       }
-      showOverview(response.data, catalogQuery ?? undefined, advancing || command === '学习锻造图纸');
+      showOverview(response.data, catalogQuery ?? undefined, advancing || learning);
     }
     await send();
   } catch (error) {
@@ -786,12 +926,12 @@ export default onResponse(selects, async e => {
         ...base,
         title: '锻造提示',
         content: Format.createMarkdown().addText(
-          orderCommand ? '未能获取委托结果，请查看委托状态。' : command === '确认打造' ? '未能获取打造结果，请查看作品。' : '暂时无法查看，请稍后重试。'
+          orderCommand ? '未能获取委托结果，请查看委托状态。' : command === '确认打造' ? '未能获取打造结果，请查看锻造记录。' : '暂时无法查看，请稍后重试。'
         ),
         footer: orderCommand
           ? [{ label: '查看委托', command: '/锻造委托' }]
           : [
-              { label: '查看作品', command: '/锻造作品' },
+              { label: '查看记录', command: '/锻造记录' },
               { label: '我的锻造', command: '/我的锻造' }
             ]
       })

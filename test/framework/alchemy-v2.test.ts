@@ -17,16 +17,30 @@ const reply = {
   buttons: [{ label: '丹方', command: '/炼丹 丹方' }], advice: []
 };
 for (const privateChat of [false, true]) {
-  test(`丹方炉数按钮独立成行且不重复丹药名称 private=${privateChat}`, async t => {
+  test(`丹方名称加粗，炉数独立成行，保留分页 private=${privateChat}`, async t => {
     const commands = [1, 10, 100].map(count => `/炼丹 预览 7 ${count}`);
     const catalog = {
       ...reply,
-      text: '炼丹师5级 · 每批最多1000炉\n丹方共7张 · 第2/2页\n点击丹方下方的炉数按钮查看材料，再确认炼制。',
+      title: '我的洞府 · 炼丹房',
+      text: '炼丹师6级 · 每批最多1000炉\n点击丹方下方的炉数按钮查看材料，再确认炼制。',
       blocks: [
-        { text: '清灵丹\n6级自动掌握 · 未掌握 · 达级自动掌握', quoted: true },
-        { text: '通灵丹\n9级自动掌握 · 已掌握 · 旧方保留可炼\n', quoted: true,
-          inlineButtons: [1, 10, 100].map((count, index) => ({ label: `${count}炉`, command: commands[index] })) }
-      ]
+        {
+          text: '清灵丹\n8级自动掌握 · 未掌握 · 达级自动掌握',
+          quoted: true,
+          rows: [{ text: '清灵丹', bold: true }, { text: '8级自动掌握 · 未掌握 · 达级自动掌握' }]
+        },
+        {
+          text: '聚灵丹\n1级自动掌握 · 已掌握\n',
+          quoted: true,
+          rows: [
+            { text: '聚灵丹', bold: true },
+            { text: '1级自动掌握 · 已掌握' },
+            { text: '', inlineButtons: [1, 10, 100].map((count, index) => ({ label: `${count}炉`, command: commands[index] })) }
+          ]
+        }
+      ],
+      nav: { current: 2, total: 2, count: 7, command: '/炼丹 丹方 {page}' },
+      buttons: [{ label: '返回洞府', command: '/我的洞府' }, { label: '上一页', command: '/炼丹 丹方 1' }]
     };
     const { app } = await gameFixture(t, request => businessEnvelope(request.bid, catalog));
     const event = privateChat ? app.events.privateMessage({ text: '/炼丹 丹方 2', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/炼丹 丹方 2', platform: 'qq-bot' });
@@ -34,6 +48,7 @@ for (const privateChat of [false, true]) {
     assert.equal(result.messages.length, 1);
     const message = result.messages[0];
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.match(message.text, /‹职业›\s*‹▸丹方›/);
     const nodes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
     assert.equal(quotes.length, 2);
@@ -43,10 +58,17 @@ for (const privateChat of [false, true]) {
     const learned = inspectMessage([{ type: 'Markdown', value: quotes[1].value }]);
     assert.deepEqual(locked.commands, []);
     assert.deepEqual(learned.commands, commands);
-    assert.match(learned.text, /通灵丹\n9级自动掌握.*\n.*1炉/);
+    assert.equal(quotes[0].value[0].type, 'MD.bold');
+    assert.equal(quotes[1].value[0].type, 'MD.bold');
+    assert.match(learned.text, /聚灵丹\n1级自动掌握 · 已掌握\n[^\n]*1炉/);
     for (const count of [1, 10, 100]) assert.ok(learned.text.includes(`${count}炉`));
-    assert.equal(learned.text.match(/通灵丹/g)?.length, 1);
+    assert.equal(learned.text.match(/聚灵丹/g)?.length, 1);
+    const recipeButtons = quotes[1].value.filter(node => node.type === 'MD.button');
+    assert.ok(recipeButtons.every(node => node.options?.autoEnter === false && !Object.hasOwn(node.options ?? {}, 'show')));
     assert.match(message.text, /点击丹方下方的炉数按钮查看材料，再确认炼制/);
+    assert.match(message.text, /第2\/2页 · 共7条/);
+    const footer = nodes.slice(nodes.indexOf(quotes[1]) + 1).filter(node => node.type === 'MD.button');
+    assert.deepEqual(footer.map(node => node.options?.data), ['/炼丹 丹方 1', '/我的洞府']);
   });
   test(`即时预览保持材料与确认同一引用块 private=${privateChat}`, async t => {
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, reply));
@@ -110,6 +132,7 @@ test('确认失败保留权威原因，不自动重试扣料', async t => {
 });
 test('拒绝不完整炼丹气泡', () => {
   assert.throws(() => parseAlchemyV2Reply({ ...reply, blocks: [{ text: '坏消息', quoted: true, inlineButtons: [{}] }] }));
+  assert.throws(() => parseAlchemyV2Reply({ ...reply, blocks: [{ text: '等级：6', quoted: true, rows: [{ text: '等级：6', inlineButtons: [{}] }] }] }));
 });
 
 test('炼丹路由接收带确认参数的按钮命令', async t => {
@@ -124,6 +147,127 @@ test('炼丹路由接收带确认参数的按钮命令', async t => {
   assert.equal(requests[0].body.messageText, '/炼丹 确认 stable-intent');
   assert.equal(result.messages.length, 1);
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+});
+
+test('炼丹记录与指引选中对应标签，保留手动分页与返回洞府', async t => {
+  const { app, requests } = await gameFixture(t, request => {
+    const history = request.body.messageText === '/炼丹 记录 2';
+
+    return businessEnvelope(request.bid, {
+      title: '我的洞府 · 炼丹房',
+      heading: '',
+      text: '',
+      blocks: history
+        ? [{ text: '聚灵丹', quoted: true }]
+        : [
+            {
+              text: '炼丹方式：在丹方中选择炉数查看所需材料，确认后即时完成。\n职业效果：丹火与丹炉共同决定成丹率，成丹率为55%～100%。\n经验来源：炼制获得职业经验，达到要求自动升级并解锁丹方。\n炼制次数：1145',
+              quoted: true
+            },
+            {
+              text: '丹火：青纹火\n丹炉：青纹鼎',
+              quoted: true,
+              rows: [
+                { text: '丹火：青纹火', inlineButtons: [{ label: '详情', command: '/物品详情 青纹火' }] },
+                { text: '丹炉：青纹鼎', inlineButtons: [{ label: '详情', command: '/物品详情 青纹鼎' }] }
+              ]
+            }
+          ],
+      ...(history ? { nav: { current: 2, total: 2, count: 6, command: '/炼丹 记录 {page}' } } : {}),
+      buttons: [{ label: '返回洞府', command: '/我的洞府' }],
+      advice: []
+    });
+  });
+  for (const command of ['/炼丹 记录 2', '/炼丹 指引']) {
+    const history = command.endsWith('2');
+    const result = await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' }));
+    assert.equal(result.messages.length, 1);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.match(message.text, history ? /‹职业›\s*‹丹方›\s*‹▸记录›\s*‹指引›/ : /‹职业›\s*‹丹方›\s*‹记录›\s*‹▸指引›/);
+    assert.match(message.text, history ? /聚灵丹[\s\S]*第2\/2页 · 共6条/ : /炼丹方式：在丹方中选择炉数/);
+    for (const action of ['/炼丹', '/炼丹 丹方', '/炼丹 记录', '/炼丹 指引', '/我的洞府']) {
+      assert.ok(message.commands.includes(action), action);
+    }
+    assert.equal(message.commands.includes('/炼丹 记录 1'), history);
+    const nodes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+    const buttons = nodes.filter(node => node.type === 'MD.button');
+    assert.ok(buttons.length);
+    assert.ok(buttons.every(button => button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
+    if (!history) {
+      assert.match(message.text, /职业效果：丹火与丹炉.*55%～100%/);
+      assert.match(message.text, /炼制次数：1145/);
+      const itemLinks = nodes.flatMap(node => node.type === 'MD.blockquote' ? node.value : []).filter(node => node.type === 'MD.button');
+      assert.deepEqual(itemLinks.map(button => button.options?.data), ['/物品详情 青纹火', '/物品详情 青纹鼎']);
+      assert.ok(itemLinks.every(button => button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
+    }
+  }
+  assert.equal(requests.length, 2);
+});
+
+test('炼丹首页显示等级经验、当前等级效果和天工', async t => {
+  const homeButtons = [
+    { label: '丹方', command: '/炼丹 丹方' },
+    { label: '返回洞府', command: '/我的洞府' }
+  ];
+  const { app, requests } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, {
+      title: '我的洞府 · 炼丹房',
+      heading: '',
+      text: '我的职业',
+      blocks: [
+        {
+          text: '炼丹师\n等级：6\n经验：5010 / 4050',
+          quoted: true,
+          rows: [
+            { text: '炼丹师' },
+            { text: '等级：6' },
+            { text: '经验：5010 / 4050' }
+          ]
+        },
+        { text: '当前等级效果', quoted: false },
+        { text: '已解锁丹方1张\n每批最多炼制1000炉', quoted: true },
+        { text: '我的天工', quoted: false, inlineButtons: [{ label: '获取天工', command: '/炼丹 来源' }] },
+        {
+          text: '丹火：青纹火\n丹炉：青纹鼎',
+          quoted: true,
+          rows: [
+            { text: '丹火：青纹火', inlineButtons: [{ label: '切换', command: '/炼丹 天工' }] },
+            { text: '丹炉：青纹鼎', inlineButtons: [{ label: '切换', command: '/炼丹 天工' }] }
+          ]
+        }
+      ],
+      buttons: homeButtons,
+      advice: []
+    })
+  );
+  const result = await app.runHandler(handler, app.events.privateMessage({ text: '/炼丹', platform: 'qq-bot' }));
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const nodes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
+  const quotes = nodes.filter(node => node.type === 'MD.blockquote');
+  assert.equal(quotes.length, 3);
+  const text = inspectMessage([{ type: 'Markdown', value: [quotes[0]] }]).text;
+  assert.match(message.text, /‹▸职业›\s*‹丹方›/);
+  assert.match(message.text, /\n我的职业/);
+  assert.match(text, /> 炼丹师\n/);
+  assert.match(text, /等级：6\n> 经验：5010 \/ 4050/);
+  assert.match(message.text, /\n当前等级效果\n\s*> 已解锁丹方1张\n> 每批最多炼制1000炉/);
+  assert.match(message.text, /\n我的天工 ‹获取天工›/);
+  const equipment = inspectMessage([{ type: 'Markdown', value: [quotes[2]] }]).text;
+  assert.match(equipment, /丹火：青纹火 ‹切换›\n> 丹炉：青纹鼎 ‹切换›/);
+  const footer = nodes.slice(nodes.indexOf(quotes[2]) + 1).filter(node => node.type === 'MD.button');
+  assert.deepEqual(footer.map(node => node.options?.data), ['/我的洞府']);
+  assert.ok(['/炼丹 天工', '/炼丹 来源'].every(action => message.commands.includes(action)));
+  assert.ok(!message.commands.includes('/炼丹 进阶'));
+  assert.ok(homeButtons.every(button => message.commands.includes(button.command)));
+  assert.ok(!message.commands.includes('/炼丹 详情'));
+  assert.equal(message.commands.filter(command => command === '/炼丹 丹方').length, 1);
+  const buttons = nodes.filter(node => node.type === 'MD.button');
+  assert.ok(buttons.length);
+  assert.ok(buttons.every(button => button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
+  assert.equal(requests.length, 1);
 });
 
 

@@ -25,7 +25,7 @@ export function ownCaveInputError(kind: 'cultivate' | 'plant' | 'action', input:
     // Non-numeric text remains the full seed name, including spaces and digit prefixes.
     return match && (first === undefined || !/^\d+$/.test(first) || positiveInteger(first)) ? null : '灵田参数格式错误：地块编号须为正整数，请选择可用灵种。';
   }
-  if (parseCaveBatchAcceleration(input)) {
+  if (text === '一键升级' || parseCaveBatchAcceleration(input)) {
     return null;
   }
   const care = text.match(/^(?:一键)?(?:浇灌|除虫|除草|收割)(?:\s+(\d+))?$/);

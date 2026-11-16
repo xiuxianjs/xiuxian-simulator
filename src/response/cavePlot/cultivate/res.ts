@@ -4,7 +4,7 @@ import { sendMiddlewareReply } from '@src/response/middlewareReply';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { cavePageForPlot } from '../pagination';
 import { useMessage } from '@src/utils/useMessage';
-import { parseBackendCaveCommand, sendCaveCommandFallback } from '@src/api/bot/cave-command';
+import { parseCaveActionReceipt, sendCaveCommandFallback } from '@src/api/bot/cave-command';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { caveCultivateArguments } from '@src/api/bot/cave-robot-command';
 import { presentBackendCavePlots } from '@src/response/cavePlot/info/res';
@@ -40,7 +40,7 @@ export default onResponse(selects, async e => {
   try {
     const [, next] = useEvent();
     const args = caveCultivateArguments(e.MessageText?.trim() ?? '');
-    const response = await runRobotBusiness(e, 'cave.cultivate', args, parseBackendCaveCommand, next, failure);
+    const response = await runRobotBusiness(e, 'cave.cultivate', args, parseCaveActionReceipt, next, failure);
 
     if (response.handled) {
       return;

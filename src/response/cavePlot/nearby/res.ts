@@ -1,5 +1,4 @@
-import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
-import { sendMiddlewareReply } from '@src/response/middlewareReply';
+import { appendMiddlewareAdvice, sendMiddlewareReply } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { parseCavePage, paginateCaveItems } from '../pagination';
@@ -11,10 +10,8 @@ import { FormatGui } from '@src/utils/messageHelper';
 import { section } from '@src/response/presentation/sections';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 
-const HEADER = [{ label: '我的灵田', command: '/灵田' }];
-
 const FOOTER = [
-  { label: '洞府阵法', command: '/洞府阵法' },
+  { label: '返回', command: '/灵田' },
   { label: '灵田记录', command: '/灵田记录' },
   { label: '我的好友', command: '/我的好友' }
 ];
@@ -30,7 +27,7 @@ export default onResponse(selects, async e => {
       withBusinessRecovery('cave.nearby', {
         ...reply,
         title: reply.title || '附近灵田',
-        buttons: [...reply.buttons, ...[...HEADER, ...FOOTER].filter(button => !reply.buttons.some(original => original.command === button.command))]
+        buttons: [...reply.buttons, ...FOOTER.filter(button => !reply.buttons.some(original => original.command === button.command))]
       }),
       'footer'
     )
@@ -71,7 +68,6 @@ export default onResponse(selects, async e => {
           isPrivate,
           bid,
           title: '附近灵田',
-          header: HEADER,
           footer: FOOTER,
           content: md,
           nav: pagination.nav
@@ -102,7 +98,6 @@ export default onResponse(selects, async e => {
         isPrivate,
         bid,
         title: '附近灵田',
-        header: HEADER,
         footer: FOOTER,
         content: md,
         nav: pagination.nav

@@ -1,10 +1,16 @@
 import { useMessage } from '@src/utils/useMessage';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
-import { parseProfessionRobotTools, parseProfessionToolCommand } from '@src/api/bot/profession-robot-tools';
+import { parseProfessionRobotTools, professionToolSwitchInput } from '@src/api/bot/profession-robot-tools';
 import { selects } from '@src/response/config';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
+
+const switchFooter = (typeName?: string | null) => {
+  const forge = /炼器|锻造/.test(typeName ?? '');
+
+  return forge ? [{ label: '返回炼器', command: '/我的锻造' }] : [{ label: '我的天工', command: '/炼丹 天工' }];
+};
 
 /**
  * 替换职业工具指令
@@ -20,7 +26,7 @@ export default onResponse(selects, async e => {
     const response = await runRobotBusiness(
       e,
       'profession.replace-tool',
-      { identifier: parseProfessionToolCommand(e.MessageText) ?? null },
+      professionToolSwitchInput(e.MessageText),
       parseProfessionRobotTools,
       next,
       async reply => {
@@ -35,6 +41,7 @@ export default onResponse(selects, async e => {
 
     if (result.code === 'LIST') {
       const md = Format.createMarkdown();
+      const { activeType, page, totalPages, types } = result.data;
       const groups = new Map<string, Array<(typeof result.data.tools)[number]>>();
 
       for (const tool of result.data.tools) {
@@ -72,7 +79,13 @@ export default onResponse(selects, async e => {
         }
       }
 
-      void message.send(FormatGui({ isPrivate, bid, title: '切换天工', content: md, footer: [{ label: '我的职业', command: '/我的职业' }] }));
+      const header = types.map(typeName => ({ label: typeName, selected: typeName === activeType, command: `/替换 列表 1 ${typeName}`, autoEnter: false }));
+      const nav =
+        page > 1 || totalPages > 1
+          ? { current: page, total: totalPages, command: `/替换 列表 {page}${activeType ? ` ${activeType}` : ''}`, autoEnter: false }
+          : undefined;
+
+      void message.send(FormatGui({ isPrivate, bid, title: '切换天工', header, content: md, nav, footer: switchFooter(activeType) }));
 
       return;
     }
@@ -94,7 +107,7 @@ export default onResponse(selects, async e => {
 
       md.addNewline();
 
-      void message.send(FormatGui({ isPrivate, bid, title: '切换天工', content: md, footer: [{ label: '我的职业', command: '/我的职业' }] }));
+      void message.send(FormatGui({ isPrivate, bid, title: '切换天工', content: md, footer: switchFooter(result.data.equipment?.typeName) }));
     } else {
       const md = Format.createMarkdown();
 

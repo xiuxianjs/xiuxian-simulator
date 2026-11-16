@@ -78,7 +78,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
       return [
         {
           label: '核对灵药师指引',
-          command: '/我的职业',
+          command: '/灵药师',
           description: '先查看本人职业与指引进度，再按原入口继续灵药师指引；职业进度与人物境界分别核对，不通过购买灵种或重复开垦代替入门'
         }
       ];
@@ -134,7 +134,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
         },
         {
           label: '核对职业与原操作进度',
-          command: '/我的职业',
+          command: '/灵药师',
           description: '查看本人职业和已有指引进度，稍后重新查看；持续异常保留原反馈联系运营，不将配置或服务异常归因于材料不足'
         }
       ];
@@ -236,7 +236,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
     return [
       {
         label: '核对灵药师成长',
-        command: '/我的职业',
+        command: '/灵药师',
         description:
           '查看灵药师阶段及可用灵田品阶；收割成熟灵植可积累职业经验，是否还能进阶以职业面板为准。职业成长与人物境界不同，不只提升人物境界或反复购买灵土'
       }

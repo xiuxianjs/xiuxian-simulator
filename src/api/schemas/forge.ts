@@ -51,6 +51,8 @@ export type ForgeRecipe = {
   toolType: string;
   toolGrade: number;
 };
+export type ForgeLearnableBlueprint = { storageId: number; name: string; recipeId: number };
+export type ForgeLearnBlueprintResult = ForgeLearnableBlueprint & { recipeName: string };
 export type ForgeOverview = {
   available: boolean;
   reason: string;
@@ -67,6 +69,9 @@ export type ForgeOverview = {
   entryRealm: string;
   canJoin: boolean;
   recipes: ForgeRecipe[];
+  unlockedSets?: string[];
+  learnableBlueprints?: ForgeLearnableBlueprint[];
+  equippedTools?: { name: string; typeName: string; grade: string }[] | null;
 };
 export type ForgeTutorialTool = { templateId: number; name: string; type: string; grade: string; gradeLevel: number; permission: number };
 export type ForgeTutorialToolReward = ForgeTutorialTool & { instanceId: number; equipped: boolean };
@@ -192,8 +197,32 @@ export function parseForgeOverview(value: unknown): ForgeOverview {
   );
 
   array(row.recipes).forEach(recipe);
+  if (row.unlockedSets !== undefined && array(row.unlockedSets).some(name => typeof name !== 'string' || !name.trim())) {
+    throw new Error('锻造解锁套装无效');
+  }
+  if (row.learnableBlueprints !== undefined) {
+    array(row.learnableBlueprints).forEach(value => {
+      const blueprint = fields(value, ['name'], ['storageId', 'recipeId'], []);
+
+      if (Number(blueprint.storageId) < 1 || Number(blueprint.recipeId) < 1 || !String(blueprint.name).trim()) {
+        throw new Error('可学习图纸无效');
+      }
+    });
+  }
+  if (row.equippedTools !== undefined && row.equippedTools !== null) {
+    array(row.equippedTools).forEach(tool => fields(tool, ['name', 'typeName', 'grade'], [], []));
+  }
 
   return value as ForgeOverview;
+}
+export function parseForgeLearnBlueprintResult(value: unknown): ForgeLearnBlueprintResult {
+  const row = fields(value, ['name', 'recipeName'], ['storageId', 'recipeId'], []);
+
+  if (Number(row.storageId) < 1 || Number(row.recipeId) < 1 || !String(row.name).trim() || !String(row.recipeName).trim()) {
+    throw new Error('图纸学习结果无效');
+  }
+
+  return value as ForgeLearnBlueprintResult;
 }
 function parseTutorialTool(value: unknown) {
   const tool = fields(value, ['name', 'type', 'grade'], ['templateId', 'gradeLevel', 'permission'], []);

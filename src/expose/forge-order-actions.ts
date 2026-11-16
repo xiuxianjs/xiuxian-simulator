@@ -108,7 +108,7 @@ export const forgeOrderActions = {
     'forge.history',
     object({ page }, ['page']),
     object({ page: integer, hasMore: boolean, items: list(object({ result: forgeResultSchema, owned: boolean, exists: boolean })) }),
-    input => `/锻造作品 ${input.page ?? 1}`,
+    input => `/锻造记录 ${input.page ?? 1}`,
     parseForgeHistory,
     input => ({ page: input.page ?? 1 })
   )

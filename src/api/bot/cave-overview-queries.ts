@@ -123,7 +123,12 @@ export function parseBackendCaveOverview(value: unknown): CaveOverviewQueryData 
         : (() => {
             const actions = record(data.batchActions);
 
-            return { canAccelerate: boolean(actions.canAccelerate), canRipen: boolean(actions.canRipen) };
+            return {
+              canAccelerate: boolean(actions.canAccelerate),
+              canRipen: boolean(actions.canRipen),
+              ...(actions.canCultivate === undefined ? {} : { canCultivate: boolean(actions.canCultivate) }),
+              ...(actions.canUpgrade === undefined ? {} : { canUpgrade: boolean(actions.canUpgrade) })
+            };
           })(),
     plots: array(data.plots).map(plot),
     maxPlots: number(data.maxPlots),

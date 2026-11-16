@@ -1,6 +1,6 @@
 import type { GameEvent } from '@src/types/event';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
-import { addOptions, createQuoteMarkdown, FormatGui, type InlineLinkResolver } from '@src/utils/messageHelper';
+import { addOptions, createQuoteMarkdown, FormatGui, type GuiButton, type InlineLinkResolver } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, type FormatMarkDown } from 'alemonjs';
 import { activeFeatureText, mentionsRetiredFeature } from './retiredFeatures';
@@ -9,6 +9,7 @@ import { appendTreasureEffects } from './treasureEffects';
 export function presentMiddlewareReply(reply: RobotMiddlewareReply, preserveReason = false): RobotMiddlewareReply {
   // Failure reasons are authoritative facts, not suggestions to open retired features.
   const presentText = preserveReason ? (value: string) => value.replaceAll('活动充值相关信息', '充值相关信息') : activeFeatureText;
+  const keepButton = (button: { command: string; label: string }) => !mentionsRetiredFeature(button.command) && !mentionsRetiredFeature(button.label);
 
   return {
     ...reply,
@@ -26,11 +27,14 @@ export function presentMiddlewareReply(reply: RobotMiddlewareReply, preserveReas
               text: presentText(block.text),
               ...(block.inlineButtons === undefined
                 ? {}
-                : { inlineButtons: block.inlineButtons.filter(button => !mentionsRetiredFeature(button.command) && !mentionsRetiredFeature(button.label)) })
+                : { inlineButtons: block.inlineButtons.filter(keepButton) }),
+              ...(block.rows === undefined
+                ? {}
+                : { rows: block.rows.map(row => ({ ...row, text: presentText(row.text), inlineButtons: row.inlineButtons?.filter(keepButton) })) })
             }))
             .filter(block => block.text)
         }),
-    buttons: reply.buttons.filter(button => !mentionsRetiredFeature(button.command) && !mentionsRetiredFeature(button.label)),
+    buttons: reply.buttons.filter(keepButton),
     advice: reply.advice.filter(item => !mentionsRetiredFeature(item.command) && !mentionsRetiredFeature(item.description))
   };
 }
@@ -44,7 +48,24 @@ export function appendMiddlewareAdvice(md: FormatMarkDown, advice: RobotMiddlewa
 
 export function appendMiddlewareBlocks(md: FormatMarkDown, blocks: RobotMiddlewareReply['blocks'] = [], resolveLink?: InlineLinkResolver): void {
   for (const block of blocks) {
-    if (block.quoted) {
+    if (block.quoted && block.rows?.length) {
+      const quote = Format.createMarkdown();
+
+      block.rows.forEach((row, index) => {
+        if (index > 0) {
+          quote.addNewline();
+        }
+        if (row.bold) {
+          quote.addBold(row.text);
+        } else if (row.text) {
+          quote.addText(row.text);
+        }
+        if (row.inlineButtons?.length) {
+          addOptions(quote, row.inlineButtons, resolveLink, false);
+        }
+      });
+      md.addBlockquote(quote);
+    } else if (block.quoted) {
       md.addBlockquote(createQuoteMarkdown(block.text.split('\n'), block.inlineButtons ?? [], resolveLink));
     } else {
       md.addText(block.text);
@@ -63,7 +84,8 @@ export async function sendMiddlewareReply(
   reply: RobotMiddlewareReply,
   useDefaultBar: boolean | 'footer' = false,
   preserveReason = false,
-  resolveLink?: InlineLinkResolver
+  resolveLink?: InlineLinkResolver,
+  header?: GuiButton[]
 ): Promise<void> {
   reply = presentMiddlewareReply(reply, preserveReason);
   const [message] = useMessage(event);
@@ -115,6 +137,7 @@ export async function sendMiddlewareReply(
       isPrivate: event.isPrivate ?? event.name.startsWith('private.'),
       bid: event.UserId,
       title: reply.title,
+      header,
       content: md,
       nav: reply.nav,
       ...(useDefaultBar === 'footer'

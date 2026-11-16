@@ -5,6 +5,7 @@ import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import gift from '../../src/response/companion/gift/res';
 import forge from '../../src/response/profession/forge/res';
+import { createGameRouter } from '../../src/router';
 import { businessEnvelope, gameFixture } from './fixture';
 
 after(() => shutdownLogger());
@@ -38,4 +39,46 @@ test('锻造图鉴显示自动解锁规则并移除手动学习按钮', async t 
   assert.match(view.text, /达到对应锻造等级后自动解锁图纸/);
   assert.ok(!view.commands.includes('/学习锻造图纸'));
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+});
+
+test('图谱可筛选并学习储物袋内符合条件的指定图纸', async t => {
+  const { overview } = JSON.parse(readFileSync(new URL('../fixtures/forge-contracts.json', import.meta.url), 'utf8'));
+  const recipe = overview.recipes[0];
+  const storageId = 8001;
+
+  recipe.learned = false;
+  recipe.canCraft = false;
+  recipe.reason = '职业等级不足';
+  const learnableBlueprints = [{ storageId, recipeId: recipe.id, name: '测试锻造图纸' }];
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/forge.learn')) {
+      return businessEnvelope(request.bid, { ...learnableBlueprints[0], recipeName: recipe.name });
+    }
+
+    return businessEnvelope(request.bid, { ...overview, learnableBlueprints });
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+
+  for (const text of ['/锻造图纸', '/锻造图纸 可学习', `/锻造图纸详情 ${recipe.id} 可学习 1`]) {
+    const result = await app.dispatch(app.events.privateMessage({ text, platform: 'qq-bot' }));
+    assert.equal(result.messages.length, 1);
+    const view = inspectMessage(result.messages[0].nodes);
+
+    assert.match(view.text, /储物袋：测试锻造图纸/);
+    assert.ok(view.commands.includes(`/学习锻造图纸 ${storageId}`));
+    assert.ok(!view.commands.includes(`/打造 ${recipe.id}`));
+    if (text === '/锻造图纸') {
+      assert.ok(view.commands.includes('/锻造图纸 可学习'));
+    }
+  }
+
+  const result = await app.dispatch(app.events.privateMessage({ text: `/学习锻造图纸 ${storageId}`, platform: 'qq-bot' }));
+  const learnRequests = requests.filter(request => request.path.endsWith('/forge.learn'));
+
+  assert.equal(learnRequests.length, 1);
+  assert.deepEqual(learnRequests[0].body.arguments, { storageId });
+  const view = inspectMessage(result.messages[0].nodes);
+
+  assert.ok(view.text.includes(`已掌握【${recipe.name}】锻造图纸`));
+  assert.ok(view.commands.includes('/锻造图纸'));
 });

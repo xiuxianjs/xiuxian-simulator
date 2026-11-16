@@ -14,9 +14,10 @@ export default onResponse(selects, async e => {
   const [message] = useMessage();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? e.name.startsWith('private.');
-  const layoutCommand = '/储物袋 道具 其它';
+  const layoutCommand = '/储物袋 道具 其它 洞府阵法';
+  const title = '我的洞府 · 阵法';
 
-  const renderFailure = adviceRenderer(reply => sendMiddlewareReply(e, withBusinessRecovery('cave-formations.list', { ...reply, title: reply.title || '洞府阵法' }), 'footer')
+  const renderFailure = adviceRenderer(reply => sendMiddlewareReply(e, withBusinessRecovery('cave-formations.list', { ...reply, title: reply.title || title }), 'footer')
   );
 
   try {
@@ -39,25 +40,26 @@ export default onResponse(selects, async e => {
       for (const item of active) {
         const quote = Format.createMarkdown().addText(`【${item.categoryLabel}】${item.formationName}`);
 
-        quote.addText(' ').addButton(markdownButtonLabel('替换'), { data: commandText(`${layoutCommand} 洞府阵法`) });
-        quote.addText(' ').addButton(markdownButtonLabel('移除'), { data: commandText(`移除阵法 ${item.formationName}`) });
-        quote.addNewline().addText(` 剩余 ${item.remainingText} `);
+        quote.addText(' ').addButton(markdownButtonLabel('替换'), { data: commandText(layoutCommand), autoEnter: false });
+        quote.addText(' ').addButton(markdownButtonLabel('移除'), { data: commandText(`移除阵法 ${item.formationName}`), autoEnter: false });
+        quote.addNewline().addText(`剩余 ${item.remainingText}`);
         for (const line of item.effectText.split('\n')) {
-          quote.addNewline().addText(` ${line} `);
+          quote.addNewline().addText(line);
         }
         md.addBlockquote(quote);
       }
     }
 
-    const footerButtons = [{ label: '背包', command: layoutCommand }];
-
     await message.send(
       FormatGui({
         isPrivate,
         bid,
-        title: '洞府阵法',
+        title,
         content: md,
-        footer: footerButtons
+        footer: [
+          { label: '返回洞府', command: '/我的洞府', autoEnter: false },
+          { label: '我的阵法', command: layoutCommand, autoEnter: false }
+        ]
       })
     );
   } catch (error) {

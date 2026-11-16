@@ -23,7 +23,7 @@ const cases = [
   { handler: plant, command: '/播种 2 未知灵种', reason: '未识别该灵种名称', commands: ['/播种'], text: '当前灵种列表' },
   { handler: plant, command: '/播种 2 凝气草', reason: '播种灵田参数无效', commands: ['/灵田'], text: '有效地块编号' },
   { handler: action, command: '/升级灵田 2', reason: '当前没有可升级的灵田', commands: ['/灵田'], text: '当前品阶' },
-  { handler: action, command: '/升级灵田 2', reason: '当前灵药师阶段无法继续升级该灵田', commands: ['/我的职业'], text: '职业成长与人物境界不同' },
+  { handler: action, command: '/升级灵田 2', reason: '当前灵药师阶段无法继续升级该灵田', commands: ['/灵药师'], text: '职业成长与人物境界不同' },
   { handler: action, command: '/收割 2', reason: '当前没有可收割的成熟灵植', commands: ['/灵田'], text: '成熟时间' },
   { handler: action, command: '/浇灌 2', reason: '当前灵田没有可照料的未成熟作物', commands: ['/灵田'], text: '无需重复照料' },
   { handler: action, command: '/除虫', reason: '当前没有可处理的对应异常灵田', commands: ['/灵田'], text: '当前存在的' },

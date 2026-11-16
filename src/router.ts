@@ -420,6 +420,7 @@ export function createGameRouter() {
         '收割',
         '灵田加速',
         '升级灵田',
+        '一键升级',
         '一键浇灌',
         '一键除虫',
         '一键除草',
@@ -516,7 +517,7 @@ export function createGameRouter() {
       withAccessFacts(['social'], () => import('@src/response/achievements/combatPower/res'))
     );
     xiuxian.use('我的权益', () => import('@src/response/monthCard/rights/res'));
-    xiuxian.use('我的职业', () => import('@src/response/profession/myProfession/res'));
+    xiuxian.use('灵药师', () => import('@src/response/profession/myProfession/res'));
     xiuxian.use([...forgeReadEntries], () => import('@src/response/profession/forge/res'));
     for (const config of forgeReadRoutes) {
       xiuxian.use(config, () => import('@src/response/profession/forge/res'));

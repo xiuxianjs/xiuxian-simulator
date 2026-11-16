@@ -30,6 +30,20 @@ export default onResponse(selects, async event => {
       }
       const key = JSON.stringify([event.Platform, event.BotId, event.UserId, event.uid]);
       const command = event.MessageText ?? '';
+      const panel = /^\/炼丹(?:\s+(丹方|记录|指引)(?:\s|$)|$)/.exec(command);
+      const header =
+        panel
+          ? [
+              { label: '职业', command: '/炼丹', selected: !panel[1], autoEnter: false },
+              { label: '丹方', command: '/炼丹 丹方', selected: panel[1] === '丹方', autoEnter: false },
+              { label: '记录', command: '/炼丹 记录', selected: panel[1] === '记录', autoEnter: false },
+              { label: '指引', command: '/炼丹 指引', selected: panel[1] === '指引', autoEnter: false }
+            ]
+          : undefined;
+
+      if (header) {
+        result.data.buttons = result.data.buttons.filter(button => button.command !== '/炼丹 丹方');
+      }
       const preview = /^\/炼丹 预览 ([1-9]\d*) ([1-9]\d*)$/.exec(command);
 
       if (preview && Number(preview[2]) <= 1000) {
@@ -52,14 +66,21 @@ export default onResponse(selects, async event => {
           ];
         }
       }
-      await sendMiddlewareReply(event, result.data, 'footer', false, command => {
-        if (!command.startsWith('/图鉴详情 材料 ')) {
-          return undefined;
-        }
-        const target = parseEncyclopediaLinkCommand(command, true);
+      await sendMiddlewareReply(
+        event,
+        result.data,
+        'footer',
+        false,
+        command => {
+          if (!command.startsWith('/图鉴详情 材料 ')) {
+            return undefined;
+          }
+          const target = parseEncyclopediaLinkCommand(command, true);
 
-        return typeof target === 'string' ? undefined : encyclopediaUrl(target);
-      });
+          return typeof target === 'string' ? undefined : encyclopediaUrl(target);
+        },
+        header
+      );
     }
   } catch (error) {
     const confirmation = /^\/炼丹 确认 \S+$/.test(event.MessageText ?? '');

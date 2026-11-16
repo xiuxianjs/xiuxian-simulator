@@ -73,7 +73,7 @@ export function professionRecoveryTips(operation: string, text: string): Recover
     }
     if (/职业等级不足|炼丹经验不足|职业经验不足/.test(text)) {
       return [
-        { label: '查看职业成长', command: '/我的职业', description: '核对炼丹等级和当前经验；职业经验与修为不同，达到经验和境界要求后再进阶' },
+        { label: '查看职业成长', command: '/炼丹', description: '核对炼丹等级和当前经验；职业经验与修为不同，达到经验和境界要求后再进阶' },
         { label: '选择适用丹方', command: '/丹方', description: '选择当前已解锁、可炼制且能获得经验的丹方，先核对材料消耗，再决定炼制' }
       ];
     }
@@ -111,7 +111,7 @@ export function professionRecoveryTips(operation: string, text: string): Recover
       return [
         {
           label: '查看职业与炼丹入口',
-          command: '/我的职业',
+          command: '/炼丹',
           description: '已有任务时不要新开同一炉；按上一条炉次反馈的阶段和时机继续，先保留当前材料与结算状态'
         }
       ];
@@ -165,7 +165,7 @@ export function professionRecoveryTips(operation: string, text: string): Recover
       }
 
       return [
-        { label: '先核对已有记录', command: '/锻造作品', description: '确认之前是否已经制作成功，已有结算不能因预览过期再次扣除' },
+        { label: '先核对已有记录', command: '/锻造记录', description: '确认之前是否已经制作成功，已有结算不能因预览过期再次扣除' },
         {
           label: '重新查看当前条件',
           command: '/锻造图纸',
@@ -177,7 +177,7 @@ export function professionRecoveryTips(operation: string, text: string): Recover
       return [{ label: '查看锻造指引', command: '/锻造指引', description: '先核对入门境界与免费教学预览，完成首件教学作品后按锻造等级解锁普通图纸' }];
     }
     if (/已完成锻造入门|教学制作已完成/.test(text)) {
-      return [{ label: '查看已有作品', command: '/锻造作品', description: '先确认入门作品及已发放工具，再从普通图纸继续；不重复确认教学制作' }];
+      return [{ label: '查看锻造记录', command: '/锻造记录', description: '先确认入门作品及已发放工具，再从普通图纸继续；不重复确认教学制作' }];
     }
     if (/尚未学习该图纸|尚未掌握约定图纸/.test(text)) {
       return [{ label: '查看锻造学习状态', command: '/我的锻造', description: '核对图纸的锻造等级要求，达到对应等级后重新预览' }];

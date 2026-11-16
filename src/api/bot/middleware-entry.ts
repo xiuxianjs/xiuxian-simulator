@@ -18,12 +18,13 @@ export type RobotMiddlewareInput = {
   privateTarget?: { platform: string; BotId?: string; scope: 'c2c' | 'direct'; targetId: string };
 };
 export type RobotMiddlewareNav = { current: number; total: number; count: number; command: string };
+export type RobotMiddlewareBlockRow = { text: string; bold?: boolean; inlineButtons?: Array<{ label: string; command: string }> };
 export type RobotMiddlewareReply = {
   treasureEffects?: TreasureEffectNotice[];
   nav?: RobotMiddlewareNav;
   rawLines?: string[];
   quote?: string;
-  blocks?: Array<{ text: string; quoted: boolean; newline?: boolean; inlineButtons?: Array<{ label: string; command: string }> }>;
+  blocks?: Array<RobotMiddlewareBlockRow & { quoted: boolean; newline?: boolean; rows?: RobotMiddlewareBlockRow[] }>;
   title: string;
   heading: string;
   text: string;
@@ -50,6 +51,18 @@ export type RobotMiddlewareResult = {
 
 const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 const textFields = (value: unknown, fields: string[]): boolean => record(value) && fields.every(field => typeof value[field] === 'string');
+
+export function validMiddlewareBlockRows(value: unknown): value is RobotMiddlewareBlockRow[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      row => record(row) &&
+        typeof row.text === 'string' &&
+        (row.bold === undefined || typeof row.bold === 'boolean') &&
+        (row.inlineButtons === undefined || (Array.isArray(row.inlineButtons) && row.inlineButtons.every(button => textFields(button, ['label', 'command']))))
+    )
+  );
+}
 
 export const validMiddlewareNav = (value: unknown): value is RobotMiddlewareNav => record(value) &&
   Number.isSafeInteger(value.current) &&
@@ -191,6 +204,7 @@ export function parseRobotMiddlewareResult(value: unknown, bid: string, requireR
               block => record(block) &&
                 typeof block.text === 'string' &&
                 typeof block.quoted === 'boolean' &&
+                (block.rows === undefined || (block.quoted && validMiddlewareBlockRows(block.rows))) &&
                 (block.newline === undefined || typeof block.newline === 'boolean') &&
                 (block.inlineButtons === undefined ||
                   (Array.isArray(block.inlineButtons) && block.inlineButtons.every(button => textFields(button, ['label', 'command']))))

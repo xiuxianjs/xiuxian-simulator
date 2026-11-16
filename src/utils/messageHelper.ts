@@ -20,7 +20,8 @@ export const addOptions = (
     command: string;
     autoEnter?: boolean;
   }[],
-  resolveLink?: InlineLinkResolver
+  resolveLink?: InlineLinkResolver,
+  endLine = true
 ) => {
   for (const btn of buttons) {
     md.addText(' ');
@@ -32,7 +33,9 @@ export const addOptions = (
     }
     md.addButton(markdownButtonLabel(`${btn.label}`), { data: commandText(btn.command), ...(btn.autoEnter === undefined ? {} : { autoEnter: btn.autoEnter }) });
   }
-  md.addNewline();
+  if (endLine) {
+    md.addNewline();
+  }
 
   return md;
 };

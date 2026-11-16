@@ -49,7 +49,7 @@ export default onResponse(selects, async e => {
         content: md,
         footer: [
           { label: '灵田', command: '/灵田' },
-          { label: '我的职业', command: '/我的职业' }
+          { label: '灵药师', command: '/灵药师' }
         ]
       });
 

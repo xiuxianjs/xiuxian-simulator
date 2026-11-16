@@ -25,7 +25,7 @@ export default onResponse(selects, async e => {
   const logResult = response.data;
 
   sendCavePlotLogPage({
-    title: '洞府记录',
+    title: '我的洞府 · 灵药园',
     bid,
     isPrivate,
     message,

@@ -6,6 +6,7 @@ import own from '../../src/response/cavePlot/info/res';
 import logs from '../../src/response/cavePlot/logs/res';
 import nearby from '../../src/response/cavePlot/nearby/res';
 import visit from '../../src/response/cavePlot/visit/res';
+import { createGameRouter } from '../../src/router';
 import { businessEnvelope, gameFixture } from './fixture';
 before(() => mock.timers.enable({ apis: ['setTimeout'] }));
 after(async () => { mock.timers.reset(); await shutdownLogger(); });
@@ -19,10 +20,10 @@ for (const entry of entries) for (const isPrivate of [false, true]) for (const w
  const { app, requests } = await gameFixture(t, request => wire === 'http' ? { code: 'CONFLICT', message: '原查询拒绝' } : wire === 'internal' ? { code: 'INTERNAL', message: 'private query SQL' } : businessEnvelope(request.bid, wire === 'malformed' ? {} : undefined, wire === 'malformed' ? [] : [{ title: '原标题', heading: '原抬头', text: '原查询拒绝', quote: '原引用', blocks: [{ text: '原说明', quoted: true, inlineButtons: [{ label: '原内联', command: '/丹方' }] }], buttons: [{ label: '原返回', command: '/我的境界' }], advice: wire === 'structured' ? [{ command: '/我的信息', description: '原服务建议' }] : [] }]), wire === 'http' ? 409 : wire === 'internal' ? 500 : 200);
  const event = isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' }); const result = await app.runHandler(entry.handler, event); const view = inspectMessage(result.messages[0].nodes); assert.equal(requests.length, 1); assert.ok(requests[0].path.endsWith('/' + entry.op)); assert.deepEqual(requests[0].body.arguments, entry.args); assert.ok(requests[0].idempotencyKey); assert.equal(result.messages.length, 1); assert.ok(view.text.includes(wire === 'malformed' || wire === 'internal' ? '失败' : '原查询拒绝')); assert.ok(!view.text.includes('private query')); assert.ok(!view.text.includes('暂无灵田记录'));
  if (wire === 'feedback' || wire === 'structured') { for (const text of ['原标题', '原抬头', '原引用', '原说明']) assert.ok(view.text.includes(text)); for (const command of ['/丹方', '/我的境界']) assert.ok(view.commands.includes(command)); }
- if (wire === 'structured') assert.ok(view.text.includes('原服务建议')); else assert.ok(view.commands.includes('/我的职业')); assert.ok(!view.commands.some(command => /^\/(播种|开垦|偷药|协作灵田)\s/.test(command))); assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+ if (wire === 'structured') assert.ok(view.text.includes('原服务建议')); else assert.ok(view.commands.includes('/灵药师')); assert.ok(!view.commands.some(command => /^\/(播种|开垦|偷药|协作灵田)\s/.test(command))); assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 for (const entry of entries.slice(0, 2)) for (const isPrivate of [false, true]) for (const guide of [false, true]) test(`cave query retains real realm or profession refusal ${entry.op} guide=${guide} private=${isPrivate}`, async t => {
- const reason = guide ? '你尚未开始灵药师指引。\n\n请先发送 /加入灵药师，开启洞府灵田与灵药师成长。' : '炼气九层及以上方可使用洞府系统，当前境界：炼气八层'; const command = guide ? '/加入灵药师' : '/我的境界'; const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{ title: '', heading: '', text: reason, buttons: [{ label: '原指引入口', command }], advice: [] }])); const result = await app.runHandler(entry.handler, isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' })); const view = inspectMessage(result.messages[0].nodes); assert.equal(requests.length, 1); assert.ok(view.text.includes(reason)); assert.ok(view.commands.includes(command)); assert.ok(view.commands.includes(guide ? '/我的职业' : '/查看主线')); assert.ok(view.text.includes(guide ? '职业进度与人物境界分别核对' : '挑战主线获取修为')); if (guide) assert.ok(view.text.includes('查看服务器当前步骤')); assert.ok(!view.commands.includes('/商店 万宝楼')); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+ const reason = guide ? '你尚未开始灵药师指引。\n\n请先发送 /加入灵药师，开启洞府灵田与灵药师成长。' : '炼气九层及以上方可使用洞府系统，当前境界：炼气八层'; const command = guide ? '/加入灵药师' : '/我的境界'; const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, undefined, [{ title: '', heading: '', text: reason, buttons: [{ label: '原指引入口', command }], advice: [] }])); const result = await app.runHandler(entry.handler, isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' })); const view = inspectMessage(result.messages[0].nodes); assert.equal(requests.length, 1); assert.ok(view.text.includes(reason)); assert.ok(view.commands.includes(command)); assert.ok(view.commands.includes(guide ? '/灵药师' : '/查看主线')); assert.ok(view.text.includes(guide ? '职业进度与人物境界分别核对' : '挑战主线获取修为')); if (guide) assert.ok(view.text.includes('查看服务器当前步骤')); assert.ok(!view.commands.includes('/商店 万宝楼')); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 const plot = { plotIndex: 2, plotState: 'cultivated', fieldGrade: 1, seedName: '原灵种', seedMatureHours: 12, seedStageSplit: null, cropName: '原灵植', baseYield: 3, expReward: 4, abnormalFlags: 1, abnormalStateCount: 1, isMature: false, plantedAt: null, matureAt: '2026-12-01T12:00:00Z', remainingSeconds: 7200, title: '原地块', detail: '原地块详情', capabilities: [{ kind: 'care', careAction: 'water' }] };
 const overview = { plots: [plot], maxPlots: 2, cultivatedCount: 1, plantedCount: 1, matureCount: 0, abnormalCount: 1, auraScore: 10, auraLevel: '原等级', auraLabel: '原灵气', activeFormations: [] };
@@ -42,10 +43,64 @@ for (const isPrivate of [false, true]) for (const kind of ['wrong-owner', 'inval
 
 const growingPlot = { ...plot, plotIndex: 1, abnormalFlags: 0, abnormalStateCount: 0, capabilities: [{ kind: 'accelerate' }] };
 
+test('灵田按材料资格显示开垦和升级，并直接请求一次结算', async t => {
+  const commands = ['/一键开垦', '/一键升级'];
+  const batchActions = { canAccelerate: false, canRipen: false, canCultivate: false, canUpgrade: false };
+  const access = { canUseCave: true, hasCavePlot: true, lockedMessage: '', realmName: '元婴' };
+  const { app, requests } = await gameFixture(t, request => {
+    const current = { ...overview, batchActions };
+
+    if (request.path.endsWith('/cave.cultivate')) {
+      return businessEnvelope(request.bid, { message: '开垦完成，已消耗灵锄和灵土。', overview: current });
+    }
+    if (request.path.endsWith('/cave.upgrade')) {
+      return businessEnvelope(request.bid, { mode: 'command', result: { message: '升级完成，已消耗灵土。', overview: current } });
+    }
+
+    return businessEnvelope(request.bid, { access, overview: current });
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+
+  const send = async (text: string) => {
+    const result = await app.dispatch(app.events.privateMessage({ text, platform: 'qq-bot' }));
+
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    return result.messages[0];
+  };
+  const unavailable = inspectMessage((await send('/灵田')).nodes);
+
+  assert.ok(commands.every(command => !unavailable.commands.includes(command)));
+  batchActions.canCultivate = true;
+  const canCultivate = inspectMessage((await send('/灵田')).nodes);
+
+  assert.ok(canCultivate.commands.includes(commands[0]) && !canCultivate.commands.includes(commands[1]));
+  batchActions.canUpgrade = true;
+  const page = await send('/灵田');
+  const view = inspectMessage(page.nodes);
+
+  assert.match(view.text, /当前可开垦.*\n+>\s*‹一键开垦›\s*‹一键升级›/);
+  const inline = page.nodes
+    .flatMap(node => node.type === 'Markdown' ? node.value : [])
+    .flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [])
+    .filter(node => node.type === 'MD.button' && commands.includes(node.options?.data ?? ''));
+
+  assert.equal(inline.length, 2);
+  assert.ok(inline.every(node => node.options?.autoEnter === false && !Object.hasOwn(node.options ?? {}, 'show')));
+
+  assert.match(inspectMessage((await send(commands[0])).nodes).text, /开垦完成/);
+  assert.match(inspectMessage((await send(commands[1])).nodes).text, /升级完成/);
+  assert.equal(requests.length, 5);
+  assert.deepEqual(requests.slice(-2).map(request => [request.path.split('/').at(-1), request.body.arguments]), [
+    ['cave.cultivate', { plotIndex: null, all: true, partial: true }],
+    ['cave.upgrade', { plotIndex: null, all: true }]
+  ]);
+});
+
 for (const isPrivate of [false, true]) for (const text of ['/灵田', '/灵田 操作']) {
   test(`灵田一键加速紧接一键打理且没有旧入口 ${text} private=${isPrivate}`, async t => {
     const data = { access: { canUseCave: true, hasCavePlot: true, lockedMessage: '', realmName: '元婴' },
-      overview: { ...overview, plots: [growingPlot, plot], batchActions: { canAccelerate: true, canRipen: true } } };
+      overview: { ...overview, cultivationCostText: '每块开垦消耗：【灵锄】×1、【灵土】×5', plots: [growingPlot, plot], batchActions: { canAccelerate: true, canRipen: true } } };
     const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
     const event = isPrivate ? app.events.privateMessage({ text, platform: 'qq-bot' }) : app.events.groupMessage({ text, platform: 'qq-bot' });
     const result = await app.runHandler(own, event);
@@ -57,8 +112,11 @@ for (const isPrivate of [false, true]) for (const text of ['/灵田', '/灵田 �
     const tendIndex = markdown.value.findIndex(node => node.type === 'MD.button' && node.options?.data === '/一键打理灵田');
 
     assert.ok(tendIndex >= 0);
-    assert.deepEqual(markdown.value[tendIndex + 1], { type: 'MD.button', value: '‹一键加速›', options: { data: '/一键加速', autoEnter: false } });
-    assert.deepEqual(markdown.value[tendIndex + 2], { type: 'MD.button', value: '‹一键催熟›', options: { data: '/一键催熟', autoEnter: false } });
+    const accelerateIndex = markdown.value.findIndex(node => node.type === 'MD.button' && node.options?.data === '/一键加速');
+
+    assert.equal(accelerateIndex, tendIndex + (text === '/灵田' ? 2 : 1));
+    assert.deepEqual(markdown.value[accelerateIndex], { type: 'MD.button', value: '‹一键加速›', options: { data: '/一键加速', autoEnter: false } });
+    assert.deepEqual(markdown.value[accelerateIndex + 1], { type: 'MD.button', value: '‹一键催熟›', options: { data: '/一键催熟', autoEnter: false } });
     const view = inspectMessage(sent.nodes);
 
     assert.equal(view.commands.filter(command => command === '/一键加速').length, 1);
@@ -66,6 +124,18 @@ for (const isPrivate of [false, true]) for (const text of ['/灵田', '/灵田 �
     assert.ok(!view.commands.includes('/一键灵田加速'));
     assert.ok(!view.commands.includes('/一键灵田催熟'));
     assert.ok(view.commands.includes('/浇灌 2'));
+    if (text === '/灵田') {
+      assert.match(view.text, /返回洞府/);
+      assert.match(view.text, /‹一键打理›\s*\n\s*‹一键加速›\s*‹一键催熟›\s*\n\s*‹返回洞府›\s*‹阵法›\s*‹访友›/);
+      assert.ok(view.commands.includes('/我的阵法'));
+      assert.ok(view.commands.includes('/附近灵田'));
+      assert.ok(view.commands.includes('/我的洞府'));
+      assert.ok(view.commands.includes('/我的灵田 地块 2'));
+      assert.ok(!view.commands.includes('/我的灵田 经营'));
+      assert.doesNotMatch(view.text, /每块开垦消耗/);
+    } else {
+      assert.match(view.text, /每块开垦消耗/);
+    }
     for (const command of ['/一键浇灌', '/一键除虫', '/一键除草']) assert.ok(!view.commands.includes(command));
   });
 }

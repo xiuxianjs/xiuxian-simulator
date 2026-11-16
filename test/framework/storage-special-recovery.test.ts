@@ -47,7 +47,7 @@ for (const entry of entries) for (const isPrivate of [false, true]) for (const m
   });
 }
 const bags = [
-  { handler: tools, op: 'storage.profession-tools', command: '/储物袋 天工 火焰', data: { types: ['火焰'], activeType: '火焰', page: 1, pageSize: 5, total: 0, totalPages: 1, items: [], capabilities: [] }, expected: '/我的职业', empty: '该类型暂无天工工具', missing: '当前未提供替换入口' },
+  { handler: tools, op: 'storage.profession-tools', command: '/储物袋 天工 火焰', data: { types: ['火焰'], activeType: '火焰', page: 1, pageSize: 5, total: 0, totalPages: 1, items: [], capabilities: [] }, expected: '/我的洞府', empty: '该类型暂无天工工具', missing: '当前未提供替换入口' },
   { handler: books, op: 'storage.skill-books', command: '/储物袋 功法 战技', data: { requestedType: '战技', bag: { skillType: '战技', page: 1, total: 0, totalPages: 1, items: [], capabilities: [] } }, expected: '/我的功法', empty: '该类型暂无功法', missing: '当前未提供学习入口' },
   { handler: soul, op: 'storage.soul-artifacts', command: '/储物袋 本命', data: { page: 1, pageSize: 5, total: 0, items: [] }, expected: '/我的本命物', empty: '暂无本命物', missing: '当前未提供炼化入口' }
 ];

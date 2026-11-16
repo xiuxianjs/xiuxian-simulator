@@ -53,7 +53,7 @@ export default onResponse(selects, async e => {
     }
 
     sendSelfCavePlotPage({
-      title: '我的灵田',
+      title: '我的洞府 · 灵药园',
       bid,
       isPrivate,
       message,

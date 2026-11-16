@@ -61,7 +61,7 @@ test('installed router matches production forge read declarations without list/d
       ['我的锻造', []], ['锻造指引', []],
       ['锻造图纸', ['2']], ['锻造图纸', ['考核', '2']], ['锻造图纸', ['可制作']], ['锻造图纸', ['练习']],
       ['锻造图纸详情', ['4']], ['锻造图纸详情', ['4', '考核', '2']], ['锻造图纸详情', ['4', '练习', '1']],
-      ['锻造作品', ['2']], ['锻造作品详情', ['7', '2']],
+      ['锻造记录', ['2']], ['锻造记录详情', ['7', '2']],
       ['锻造委托', ['2']], ['锻造委托详情', ['9', '2']]
     ]) {
       const event = { name, MessageText: prefix + [path, ...args].join(' '), UserId: 'test' };
@@ -72,7 +72,7 @@ test('installed router matches production forge read declarations without list/d
       assert.deepEqual(seen.rawArgs, args);
     }
   }
-  for (const text of ['/锻造委托详情其它 1 1', '/锻造作品详情其它 1 1']) {
+  for (const text of ['/锻造委托详情其它 1 1', '/锻造记录详情其它 1 1', '/锻造作品', '/锻造作品详情 1 1']) {
     assert.equal(app.match({ name: 'message.create', MessageText: text }).matched, false);
   }
 });

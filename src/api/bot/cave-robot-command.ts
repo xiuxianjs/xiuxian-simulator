@@ -2,7 +2,10 @@ import { parseBackendCaveAccelerationPreview } from './cave-plot-actions';
 import { parseBackendCaveCommand, parseBackendCavePlantQuery, parseCaveActionReceipt } from './cave-command';
 
 export function caveCultivateArguments(text: string) {
-  if (/^(?:[!！/#＃])?(?:开垦所有|一键开垦)\s*$/.test(text)) {
+  if (/^[!！/#＃]?一键开垦\s*$/.test(text)) {
+    return { plotIndex: null, all: true, partial: true };
+  }
+  if (/^[!！/#＃]?开垦所有\s*$/.test(text)) {
     return { plotIndex: null, all: true };
   }
   const match = text.match(/开垦(?:\s+(\d+))?$/);
@@ -69,6 +72,10 @@ export function caveActionCommand(messageText: string) {
     };
   }
   const text = messageText.trim().replace(/^([!！/#＃]?)一键(浇灌|除虫|除草|收割)(?=\s|$)/, '$1$2');
+
+  if (/^[!！/#＃]?一键升级$/.test(text)) {
+    return { operation: 'cave.upgrade' as const, title: '一键升级', args: { plotIndex: null, all: true } };
+  }
 
   for (const [word, operation, title] of [
     ['浇灌', 'cave.water', '浇灌灵田'],

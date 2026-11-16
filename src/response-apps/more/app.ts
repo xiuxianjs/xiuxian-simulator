@@ -55,7 +55,7 @@ export const MORE_CATEGORIES: MoreCategory[] = [
       { label: '装备', command: '/我的装备', description: '穿戴、比较与分解' },
       { label: '本命物', command: '/我的本命物', description: '升级、升品与洗涤' },
       { label: '灵田', command: '/我的灵田', description: '种植、照料与收获' },
-      { label: '职业', command: '/我的职业', description: '炼丹、灵药与锻造' }
+      { label: '洞府', command: '/我的洞府', description: '炼丹、灵药与锻造' }
     ]
   },
   {

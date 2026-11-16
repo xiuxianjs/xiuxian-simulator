@@ -12,10 +12,10 @@ type SkillBookItem = SkillBookStoragePageData['items'][number];
  * The server decides which entry points are authorized. This adapter only
  * renders those facts as commands understood by the chat platform.
  */
-export function inventoryItemActions(item: InventoryItem): GuiAction[] {
+export function inventoryItemActions(item: InventoryItem, exactFormation = false): GuiAction[] {
   const category = item.type === 'prop' ? '道具' : item.type === 'material' ? '材料' : item.type;
 
-  return item.capabilities.map(capability => inventoryCapabilityAction(capability, item, category));
+  return item.capabilities.map(capability => inventoryCapabilityAction(capability, item, category, exactFormation));
 }
 
 export function inventoryPageActions(capabilities: BackendInventoryPage['capabilities'], category: '道具' | '材料', subcategory: string): GuiAction[] {
@@ -149,7 +149,7 @@ function equipmentType(capability: EquipmentCapability): string {
   return capability.equipmentType;
 }
 
-function inventoryCapabilityAction(capability: InventoryCapability, item: InventoryItem, category: string): GuiAction {
+function inventoryCapabilityAction(capability: InventoryCapability, item: InventoryItem, category: string, exactFormation: boolean): GuiAction {
   switch (capability.kind) {
     case 'consume':
       if (item.effect && typeof item.effect === 'object' && 'effectType' in item.effect && item.effect.effectType === 'forge_blueprint') {
@@ -168,7 +168,7 @@ function inventoryCapabilityAction(capability: InventoryCapability, item: Invent
     case 'giveGift':
       return { label: '赠送', command: `/赠送 ${item.name}` };
     case 'activateFormation':
-      return { label: '激活', command: `/激活阵盘 ${item.name}` };
+      return { label: '激活', command: `/激活阵盘 ${exactFormation ? item.itemId : item.name}` };
     case 'unlock':
       return { label: '解锁', command: `/解锁 ${category} ${item.id}` };
     case 'lock':

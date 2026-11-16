@@ -8,6 +8,13 @@ export function parseProfessionToolCommand(messageText: string) {
     ?.trim();
 }
 
+export function professionToolSwitchInput(messageText: string) {
+  const identifier = parseProfessionToolCommand(messageText) ?? null;
+  const list = identifier?.match(/^列表\s+([1-9]\d{0,8})(?:\s+(.+))?$/);
+
+  return list ? { identifier: null, page: Number(list[1]), ...(list[2] ? { typeName: list[2] } : {}) } : { identifier };
+}
+
 export function parseProfessionRobotTools(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('天工业务结果不完整');
@@ -20,6 +27,10 @@ export function parseProfessionRobotTools(value: unknown) {
     return {
       code: 'LIST' as const,
       data: {
+        types: bag.types,
+        activeType: bag.activeType,
+        page: bag.page,
+        totalPages: bag.totalPages,
         tools: bag.items
           .filter(item => item.canReplace)
           .map(item => ({ id: item.id, name: item.name, typeName: item.typeName, grade: item.grade, isLocked: item.isLocked }))

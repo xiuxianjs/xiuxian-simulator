@@ -292,7 +292,7 @@ export const growthActions = {
     'profession.dashboard',
     object({}),
     profession,
-    () => '/我的职业',
+    () => '/我的洞府',
     data => {
       const result = parseProfessionDashboard(data);
 

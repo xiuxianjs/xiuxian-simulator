@@ -3,13 +3,15 @@ import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { caveRecoveryTips } from '@src/response/caveRecovery';
 import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
+import type { CaveOverviewQueryData } from '@src/api/schemas/cave-overview-query';
 import { appendMiddlewareAdvice } from '@src/response/middlewareReply';
 import { appendTreasureEffects } from '@src/response/treasureEffects';
 import type { TreasureEffectNotice } from '@src/api/bot/treasure-effects';
 import type { CavePlantSeedOption, CavePlotOverviewItem, CavePlotVisitOverview } from '@src/types/cavePlot';
-import { FormatGui } from '@src/utils/messageHelper';
+import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { Format } from 'alemonjs';
 import { cavePageForPlot, paginateCaveItems } from './pagination';
+import { herbalGardenTabs } from './tabs';
 
 function appendCaveQueryAdvice(md: ReturnType<typeof Format.createMarkdown>, operation: string, text: string): void {
   appendMiddlewareAdvice(
@@ -21,7 +23,6 @@ function appendCaveQueryAdvice(md: ReturnType<typeof Format.createMarkdown>, ope
 type ActionButton = {
   label: string;
   command: string;
-  availabilityLabel?: string;
   autoEnter?: boolean;
 };
 
@@ -34,7 +35,7 @@ type SendSelfCavePlotPageOptions = {
     send: (...payload: any[]) => unknown;
   };
   plots?: CavePlotOverviewItem[];
-  batchActions?: { canAccelerate: boolean; canRipen: boolean };
+  batchActions?: CaveOverviewQueryData['batchActions'];
   leadText?: string;
   advice?: RobotMiddlewareReply['advice'];
   cultivationCostText?: string;
@@ -59,19 +60,14 @@ type SendVisitedCavePlotPageOptions = {
   page?: number;
 };
 
-const FUNCTION_BUTTONS: ActionButton[] = [
-  { label: '灵药师', command: '/我的职业 灵药师' },
-  { label: '药圃经营', command: '/我的灵田 经营' }
-];
+const MANAGEMENT_BUTTON: ActionButton = { label: '药圃经营', command: '/我的灵田 经营', autoEnter: false };
+const CAVE_FORMATION_BUTTON: ActionButton = { label: '阵法', command: '/我的阵法', autoEnter: false };
+const CAVE_HOME_BUTTON: ActionButton = { label: '返回洞府', command: '/我的洞府', autoEnter: false };
+const CAVE_VISIT_BUTTON: ActionButton = { label: '访友', command: '/附近灵田', autoEnter: false };
 
 const TEND_BUTTON: ActionButton = { label: '一键打理', command: '/一键打理灵田' };
 const ACCELERATION_BUTTON: ActionButton = { label: '一键加速', command: '/一键加速', autoEnter: false };
 const RIPEN_BUTTON: ActionButton = { label: '一键催熟', command: '/一键催熟', autoEnter: false };
-
-const BATCH_OPERATION_BUTTONS: ActionButton[] = [
-  { label: '开垦所有', command: '/开垦所有', availabilityLabel: '开垦' },
-  { label: '一键收割', command: '/一键收割', availabilityLabel: '收割' }
-];
 
 const RECORD_BUTTON: ActionButton = { label: '记录', command: '/灵田记录' };
 
@@ -125,9 +121,8 @@ function buildSelfCavePlotContent(
   stasisFormation?: { name: string; remainingText: string },
   page?: number,
   advice: RobotMiddlewareReply['advice'] = [],
-  cultivationCostText?: string,
   treasureEffects?: TreasureEffectNotice[],
-  batchActions?: { canAccelerate: boolean; canRipen: boolean }
+  batchActions?: CaveOverviewQueryData['batchActions']
 ) {
   const md = Format.createMarkdown();
   const allPlots = plots ?? [];
@@ -174,8 +169,16 @@ function buildSelfCavePlotContent(
   }
 
   md.addText(`已开垦${allPlots.filter(plot => plot.plotState === 'cultivated').length}块 · 当前可开垦${count('开垦')}块（需备齐材料）`).addNewline();
-  if (cultivationCostText) {
-    md.addText(cultivationCostText).addNewline();
+  const constructionActions = [
+    ...(batchActions?.canCultivate ? [{ label: '一键开垦', command: '/一键开垦', autoEnter: false }] : []),
+    ...(batchActions?.canUpgrade ? [{ label: '一键升级', command: '/一键升级', autoEnter: false }] : [])
+  ];
+
+  if (constructionActions.length) {
+    const quote = Format.createMarkdown();
+
+    addOptions(quote, constructionActions, undefined, false);
+    md.addBlockquote(quote).addNewline();
   }
 
   if (items.length > 0) {
@@ -198,9 +201,8 @@ function buildSelfCavePlotContent(
     md.addText('暂无灵田信息。');
   }
 
-  const operationButtons = BATCH_OPERATION_BUTTONS.filter(button => availableActionLabels.has(button.availabilityLabel ?? button.label));
-  const batchButtons = [
-    ...(careCount > 0 || count('收割') > 0 ? [TEND_BUTTON] : []),
+  const tendButtons = careCount > 0 || count('收割') > 0 ? [TEND_BUTTON] : [];
+  const accelerateButtons = [
     ...(batchActions?.canAccelerate ? [ACCELERATION_BUTTON] : []),
     ...(batchActions?.canRipen ? [RIPEN_BUTTON] : [])
   ];
@@ -208,21 +210,23 @@ function buildSelfCavePlotContent(
   return {
     content: md,
     nav: pagination.nav,
-    functionButtons: [...FUNCTION_BUTTONS],
-    batchButtons,
-    qqOperationButtons: [...operationButtons, ...(availableActionLabels.has('播种') ? [{ label: '播种空田', command: '/播种' }] : [])]
+    tendButtons,
+    accelerateButtons,
+    qqOperationButtons: [
+      ...(availableActionLabels.has('收割') ? [{ label: '一键收割', command: '/一键收割' }] : []),
+      ...(availableActionLabels.has('播种') ? [{ label: '播种空田', command: '/播种' }] : [])
+    ]
   };
 }
 
 export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
   const { title, bid, isPrivate, message, plots, leadText, stasisFormation } = options;
-  const { content, nav, functionButtons, batchButtons, qqOperationButtons } = buildSelfCavePlotContent(
+  const { content, nav, tendButtons, accelerateButtons, qqOperationButtons } = buildSelfCavePlotContent(
     plots,
     leadText,
     stasisFormation,
     options.page,
     options.advice,
-    options.cultivationCostText,
     options.treasureEffects,
     options.batchActions
   );
@@ -314,7 +318,7 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
         content: md,
         nav: pagination.nav,
         footer: [
-          batchButtons,
+          [...tendButtons, ...accelerateButtons],
           [
             ...(canCultivate ? [{ label: '开垦所有', command: '/开垦所有' }] : []),
             ...(canPlant ? [{ label: '播种空田', command: '/播种' }] : []),
@@ -331,10 +335,10 @@ export function sendSelfCavePlotPage(options: SendSelfCavePlotPageOptions) {
       isPrivate,
       bid: targetBid,
       title,
-      header: [{ label: '洞府', command: '/我的洞府' }, ...functionButtons],
+      header: herbalGardenTabs('plots'),
       content,
       nav,
-      footer: [batchButtons, qqOperationButtons]
+      footer: [[...tendButtons, ...qqOperationButtons], accelerateButtons, [CAVE_HOME_BUTTON, CAVE_FORMATION_BUTTON, CAVE_VISIT_BUTTON]]
     })
   );
 }
@@ -375,8 +379,8 @@ export function sendCavePlotLogPage(options: SendCavePlotLogPageOptions) {
       isPrivate,
       bid: targetBid,
       title,
-      header: FUNCTION_BUTTONS,
-      footer: [{ label: '我的灵田', command: '/灵田' }],
+      header: herbalGardenTabs('records'),
+      footer: [{ label: '我的灵田', command: '/灵田' }, MANAGEMENT_BUTTON],
       content: md,
       nav: totalPages > 1 ? { current: page, total: totalPages, count: total, command: '/灵田记录 {page}' } : undefined
     })
@@ -455,7 +459,7 @@ export function sendLingzhiGuidePromptPage(options: SendLingzhiGuidePromptPageOp
 
   const footer = [
     { label: '加入灵药师', command: '/加入灵药师' },
-    { label: '我的职业', command: '/我的职业' }
+    { label: '灵药师', command: '/灵药师' }
   ];
 
   void message.send(FormatGui({ isPrivate, bid: targetBid, title, content: md, footer }));

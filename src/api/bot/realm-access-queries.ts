@@ -48,7 +48,7 @@ export const emptyRealmAccess: RealmAccessQuery = {
     '/学习功法 ID',
     '/悟道 ID',
     '/我的称号',
-    '/我的职业',
+    '/我的洞府',
     '/炼丹',
     '/炼丹 入门',
     '/炼丹 丹方',

@@ -50,7 +50,7 @@ test('forge commands use exactly one business request with explicit arguments', 
     ['/确认打造 signed-token', 'forge.confirm', { token: 'signed-token' }, fixture.result],
     ['/锻造进阶 0', 'forge.advance', { expectedLevel: 0 }, fixture.overview],
     ['/学习锻造图纸', 'forge.learn', {}, fixture.overview],
-    ['/锻造作品 2', 'forge.history', { page: 2 }, fixture.history],
+    ['/锻造记录 2', 'forge.history', { page: 2 }, fixture.history],
     ['/委托锻造 1 1 7', 'forge.order-preview', { crafterId: 1, recipeId: 1, fee: 7 }, fixture.orderPreview],
     ['/确认锻造委托 signed-token', 'forge.order-create', { token: 'signed-token' }, fixture.orderCreated],
     ['/接取锻造委托 1', 'forge.order-accept', { orderId: 1 }, fixture.orderDelivered],
@@ -119,7 +119,7 @@ test('pending order actions follow service permissions and cancelled orders show
 });
 
 test('invalid input makes no request; middleware and refusal do not add a success bubble', async () => {
-  for (const text of ['/打造', '/打造 -1', '/确认打造', '/确认锻造委托', '/委托锻造 1 1 -1', '/委托锻造 1', '/锻造作品 0', '/锻造图纸 abc', '/锻造委托 -1', '/接取锻造委托 0', '/锻造进阶']) {
+  for (const text of ['/打造', '/打造 -1', '/确认打造', '/确认锻造委托', '/委托锻造 1 1 -1', '/委托锻造 1', '/锻造记录 0', '/锻造图纸 abc', '/锻造委托 -1', '/接取锻造委托 0', '/锻造进阶']) {
     await render(text, {}); assert.equal(state.calls.length, 0, text); assert.equal(state.sent.length, 1, text);
   }
   await render('/我的锻造', {}, { middleware: true });
@@ -179,12 +179,12 @@ test('overview focuses on growth, recipe list keeps sources inside detail', asyn
 
 test('history detail respects current existence and ownership, list does not expand attributes', async () => {
   const item = fixture.history.items[0];
-  const list = await render('/锻造作品', fixture.history);
+  const list = await render('/锻造记录', fixture.history);
   assert.ok(!list.includes('（制作时）'));
-  assert.ok(list.includes(`/锻造作品详情 ${item.result.craftId} 1`));
+  assert.ok(list.includes(`/锻造记录详情 ${item.result.craftId} 1`));
   for (const [exists, owned] of [[true, true], [true, false], [false, false]]) {
     const data = { ...fixture.history, items: [{ ...item, exists, owned }] };
-    const detail = await render(`/锻造作品详情 ${item.result.craftId} 1`, data);
+    const detail = await render(`/锻造记录详情 ${item.result.craftId} 1`, data);
     assert.ok(!detail.includes('/装备 '), 'historical equipment eligibility is never reused');
     assert.ok(detail.includes('署名'));
     if (!exists) assert.ok(detail.includes('装备已不存在'));
@@ -196,7 +196,7 @@ test('history detail respects current existence and ownership, list does not exp
 test('detail locates stable record id and refuses to show another item after page movement', async () => {
   for (const [text, data] of [
     ['/锻造委托详情 999 1', fixture.orders],
-    ['/锻造作品详情 999 1', fixture.history],
+    ['/锻造记录详情 999 1', fixture.history],
     ['/锻造图纸详情 999', fixture.overview]
   ]) {
     const out = await render(text, data);
@@ -205,7 +205,7 @@ test('detail locates stable record id and refuses to show another item after pag
     assert.ok(!out.includes('/装备 '));
     assert.equal(state.calls.length, 1);
   }
-  for (const text of ['/锻造委托详情 1', '/锻造作品详情 1 0', '/锻造图纸详情 1 2', '/锻造委托详情 1 100001']) {
+  for (const text of ['/锻造委托详情 1', '/锻造记录详情 1 0', '/锻造图纸详情 1 2', '/锻造委托详情 1 100001']) {
     await render(text, {}); assert.equal(state.calls.length, 0);
   }
 });
@@ -213,7 +213,8 @@ test('detail locates stable record id and refuses to show another item after pag
 test('guide explains participant handoff and has no game mutation', async () => {
   const out = await render('/锻造指引', {});
   assert.equal(state.calls.length, 0);
-  for (const text of ['匠师编号', '图纸编号', '灵石工费', '/我的编号', '/储物袋 天工', '/替换', '/珍宝楼 筛选 天工 价格升序 1']) assert.ok(out.includes(text));
+  for (const text of ['匠师编号', '图纸编号', '灵石工费', '接单前可取消退款', '/我的编号', '/储物袋 天工', '/替换', '/珍宝楼 筛选 天工 价格升序 1']) assert.ok(out.includes(text), text);
+  assert.ok(!out.includes('/我的锻造 详情'));
 });
 
 test('recipe tool guidance provides inventory and marketplace paths only in detail', async () => {
@@ -278,7 +279,9 @@ test('growth panel and empty filters provide the next read action without preten
   data.recipes.forEach(r => { r.canCraft = false; r.completed = true; });
   const home = await render('/我的锻造', data);
   assert.ok(home.includes('/锻造图纸 考核'));
-  assert.ok(home.includes('/锻造图纸 可制作'));
+  assert.ok(!home.includes('/锻造图纸 可制作'));
+  const guide = await render('/锻造指引', {});
+  assert.ok(guide.includes('/锻造图纸 可制作'));
   const ready = await render('/锻造图纸 可制作', data);
   assert.ok(ready.includes('暂无可打造图纸'));
   assert.ok(!ready.includes('/打造 '));
@@ -363,9 +366,13 @@ test('completed assessment links to same-stage positive experience recipes, incl
     ]
   };
   const home = await render('/我的锻造', overview);
-  assert.ok(home.includes('晋升还差 60 点锻造经验'));
+  assert.ok(home.includes('经验：60 / 120'));
+  assert.ok(!home.includes('晋升还差 60 点锻造经验'));
   assert.ok(home.includes('/锻造图纸 练习'));
   assert.ok(!home.includes('/锻造进阶 '));
+  const guide = await render('/锻造指引', {});
+  assert.ok(guide.includes('经验不足时可查看能获得经验的本阶练习图纸'));
+  assert.ok(guide.includes('/锻造图纸 练习'));
   const list = await render('/锻造图纸 练习', overview);
   assert.ok(list.includes('铁锤'));
   assert.ok(list.includes('铁甲'));

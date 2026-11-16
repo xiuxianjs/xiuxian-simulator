@@ -1,11 +1,11 @@
 import { parseProfessionDashboard } from '@src/api/bot/profession-dashboard-query';
+import { herbalGardenTabs } from '@src/response/cavePlot/tabs';
 import { selects } from '@src/response/config';
-import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
-import { buildBubble, type BubbleSection } from '@src/response/presentation';
+import { buildBubble, section } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { commandText } from '@src/utils/commandPrefix';
-import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
 
@@ -17,12 +17,19 @@ const LINGZHI_GUIDE_START_COMMAND = '/加入灵药师';
  */
 export default onResponse(selects, async e => {
   const [message] = useMessage();
+  const [, next] = useEvent();
   const bid = e?.UserId;
   const isPrivate = e.isPrivate ?? false;
   const isCaveHome = /^\s*[/#＃]?(?:我的洞府|洞府)(?:\s|$)/.test(e.MessageText ?? '');
+  const pane = /^\s*[/#＃]?\s*灵药师(?:\s+(指引))?\s*$/.exec(e.MessageText ?? '');
+
+  if (!isCaveHome && !pane) {
+    next();
+
+    return;
+  }
 
   try {
-    const [, next] = useEvent();
     const response = await runRobotBusiness(
       e,
       'profession.dashboard',
@@ -34,7 +41,7 @@ export default onResponse(selects, async e => {
           FormatGui({
             isPrivate,
             bid,
-            title: isCaveHome ? '我的洞府' : reply.title,
+            title: isCaveHome ? '我的洞府' : '我的洞府 · 灵药园',
             content: Format.createMarkdown().addText(reply.text),
             footer: reply.buttons.length ? reply.buttons : undefined
           })
@@ -54,229 +61,118 @@ export default onResponse(selects, async e => {
     const showHerbalist = allowed('herbalist');
 
     if (isCaveHome) {
-      const { alchemy, lingzhi, meditationAutoBoost } = result.data;
+      const { meditationAutoBoost } = result.data;
       const nextBoostState = meditationAutoBoost ? '关闭' : '开启';
-      const rooms: BubbleSection[] = [
-        {
-          title: '修行静室',
-          lines: [`闭关自动加速：${meditationAutoBoost === undefined ? '暂不可读取' : meditationAutoBoost ? '开启' : '关闭'}`],
-          actions: [
-            { label: '打坐', command: '/打坐' },
-            ...(meditationAutoBoost === undefined ? [] : [{ label: `${nextBoostState}自动加速`, command: `/配置闭关自动加速 ${nextBoostState}` }])
-          ]
+      const rooms = Format.createMarkdown();
+      const addRoom = (text: string, button?: { label: string; command: string }) => {
+        rooms.addNewline().addText(text);
+        if (button) {
+          rooms.addText(' ').addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
         }
-      ];
+      };
 
+      rooms.addText('修行静室 ').addButton(markdownButtonLabel('打坐'), { data: commandText('/打坐'), autoEnter: false });
+      addRoom(
+        `闭关自动加速：${meditationAutoBoost === undefined ? '暂不可读取' : meditationAutoBoost ? '开启' : '关闭'}`,
+        meditationAutoBoost === undefined ? undefined : { label: nextBoostState, command: `/配置闭关自动加速 ${nextBoostState}` }
+      );
       if (showAlchemy) {
-        rooms.push({
-          title: '炼丹室',
-          lines: alchemy.unlocked
-            ? [`等级：${alchemy.level} · 经验：${alchemy.exp}${alchemy.nextExpRequired ? ` / ${alchemy.nextExpRequired}` : ''}`]
-            : ['状态：尚未加入炼丹师'],
-          actions: alchemy.unlocked
-            ? [
-                { label: '丹方', command: '/炼丹 丹方' },
-                { label: '天工', command: '/炼丹 天工' },
-                ...(alchemy.canAdvance ? [{ label: '进阶', command: '/炼丹 进阶' }] : [])
-              ]
-            : [{ label: '加入炼丹师', command: '/炼丹 入门' }]
-        });
+        addRoom('炼丹房', { label: '前往炼丹', command: '/炼丹' });
       }
       if (showHerbalist) {
-        rooms.push({
-          title: '灵药园',
-          lines: lingzhi.unlocked
-            ? [`等级：${lingzhi.level}${lingzhi.cultivatedCount === undefined ? '' : ` · 已开垦：${lingzhi.cultivatedCount}块`}`]
-            : ['状态：尚未开始灵药师指引'],
-          actions: [lingzhi.unlocked ? { label: '经营灵田', command: '/灵田' } : { label: '加入灵药师', command: LINGZHI_GUIDE_START_COMMAND }]
-        });
+        addRoom('灵药园', { label: '前往种田', command: '/灵田' });
       }
       if (allowed('forge')) {
-        rooms.push({
-          title: '锻造坊',
-          lines: [],
-          actions: [
-            { label: '锻造', command: '/我的锻造' },
-            { label: '图纸', command: '/锻造图纸' },
-            { label: '委托', command: '/锻造委托' }
-          ]
-        });
+        addRoom('锻造坊', { label: '前往炼器', command: '/我的锻造' });
       }
-      rooms.push({ title: '灵塘', lines: [], actions: [{ label: '垂钓', command: '/垂钓', autoEnter: false }] });
-
+      addRoom('灵塘', { label: '前往垂钓', command: '/垂钓' });
       if (allowed('cave-formations')) {
-        rooms.push({ title: '护府阵法', lines: [], actions: [{ label: '查看阵法', command: '/洞府阵法' }] });
+        addRoom('护府阵法', { label: '查看阵法', command: '/洞府阵法' });
       }
 
-      void message.send(
-        buildBubble({
-          isPrivate,
-          bid,
-          title: '我的洞府',
-          sections: rooms
-        })
-      );
+      void message.send(FormatGui({ isPrivate, bid, title: '我的洞府', content: md.addBlockquote(rooms) }));
 
       return;
     }
 
-    if (/\s+灵药师\s*$/.test(e.MessageText ?? '')) {
+    if (pane) {
+      const title = '我的洞府 · 灵药园';
+
       if (!showHerbalist && !result.data.lingzhi.unlocked) {
         void message.send(
-          FormatGui({ isPrivate, bid, title: '草木之道', content: md.addText(locked('herbalist')), footer: [{ label: '洞府', command: '/我的洞府' }] })
+          buildBubble({ isPrivate, bid, title, sections: [{ lines: [locked('herbalist')] }], footer: [{ label: '洞府', command: '/我的洞府' }] })
         );
 
         return;
       }
       const lingzhi = result.data.lingzhi;
 
-      if (lingzhi.unlocked) {
+      if (pane[1] === '指引') {
         md.addBlockquote(
-          createQuoteMarkdown(
-            [
-              `【${lingzhi.title}灵药师】等级 ${lingzhi.level}`,
-              `成长经验：${lingzhi.exp}${lingzhi.nextExpRequired ? ` / ${lingzhi.nextExpRequired}` : ''}`,
-              `照料与互动经验：${lingzhi.dailyExpGained}/${lingzhi.dailyExpCap}；收获经验不受此额度限制。`,
-              `可开垦总上限 ${lingzhi.maxPlots}块 · 品阶上限 ${lingzhi.maxFieldGradeLabel} · 产量加成 +${lingzhi.yieldBonus}株`,
-              ...(lingzhi.cultivatedCount === undefined ? [] : [`已开垦：${lingzhi.cultivatedCount}块`]),
-              ...(lingzhi.cultivatableCount === undefined ? [] : [`当前可开垦：${lingzhi.cultivatableCount}块（需备齐材料）`]),
+          section({
+            lines: [
+              '使用灵锄和灵土开垦空地，然后选择灵种播种。',
+              '按地块状态浇灌、除虫或除草，成熟后收割。',
+              '照料与互动经验有每日上限，收获经验另计。',
               ...(lingzhi.cultivationCostText ? [lingzhi.cultivationCostText] : [])
             ],
-            [{ label: '经营灵田', command: '/我的灵田' }]
-          )
+            actions: lingzhi.unlocked ? undefined : [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }]
+          })
         );
-      } else {
-        md.addBlockquote(createQuoteMarkdown(['【灵药师】尚未开启草木之道。'], [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }]));
+        if (lingzhi.unlocked) {
+          md.addNewline().addBlockquote(
+            section({
+              lines: [
+                `可开垦总上限：${lingzhi.maxPlots}块`,
+                ...(lingzhi.cultivatedCount === undefined ? [] : [`已开垦：${lingzhi.cultivatedCount}块`]),
+                ...(lingzhi.cultivatableCount === undefined ? [] : [`当前可开垦：${lingzhi.cultivatableCount}块（需备齐材料）`])
+              ]
+            })
+          );
+        }
+        void message.send(
+          FormatGui({ isPrivate, bid, title, header: herbalGardenTabs('guide'), content: md, footer: [{ label: '返回洞府', command: '/我的洞府' }] })
+        );
+
+        return;
+      }
+      const professionTitle = lingzhi.title.includes('灵药师') ? lingzhi.title : `${lingzhi.title}灵药师`;
+
+      const lines = lingzhi.unlocked
+        ? [
+            professionTitle,
+            `等级：${lingzhi.level}`,
+            `经验：${lingzhi.exp}${lingzhi.nextExpRequired ? ` / ${lingzhi.nextExpRequired}` : ''}`
+          ]
+        : ['灵药师', '状态：尚未加入'];
+
+      md.addText('我的职业').addNewline();
+      md.addBlockquote(section({ lines, actions: lingzhi.unlocked ? undefined : [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }] }));
+      if (lingzhi.unlocked) {
+        md.addNewline().addText('当前等级效果').addNewline();
+        md.addBlockquote(
+          section({
+            lines: [
+              `最多开垦：${lingzhi.maxPlots}块`,
+              `品阶上限：${lingzhi.maxFieldGradeLabel}`,
+              `产量加成：+${lingzhi.yieldBonus}株`,
+              `照料与互动经验每日上限：${lingzhi.dailyExpGained}/${lingzhi.dailyExpCap}`
+            ]
+          })
+        );
       }
       void message.send(
         FormatGui({
           isPrivate,
           bid,
-          title: '草木之道',
+          title,
+          header: herbalGardenTabs('profession'),
           content: md,
           footer: [
-            { label: '返回灵田', command: '/我的灵田' },
-            { label: '职业总览', command: '/我的职业' }
+            ...(lingzhi.unlocked ? [] : [{ label: '返回灵田', command: '/我的灵田' }]),
+            { label: '返回洞府', command: '/我的洞府' }
           ]
         })
-      );
-
-      return;
-    }
-
-    /** 格式化装备行 */
-    const formatEquipLine = (eq: { typeName: string; equipped: boolean; equipmentName: string | null; gradeName: string | null }) => {
-      if (eq.equipped) {
-        return `${eq.typeName}：${eq.equipmentName}（${eq.gradeName}）`;
-      }
-
-      return `${eq.typeName}：未启用`;
-    };
-
-    const alchemyFooter = {
-      recipes: { label: '丹方', command: '/炼丹 丹方' },
-      continueGuide: { label: '加入炼丹师', command: '/炼丹 入门' },
-      joinGuide: { label: '加入炼丹师', command: '/炼丹 入门' },
-      none: null
-    }[result.data.alchemy.primaryAction];
-
-    // 炼丹师信息
-    if (showAlchemy && result.data.alchemy.showSection) {
-      md.addText(`【${result.data.alchemy.unlocked ? `${result.data.alchemy.title}炼丹师` : '炼丹师'}】`);
-
-      if (result.data.alchemy.unlocked) {
-        const lines = [
-          `等级：${result.data.alchemy.level}`,
-          `经验：${result.data.alchemy.exp}${result.data.alchemy.nextExpRequired ? ` / ${result.data.alchemy.nextExpRequired}` : ''}`,
-          `炼制次数：${result.data.alchemy.totalCrafts}`
-        ];
-
-        md.addBlockquote(createQuoteMarkdown(lines));
-        for (const eq of result.data.alchemy.equipments) {
-          const options = [{ label: '切换', command: '/炼丹 天工' }];
-
-          if (eq.equipped && eq.equipmentName) {
-            options.push({ label: '详情', command: `/物品详情 ${eq.equipmentName}` });
-          }
-          md.addText(formatEquipLine(eq));
-          addOptions(md, options);
-        }
-        const alchemyActions = Format.createMarkdown();
-
-        alchemyActions.addButton(markdownButtonLabel('我的丹方'), { data: commandText('炼丹 丹方') });
-        if (result.data.alchemy.canAdvance) {
-          alchemyActions.addText(' ').addButton(markdownButtonLabel('进阶'), { data: commandText('炼丹 进阶') });
-        }
-        md.addBlockquote(alchemyActions);
-      } else {
-        md.addNewline();
-        md.addText('尚未加入');
-        addOptions(md, [{ label: '加入炼丹师', command: '/炼丹 入门' }]);
-      }
-      md.addNewline();
-      md.addNewline();
-    }
-
-    if (showHerbalist) {
-      md.addText(`【${result.data.lingzhi.unlocked ? `${result.data.lingzhi.title}灵药师` : '灵药师'}】`);
-      md.addNewline();
-      if (result.data.lingzhi.unlocked) {
-        md.addBlockquote(
-          createQuoteMarkdown(
-            [
-              `等级：${result.data.lingzhi.level}`,
-              `经验：${result.data.lingzhi.exp}${result.data.lingzhi.nextExpRequired ? ` / ${result.data.lingzhi.nextExpRequired}` : ''}`,
-              `今日经验：${result.data.lingzhi.dailyExpGained}/${result.data.lingzhi.dailyExpCap}`,
-              `可开垦总上限：${result.data.lingzhi.maxPlots}块`,
-              ...(result.data.lingzhi.cultivatedCount === undefined ? [] : [`已开垦：${result.data.lingzhi.cultivatedCount}块`]),
-              ...(result.data.lingzhi.cultivatableCount === undefined ? [] : [`当前可开垦：${result.data.lingzhi.cultivatableCount}块（需备齐材料）`]),
-              ...(result.data.lingzhi.cultivationCostText ? [result.data.lingzhi.cultivationCostText] : []),
-              `灵田上限：${result.data.lingzhi.maxFieldGradeLabel}`,
-              `产量加成：+${result.data.lingzhi.yieldBonus}株`
-            ],
-            [{ label: '查看灵田', command: '/灵田' }]
-          )
-        );
-      } else {
-        md.addText('尚未开始灵药师指引');
-        md.addNewline();
-        addOptions(md, [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }]);
-      }
-      md.addNewline();
-      md.addNewline();
-    }
-
-    if (!showAlchemy && !showHerbalist) {
-      md.addText('当前尚未开放职业，可查阅天书了解解锁条件。').addNewline();
-    }
-
-    {
-      const lingzhiFooter =
-        result.data.lingzhi.primaryAction === 'plots' ? { label: '灵田', command: '/灵田' } : { label: '加入灵药师', command: LINGZHI_GUIDE_START_COMMAND };
-      const footerButtons = [showAlchemy ? alchemyFooter : null, showHerbalist ? lingzhiFooter : null].filter(Boolean) as Array<{
-        label: string;
-        command: string;
-        autoEnter?: boolean;
-      }>;
-
-      if (allowed('forge')) {
-        footerButtons.push({ label: '锻造师', command: '/我的锻造' });
-      }
-      footerButtons.push({ label: '洞府', command: '/我的洞府' });
-
-      await checkEncounterAfterPanel(
-        e,
-        'cave',
-        message,
-        message.send(
-          FormatGui({
-            isPrivate,
-            bid,
-            title: '我的职业',
-            content: md,
-            footer: footerButtons
-          })
-        )
       );
     }
   } catch (error) {

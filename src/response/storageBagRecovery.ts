@@ -21,7 +21,7 @@ export function storageBagRecoveryTips(operation: string, text: string): Recover
     return [
       {
         label: '核对职业面板',
-        command: '/我的职业',
+        command: '/我的洞府',
         description: '当前没有可显示的工具类型，先核对职业面板；这不证明工具丢失或境界不足，持续无类型时保留原反馈联系运营'
       }
     ];
@@ -30,7 +30,7 @@ export function storageBagRecoveryTips(operation: string, text: string): Recover
     return [
       {
         label: '核对职业与工具',
-        command: '/我的职业',
+        command: '/我的洞府',
         description:
           '背包这里只展示当前分类未启用、未上架的工具；先核对职业面板与工具详情中的资格及保护状态，缺少替换入口不证明一定是境界不足，不自动卸下或解锁'
       }
