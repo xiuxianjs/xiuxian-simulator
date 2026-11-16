@@ -208,7 +208,7 @@ test('the cave lobby shows inline links and opens the renamed walkthrough', asyn
 test('the active cave home shows rest only before resting and resumes without a button', async t => {
   const overview = '/灵墟洞天';
   const rest = '/灵墟洞天 隐匿';
-  const status = ['状态：探索中(坤·阳·废弃坊市)', '行动：保守 · 对人躲避 · 对怪战斗', '命数：4/5 · 每60分钟恢复1点', '行囊：0/60格', '阵盘：道蕴阵 · 余1时43分'];
+  const status = ['状态：探索中(废弃坊市)', '行动：保守 · 对人躲避 · 对怪战斗', '命数：4/5 · 每60分钟恢复1点', '行囊：0/60格', '阵盘：道蕴阵 · 余1时43分'];
   const active = [...status, '轮次：下次结算00:10'];
   const resting = [...status, '说明：休息中，命数恢复后自动探索。'];
   const { app, requests } = await gameFixture(t, request => {
@@ -261,7 +261,7 @@ test('map tabs precede the whole ring and each move button shares the region nam
       assert.deepEqual(children.filter(node => node.type === 'MD.text').map(node => node.value), region.lines);
     }
     assert.equal(view.commands.length, 18);
-    assert.doesNotMatch(view.text, /通道|第\d+\/|由此撤离/);
+    assert.doesNotMatch(view.text, /通道|第\d+\/|由此撤离|·[阴阳]·/u);
     assert.ok(view.commands.includes('/灵墟洞天 出口'));
     assert.equal(requests.at(-1)?.body.messageText, command);
   }
