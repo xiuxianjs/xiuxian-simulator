@@ -52,7 +52,7 @@ function delivered(result: TestRunResult, command: string, messages = 1) {
 
 test('垂钓紧凑主页配置按钮经真实路由发送', async t => {
   const rodId = 'fr_' + 'a'.repeat(32);
-  const startCommand = `/垂钓 按配置开钓 1 4 ${rodId}`;
+  const startCommand = `/垂钓 按配置开钓 1 3 ${rodId}`;
   const section = (lines: string[], actions: FishingView['footer'] = []) => ({ title: '', id: '', suffix: '', lines, actions });
   const { app, requests } = await gameFixture(t, request => {
     const { view } = request.body.arguments as { view?: string };
@@ -60,7 +60,7 @@ test('垂钓紧凑主页配置按钮经真实路由发送', async t => {
       return businessEnvelope(request.bid, base({ view: 'receipt', title: '已开钓', sections: [section(['状态：垂钓中'])], footer: [] }));
     }
     if (view === 'start') {
-      return businessEnvelope(request.bid, base({ view: 'start', title: '垂钓 · 调整配置', sections: [section(['时长上限：4小时'])],
+      return businessEnvelope(request.bid, base({ view: 'start', title: '垂钓 · 调整配置', sections: [section(['时长上限：3小时'])],
         footer: [{ label: '按此配置开钓', command: startCommand }]
       }));
     }
@@ -74,9 +74,9 @@ test('垂钓紧凑主页配置按钮经真实路由发送', async t => {
   const home = await send('/垂钓');
   assert.match(home.text, /预计可钓：8小时/);
   const config = await send(home.commands.find(command => command === '/垂钓 配置')!);
-  assert.match(config.text, /时长上限：4小时/);
+  assert.match(config.text, /时长上限：3小时/);
   await send(config.commands.find(command => command === startCommand)!);
-  assert.deepEqual(requests[2].body.arguments, { kind: 'start-current', sku: 'config', waterLevel: 1, hours: 4, rodId });
+  assert.deepEqual(requests[2].body.arguments, { kind: 'start-current', sku: 'config', waterLevel: 1, hours: 3, rodId });
 });
 
 after(async () => {
@@ -86,6 +86,73 @@ after(async () => {
     writeFileSync(process.env.FISHING_PREVIEW_OUTPUT, JSON.stringify({ note: '真实处理器与Format离线节点；后端及平台由夹具模拟。', captures }, null, 2));
   }
   await shutdownLogger();
+});
+
+test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接执行', async t => {
+  const sessionId = 'fs_' + 'a'.repeat(32);
+  const start = '/垂钓 开钓';
+  const renew = '/垂钓 继续垂钓 ' + sessionId;
+  const net = '/垂钓 捕灵网';
+  const action = (label: string, command: string) => ({ label, command });
+  const footer = [
+    action('垂钓记录', '/垂钓 战报 1'), action('渔获', '/储物袋 渔获'), action('渔市', '/渔市'),
+    action('锦鲤赐福', '/垂钓 赐福'), action('沧澜钓仙会', '/垂钓 大赛')
+  ];
+  let active = false;
+  const { app, requests } = await gameFixture(t, request => {
+    if (['/fishing.start-current', '/fishing.renew-current', '/fishing.use-net-current'].some(route => request.path.endsWith(route))) {
+      return businessEnvelope(request.bid, base({ view: 'receipt', title: '操作完成', sections: [], footer: [] }));
+    }
+    return businessEnvelope(request.bid, base({
+      status: 'home-unified',
+      sections: [{
+        title: '', id: '', suffix: '', quote: true,
+        lines: [
+          active ? '状态：🎣垂钓中🎣' : '状态：👐可开钓👐', '水域：炼气水域', '钓竿：青竹灵竿 · 一阶',
+          '鱼饵：素灵饵2份', '窝料：未打窝', '每竿用时：10分钟', '预计可钓：20分钟（上限12小时）'
+        ],
+        actions: [action('升级', '/垂钓 升塘'), action('换竿', '/垂钓 钓具 1'), action('换饵', '/垂钓 饵料'),
+          action('打窝', '/垂钓 打窝'), action('当前概率', '/垂钓 当前概率')]
+      }, {
+        title: '操作', id: '', suffix: '', quote: true, lines: [],
+        actions: [
+          active ? action('继续垂钓', renew) : action('开始垂钓', start),
+          ...[[3, '3小时'], [6, '6'], [12, '12']].map(([hours, label]) => action(String(label), `${active ? renew : start} ${hours}`)),
+          ...(active ? [action('结束垂钓', '/垂钓 收竿')] : []),
+          action('捕灵网', net), action('领免费窝料', '/垂钓 每日补给')
+        ]
+      }], footer
+    }));
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const send = async (command: string) => delivered(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
+  const ready = await send('/垂钓');
+  assert.match(ready.text, /状态：👐可开钓👐/);
+  assert.match(ready.text, /‹开始垂钓› *‹3小时› *‹6› *‹12›\n> *‹捕灵网›/);
+  assert.deepEqual(ready.commands.slice(5, 9), [start, `${start} 3`, `${start} 6`, `${start} 12`]);
+  assert.ok(!ready.commands.includes('/垂钓 收竿'));
+  await send(ready.commands.find(command => command === `${start} 3`)!);
+  assert.ok(requests.at(-1)!.path.endsWith('/fishing.start-current'));
+  assert.deepEqual(requests.at(-1)!.body.arguments, { kind: 'start-current', hours: 3 });
+  active = true;
+  const fishing = await send('/垂钓');
+  assert.match(fishing.text, /状态：🎣垂钓中🎣/);
+  assert.match(fishing.text, /‹继续垂钓› *‹3小时› *‹6› *‹12›\n> *‹结束垂钓›/);
+  assert.deepEqual(fishing.commands.slice(5, 9), [renew, `${renew} 3`, `${renew} 6`, `${renew} 12`]);
+  assert.ok(fishing.commands.includes('/垂钓 收竿'));
+  assert.ok(!fishing.commands.includes('/垂钓 开钓'));
+  assert.deepEqual(ready.commands.slice(0, 5), fishing.commands.slice(0, 5));
+  assert.deepEqual(fishing.commands.slice(0, 5), ['/垂钓 升塘', '/垂钓 钓具 1', '/垂钓 饵料', '/垂钓 打窝', '/垂钓 当前概率']);
+  await send(fishing.commands.find(command => command === renew)!);
+  assert.ok(requests.at(-1)!.path.endsWith('/fishing.renew-current'));
+  assert.deepEqual(requests.at(-1)!.body.arguments, { sessionId });
+  await send(fishing.commands.find(command => command === `${renew} 12`)!);
+  assert.ok(requests.at(-1)!.path.endsWith('/fishing.renew-current'));
+  assert.deepEqual(requests.at(-1)!.body.arguments, { sessionId, hours: 12 });
+  await send(fishing.commands.find(command => command === net)!);
+  assert.ok(requests.at(-1)!.path.endsWith('/fishing.use-net-current'));
+  assert.deepEqual(requests.at(-1)!.body.arguments, {});
+  assert.equal(requests.length, 6);
 });
 
 test('垂钓四入口注册，首页真实组件发送且全部蓝链只填手发', async t => {
@@ -147,6 +214,125 @@ test('开钓只提交有限已有饵窝配置，不自动购买或增加预留',
   assert.equal(requests.length, 1);
 });
 
+test('缺饵开钓显示素灵饵总价，确认链接只提交原购买报价', async t => {
+  const confirmationRef = 'r1_1_y_1z141z3_0123456789abcdef01234567';
+  const confirmCommand = `/垂钓 确认 ${confirmationRef}`;
+  const operationId = 'bait-start-original';
+  const section = (lines: string[]) => ({ title: '', id: '', suffix: '', lines, actions: [] });
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/fishing.start-current')) {
+      return businessEnvelope(request.bid, base({
+        view: 'start-bait-purchase-preview',
+        title: '垂钓 · 补饵确认',
+        confirmationRef,
+        operationId,
+        expiresAt: '2026-11-16T10:05:00Z',
+        sections: [section(['当前可用鱼饵：0份', '购买：素灵饵×100', '费用：10000灵石', '确认后购买鱼饵并开始垂钓。'])],
+        footer: [{ label: '确认购买并开钓', command: confirmCommand }, { label: '取消', command: '/垂钓' }]
+      }));
+    }
+    if (request.path.endsWith('/fishing.query')) {
+      return businessEnvelope(request.bid, base());
+    }
+    assert.ok(request.path.endsWith('/fishing.confirm'));
+    assert.deepEqual(request.body.arguments, { ref: confirmationRef });
+    return businessEnvelope(request.bid, base({
+      view: 'receipt',
+      title: '已购买鱼饵并开始垂钓',
+      operationId,
+      status: 'completed',
+      sections: [section(['消耗：10000灵石', '购买：素灵饵×100'])],
+      footer: [{ label: '返回垂钓', command: '/垂钓' }]
+    }));
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const send = async (command: string, captureLabel: string) =>
+    delivered(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })), captureLabel);
+  const preview = await send('/垂钓 开钓', '缺饵开钓确认');
+  assert.match(preview.text, /购买：素灵饵×100.*费用：10000灵石/s);
+  assert.match(preview.text, /确认购买并开钓.*取消/s);
+  assert.match(preview.text, /预览有效5分钟/);
+  assert.deepEqual(requests[0].body.arguments, { kind: 'start-current' });
+  assert.equal(requests.length, 1);
+
+  await send(preview.commands.find(command => command === '/垂钓')!, '取消补饵返回垂钓');
+  assert.equal(requests.length, 2);
+  assert.ok(requests[1].path.endsWith('/fishing.query'));
+
+  const confirm = preview.commands.find(command => command === confirmCommand);
+  assert.ok(confirm);
+  assert.ok([...confirm].length <= 80);
+  const receipt = await send(confirm, '补饵开钓完成');
+  assert.match(receipt.text, /已购买鱼饵并开始垂钓/);
+  assert.ok(!receipt.commands.includes(confirm));
+  assert.equal(requests.length, 3);
+});
+
+test('鱼饵不足时展示服务端混合补饵清单和总价', async t => {
+  const startCommand = '/垂钓 按配置开钓 1 4 R186';
+  const { app, requests } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, base({
+      view: 'start-bait-purchase-preview',
+      title: '垂钓 · 补饵确认',
+      confirmationRef: ref,
+      operationId: 'configured-bait-start',
+      expiresAt: '2026-11-16T10:05:00Z',
+      sections: [{
+        title: '', id: '', suffix: '',
+        lines: ['当前可用鱼饵：17份', '本次垂钓需要：24份（4小时）', '购买：聚灵饵×3、素灵饵×4', '费用：1000灵石', '确认后购买鱼饵并开始垂钓。'],
+        actions: []
+      }],
+      footer: [{ label: '确认购买并开钓', command: `/垂钓 确认 ${ref}` }, { label: '取消', command: '/垂钓' }]
+    }))
+  );
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const result = await app.dispatch(app.events.privateMessage({ text: startCommand, platform: 'qq-bot' }));
+  const preview = delivered(result, '混合鱼饵补足确认');
+  assert.match(preview.text, /本次垂钓需要：24份（4小时）.*购买：聚灵饵×3、素灵饵×4.*费用：1000灵石/s);
+  assert.ok(preview.commands.includes(`/垂钓 确认 ${ref}`));
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0].path.endsWith('/fishing.start-current'));
+  assert.deepEqual(requests[0].body.arguments, { kind: 'start-current', sku: 'config', waterLevel: 1, hours: 4, rodId: 'R186' });
+});
+
+test('续钓缺饵按原会话显示购买明细和背包备用饵，再由原引用确认', async t => {
+  const sessionId = 'fs_' + 'a'.repeat(32);
+  const renew = `/垂钓 继续垂钓 ${sessionId} 6`;
+  const confirm = `/垂钓 确认 ${ref}`;
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/fishing.renew-current')) {
+      return businessEnvelope(request.bid, base({
+        view: 'renew-bait-purchase-preview',
+        title: '垂钓 · 续钓补饵确认',
+        confirmationRef: ref,
+        operationId: 'renew-bait-original',
+        expiresAt: '2026-11-16T10:05:00Z',
+        sections: [{
+          title: '', id: '', suffix: '',
+          lines: ['本次续钓需要：36份（6小时）', '背包补充：定鳞饵×12', '购买：聚灵饵×3、素灵饵×4', '费用：1000灵石'],
+          actions: []
+        }],
+        footer: [{ label: '确认补饵并继续垂钓', command: confirm }, { label: '取消', command: '/垂钓' }]
+      }));
+    }
+    assert.ok(request.path.endsWith('/fishing.confirm'));
+    return businessEnvelope(request.bid, base({ view: 'receipt', title: '继续垂钓完成', operationId: 'renew-bait-original' }));
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const send = async (command: string, captureLabel: string) =>
+    delivered(await app.dispatch(app.events.privateMessage({ text: command, platform: 'qq-bot' })), captureLabel);
+  const preview = await send(renew, '续钓补饵确认');
+  assert.match(preview.text, /本次续钓需要：36份（6小时）.*背包补充：定鳞饵×12.*购买：聚灵饵×3、素灵饵×4.*费用：1000灵石/s);
+  assert.equal(requests.length, 1);
+  assert.deepEqual(requests[0].body.arguments, { sessionId, hours: 6 });
+  const confirmFromPage = preview.commands.find(command => command === confirm);
+  assert.ok(confirmFromPage);
+  const receipt = await send(confirmFromPage, '补饵续钓完成');
+  assert.match(receipt.text, /继续垂钓完成/);
+  assert.deepEqual(requests[1].body.arguments, { ref });
+  assert.equal(requests.length, 2);
+});
+
 test('同一查询消息重投取得新观察，不沿用旧页面幂等回放', async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, base()));
   const event = app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot', messageId: 'same-query-message' });
@@ -158,6 +344,7 @@ for (const command of [
   '/垂钓 确认 '+ref.slice(0, -1), '/垂钓 确认 '+ref.replace('_y_', '_f_'), '/垂钓 确认 '+ref+' extra',
   '/垂钓 鱼种 fishing_r2_b 0', '/垂钓 鱼 F0186 -1', '/垂钓 渔获 9007199254740992',
   '/垂钓 开钓 2 2 R1 素灵饵 10', '/垂钓 开钓 2 24 R1 素灵饵 288', '/垂钓 开钓 2 6 R1 素灵饵 40 聚鳞散 1001',
+  '/垂钓 开钓 0', '/垂钓 开钓 13', '/垂钓 开钓 1.5', '/垂钓 继续垂钓 3', '/垂钓 继续垂钓 fs_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 13',
   '/垂钓 购买 coin bait_plain 1.5', '/垂钓 兑换 道晶 1', '/垂钓 升塘 extra', '/垂钓 建塘 extra'
 ]) test(`无效垂钓指令零后端请求：${command}`, async t => {
   const { app, requests } = await gameFixture(t, () => { throw new Error('invalid input must not request'); });
@@ -183,6 +370,8 @@ test('DTO拒绝跨主体引用、超长动作、超页实例以及损坏数字',
   assert.throws(() => parseFishingView(base({ view: 'instances', sections: Array.from({ length: 6 }, () => base().sections[0]) })));
   assert.throws(() => parseFishingView(base({ nav: { page: 2, totalPages: 1, total: 1, command: '/垂钓 渔获 {page}' } })));
   assert.throws(() => parseFishingView({ ...base(), sections: [{ ...base().sections[0], id: 9007199254740992 }] }));
+  assert.throws(() => parseFishingView(base({ view: 'start-bait-purchase-preview' })));
+  assert.throws(() => parseFishingView(base({ view: 'renew-bait-purchase-preview' })));
   const maxRef = 'r1_2gosa7pa2gv_y_2gosa7pa2gv_0123456789abcdef01234567';
   assert.ok(validFishingReference(maxRef));
   assert.ok([...`/垂钓 确认 ${maxRef}`].length <= 80);
@@ -271,11 +460,11 @@ test('升竿真实三组布局保留原编号与资源持有且确认按钮不�
   assert.equal(view.commands.filter(cmd=>cmd===`/垂钓 确认 ${ref}`).length,1);
 });
 
-test('钓具页换竿只发送一次配置请求并展示下一竿生效', async t => {
+test('钓具页换竿只发送一次配置请求并展示当前竿重计时', async t => {
   const rodId = 'fr_0123456789abcdef0123456789abcdef';
   const command = `/垂钓 换竿 ${rodId}`;
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, request.path.endsWith('fishing.configure')
-    ? base({ view: 'receipt', title: '已安排更换钓具', sections: [{ title: '', id: '', suffix: '', lines: ['从下一竿开始生效。'], actions: [] }] })
+    ? base({ view: 'receipt', title: '钓具已选择', sections: [{ title: '', id: '', suffix: '', lines: ['已换上照渊寻珍竿 · 一阶，当前竿重新计时。'], actions: [] }] })
     : base({ view: 'gear', title: '垂钓 · 钓具', sections: [{ title: '照渊寻珍竿', id: rodId, suffix: '', lines: [], actions: [{ label: '换竿', command }] }] })));
   const gear = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓 钓具 1', platform: 'qq-bot' })), '钓具·换竿入口');
   const switchCommand = gear.commands.find(cmd => cmd === command);
@@ -283,7 +472,7 @@ test('钓具页换竿只发送一次配置请求并展示下一竿生效', async
   assert.ok(switchCommand);
   const receipt = delivered(await app.runHandler(handler, app.events.privateMessage({ text: switchCommand, platform: 'qq-bot' })), '钓具·换竿结果');
 
-  assert.match(receipt.text, /从下一竿开始生效/);
+  assert.match(receipt.text, /当前竿重新计时/);
   assert.equal(requests.length, 2);
   assert.ok(requests[1].path.endsWith('/fishing.configure'));
   assert.deepEqual(requests[1].body.arguments, { kind: 'rod-switch', rodId });

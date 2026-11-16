@@ -47,6 +47,8 @@ const fishingWriteOperations = new Set([
   'fishing.preview',
   'fishing.confirm',
   'fishing.start-current',
+  'fishing.renew-current',
+  'fishing.use-net-current',
   'fishing.stop-current',
   'fishing.configure',
   'fishing.purchase',

@@ -236,13 +236,17 @@ export default onResponse(selects, async event => {
             ? '说明：周赛领奖结果尚未核实，请查看该周原奖励状态，不要重新计算或重复领取。'
             : parsed.operation === 'fishing.start-current'
               ? '说明：开钓结果尚未核实，请先查看当前垂钓状态，不要重复开始。'
-              : parsed.operation === 'fishing.stop-current'
-                ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'
-                : parsed.operation === 'fishing.configure'
-                  ? parsed.input.kind === 'rod-switch'
-                    ? '说明：换竿结果尚未核实，请先查看当前钓具。'
-                    : '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
-                  : '说明：购买结果尚未核实，请先核对余额与已有物资，不要重复购买。',
+              : parsed.operation === 'fishing.renew-current'
+                ? '说明：继续垂钓的结果尚未核实，请先查看当前垂钓时长。'
+                : parsed.operation === 'fishing.use-net-current'
+                  ? '说明：捕灵网结果尚未核实，请先查看垂钓记录与渔获，避免重复使用。'
+                  : parsed.operation === 'fishing.stop-current'
+                    ? '说明：收杆结果尚未核实，请先查看当前垂钓状态，不要重复操作。'
+                    : parsed.operation === 'fishing.configure'
+                      ? parsed.input.kind === 'rod-switch'
+                        ? '说明：换竿结果尚未核实，请先查看当前钓具。'
+                        : '说明：设置或打窝结果尚未核实，请先查看当前设置与窝料状态，不要重复操作。'
+                      : '说明：购买结果尚未核实，请先核对余额与已有物资，不要重复购买。',
         actions: original ? [{ label: '重试原确认', command: `/垂钓 确认 ${original}`, autoEnter: false }] : undefined,
         footer: back
       })

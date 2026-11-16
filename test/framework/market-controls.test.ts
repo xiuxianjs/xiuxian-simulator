@@ -137,7 +137,7 @@ test('最新结果保持服务端顺序，不在气泡中按低价重新排列',
   assert.ok(view.text.indexOf('【302】') < view.text.indexOf('【301】'));
 });
 
-test('珍宝楼列表只显示鱼的交易信息，查看页按挂单编号读取精确克重', async t => {
+test('珍宝楼鱼类沿用挂单行格式，查看页按挂单编号读取精确克重', async t => {
   const fish: MarketBrowseItem = {
     ...item, listingId: 801, itemCategory: 'fish', itemCategoryLabel: '鱼类', itemType: null, itemSubtype: null, templateItemId: null,
     itemName: '金须鲤', catchId: 'ff_' + 'a'.repeat(32), weightG: 1840, unitPriceAmount: 500,
@@ -201,9 +201,10 @@ test('珍宝楼列表只显示鱼的交易信息，查看页按挂单编号读�
     assert.ok([...action].length <= 80);
   };
 
-  assertRow(publicPage, ['【801】【鱼类】 金须鲤×1', '单价：500 灵晶  卖家：清霜'], '/选购 801 1');
+  assertRow(publicPage, ['【801】【鱼类】 金须鲤', '重量：1.840 kg · 境界：凡鱼', '整尾价格：500 灵晶  卖家：清霜'], '/选购 801 1');
+  assertRow(publicPage, ['【802】【鱼类】 青背鲫', '重量：0.178 kg · 境界：凡鱼', '整尾价格：500 灵晶  卖家：清霜'], '/珍宝楼 查看鱼类 802');
   assertRow(myPage, ['【801】【鱼类】 金须鲤 ×1', '重量：1.840 kg', '单价：500 灵晶  总价：500 灵晶', '时间：2026-10-23 09:00:00'], '/交易下架 801');
-  assert.doesNotMatch(publicPage.text, /重量：|1\.840 kg|0\.178 kg/);
+  assert.doesNotMatch(publicPage.text, /金须鲤 #801|青背鲫 #802/);
   assert.match(detailPage.text, /珍宝楼 · 鱼类详情/);
   assert.match(detailPage.text, /【801】金须鲤 #ff_a{32}/);
   assert.match(detailPage.text, /境界：筑基/);

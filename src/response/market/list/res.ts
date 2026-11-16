@@ -212,7 +212,7 @@ export default onResponse(selects, async e => {
     const canBuy = it.canPurchase;
     const typeLabel = it.itemCategoryLabel;
     const fish = it.itemCategory === 'fish';
-    const lines = [fish ? `${it.itemName} #${it.listingId}` : `【${it.listingId}】【${typeLabel}】 ${it.itemName}×${it.quantity}`];
+    const lines = [`【${it.listingId}】【${typeLabel}】 ${it.itemName}${fish ? '' : `×${it.quantity}`}`];
     const mktBtns: { label: string; command: string; autoEnter?: boolean }[] = [];
 
     if (canBuy) {

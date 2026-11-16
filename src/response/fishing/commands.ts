@@ -16,6 +16,8 @@ type FishingRequest =
         | 'fishing.preview'
         | 'fishing.purchase'
         | 'fishing.start-current'
+        | 'fishing.renew-current'
+        | 'fishing.use-net-current'
         | 'fishing.stop-current'
         | 'fishing.configure'
         | 'fishing.contest-claim';
@@ -310,6 +312,17 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
       ? query('history', { sku: 'fish', page, ...(sessionId === undefined ? {} : { sessionId }) })
       : error('/垂钓 渔获记录 [页码] [原会话编号]');
   }
+  if (verb === '捕灵网') {
+    return values.length === 0 ? { operation: 'fishing.use-net-current', input: {} } : error('/垂钓 捕灵网');
+  }
+  if (verb === '继续垂钓') {
+    const [sessionId, duration] = values;
+    const hours = n(duration, 1, 12);
+
+    return values.length <= 2 && /^fs_[0-9a-f]{32}$/.test(sessionId) && (duration === undefined || hours !== undefined)
+      ? { operation: 'fishing.renew-current', input: { sessionId, ...(hours ? { hours } : {}) } }
+      : error('/垂钓 继续垂钓 <原会话编号> [1至12小时]');
+  }
   if (verb === '渔具' || verb === '用网') {
     if (verb === '渔具' && values.length === 1 && values[0] === '水域') {
       return query('tools', { sku: 'water' });
@@ -584,12 +597,21 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
       ? preview('cashout', { currency, quantity })
       : error('/垂钓 兑换 <灵晶|灵石> <数量>');
   }
-  if (verb === '开钓') {
+  if (verb === '开钓' || verb === '开始垂钓') {
     if (!values.length) {
       return { operation: 'fishing.start-current', input: { kind: 'start-current' } };
     }
     if (values.length === 1) {
-      return id(values[0]) ? { operation: 'fishing.start-current', input: { kind: 'start-current', rodId: values[0] } } : error('/垂钓 开钓 [原竿编号]');
+      const [durationOrRod] = values;
+      const hours = n(durationOrRod, 1, 12);
+
+      if (hours !== undefined) {
+        return { operation: 'fishing.start-current', input: { kind: 'start-current', hours } };
+      }
+
+      return id(durationOrRod) && !/^[\d.]+$/.test(durationOrRod)
+        ? { operation: 'fishing.start-current', input: { kind: 'start-current', rodId: durationOrRod } }
+        : error('/垂钓 开钓 [1至12小时或原竿编号]');
     }
     const waterLevel = n(values[0], 1, 9);
     const hours = n(values[1], 1, 12);
@@ -636,7 +658,7 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
     if (
       fields.length > 3 ||
       (fields[0] !== undefined && waterLevel === undefined) ||
-      (fields[1] !== undefined && (hours === undefined || ![1, 4, 6, 8, 12].includes(hours))) ||
+      (fields[1] !== undefined && hours === undefined) ||
       (rodId !== undefined && !id(rodId))
     ) {
       return error('/垂钓 配置');

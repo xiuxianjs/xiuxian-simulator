@@ -87,7 +87,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       target.addButton(markdownButtonLabel(action.label, selected), { data: action.command, autoEnter: false });
     });
   };
-  const block = (section: FishingSection, quote: boolean, inline = false, titleActions = false, terminal = false, number?: number) => {
+  const block = (section: FishingSection, quote: boolean, inline = false, titleActions = false, terminal = false, number?: number, actionOffset = 0) => {
     quote = section.quote ?? quote;
     const target = Format.createMarkdown();
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
@@ -138,11 +138,13 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       } else {
         text(target, line);
       }
-      if (inline && section.actions[index]) {
-        buttons(target, [section.actions[index]]);
+      const inlineAction = inline ? section.actions[index - actionOffset] : undefined;
+
+      if (inlineAction) {
+        buttons(target, [inlineAction]);
       }
     });
-    const rest = titleActions ? [] : inline ? section.actions.slice(section.lines.length) : section.actions;
+    const rest = titleActions ? [] : inline ? section.actions.slice(Math.max(0, section.lines.length - actionOffset)) : section.actions;
 
     if (rest.length) {
       if (title || section.lines.length) {
@@ -177,7 +179,25 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     footer = [...footer, { label: '返回活动', command: '/我的活动' }];
   }
 
-  if (data.view === 'overview' && data.status === 'home-compact') {
+  if (data.view === 'overview' && data.status === 'home-unified') {
+    sections.forEach((section, index) => {
+      if (index === 0) {
+        block(section, true, true, false, false, undefined, 1);
+      } else if (index === 1 && section.actions.length) {
+        md.addText(section.title || '操作').addNewline();
+        const controls = Format.createMarkdown();
+        const quickHourLabels = ['3小时', '6', '12'];
+        const firstRowCount = quickHourLabels.every((label, index) => section.actions[index + 1]?.label === label) ? 4 : 1;
+
+        buttons(controls, section.actions.slice(0, firstRowCount));
+        for (const action of section.actions.slice(firstRowCount)) {
+          controls.addNewline();
+          buttons(controls, [action]);
+        }
+        md.addBlockquote(controls).addNewline();
+      }
+    });
+  } else if (data.view === 'overview' && data.status === 'home-compact') {
     sections.forEach(section => block(section, true));
   } else if (data.view === 'start' && data.status === 'config-compact') {
     sections.forEach(section => block(section, true, section.lines.length >= section.actions.length));

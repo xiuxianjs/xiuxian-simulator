@@ -19,12 +19,11 @@ import { isShopPurchaseReference, parseShopPurchaseOverview, parseShopPurchaseRe
  */
 import { toCurrencyName } from '@src/constants';
 import { displayCurrencyText } from '@src/constants/currency';
-import { formatNumber } from '@src/utils/formatHelper';
 import type { ShopListProductItem } from '@src/api/schemas/companion-shop-query';
 import { SHOP_META } from '@src/response/shop/meta';
 import { selects } from '@src/response/config';
 import { appendCurrencyCardToMd } from '@src/utils/currencyCardHelper';
-import { createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
+import { addOptions, createQuoteMarkdown, FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse } from 'alemonjs';
 /** 情绪型商品购买后的氛围文本（道侣商店专属，无战力影响） */
 const EMOTIONAL_ITEM_TEXT: Record<string, string> = {
@@ -112,6 +111,7 @@ const getShopHeader = (access: ShopAccessState, selection: ReturnType<typeof par
       {
         ...item,
         selected: selection.shopCode === shopCode,
+        autoEnter: false,
         command: buildShopBrowseCommand(selection, {
           shopCode,
           currencyCode: undefined,
@@ -139,15 +139,84 @@ const formatItem = (item: ShopListProductItem) => {
   const limitText = item.limit === -1 ? '不限购' : `限${item.limit}份 · 剩余${item.remaining}份`;
   const periodText = item.limit > 0 ? `${item.limitPeriodCN}` : '';
   const lockText = item.unlocked ? '' : ` 🔒${item.lockReason ?? '未解锁'}`;
-  const grantText = ` ×${item.quantity}`;
 
   return {
     limitText,
     periodText,
     lockText,
-    grantText,
     price
   };
+};
+
+// The Go catalog pages these same item packs together before returning their
+// individual SKUs. Never use the display title or the first SKU to buy an offer.
+const groupShopOffers = (products: ShopListProductItem[], groupFishing: boolean) => {
+  const cards: ShopListProductItem[][] = [];
+  const packs = new Map<string, ShopListProductItem[]>();
+
+  for (const item of products) {
+    if (groupFishing && item.shopCode === 'FISHING' && item.category === 'item' && item.itemId && item.itemId > 0) {
+      const key = `${item.itemId}:${item.quantity}`;
+      const offers = packs.get(key);
+
+      if (offers) {
+        offers.push(item);
+        continue;
+      }
+      const pack = [item];
+
+      packs.set(key, pack);
+      cards.push(pack);
+    } else {
+      cards.push([item]);
+    }
+  }
+
+  return cards;
+};
+
+const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: ShopListProductItem) => {
+  const { limitText, periodText, lockText, price } = formatItem(item);
+  const detailCommand = getItemDetailCommand(item);
+  const shopBtns: { label: string; command: string }[] = [];
+  const soldOut = item.limit > 0 && item.remaining === 0;
+
+  if (item.unlocked && !soldOut) {
+    const buyCmd = SHOP_META[item.shopCode]?.buyCmd ?? '购买';
+
+    shopBtns.push({ label: '购买', command: `/${buyCmd} ${item.productId}` });
+  }
+  if (detailCommand) {
+    shopBtns.push({ label: '详情', command: detailCommand });
+  }
+
+  const lines = item.unlocked ? [] : [lockText];
+
+  lines.push(`${price}  ${periodText}${limitText}`);
+  if (soldOut) {
+    lines.push(
+      ({ 每日: '今日已兑完', 每周: '本周已兑完', 每月: '本月已兑完', 终身: '终身额度已用完' } as Record<string, string>)[item.limitPeriodCN] ?? '当前额度已用完'
+    );
+  }
+  if (item.category === 'soul_artifact' && item.limit > 0) {
+    const reset = ({ 每周: '每周一00:00重置', 每月: '每月1日00:00重置' } as Record<string, string>)[item.limitPeriodCN];
+
+    if (reset) {
+      lines.push(`${reset}（北京时间）`);
+    }
+  }
+  if (item.shopCode !== 'CHECKIN' && item.category === 'item' && (item.itemId === 38 || item.itemId === 39)) {
+    shopBtns.push({ label: '查看签到兑换', command: `/商店 签到 搜索 ${item.itemId === 38 ? '精力丹' : '元力丹'}` });
+  }
+  quote.absorb(createQuoteMarkdown(lines));
+  if (shopBtns.length > 0) {
+    addOptions(
+      quote,
+      shopBtns.map(button => ({ ...button, autoEnter: false }))
+    );
+  } else {
+    quote.addNewline();
+  }
 };
 
 /**
@@ -213,10 +282,10 @@ export const createShopListHandler = (shopCode?: string) => {
         const searching = Boolean(parsed.filters.keyword ?? parsed.searchReference);
         const selection = { ...parsed, searchReference: searching ? shopQuery.searchReference : undefined };
         const renderCurrency = (md: ReturnType<typeof Format.createMarkdown>) => {
-          appendCurrencyCardToMd(md, shopQuery.currencies, { hideZero: true });
-          if (activeShopCode === 'FISHING' && shopQuery.currencies.fishingCoin !== undefined) {
-            md.addText(`灵鳞钱：${formatNumber(shopQuery.currencies.fishingCoin)}`).addNewline();
-          }
+          appendCurrencyCardToMd(md, shopQuery.currencies, {
+            hideZero: true,
+            fishingCoin: activeShopCode === 'FISHING' ? shopQuery.currencies.fishingCoin : undefined
+          });
           if (!shopQuery.access.deniedReason) {
             appendShopSearch(md, parsed);
             if (searching && !selection.searchReference) {
@@ -226,7 +295,7 @@ export const createShopListHandler = (shopCode?: string) => {
         };
         const shopHeader = getShopHeader(access, selection);
 
-        const categoryFooter = createShopCategoryFooter(selection);
+        const categoryFooter = createShopCategoryFooter(selection).map(action => ({ ...action, autoEnter: false as const }));
         const accessDeniedReason = access.deniedReason;
         const meta = activeShopCode ? SHOP_META[activeShopCode] : undefined;
 
@@ -277,59 +346,15 @@ export const createShopListHandler = (shopCode?: string) => {
         renderCurrency(contentMd);
 
         // 商品列表
-        result.data.forEach((item: ShopListProductItem) => {
-          const { limitText, periodText, lockText, grantText, price } = formatItem(item);
-          const detailCommand = getItemDetailCommand(item);
-          const itemMeta = SHOP_META[item.shopCode];
+        groupShopOffers(result.data, activeShopCode === 'FISHING' && !currencyCode).forEach(offers => {
+          const [first] = offers;
+          const typeTag = first.typeLabel ? `【${first.typeLabel}】` : '';
+          const quote = Format.createMarkdown().addBold(`【${first.productId}】${typeTag}${first.name} ×${first.quantity}`).addNewline();
 
-          const typeTag = item.typeLabel ? `【${item.typeLabel}】` : '';
-
-          const lines = [`【${item.productId}】${typeTag}${item.name}${grantText}`];
-          const shopBtns: { label: string; command: string }[] = [];
-          const buyCmd = itemMeta?.buyCmd ?? '购买';
-          const soldOut = item.limit > 0 && item.remaining === 0;
-
-          if (item.unlocked && !soldOut) {
-            if (item.shopCode === 'FISHING') {
-              shopBtns.push({ label: '买1份', command: `/${buyCmd} ${item.productId} 1` });
-              if (item.limit === -1 || item.remaining > 1) {
-                const count = item.limit === -1 ? 10 : Math.min(10, item.remaining);
-
-                shopBtns.push({ label: `买${count}份`, command: `/${buyCmd} ${item.productId} ${count}` });
-              }
-            } else {
-              shopBtns.push({ label: '购买', command: `/${buyCmd} ${item.productId}` });
-            }
-
-            if (detailCommand) {
-              shopBtns.push({ label: '详情', command: detailCommand });
-            }
-          } else {
-            if (detailCommand) {
-              shopBtns.push({ label: '详情', command: detailCommand });
-            }
-            if (!item.unlocked) {
-              lines.push(lockText);
-            }
-          }
-          lines.push(`${price}  ${periodText}${limitText}`);
-          if (soldOut) {
-            lines.push(
-              ({ 每日: '今日已兑完', 每周: '本周已兑完', 每月: '本月已兑完', 终身: '终身额度已用完' } as Record<string, string>)[item.limitPeriodCN] ??
-                '当前额度已用完'
-            );
-          }
-          if (item.category === 'soul_artifact' && item.limit > 0) {
-            const reset = ({ 每周: '每周一00:00重置', 每月: '每月1日00:00重置' } as Record<string, string>)[item.limitPeriodCN];
-
-            if (reset) {
-              lines.push(`${reset}（北京时间）`);
-            }
-          }
-          if (item.shopCode !== 'CHECKIN' && item.category === 'item' && (item.itemId === 38 || item.itemId === 39)) {
-            shopBtns.push({ label: '查看签到兑换', command: `/商店 签到 搜索 ${item.itemId === 38 ? '精力丹' : '元力丹'}` });
-          }
-          contentMd.addBlockquote(createQuoteMarkdown(lines, shopBtns));
+          offers.forEach(item => {
+            appendShopOffer(quote, item);
+          });
+          contentMd.addBlockquote(quote);
         });
 
         const pageCmd = buildShopBrowseCommand(selection, {}, '{page}');
@@ -346,7 +371,8 @@ export const createShopListHandler = (shopCode?: string) => {
               ? {
                   current: result.pagination.currentPage,
                   total: result.pagination.totalPages,
-                  command: pageCmd
+                  command: pageCmd,
+                  autoEnter: false
                 }
               : undefined
         });

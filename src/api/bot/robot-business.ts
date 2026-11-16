@@ -26,6 +26,8 @@ export type RobotBusinessOperation =
   | 'fishing.preview'
   | 'fishing.purchase'
   | 'fishing.start-current'
+  | 'fishing.renew-current'
+  | 'fishing.use-net-current'
   | 'fishing.stop-current'
   | 'fishing.configure'
   | 'fishing.confirm'

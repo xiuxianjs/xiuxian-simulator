@@ -204,7 +204,11 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
     const section = row(value);
     const actions = absent(section.actions) ? [] : array(section.actions, action);
 
-    if (actions.length > (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3)) {
+    const unifiedHome = view === 'overview' && data.status === 'home-unified';
+    const homeActions = [5, 7];
+    const maxActions = (unifiedHome ? homeActions[index] : undefined) ?? (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3);
+
+    if (actions.length > maxActions) {
       return invalid();
     }
 
@@ -277,6 +281,9 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
     result.expiresAt = expiresAt;
   }
   if (result.confirmationRef && (!result.operationId?.trim() || !result.expiresAt || !sections.length)) {
+    return invalid();
+  }
+  if (['start-bait-purchase-preview', 'renew-bait-purchase-preview'].includes(view) && !result.confirmationRef) {
     return invalid();
   }
 
