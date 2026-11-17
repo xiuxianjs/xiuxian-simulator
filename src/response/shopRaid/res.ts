@@ -100,6 +100,7 @@ function parseBoard(value: unknown) {
       myTeamAutoReturn: myTeamAutoReturn === true,
       raidTeams,
       canClose: row.canClose === true,
+      canSupport: row.canSupport === true,
       canSoloRaid: row.canSoloRaid === true,
       revision: row.revision,
       status: phase === 'fighting' && typeof row.raidPhase === 'string' ? '本轮报名中' : Object.hasOwn(phaseText, phase) ? phaseText[phase] : '已结案',
@@ -178,15 +179,15 @@ export default onResponse(selects, async event => {
   };
 
   if (action === '打劫队') {
-    const modes: Record<string, string> = { 创建: 'create', 加入: 'join', 退出: 'leave', 移除: 'kick', 解散: 'disband' };
+    const modes: Record<string, string> = { 创建: 'create', 加入: 'join', 退出: 'leave', 移除: 'kick', 解散: 'disband', 协守: 'support' };
     const mode = args.length === 0 ? 'list' : modes[args[0]];
     const crewId = args[1] === undefined ? null : parsePKCommandInteger(args[1]);
     const memberId = args[2] === undefined ? null : parsePKCommandInteger(args[2]);
     const valid =
       mode === 'list' ||
       (mode === 'create' && args.length === 1) ||
-      (mode === 'kick' && args.length === 3 && crewId !== null && memberId !== null) ||
-      (mode !== 'create' && mode !== 'kick' && args.length === 2 && crewId !== null);
+      ((mode === 'kick' || mode === 'support') && args.length === 3 && crewId !== null && memberId !== null) ||
+      (mode !== 'create' && mode !== 'kick' && mode !== 'support' && args.length === 2 && crewId !== null);
 
     if (!mode || !valid) {
       await crewFeedback('请从队伍面板选择操作。');
@@ -194,10 +195,28 @@ export default onResponse(selects, async event => {
       return;
     }
     try {
-      const reply = await runRobotBusiness(event, 'shop-raid.crew', { mode, crewId: crewId ?? 0, memberId: memberId ?? 0 }, record, next, r => crewFeedback(r.text)
+      const reply = await runRobotBusiness(
+        event,
+        'shop-raid.crew',
+        mode === 'support' ? { mode, convoyId: crewId, revision: memberId } : { mode, crewId: crewId ?? 0, memberId: memberId ?? 0 },
+        record,
+        next,
+        r => crewFeedback(r.text)
       );
 
       if (reply.handled) { return; }
+      if (mode === 'support') {
+        await message.send(
+          listBubble({
+            ...common,
+            title: '已加入本车协守',
+            items: [{ lines: ['下一场斗法按最新守货阵容受理。'] }],
+            footer: [{ label: '查看商队', command: `/万宝楼商运 ${crewId}` }]
+          })
+        );
+
+        return;
+      }
       const mine = reply.data.crew ? record(reply.data.crew) : null;
       const teams = Array.isArray(reply.data.crews) ? reply.data.crews.map(record) : [];
       const list = mine ? [mine] : teams.slice(0, 10);
@@ -421,6 +440,10 @@ export default onResponse(selects, async event => {
   const closureRevision = closeConfirm ? parsePKCommandInteger(args[2]) : null;
   const guardPreview = action === '预览商运斗法';
   const guardConfirm = action === '确认商运斗法';
+  const defenderToken = guardConfirm && args.at(-2)?.match(/^阵容([0-9a-f]{16})$/);
+  const defenderStamp = defenderToken ? defenderToken[1] : undefined;
+
+  if (defenderStamp) { args.splice(-2, 1); }
   const guardAction = guardPreview || guardConfirm;
   const mainGuardId = guardConfirm ? parsePKCommandInteger(args[2]) : null;
   const risk = guardConfirm ? args.at(-1) : undefined;
@@ -529,7 +552,11 @@ export default onResponse(selects, async event => {
           confirmBubble({
             ...common,
             title: entry.data.holderBattle === true ? '确认反抢整车' : '确认劫货斗法',
-            target: [`本场财物对手：${entry.data.holderBattle === true ? '持货者' : '主守'} UID ${main}`, '胜负按整队判定，打赢后占用整车。'],
+            target: [
+              `本场财物对手：${entry.data.holderBattle === true ? '持货者' : '主守'} UID ${main}`,
+              ...(Array.isArray(entry.data.defenders) ? [`守货阵容 UID ${entry.data.defenders.join('、')}`] : []),
+              '胜负按整队判定，打赢后占用整车。'
+            ],
             costs: [
               '本场计入普通打劫，实际出战才扣元力。',
               reverse ? '若守方获胜、主守仍在场且攻方队长倒地，主守可能反夺普通财物。' : '本场守方获胜时仅保货。',
@@ -538,7 +565,7 @@ export default onResponse(selects, async event => {
             actions: [
               {
                 label: '确认抢货',
-                command: `/确认商运斗法 ${convoyId} ${seat} ${main}${teamAttack ? ` ${teamId} ${teamRevision}` : ''} ${reverse ? '可反夺' : '仅保货'}`
+                command: `/确认商运斗法 ${convoyId} ${seat} ${main}${teamAttack ? ` ${teamId} ${teamRevision}` : ''}${typeof entry.data.defenderStamp === 'string' ? ` 阵容${entry.data.defenderStamp}` : ''} ${reverse ? '可反夺' : '仅保货'}`
               }
             ],
             back: { label: '刷新商队', command: `/万宝楼商运 ${convoyId}` }
@@ -559,7 +586,7 @@ export default onResponse(selects, async event => {
                 convoyId,
                 revision: seat,
                 ...(teamAttack ? { teamId, teamRevision } : {}),
-                ...(guardConfirm ? { mainGuardId, reverseConfirmed } : {})
+                ...(guardConfirm ? { mainGuardId, reverseConfirmed, ...(defenderStamp ? { defenderStamp } : {}) } : {})
               },
               record,
               next,
@@ -592,6 +619,7 @@ export default onResponse(selects, async event => {
             items: [{ lines: [summary] }],
             footer: [
               ...(!common.isPrivate && (action !== '查看劫货进度' || typeof entry.data.convoyId === 'number') ? publicRaidActions(currentConvoy) : []),
+              ...(state === 'settled' && outcome?.attackWon === true ? [{ label: '创队伍', command: '/打劫队 创建' }] : []),
               ...(typeof outcome?.ordinaryLogId === 'number' && outcome.ordinaryLogId > 0
                 ? [{ label: '原争夺战报', command: `/争夺战报 ${outcome.ordinaryLogId}` }]
                 : []),
@@ -844,6 +872,9 @@ export default onResponse(selects, async event => {
         );
       } else if (card.canClose && card.phase === 'contested') {
         actions.unshift({ label: '主动弃货', command: `/商运结案 ${card.id} 弃货` });
+      }
+      if (card.canSupport && typeof card.revision === 'number') {
+        actions.push({ label: '确认协守', command: `/打劫队 协守 ${card.id} ${card.revision}` });
       }
 
       if (card.phase === 'recruiting') {

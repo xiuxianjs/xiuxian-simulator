@@ -424,6 +424,33 @@ test('旁观者从旧劫货回执点击，用本人身份读取当前持货人�
   assert.equal(requests.filter(request => request.path.endsWith('/shop-raid.solo')).length, 1);
 });
 
+test('持货后协守需本人确认，反抢确认携带守货阵容', async t => {
+  const stamp = 'a1b2c3d4a1b2c3d4';
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/shop-raid.crew')) return businessEnvelope(request.bid, {});
+    if (request.path.endsWith('/shop-raid.guard-preview')) {
+      return businessEnvelope(request.bid, { mainGuardId: 301, holderBattle: true, reverseEligible: true, defenders: [301, 302], defenderStamp: stamp });
+    }
+    assert.ok(request.path.endsWith('/shop-raid.solo'));
+    return businessEnvelope(request.bid, { attemptId: 20, convoyId: 81, state: 'settled', outcome: { attackWon: true } });
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const send = async (text: string) => {
+    const result = await app.dispatch(app.events.groupMessage({ text, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    return inspectMessage(result.messages[0].nodes);
+  };
+  assert.match((await send('/打劫队 协守 81 12')).text, /已加入本车协守/);
+  assert.deepEqual(requests[0].body.arguments, { mode: 'support', convoyId: 81, revision: 12 });
+  const preview = await send('/预览商运斗法 81 13');
+  assert.match(preview.text, /守货阵容 UID 301、302/);
+  const confirmation = `/确认商运斗法 81 13 301 阵容${stamp} 可反夺`;
+  assert.ok(preview.commands.includes(confirmation));
+  const won = await send(confirmation);
+  assert.ok(won.commands.includes('/打劫队 创建'));
+  assert.deepEqual(requests[2].body.arguments, { convoyId: 81, revision: 13, mainGuardId: 301, reverseConfirmed: true, defenderStamp: stamp });
+});
+
 test('我的状态逐张展示符箓的到期和合计加成', async t => {
   const { app } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/status-effects.list'));
