@@ -149,7 +149,7 @@ function statusEffectLines(effect: Record<string, unknown>) {
     case 'ju_bao':
       return [`普通秘境基础灵石 +${rate}% · 剩 ${uses} 次、${quota} 灵石`, expires, source];
     case 'lian_gong_jie_fei':
-      return [`待用 · 下次选用减 ${rate}% · 上限 ${quota} 灵石`, expires, source];
+      return [`升级功法时可选用 · 灵石减 ${rate}% · 单张最多抵 ${quota} 灵石`, expires, source];
     default:
       return [`闭关基础修为 +${rate}% · ${expires}`, source];
   }
