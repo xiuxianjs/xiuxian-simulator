@@ -577,6 +577,9 @@ test('无护送钱的实物车保留组队和启程后的抢货入口', async t 
 
 test('个人活动的送货商队打开列表，即使当前没有发车', async t => {
   let items: unknown[] = [];
+  const ownCrew = { id: 9, leaderId: 1, members: [1, 2] };
+  const otherCrew = { id: 10, leaderId: 3, members: [3] };
+  let belongsToCrew = false;
   const { app, requests } = await gameFixture(t, request => {
     if (request.path.endsWith('/activity.hub')) {
       return businessEnvelope(request.bid, {
@@ -589,6 +592,13 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
       });
     }
     if (request.path.endsWith('/shop-raid.board')) return businessEnvelope(request.bid, { items });
+    if (request.path.endsWith('/shop-raid.crew')) {
+      assert.deepEqual(request.body.arguments, { mode: 'list', crewId: 0, memberId: 0 });
+      return businessEnvelope(request.bid, {
+        crews: belongsToCrew ? [ownCrew, otherCrew] : [otherCrew], viewerId: 1,
+        ...(belongsToCrew ? { crew: ownCrew } : {})
+      });
+    }
     assert.ok(request.path.includes('/content/tianshu'));
     return {
       gateVersion: 1, intro: '说明', realmUnlocks: [], notes: [],
@@ -614,7 +624,33 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
   const entry = personal.commands.find(command => command === '/万宝楼商运');
   assert.ok(entry);
   assert.ok(!(await send('/宗门活动')).commands.includes(entry));
-  assert.match((await send(entry)).text, /当前没有正在招募或运送的商队/);
+  const emptyBoard = await send(entry);
+  assert.match(emptyBoard.text, /当前没有正在招募或运送的商队/);
+  const publicEntry = emptyBoard.commands.find(command => command === '/打劫队 列表');
+  const ownEntry = emptyBoard.commands.find(command => command === '/打劫队 我的');
+  assert.ok(publicEntry);
+  assert.ok(ownEntry);
+  assert.ok(!emptyBoard.commands.includes('/更多 交易'));
+  assert.doesNotMatch(emptyBoard.text, /查看商队列表|返回坊市交易/);
+  const availableTeams = await send(publicEntry);
+  assert.match(availableTeams.text, /打劫队列表/);
+  assert.ok(availableTeams.commands.includes('/打劫队 加入 10'));
+  const noTeam = await send(ownEntry);
+  assert.match(noTeam.text, /你尚未加入打劫队/);
+  assert.ok(noTeam.commands.includes('/打劫队 创建'));
+  assert.doesNotMatch(noTeam.text, /队伍 10/);
+  belongsToCrew = true;
+  const publicTeams = await send(publicEntry);
+  assert.match(publicTeams.text, /队伍 9/);
+  assert.match(publicTeams.text, /队伍 10/);
+  assert.ok(!publicTeams.commands.includes('/打劫队 解散 9'));
+  const myTeam = await send(ownEntry);
+  assert.match(myTeam.text, /我的打劫队/);
+  assert.match(myTeam.text, /队伍 9/);
+  assert.doesNotMatch(myTeam.text, /队伍 10/);
+  assert.ok(myTeam.commands.includes('/打劫队 解散 9'));
+  assert.ok(!myTeam.commands.includes('/打劫队 加入 9'));
+  assert.ok(myTeam.commands.includes(entry));
   items = [{
     id: 81, phase: 'recruiting', departureAt: '2026-11-23T13:02:00Z', arrivalAt: '2026-11-23T14:02:00Z', guardCount: 0,
     manifest: [{ category: 'item', name: '精力丹', templateId: 38, quantity: 3 }]
@@ -622,6 +658,8 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
   const board = await send(entry);
   assert.match(board.text, /护卫招募中/);
   assert.match(board.text, /精力丹 ×3/);
+  assert.ok(board.commands.includes(publicEntry));
+  assert.ok(board.commands.includes(ownEntry));
   assert.deepEqual(requests.filter(request => request.path.endsWith('/shop-raid.board')).map(request => request.body.arguments), [
     { convoyId: 0 }, { convoyId: 0 }
   ]);

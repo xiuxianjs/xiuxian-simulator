@@ -180,7 +180,8 @@ export default onResponse(selects, async event => {
 
   if (action === '打劫队') {
     const modes: Record<string, string> = { 创建: 'create', 加入: 'join', 退出: 'leave', 移除: 'kick', 解散: 'disband', 协守: 'support' };
-    const mode = args.length === 0 ? 'list' : modes[args[0]];
+    const crewView = args.length === 1 && (args[0] === '列表' || args[0] === '我的') ? args[0] : undefined;
+    const mode = args.length === 0 || crewView ? 'list' : modes[args[0]];
     const crewId = args[1] === undefined ? null : parsePKCommandInteger(args[1]);
     const memberId = args[2] === undefined ? null : parsePKCommandInteger(args[2]);
     const valid =
@@ -204,7 +205,9 @@ export default onResponse(selects, async event => {
         r => crewFeedback(r.text)
       );
 
-      if (reply.handled) { return; }
+      if (reply.handled) {
+        return;
+      }
       if (mode === 'support') {
         await message.send(
           listBubble({
@@ -219,12 +222,13 @@ export default onResponse(selects, async event => {
       }
       const mine = reply.data.crew ? record(reply.data.crew) : null;
       const teams = Array.isArray(reply.data.crews) ? reply.data.crews.map(record) : [];
-      const list = mine ? [mine] : teams.slice(0, 10);
+      const list = crewView === '列表' || (!crewView && !mine) ? teams.slice(0, 10) : mine ? [mine] : [];
+      const managing = crewView !== '列表' && mine;
 
       await message.send(
         listBubble({
           ...common,
-          title: '打劫队',
+          title: crewView === '列表' ? '打劫队列表' : crewView === '我的' ? '我的打劫队' : '打劫队',
           items: list.length
             ? list.map(team => {
                 const members = Array.isArray(team.members) ? team.members : [];
@@ -233,21 +237,29 @@ export default onResponse(selects, async event => {
                 return {
                   lines: [`队伍 ${team.id} · 队长 UID ${team.leaderId} · ${members.length}/3 人`, `成员 UID ${members.join('、')}`],
                   actions:
-                    mine && captain
+                    managing && captain
                       ? [
                           ...members.slice(1).map(id => ({ label: `移除 UID ${id}`, command: `/打劫队 移除 ${team.id} ${id}` })),
                           { label: '解散队伍', command: `/打劫队 解散 ${team.id}` },
-                          ...(members.length < 3 ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }] : [])
+                          ...(!crewView && members.length < 3 ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }] : [])
                         ]
-                      : mine
+                      : managing
                         ? [{ label: '退出队伍', command: `/打劫队 退出 ${team.id}` }]
-                        : members.length < 3
+                        : !mine && members.length < 3
                           ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }]
                           : []
                 };
               })
-            : [{ lines: ['当前没有打劫队。'] }],
-          footer: [...(!mine ? [{ label: '创队伍', command: '/打劫队 创建' }] : []), { label: '刷新队伍', command: '/打劫队' }]
+            : [{ lines: [crewView === '我的' ? '你尚未加入打劫队。' : '当前没有打劫队。'] }],
+          footer: [
+            ...(!mine && crewView !== '列表' ? [{ label: '创队伍', command: '/打劫队 创建' }] : []),
+            ...(crewView
+              ? [
+                  crewView === '列表' ? { label: '我的打劫队', command: '/打劫队 我的' } : { label: '打劫队列表', command: '/打劫队 列表' },
+                  { label: '返回送货商队', command: '/万宝楼商运' }
+                ]
+              : [{ label: '刷新队伍', command: '/打劫队' }])
+          ]
         })
       );
     } catch {
@@ -303,16 +315,22 @@ export default onResponse(selects, async event => {
   if (convoyId !== null && (publicSolo || publicTeam)) {
     try {
       currentBoard = await readBoard();
-      if (currentBoard.handled) { return; }
+      if (currentBoard.handled) {
+        return;
+      }
 
       let [card] = currentBoard.data;
 
       if (publicTeam && (card?.raidPhase === 'traveling' || card?.raidPhase === 'contested')) {
         const prepared = await runRobotBusiness(event, 'shop-raid.crew', { mode: 'prepare', convoyId }, record, next, r => crewFeedback(r.text));
 
-        if (prepared.handled) { return; }
+        if (prepared.handled) {
+          return;
+        }
         currentBoard = await readBoard();
-        if (currentBoard.handled) { return; }
+        if (currentBoard.handled) {
+          return;
+        }
         [card] = currentBoard.data;
       }
       const open = card?.raidPhase === 'traveling' || card?.raidPhase === 'contested';
@@ -328,7 +346,9 @@ export default onResponse(selects, async event => {
       ) {
         action = preview ? '预览商运斗法' : action;
         args.splice(1, 1, String(card.revision));
-        if (team) { args.push(String(team.id), String(team.revision)); }
+        if (team) {
+          args.push(String(team.id), String(team.revision));
+        }
       } else {
         action = '万宝楼商运';
         args.splice(1);
@@ -443,7 +463,9 @@ export default onResponse(selects, async event => {
   const defenderToken = guardConfirm && args.at(-2)?.match(/^阵容([0-9a-f]{16})$/);
   const defenderStamp = defenderToken ? defenderToken[1] : undefined;
 
-  if (defenderStamp) { args.splice(-2, 1); }
+  if (defenderStamp) {
+    args.splice(-2, 1);
+  }
   const guardAction = guardPreview || guardConfirm;
   const mainGuardId = guardConfirm ? parsePKCommandInteger(args[2]) : null;
   const risk = guardConfirm ? args.at(-1) : undefined;
@@ -905,8 +927,8 @@ export default onResponse(selects, async event => {
         title: '万宝楼商运',
         items: items.length ? items : [{ lines: ['当前没有正在招募或运送的商队。'] }],
         footer: [
-          { label: '查看商队列表', command: '/万宝楼商运' },
-          { label: '返回坊市交易', command: '/更多 交易' }
+          { label: '打劫队列表', command: '/打劫队 列表' },
+          { label: '我的打劫队', command: '/打劫队 我的' }
         ]
       })
     );
