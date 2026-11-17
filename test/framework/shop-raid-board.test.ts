@@ -430,7 +430,7 @@ test('持货后协守需本人确认，反抢确认携带守货阵容', async t 
   const { app, requests } = await gameFixture(t, request => {
     if (request.path.endsWith('/shop-raid.crew')) return businessEnvelope(request.bid, {});
     if (request.path.endsWith('/shop-raid.guard-preview')) {
-      return businessEnvelope(request.bid, { mainGuardId: 301, holderBattle: true, reverseEligible: true, defenders: [301, 302], defenderStamp: stamp });
+      return businessEnvelope(request.bid, { mainGuardId: 301, holderBattle: true, reverseEligible: true, defenders: [301, 302], defenderStamp: stamp, baseQiCost: 15 });
     }
     assert.ok(request.path.endsWith('/shop-raid.solo'));
     return businessEnvelope(request.bid, { attemptId: 20, convoyId: 81, state: 'settled', outcome: { attackWon: true } });
@@ -445,6 +445,8 @@ test('持货后协守需本人确认，反抢确认携带守货阵容', async t 
   assert.deepEqual(requests[0].body.arguments, { mode: 'support', convoyId: 81, revision: 12 });
   const preview = await send('/预览商运斗法 81 13');
   assert.match(preview.text, /守货阵容 UID 301、302/);
+  assert.match(preview.text, /基础消耗 15 点/);
+  assert.match(preview.text, /锁阵时离队，未出战则留队/);
   const confirmation = `/确认商运斗法 81 13 301 阵容${stamp} 可反夺`;
   assert.ok(preview.commands.includes(confirmation));
   const won = await send(confirmation);
@@ -592,6 +594,18 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
       });
     }
     if (request.path.endsWith('/shop-raid.board')) return businessEnvelope(request.bid, { items });
+    if (request.path.endsWith('/shop-raid.solo-status')) {
+      const id = (request.body.arguments as { attemptId: number }).attemptId;
+      return businessEnvelope(request.bid, {
+        attemptId: id, convoyId: 81, state: id === 1 ? 'settled' : id === 2 ? 'ineligible' : 'not_selected',
+        outcome: id === 1 ? { attackWon: true } : id === 2 ? { rejectionReason: 'defenders_changed' } : undefined,
+        currentConvoy: {
+          id: 81, phase: 'contested', departureAt: '2026-11-23T13:02:00Z', arrivalAt: '2026-11-23T14:02:00Z',
+          holderId: 301, holdUntil: '2026-11-23T13:32:00Z',
+          manifest: [{ category: 'currency', currency: 'SPIRIT_STONE', quantity: 1000 }]
+        }
+      });
+    }
     if (request.path.endsWith('/shop-raid.crew')) {
       assert.deepEqual(request.body.arguments, { mode: 'list', crewId: 0, memberId: 0 });
       return businessEnvelope(request.bid, {
@@ -660,6 +674,15 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
   assert.match(board.text, /精力丹 ×3/);
   assert.ok(board.commands.includes(publicEntry));
   assert.ok(board.commands.includes(ownEntry));
+  const won = await send('/查看劫货进度 1');
+  assert.match(won.text, /万宝楼劫货回执 #81/);
+  assert.match(won.text, /货单：灵石 ×1000/);
+  assert.match(won.text, /当前占用：UID 301/);
+  assert.match(won.text, /守至 .*21:32:00/);
+  assert.ok(won.commands.includes('/立即抢商队 81'));
+  assert.ok(won.commands.includes('/组队抢商队 81 行动'));
+  assert.match((await send('/查看劫货进度 2')).text, /守货阵容已变，本次未出战，未扣元力/);
+  assert.match((await send('/查看劫货进度 3')).text, /本轮由另一方先出战/);
   assert.deepEqual(requests.filter(request => request.path.endsWith('/shop-raid.board')).map(request => request.body.arguments), [
     { convoyId: 0 }, { convoyId: 0 }
   ]);

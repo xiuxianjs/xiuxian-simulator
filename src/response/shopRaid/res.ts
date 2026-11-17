@@ -322,7 +322,20 @@ export default onResponse(selects, async event => {
       let [card] = currentBoard.data;
 
       if (publicTeam && (card?.raidPhase === 'traveling' || card?.raidPhase === 'contested')) {
-        const prepared = await runRobotBusiness(event, 'shop-raid.crew', { mode: 'prepare', convoyId }, record, next, r => crewFeedback(r.text));
+        const prepared = await runRobotBusiness(event, 'shop-raid.crew', { mode: 'prepare', convoyId }, record, next, async r => {
+          await message.send(
+            errorBubble({
+              ...common,
+              title: '组队抢货',
+              reason: r.text,
+              footer: [
+                { label: '创队伍', command: '/打劫队 创建' },
+                { label: '打劫队列表', command: '/打劫队 列表' },
+                { label: '查看商队', command: `/万宝楼商运 ${convoyId}` }
+              ]
+            })
+          );
+        });
 
         if (prepared.handled) {
           return;
@@ -569,6 +582,7 @@ export default onResponse(selects, async event => {
         }
 
         const reverse = entry.data.reverseEligible === true;
+        const leavingTeam = !teamAttack;
 
         await message.send(
           confirmBubble({
@@ -580,7 +594,10 @@ export default onResponse(selects, async event => {
               '胜负按整队判定，打赢后占用整车。'
             ],
             costs: [
-              '本场计入普通打劫，实际出战才扣元力。',
+              typeof entry.data.baseQiCost === 'number'
+                ? `实际出战才扣元力，基础消耗 ${entry.data.baseQiCost} 点，按出战时的减免结算。`
+                : '本场计入普通打劫，实际出战才扣元力。',
+              ...(leavingTeam ? ['如果你已加入打劫队，单抢实际锁阵时离队，未出战则留队。'] : []),
               reverse ? '若守方获胜、主守仍在场且攻方队长倒地，主守可能反夺普通财物。' : '本场守方获胜时仅保货。',
               ...(entry.data.holderBattle === true ? [] : ['参战劫货者次日不能在万宝楼购物。'])
             ],
@@ -627,20 +644,40 @@ export default onResponse(selects, async event => {
             : state === 'settled' && outcome
               ? outcome.attackWon === true
                 ? '夺下整车货，开始守货。'
-                : outcome.reversedLoot === true
-                  ? '守方保住整车，本场已按反夺结算普通财物。'
-                  : '本场未夺下整车货。'
-              : state === 'not_selected' || state === 'ineligible'
-                ? '本次未出战，未扣元力。'
-                : '本轮斗法正在处理。';
+                : '本场未夺下整车货，守方保住整车。'
+              : state === 'not_selected'
+                ? '本轮由另一方先出战，本次未出战，未扣元力。'
+                : state === 'ineligible'
+                  ? outcome?.rejectionReason === 'defenders_changed'
+                    ? '守货阵容已变，本次未出战，未扣元力。可按当前阵容重新确认。'
+                    : '本次未出战，未扣元力。请查看当前商队。'
+                  : '本轮斗法正在处理。';
+        const convoy = entry.data.currentConvoy ? parseBoard({ items: [entry.data.currentConvoy] })[0] : undefined;
+        const canChallenge = !convoy || ['traveling', 'contested', 'fighting'].includes(convoy.phase);
+        const lines = [
+          summary,
+          ...(convoy
+            ? [
+                `货单：${convoy.cargo.join('、')}`,
+                ...(convoy.holderId && ['contested', 'fighting', 'sealed', 'ready'].includes(convoy.phase)
+                  ? [`当前占用：UID ${convoy.holderId}`, ...(convoy.holdUntil && convoy.phase !== 'ready' ? [`守至 ${formatGameTime(convoy.holdUntil)}`] : [])]
+                  : [`当前状态：${convoy.status}`])
+              ]
+            : []),
+          ...(state === 'settled' && outcome?.attackWon === false
+            ? [outcome.reversedLoot === true ? '财物：守方已反夺普通财物。' : '财物：本场未发生反夺。']
+            : [])
+        ];
 
         await message.send(
           listBubble({
             ...common,
-            title: '万宝楼劫货回执',
-            items: [{ lines: [summary] }],
+            title: convoy ? `万宝楼劫货回执 #${convoy.id}` : '万宝楼劫货回执',
+            items: [{ lines }],
             footer: [
-              ...(!common.isPrivate && (action !== '查看劫货进度' || typeof entry.data.convoyId === 'number') ? publicRaidActions(currentConvoy) : []),
+              ...(!common.isPrivate && canChallenge && (action !== '查看劫货进度' || typeof entry.data.convoyId === 'number')
+                ? publicRaidActions(currentConvoy)
+                : []),
               ...(state === 'settled' && outcome?.attackWon === true ? [{ label: '创队伍', command: '/打劫队 创建' }] : []),
               ...(typeof outcome?.ordinaryLogId === 'number' && outcome.ordinaryLogId > 0
                 ? [{ label: '原争夺战报', command: `/争夺战报 ${outcome.ordinaryLogId}` }]
@@ -832,6 +869,14 @@ export default onResponse(selects, async event => {
           lines.push(`临时队 · 队长 UID ${team.leaderId} · ${team.members.length}/3 人`);
           if (card.myTeamId === team.id && (card.confirmedMembers > 0 || card.pendingMembers > 0)) {
             lines.push(`队员出战确认 ${card.confirmedMembers}/${card.confirmedMembers + card.pendingMembers}`);
+          }
+
+          if (publicTeam && card.myTeamId === team.id) {
+            if (!card.myTeamLeader) {
+              lines.push(`由队长 UID ${team.leaderId} 发起组队抢货，你可以在本车确认出战。`);
+            } else if (card.pendingMembers > 0) {
+              lines.push('等队员确认出战后，再点【组队抢】。');
+            }
           }
 
           if (card.myTeamId === team.id && typeof card.participationStamp === 'string') {
