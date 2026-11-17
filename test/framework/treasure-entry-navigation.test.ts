@@ -227,8 +227,9 @@ test('上古遗珍功能导航在探索操作之后', async t => {
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: command, platform: 'qq-bot' })), command);
 
   assert.deepEqual(topButtonRows(view.nodes), []);
-  assert.deepEqual(view.commands.slice(-12, -5), [
-    '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
+  assert.deepEqual(view.commands.slice(0, 2), ['/上古遗珍 概率', '/上古遗珍 记录']);
+  assert.deepEqual(view.commands.slice(-10, -5), [
+    '/宝物', '/上古遗珍 图鉴', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
   ]);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].path, '/api/v2/robot/business/ancient-relics.overview');

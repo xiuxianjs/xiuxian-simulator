@@ -245,7 +245,7 @@ for (const privateChat of [false, true]) {
         assert.doesNotMatch(JSON.stringify(result.messages.map(message => message.nodes)), /"show"\s*:/);
       } else if (command.endsWith('记录')) assert.match(view.text, /暂无探索记录/);
       else {
-        assert.match(view.text, /物品：灵晶/);
+        assert.match(view.text, /> 灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
         assert.ok(view.commands.includes('/上古遗珍 免费探索'));
         assert.ok(view.commands.includes('/上古遗珍 十连探索 道晶'));
         assert.ok(view.commands.includes('/上古遗珍 探索 道晶'));
@@ -255,38 +255,47 @@ for (const privateChat of [false, true]) {
   });
 }
 
-for (const used of [false, true]) {
-  test(`探索主面板按新版分组顺序展示，按钮在成本左侧，已使用=${used}`, async t => {
-    const data = { ...relics, freeAvailable: !used, spiritTenDiscountAvailable: !used, daoTenDiscountAvailable: !used, spiritTenCost: used ? 12000 : 6000, daoTenCost: used ? 108 : 60, pendingSelections: used ? 0 : 1 };
+for (const [used, pendingSelections] of [[false, 1], [true, 0], [true, 2]] as const) {
+  test(`探索主面板按新版分组顺序展示，已使用=${used}，自选=${pendingSelections}`, async t => {
+    const sample = pendingSelections === 2;
+    const balances = sample ? { spiritCrystal: 220917, daoCrystal: 4268, treasureMaps: 4 } : relics.balances;
+    const data = {
+      ...relics, balances, freeAvailable: !used, spiritTenDiscountAvailable: !used, daoTenDiscountAvailable: !used,
+      spiritTenCost: used ? 12000 : 6000, daoTenCost: used ? 108 : 60, pendingSelections,
+      ...(sample ? { rulesVersion: 'treasure-v10-exploration-pity-20261029', milestoneProgress: 169, totalExplorations: 769 } : {})
+    };
     const { app, requests } = await gameFixture(t, r => businessEnvelope(r.bid, data));
     const result = await app.runHandler(handler, app.events.privateMessage({ text: '/上古遗珍', platform: 'qq-bot' }));
     const view = facts(result);
     const nodes = result.messages[0].nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
     const footer = nodes.filter(node => node.type === 'MD.button').filter(node => node.options?.data && [
-      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
+      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
     ].includes(node.options.data));
     assert.deepEqual(footer.map(node => node.options?.data), [
-      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 概率', '/上古遗珍 记录', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
+      '/宝物', '/上古遗珍 图鉴', '/上古遗珍 秘宝商人', '/日常活跃', '/充值 日礼包'
     ]);
     assert.ok(footer.every(node => node.options?.autoEnter === false));
     const positions = footer.map(button => nodes.indexOf(button));
-    for (const index of [0, 1, 2, 4, 5]) {
+    for (const index of [0, 2, 3]) {
       assert.ok(!nodes.slice(positions[index] + 1, positions[index + 1]).some(node => node.type === 'MD.newline'));
     }
-    assert.ok(nodes.slice(positions[3] + 1, positions[4]).some(node => node.type === 'MD.newline'));
+    assert.ok(nodes.slice(positions[1] + 1, positions[2]).some(node => node.type === 'MD.newline'));
     const quotes = nodes.filter(node => node.type === 'MD.blockquote');
     assert.ok(Array.isArray(quotes[0]?.value));
     const status = inspectMessage([{ type: 'Markdown', value: quotes[0].value }]);
     assert.ok(positions[0] > nodes.indexOf(quotes.at(-1)!));
     assert.ok(nodes.indexOf(quotes[0]) < nodes.findIndex(node => node.type === 'MD.text' && String(node.value).startsWith('灵晶探索')));
-    assert.deepEqual(status.commands, []);
-    assert.match(status.text, /说明：单发整品概率12%，十连至少出一个整品/);
-    assert.match(status.text, /进度：神话自选 0\/300/);
-    assert.match(status.text, /物品：灵晶 30,000 · 道晶 108 · 藏宝图 9张/);
-    assert.equal(status.text.includes('待领取：神话自选 1份'), !used);
-    assert.match(status.text, used ? /每日免费探索已使用/ : /每日免费探索可用/);
-    assert.equal(view.commands.includes('/上古遗珍 自选'), !used);
-    assert.equal(view.commands.includes('/上古遗珍 免费探索'), !used);
+    assert.deepEqual(status.commands, ['/上古遗珍 概率', '/上古遗珍 记录']);
+    assert.match(status.text, /说明：(单发整品概率|非保底基础整品概率)12%，十连至少出一个整品/);
+    assert.ok(status.text.includes(`进度：神话自选 ${data.milestoneProgress}/300`));
+    assert.deepEqual(quotes[0].value[0], { type: 'MD.bold', value: sample ? '灵晶 220,917 · 道晶 4,268 · 藏宝图 4张' : '灵晶 30,000 · 道晶 108 · 藏宝图 9张' });
+    assert.equal(status.text.includes('待领取：神话自选'), pendingSelections > 0);
+    assert.doesNotMatch(status.text, /状态：每日免费探索|物品：/);
+    const topActions = nodes.slice(nodes.indexOf(quotes[0]) + 1, nodes.indexOf(quotes[1])).filter(node => node.type === 'MD.button');
+
+    assert.deepEqual(topActions.map(node => node.options?.data), [...(pendingSelections ? ['/上古遗珍 自选'] : []), '/上古遗珍 免费探索']);
+    assert.ok(topActions.every(node => node.options?.autoEnter === false && !Object.hasOwn(node.options ?? {}, 'show')));
+    assert.equal(topActions.at(-1)?.value, '‹每日免费›');
     assert.match(view.text, used ? /灵晶探索 · 今日首十连半价已使用/ : /灵晶探索 · 每日首次十连半价/);
     for (const [name, single, ten] of [['灵晶', 1200, used ? 12000 : 6000], ['道晶', 12, used ? 108 : 60], ['藏宝图', 1, 10]] as const) {
       assert.ok(nodes.some(node => node.type === 'MD.text' && String(node.value).startsWith(`${name}探索`)));
@@ -309,7 +318,7 @@ for (const used of [false, true]) {
     assert.ok(!view.commands.includes('/上古遗珍'));
     assert.ok(!view.commands.includes('/充值 灵脉租契'));
     assert.equal(requests.length, 1);
-    if (used) previews.set('/上古遗珍（免费与首十连已使用）', view);
+    if (sample) previews.set('/上古遗珍（新版首页）', view);
   });
 }
 

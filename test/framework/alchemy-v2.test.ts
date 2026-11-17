@@ -220,7 +220,7 @@ test('炼丹首页显示等级经验、当前等级效果和天工', async t => 
           text: '炼丹师\n等级：6\n经验：5010 / 4050',
           quoted: true,
           rows: [
-            { text: '炼丹师' },
+            { text: '炼丹师', bold: true },
             { text: '等级：6' },
             { text: '经验：5010 / 4050' }
           ]
@@ -248,6 +248,8 @@ test('炼丹首页显示等级经验、当前等级效果和天工', async t => 
   const nodes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   const quotes = nodes.filter(node => node.type === 'MD.blockquote');
   assert.equal(quotes.length, 3);
+  assert.ok(Array.isArray(quotes[0].value));
+  assert.deepEqual(quotes[0].value[0], { type: 'MD.bold', value: '炼丹师' });
   const text = inspectMessage([{ type: 'Markdown', value: [quotes[0]] }]).text;
   assert.match(message.text, /‹▸职业›\s*‹丹方›/);
   assert.match(message.text, /\n我的职业/);

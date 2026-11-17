@@ -65,18 +65,15 @@ export default onResponse(selects, async e => {
   const switchTool = { label: '切换工具', command: '/替换', autoEnter: false };
   const equipment = { label: '装备', command: '/储物袋 装备', autoEnter: false };
   const header = [toolBag, switchTool];
-  const craftLinks = [
-    equipment,
-    { label: '委托', command: '/锻造委托', autoEnter: false }
-  ];
+  const craftLinks = [equipment, { label: '委托', command: '/锻造委托', autoEnter: false }];
   const base = { bid: e.UserId, isPrivate: e.isPrivate ?? false };
   let pageHeader: GuiButton[] | undefined =
     isForgeHome || isForgeCatalog || isForgeHistory || isForgeGuide
       ? [
-          { label: '职业', selected: isForgeHome, command: isForgeHome ? undefined : '/我的锻造', autoEnter: false },
-          { label: '图谱', selected: isForgeCatalog, command: isForgeCatalog ? undefined : '/锻造图纸', autoEnter: false },
-          { label: '记录', selected: isForgeHistory, command: isForgeHistory ? undefined : '/锻造记录', autoEnter: false },
-          { label: '指引', selected: isForgeGuide, command: isForgeGuide ? undefined : '/锻造指引', autoEnter: false }
+          { label: '职业', selected: isForgeHome, command: '/我的锻造', autoEnter: false },
+          { label: '图谱', selected: isForgeCatalog, command: '/锻造图纸', autoEnter: false },
+          { label: '记录', selected: isForgeHistory, command: '/锻造记录', autoEnter: false },
+          { label: '指引', selected: isForgeGuide, command: '/锻造指引', autoEnter: false }
         ]
       : undefined;
   let nav: Parameters<typeof FormatGui>[0]['nav'];
@@ -204,12 +201,7 @@ export default onResponse(selects, async e => {
       showResult(o.result, false, true, true);
     }
   }
-  function showRecipe(
-    r: ForgeRecipe,
-    summary = false,
-    origin: ForgeCatalogQuery = { filter: '全部', page: 1 },
-    blueprint?: ForgeLearnableBlueprint
-  ) {
+  function showRecipe(r: ForgeRecipe, summary = false, origin: ForgeCatalogQuery = { filter: '全部', page: 1 }, blueprint?: ForgeLearnableBlueprint) {
     if (!summary) {
       footer = [{ label: '返回图纸', command: forgeCatalogCommand(origin) }];
     }
@@ -307,17 +299,19 @@ export default onResponse(selects, async e => {
 
       if (isForgeHome) {
         const tools = v.equippedTools;
-        const row = createQuoteMarkdown(v.joined ? [v.title, `等级：${v.level}`] : ['状态：未入门', entry], v.canAdvance || !v.joined ? progressActions : []);
+        const row = v.joined ? section({ title: v.title, lines: [`等级：${v.level}`] }) : createQuoteMarkdown(['状态：未入门', entry], progressActions);
 
         if (v.joined) {
+          if (v.canAdvance) {
+            addOptions(row, progressActions, undefined, false);
+          }
+          row.addNewline().addText(v.nextTitle ? `经验：${v.exp} / ${v.expRequired}` : '经验：--');
           if (!v.canAdvance) {
-            row.addNewline();
+            addOptions(row, progressActions, undefined, false);
           }
-          row.absorb(createQuoteMarkdown([`经验：${v.exp}${v.nextTitle ? ` / ${v.expRequired}` : ''}`], v.canAdvance ? [] : progressActions));
-          if (v.canAdvance || progressActions.length === 0) {
-            row.addNewline();
+          if (v.nextTitle) {
+            addOptions(row.addNewline().addText(assessment), [catalogueActions[0]]);
           }
-          row.absorb(createQuoteMarkdown([v.nextTitle ? assessment : '状态：已达最高阶段'], v.nextTitle ? [catalogueActions[0]] : []));
           if (v.nextTitle && !v.canAdvance && v.exp >= v.expRequired && v.assessmentDone >= v.assessmentRequired) {
             row.addNewline();
             row.absorb(createQuoteMarkdown(advanceStatus));
@@ -339,10 +333,7 @@ export default onResponse(selects, async e => {
 
           for (const tool of tools) {
             toolQuote.absorb(
-              createQuoteMarkdown(
-                [`${tool.typeName}：${tool.name}`],
-                [{ label: '切换', command: forgeToolSwitchCommand(tool.typeName), autoEnter: false }]
-              )
+              createQuoteMarkdown([`${tool.typeName}：${tool.name}`], [{ label: '切换', command: forgeToolSwitchCommand(tool.typeName), autoEnter: false }])
             );
           }
           content.addBlockquote(toolQuote);
@@ -360,11 +351,7 @@ export default onResponse(selects, async e => {
       content.addBlockquote(
         createQuoteMarkdown(
           v.joined
-            ? [
-                `${v.title} · 等级 ${v.level}`,
-                ...(v.nextTitle ? [`经验：${v.exp}/${v.expRequired}`, assessment] : ['已达最高阶段']),
-                ...advanceStatus
-              ]
+            ? [`${v.title} · 等级 ${v.level}`, ...(v.nextTitle ? [`经验：${v.exp}/${v.expRequired}`, assessment] : ['已达最高阶段']), ...advanceStatus]
             : [entry, '免费教学 · 首件署名装备'],
           progressActions
         )
@@ -380,12 +367,7 @@ export default onResponse(selects, async e => {
       if (compact) {
         return;
       }
-      content.addBlockquote(
-        createQuoteMarkdown(
-          [],
-          [...catalogueActions, { label: '洞府', command: '/我的洞府' }]
-        )
-      );
+      content.addBlockquote(createQuoteMarkdown([], [...catalogueActions, { label: '洞府', command: '/我的洞府' }]));
 
       return;
     }
@@ -581,7 +563,12 @@ export default onResponse(selects, async e => {
         const recipe = response.data.recipes.find(r => r.id === id);
 
         if (recipe) {
-          showRecipe(recipe, false, recipeQuery ?? undefined, response.data.learnableBlueprints?.find(blueprint => blueprint.recipeId === id));
+          showRecipe(
+            recipe,
+            false,
+            recipeQuery ?? undefined,
+            response.data.learnableBlueprints?.find(blueprint => blueprint.recipeId === id)
+          );
         } else {
           content.addText('图纸暂不可查看');
         }

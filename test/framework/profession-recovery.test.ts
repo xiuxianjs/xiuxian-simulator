@@ -191,6 +191,7 @@ for (const reason of ['职业经验不足', '阶段作品考核尚未完成']) {
     const message = result.messages[0];
     const view = inspectMessage(message.nodes);
     assert.ok(!view.text.includes(reason));
+    assert.match(view.text, /> 经验：0 \/ 20/);
     assert.match(view.text, /考核：0\/1 ‹待考核 1›/);
     assert.match(view.text, /当前等级效果\s+> 暂无已解锁套装/);
     assert.ok(!view.commands.some(command => command.startsWith('/锻造进阶 ')));
@@ -252,6 +253,25 @@ test('锻造经验与考核达标时，职业页显示剩余晋升条件', async
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
 });
 
+test('炼器师满级时加深称谓并隐藏经验数值', async t => {
+  const data = {
+    ...structuredClone(fixtures.overview), exp: 12345, expRequired: 0, nextTitle: '', canAdvance: false, advanceReason: '已达最高阶段'
+  };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  const result = await app.runHandler(forge, app.events.privateMessage({ text: '/我的锻造', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const message = result.messages[0];
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /> 经验：--(?:\n|$)/);
+  assert.doesNotMatch(view.text, /12345|已达最高阶段/);
+  assert.ok(!view.commands.some(command => command.startsWith('/锻造进阶 ')));
+  const profession = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).find(node => node.type === 'MD.blockquote');
+  assert.ok(Array.isArray(profession?.value));
+  assert.deepEqual(profession.value[0], { type: 'MD.bold', value: data.title });
+});
+
 test('炼器师职业页显示天工，图谱、记录和指引保留各自入口', async t => {
   const data = {
     ...structuredClone(fixtures.overview), exp: 20, assessmentDone: 1, canAdvance: true,
@@ -282,13 +302,23 @@ test('炼器师职业页显示天工，图谱、记录和指引保留各自入�
   const message = result.messages[0];
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   const view = inspectMessage(message.nodes);
+  const assertActiveTab = (nodes: typeof message.nodes, label: string, command: string) => {
+    const tab = nodes.flatMap(node => node.type === 'Markdown' ? node.value : [])
+      .find(node => node.type === 'MD.button' && node.value === `‹▸${label}›`);
+    assert.ok(tab?.type === 'MD.button');
+    assert.equal(tab.options?.data, command);
+    assert.equal(tab.options?.autoEnter, false);
+    assert.ok(!Object.hasOwn(tab.options ?? {}, 'show'));
+  };
   assert.match(view.text, /^我的洞府 · 锻造坊\s+‹▸职业› ?‹图谱› ?‹记录› ?‹指引›\s+我的职业\s+> 测试学徒\n> 等级：0 ‹进阶›\n> 经验：20 \/ 20\n> 考核：1\/1 ‹待考核 1›/);
+  assertActiveTab(message.nodes, '职业', '/我的锻造');
   assert.match(view.text, /\n当前等级效果\s+> 已解锁匠铁套装\n> 已解锁追风套装\s+我的天工/);
   assert.match(view.text, /\n我的天工 ‹获取天工›\s+> 炼器台：测试炼器台 ‹切换›/);
   assert.match(view.text, /\n‹装备› ?‹委托›\s+‹返回洞府›\n/);
   assert.doesNotMatch(view.text, /阶段：|委托：装备归委托者|‹作品›/);
   assert.ok(view.text.indexOf('等级：0') < view.text.indexOf('‹获取天工›'));
   const baseCommands = [
+    '/我的锻造',
     '/锻造进阶 0',
     '/锻造图纸 考核',
     '/我的洞府',
@@ -308,6 +338,9 @@ test('炼器师职业页显示天工，图谱、记录和指引保留各自入�
   assert.ok(!view.commands.includes('/灵药师'));
   const bodyNodes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value : []);
   assert.equal(bodyNodes.filter(node => node.type === 'MD.blockquote').length, 3);
+  const profession = bodyNodes.find(node => node.type === 'MD.blockquote');
+  assert.ok(Array.isArray(profession?.value));
+  assert.deepEqual(profession.value[0], { type: 'MD.bold', value: '测试学徒' });
   const buttons = bodyNodes.flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [node])
     .filter(node => node.type === 'MD.button');
   assert.equal(buttons.length, baseCommands.length + 2);
@@ -326,6 +359,7 @@ test('炼器师职业页显示天工，图谱、记录和指引保留各自入�
   assert.equal(guide.actions[guideMessage.actionIndex].results?.[0].code, ResultCode.Ok);
   const guideView = inspectMessage(guideMessage.nodes);
   assert.match(guideView.text, /‹职业› ?‹图谱› ?‹记录› ?‹▸指引›/);
+  assertActiveTab(guideMessage.nodes, '指引', '/锻造指引');
   assert.match(guideView.text, /入门与图谱[\s\S]*免费教学[\s\S]*达到对应锻造等级后自动解锁图纸/);
   assert.match(guideView.text, /当前阶段、经验和考核进度[\s\S]*装备归委托者 · 工费与成长归匠师/);
   assert.ok(guideView.commands.includes('/储物袋 天工'));
@@ -352,6 +386,7 @@ test('炼器师职业页显示天工，图谱、记录和指引保留各自入�
     assert.equal(catalogue.actions[catalogueMessage.actionIndex].results?.[0].code, ResultCode.Ok);
     const catalogueView = inspectMessage(catalogueMessage.nodes);
     assert.match(catalogueView.text, /‹职业› ?‹▸图谱› ?‹记录› ?‹指引›\s+‹(?:▸)?全部› ?‹(?:▸)?待考核› ?‹(?:▸)?可制作›/);
+    assertActiveTab(catalogueMessage.nodes, '图谱', '/锻造图纸');
     assert.ok(catalogueView.commands.includes('/锻造指引'));
     assert.ok(catalogueView.commands.includes('/锻造记录'));
     assert.doesNotMatch(catalogueView.text, /‹图纸›|‹锻造›/);
@@ -366,6 +401,7 @@ test('炼器师职业页显示天工，图谱、记录和指引保留各自入�
   assert.equal(history.actions[historyMessage.actionIndex].results?.[0].code, ResultCode.Ok);
   const historyView = inspectMessage(historyMessage.nodes);
   assert.match(historyView.text, /^锻造记录\s+‹职业› ?‹图谱› ?‹▸记录› ?‹指引›/);
+  assertActiveTab(historyMessage.nodes, '记录', '/锻造记录');
   assert.ok(historyView.commands.includes('/锻造记录详情 2 1'));
   const record = await open('/锻造记录详情 2 1');
   assert.equal(record.messages.length, 1);

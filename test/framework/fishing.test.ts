@@ -95,7 +95,7 @@ test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接�
   const net = '/垂钓 捕灵网';
   const action = (label: string, command: string) => ({ label, command });
   const footer = [
-    action('垂钓记录', '/垂钓 战报 1'), action('渔获', '/储物袋 渔获'), action('渔市', '/渔市'),
+    action('垂钓记录', '/垂钓 记录'), action('渔获', '/储物袋 渔获'), action('渔市', '/渔市'),
     action('锦鲤赐福', '/垂钓 赐福'), action('沧澜钓仙会', '/垂钓 大赛')
   ];
   let active = false;
@@ -153,6 +153,69 @@ test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接�
   assert.ok(requests.at(-1)!.path.endsWith('/fishing.use-net-current'));
   assert.deepEqual(requests.at(-1)!.body.arguments, {});
   assert.equal(requests.length, 6);
+});
+
+test('垂钓首页打开统一记录，三类标签、翻页和单竿战报可手动发送', async t => {
+  const recordCommand = '/垂钓 记录';
+  const castId = 'fc_' + 'a'.repeat(32);
+  const reportCommand = `/垂钓 战报 ${castId}`;
+  const action = (label: string, command: string) => ({ label, command });
+  const fish = { title: '凝露鲈', id: castId, suffix: '',
+    lines: ['时间：11-17 19:42', '重量：9.526 kg', '结果：战胜，已获鱼'], actions: [action('查看战报', reportCommand)] };
+  const other = { title: '矿石精华', id: 'fc_' + 'b'.repeat(32), suffix: '',
+    lines: ['时间：11-17 19:32', '数量：2', '结果：已结算'], actions: [action('查看战报', '/垂钓 战报 fc_' + 'b'.repeat(32))] };
+  const { app, requests } = await gameFixture(t, request => {
+    const { view, sku, page } = request.body.arguments as { view?: string; sku?: string; page?: number };
+    if (view === 'overview') return businessEnvelope(request.bid, base({ footer: [action('垂钓记录', recordCommand)] }));
+    if (view === 'cast') return businessEnvelope(request.bid, base({ view: 'cast', title: '垂钓 · 本次战报', sections: [fish] }));
+    const tab = sku === 'records-fish' ? '鱼类' : sku === 'loot' ? '其他' : '全部';
+    const total = tab === '鱼类' ? 100 : tab === '其他' ? 23 : 123;
+    return businessEnvelope(request.bid, base({
+      view: 'history', title: '垂钓 · 记录', status: tab,
+      navRows: [['全部', '鱼类', '其他'].map(label => action(label, `${recordCommand} ${label}`))],
+      sections: tab === '鱼类' ? [fish] : tab === '其他' ? [other] : [fish, other],
+      emphasisNames: [fish.title, other.title],
+      nav: { page: page ?? 1, totalPages: Math.ceil(total / 5), total, command: `${recordCommand} ${tab} {page}` },
+      footer: [action('返回', '/垂钓'), action('渔获', '/储物袋 渔获'), action('钓具', '/垂钓 钓具'), action('渔市', '/垂钓 渔市')]
+    }));
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  const open = (text: string) => app.dispatch(app.events.privateMessage({ text, platform: 'qq-bot' }));
+  const home = delivered(await open('/垂钓'), '/垂钓');
+  assert.ok(home.text.includes('‹垂钓记录›') && home.commands.includes(recordCommand));
+  const result = await open(recordCommand);
+  const records = delivered(result, recordCommand);
+  assert.match(records.text, /^垂钓 · 记录\s+‹▸全部› *‹鱼类› *‹其他›/);
+  assert.match(records.text, /> 凝露鲈\n> 时间：11-17 19:42\n> 重量：9\.526 kg\n> 结果：战胜，已获鱼\n> *‹查看战报›/);
+  assert.match(records.text, /> 矿石精华\n> 时间：11-17 19:32\n> 数量：2\n> 结果：已结算\n> *‹查看战报›/);
+  assert.match(records.text, /第1\/25页 · 共123条 +‹下一页›\s+‹返回› *‹渔获› *‹钓具› *‹渔市›/);
+  assert.doesNotMatch(records.text, /fc_|类型：|说明：|回合数：/);
+  const markdown = result.messages[0].nodes.find(node => node.type === 'Markdown');
+  assert.ok(markdown);
+  const blocks = markdown.value.filter(node => node.type === 'MD.blockquote');
+  assert.equal(blocks.length, 2);
+  for (const [index, item] of [fish, other].entries()) {
+    const block = blocks[index];
+    assert.ok(Array.isArray(block.value));
+    assert.deepEqual(block.value[0], { type: 'MD.bold', value: item.title });
+  }
+  await open(records.commands.find(command => command === `${recordCommand} 全部 2`)!);
+  for (const [category, name] of [['鱼类', fish.title], ['其他', other.title]]) {
+    const tab = delivered(await open(records.commands.find(command => command === `${recordCommand} ${category}`)!), category);
+    assert.ok(tab.text.includes(`‹▸${category}›`) && tab.text.includes(name));
+    assert.ok(!tab.text.includes(category === '鱼类' ? other.title : fish.title));
+  }
+  const old = delivered(await open('/垂钓 杂获 2'), '旧杂获入口');
+  assert.match(old.text, /^垂钓 · 记录\s+‹全部› *‹鱼类› *‹▸其他›/);
+  await open(records.commands.find(command => command === reportCommand)!);
+  assert.deepEqual(requests.slice(1).map(request => request.body.arguments), [
+    { view: 'history', sku: 'records-all', page: 1 },
+    { view: 'history', sku: 'records-all', page: 2 },
+    { view: 'history', sku: 'records-fish', page: 1 },
+    { view: 'history', sku: 'loot', page: 1 },
+    { view: 'history', sku: 'loot', page: 2 },
+    { view: 'cast', castId }
+  ]);
 });
 
 test('垂钓四入口注册，首页真实组件发送且全部蓝链只填手发', async t => {

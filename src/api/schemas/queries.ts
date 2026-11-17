@@ -237,6 +237,7 @@ export interface CurrencyCardData {
   reputation: number | bigint;
   tongxin: number | bigint;
   greenBottle: number | bigint;
+  fishingCoin?: number | bigint;
 }
 export interface GachaOverviewData {
   banner: null | {

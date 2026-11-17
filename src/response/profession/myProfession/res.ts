@@ -63,31 +63,36 @@ export default onResponse(selects, async e => {
     if (isCaveHome) {
       const { meditationAutoBoost } = result.data;
       const nextBoostState = meditationAutoBoost ? '关闭' : '开启';
-      const rooms = Format.createMarkdown();
-      const addRoom = (text: string, button?: { label: string; command: string }) => {
-        rooms.addNewline().addText(text);
-        if (button) {
-          rooms.addText(' ').addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
-        }
+      const rooms = Format.createMarkdown()
+        .addBold('修行静室')
+        .addNewline()
+        .addText(`闭关自动加速：${meditationAutoBoost === undefined ? '暂不可读取' : meditationAutoBoost ? '开启' : '关闭'}`);
+
+      if (meditationAutoBoost !== undefined) {
+        rooms.addText('   ').addButton(markdownButtonLabel(nextBoostState), { data: commandText(`/配置闭关自动加速 ${nextBoostState}`), autoEnter: false });
+      }
+      rooms.addNewline().addButton(markdownButtonLabel('前往闭关'), { data: commandText('/打坐'), autoEnter: false });
+
+      const addRoom = (title: string, label: string, command: string) => {
+        rooms
+          .addNewline()
+          .addBold(title)
+          .addNewline()
+          .addButton(markdownButtonLabel(label), { data: commandText(command), autoEnter: false });
       };
 
-      rooms.addText('修行静室 ').addButton(markdownButtonLabel('打坐'), { data: commandText('/打坐'), autoEnter: false });
-      addRoom(
-        `闭关自动加速：${meditationAutoBoost === undefined ? '暂不可读取' : meditationAutoBoost ? '开启' : '关闭'}`,
-        meditationAutoBoost === undefined ? undefined : { label: nextBoostState, command: `/配置闭关自动加速 ${nextBoostState}` }
-      );
       if (showAlchemy) {
-        addRoom('炼丹房', { label: '前往炼丹', command: '/炼丹' });
+        addRoom('炼丹房', '前往炼丹', '/炼丹');
       }
       if (showHerbalist) {
-        addRoom('灵药园', { label: '前往种田', command: '/灵田' });
+        addRoom('灵药园', '前往种田', '/灵田');
       }
       if (allowed('forge')) {
-        addRoom('锻造坊', { label: '前往炼器', command: '/我的锻造' });
+        addRoom('锻造坊', '前往炼器', '/我的锻造');
       }
-      addRoom('灵塘', { label: '前往垂钓', command: '/垂钓' });
+      addRoom('灵塘', '前往垂钓', '/垂钓');
       if (allowed('cave-formations')) {
-        addRoom('护府阵法', { label: '查看阵法', command: '/洞府阵法' });
+        addRoom('护府阵法', '查看阵法', '/洞府阵法');
       }
 
       void message.send(FormatGui({ isPrivate, bid, title: '我的洞府', content: md.addBlockquote(rooms) }));
@@ -139,15 +144,17 @@ export default onResponse(selects, async e => {
       const professionTitle = lingzhi.title.includes('灵药师') ? lingzhi.title : `${lingzhi.title}灵药师`;
 
       const lines = lingzhi.unlocked
-        ? [
-            professionTitle,
-            `等级：${lingzhi.level}`,
-            `经验：${lingzhi.exp}${lingzhi.nextExpRequired ? ` / ${lingzhi.nextExpRequired}` : ''}`
-          ]
-        : ['灵药师', '状态：尚未加入'];
+        ? [`等级：${lingzhi.level}`, `经验：${lingzhi.nextExpRequired === null ? '--' : `${lingzhi.exp} / ${lingzhi.nextExpRequired}`}`]
+        : ['状态：尚未加入'];
 
       md.addText('我的职业').addNewline();
-      md.addBlockquote(section({ lines, actions: lingzhi.unlocked ? undefined : [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }] }));
+      md.addBlockquote(
+        section({
+          title: lingzhi.unlocked ? professionTitle : '灵药师',
+          lines,
+          actions: lingzhi.unlocked ? undefined : [{ label: '开始指引', command: LINGZHI_GUIDE_START_COMMAND }]
+        })
+      );
       if (lingzhi.unlocked) {
         md.addNewline().addText('当前等级效果').addNewline();
         md.addBlockquote(
@@ -168,10 +175,7 @@ export default onResponse(selects, async e => {
           title,
           header: herbalGardenTabs('profession'),
           content: md,
-          footer: [
-            ...(lingzhi.unlocked ? [] : [{ label: '返回灵田', command: '/我的灵田' }]),
-            { label: '返回洞府', command: '/我的洞府' }
-          ]
+          footer: [...(lingzhi.unlocked ? [] : [{ label: '返回灵田', command: '/我的灵田' }]), { label: '返回洞府', command: '/我的洞府' }]
         })
       );
     }

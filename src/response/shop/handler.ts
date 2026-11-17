@@ -282,10 +282,7 @@ export const createShopListHandler = (shopCode?: string) => {
         const searching = Boolean(parsed.filters.keyword ?? parsed.searchReference);
         const selection = { ...parsed, searchReference: searching ? shopQuery.searchReference : undefined };
         const renderCurrency = (md: ReturnType<typeof Format.createMarkdown>) => {
-          appendCurrencyCardToMd(md, shopQuery.currencies, {
-            hideZero: true,
-            fishingCoin: activeShopCode === 'FISHING' ? shopQuery.currencies.fishingCoin : undefined
-          });
+          appendCurrencyCardToMd(md, shopQuery.currencies, { hideZero: true });
           if (!shopQuery.access.deniedReason) {
             appendShopSearch(md, parsed);
             if (searching && !selection.searchReference) {

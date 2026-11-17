@@ -217,7 +217,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
     data.sections.forEach((section, index) => block(section, index === 1, false, false, index === 2));
-  } else if (['species', 'bag-materials', 'market-fish-species', 'market-fish-instances'].includes(data.view) && data.navRows?.length) {
+  } else if (['history', 'species', 'bag-materials', 'market-fish-species', 'market-fish-instances'].includes(data.view) && data.navRows?.length) {
     for (const row of data.navRows) {
       renderSubTabs(md, row, data.status);
     }

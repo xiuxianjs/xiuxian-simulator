@@ -10,7 +10,6 @@ type CurrencyCardOptions = {
   hideZero?: boolean;
   includeLabels?: string[];
   singleLine?: boolean;
-  fishingCoin?: number | bigint;
 };
 
 /** Format already queried currency facts without accessing storage. */
@@ -39,7 +38,7 @@ export function appendCurrencyCardToMd(
   ];
   const includedCurrencies = options?.includeLabels?.length ? currencies.filter(item => options.includeLabels?.includes(item.label)) : currencies;
   const visibleCurrencies = options?.hideZero ? includedCurrencies.filter(item => item.value > 0) : includedCurrencies;
-  const fishingCoin = options?.fishingCoin;
+  const fishingCoin = user?.fishingCoin;
 
   if (fishingCoin !== undefined && (!options?.includeLabels?.length || options.includeLabels.includes('灵鳞钱'))) {
     visibleCurrencies.push({ label: '灵鳞钱', value: fishingCoin });

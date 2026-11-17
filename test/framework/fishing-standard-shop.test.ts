@@ -91,12 +91,14 @@ test('渔市升灵散按发放物品合并，购买仍使用各币种商品编�
   };
   const { app, requests } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/shops.list'));
-    const fishing = (request.body.arguments as { shopCode: string }).shopCode === 'FISHING';
+    const { shopCode } = request.body.arguments as { shopCode: string };
+    const deniedReason = shopCode === 'DAOLV' ? '道侣分类需拥有道侣后才会显示' : null;
+    const products = shopCode === 'FISHING' ? [coin, crystal, milk] : shopCode === 'WANBAOLOU' ? [other] : [];
 
     return businessEnvelope(request.bid, {
-      access: { hasCompanion: true, isFoundationRealm: true, canUseReputationShop: true, visibleShopCodes: ['WANBAOLOU', 'FISHING'], deniedReason: null },
-      currencies: { spiritStone: 10000, spiritsCrystal: 10000, spiritsMilk: 100, signInCoin: 25, towerScore: 20, reputation: 800, tongxin: 60, greenBottle: 4, fishingCoin: 44300 },
-      products: fishing ? [coin, crystal, milk] : [other], page: 1, totalPages: 1, total: 1
+      access: { hasCompanion: !deniedReason, isFoundationRealm: true, canUseReputationShop: true, visibleShopCodes: ['WANBAOLOU', 'FISHING'], deniedReason },
+      currencies: { spiritStone: 10000, spiritsCrystal: 10000, spiritsMilk: 100, signInCoin: 25, towerScore: 20, reputation: 800, tongxin: 60, greenBottle: 4, fishingCoin: shopCode === 'CHECKIN' ? 0 : 44300 },
+      products, page: 1, totalPages: 1, total: products.length ? 1 : 0
     });
   }, 200, {}, 15_000);
   await app.mount({ responseRouter: app.run(createGameRouter).router });
@@ -142,4 +144,13 @@ test('渔市升灵散按发放物品合并，购买仍使用各币种商品编�
   assert.deepEqual(assertCard(standard, '【11】【丹药】清心丹 ×1'), ['/购买 11', '/物品详情 物品 88']);
   assert.match(standard.text, /92 声望（原价100，VIP9\.2折）/);
   assert.deepEqual(requests[0].body.arguments, { page: 1, shopCode: 'FISHING', filters: { category: 'prop', subtype: 'fishing_chum' } });
+  assert.match(standard.text, /\| 同心值 \| 小绿瓶 \| 灵鳞钱 \|\n\| 60 \| 4 \| 4\.43万 \|/);
+  for (const command of ['/商店', '/商店 神奇', '/商店 声望', '/商店 积分', '/商店 道侣']) {
+    const page = await render(command);
+
+    assert.match(page.text, /\| 同心值 \| 小绿瓶 \| 灵鳞钱 \|\n\| 60 \| 4 \| 4\.43万 \|/, command);
+  }
+  const checkin = await render('/商店 签到');
+
+  assert.match(checkin.text, /\| 同心值 \| 小绿瓶 \| 灵鳞钱 \|\n\| 60 \| 4 \| 0 \|/);
 });

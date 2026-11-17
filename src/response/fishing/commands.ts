@@ -312,6 +312,14 @@ export function parseFishingCommand(message: string): FishingCommand | undefined
       ? query('history', { sku: 'fish', page, ...(sessionId === undefined ? {} : { sessionId }) })
       : error('/垂钓 渔获记录 [页码] [原会话编号]');
   }
+  if (verb === '记录') {
+    const [category = '全部', pageToken] = values;
+    const categories = { 全部: 'records-all', 鱼类: 'records-fish', 其他: 'loot' } as const;
+    const sku = Object.hasOwn(categories, category) ? categories[category as keyof typeof categories] : undefined;
+    const page = pageToken === undefined ? 1 : n(pageToken);
+
+    return values.length <= 2 && sku && page ? query('history', { sku, page }) : error('/垂钓 记录 [全部|鱼类|其他] [页码]');
+  }
   if (verb === '捕灵网') {
     return values.length === 0 ? { operation: 'fishing.use-net-current', input: {} } : error('/垂钓 捕灵网');
   }

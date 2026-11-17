@@ -958,33 +958,38 @@ export default onResponse(selects, async event => {
         }
       } else {
         const { spiritCrystal, daoCrystal, treasureMaps } = data.balances;
-
-        content
-          .addBlockquote(
-            section({
-              lines: [
-                `物品：灵晶 ${number(spiritCrystal)} · 道晶 ${number(daoCrystal)} · 藏宝图 ${treasureMaps}张`,
-                `进度：神话自选 ${data.milestoneProgress}/300`,
-                `状态：每日免费探索${data.freeAvailable ? '可用' : '已使用'}`,
-                ...(data.pendingSelections ? [`待领取：神话自选 ${data.pendingSelections}份`] : []),
-                `说明：${isActualExplorationPityRulesVersion(data.rulesVersion) ? '非保底基础整品概率' : '单发整品概率'}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`
-              ]
-            })
-          )
+        const overview = Format.createMarkdown()
+          .addBold(`灵晶 ${number(spiritCrystal)} · 道晶 ${number(daoCrystal)} · 藏宝图 ${treasureMaps}张`)
           .addNewline()
+          .addText(`进度：神话自选 ${data.milestoneProgress}/300`);
+
+        if (data.pendingSelections) {
+          overview.addNewline().addText(`待领取：神话自选 ${data.pendingSelections}份`);
+        }
+        const rateLabel = isActualExplorationPityRulesVersion(data.rulesVersion) ? '非保底基础整品概率' : '单发整品概率';
+
+        overview
+          .addNewline()
+          .addText(`说明：${rateLabel}${probability(data.shapeRates.singleComplete)}，十连至少出一个整品`)
           .addNewline();
+        addOptions(
+          overview,
+          manual([
+            { label: '概率公示', command: '/上古遗珍 概率' },
+            { label: '探索记录', command: '/上古遗珍 记录' }
+          ]),
+          undefined,
+          false
+        );
+        content.addBlockquote(overview).addNewline().addNewline();
 
-        const explorationActions = [
-          ...(data.freeAvailable ? [{ label: '每日免费探索', command: '/上古遗珍 免费探索' }] : []),
-          ...(data.pendingSelections ? [{ label: '选择神话', command: '/上古遗珍 自选' }] : [])
-        ];
-
-        for (const button of explorationActions) {
-          content.addButton(markdownButtonLabel(button.label), { data: commandText(button.command), autoEnter: false });
-        }
-        if (explorationActions.length) {
-          content.addNewline().addNewline();
-        }
+        addOptions(
+          content,
+          manual([...(data.pendingSelections ? [{ label: '选择神话', command: '/上古遗珍 自选' }] : []), { label: '每日免费', command: '/上古遗珍 免费探索' }]),
+          undefined,
+          false
+        );
+        content.addNewline().addNewline();
         const spiritTenReady = data.spiritTenCost === (data.spiritTenDiscountAvailable ? 6000 : 12000);
         const daoTenReady = typeof data.daoTenDiscountAvailable === 'boolean' && data.daoTenCost === (data.daoTenDiscountAvailable ? 60 : 108);
 
@@ -1013,7 +1018,7 @@ export default onResponse(selects, async event => {
           },
           { name: '藏宝图', title: '藏宝图探索', single: 1, ten: 10 }
         ]) {
-          content.addText(group.title).addNewline().addNewline();
+          content.addText(group.title).addNewline();
           const block = Format.createMarkdown();
 
           for (const [index, option] of [
@@ -1039,12 +1044,7 @@ export default onResponse(selects, async event => {
             title,
             content,
             footer: [
-              manual([
-                navigation[0],
-                { label: '宝物图鉴', command: '/上古遗珍 图鉴' },
-                { label: '概率公示', command: '/上古遗珍 概率' },
-                { label: '探索记录', command: '/上古遗珍 记录' }
-              ]),
+              manual([navigation[0], { label: '宝物图鉴', command: '/上古遗珍 图鉴' }]),
               manual([
                 { label: '秘宝商人', command: '/上古遗珍 秘宝商人' },
                 { label: '日常活跃', command: '/日常活跃' },

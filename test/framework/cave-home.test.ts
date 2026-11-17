@@ -36,7 +36,7 @@ function professionData(state: 'joined' | 'guide' | 'unjoined'): ProfessionDashb
 for (const isPrivate of [false, true]) {
   for (const command of ['/我的洞府', '/洞府']) {
     for (const state of ['joined', 'guide', 'unjoined'] as const) {
-      test(`洞府按房间逐行展示蓝链 ${command} ${state} private=${isPrivate}`, async t => {
+      test(`洞府按房间逐行展示加粗名称和手动蓝链 ${command} ${state} private=${isPrivate}`, async t => {
         const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { ...professionData(state), meditationAutoBoost: state === 'joined' }));
         await app.mount({ responseRouter: router });
         const event = isPrivate
@@ -58,15 +58,19 @@ for (const isPrivate of [false, true]) {
         const boost = state === 'joined' ? '开启' : '关闭';
         const toggle = state === 'joined' ? '关闭' : '开启';
         assert.deepEqual(roomView.text.split('\n'), [
-          '修行静室 ‹打坐›',
-          `闭关自动加速：${boost} ‹${toggle}›`,
-          '炼丹房 ‹前往炼丹›',
-          '灵药园 ‹前往种田›',
-          '锻造坊 ‹前往炼器›',
-          '灵塘 ‹前往垂钓›',
-          '护府阵法 ‹查看阵法›'
+          '修行静室', `闭关自动加速：${boost}   ‹${toggle}›`, '‹前往闭关›',
+          '炼丹房', '‹前往炼丹›',
+          '灵药园', '‹前往种田›',
+          '锻造坊', '‹前往炼器›',
+          '灵塘', '‹前往垂钓›',
+          '护府阵法', '‹查看阵法›'
         ]);
-        assert.deepEqual(roomView.commands, ['/打坐', `/配置闭关自动加速 ${toggle}`, '/炼丹', '/灵田', '/我的锻造', '/垂钓', '/洞府阵法']);
+        assert.deepEqual(rooms.value.filter(child => child.type === 'MD.bold').map(child => child.value), [
+          '修行静室', '炼丹房', '灵药园', '锻造坊', '灵塘', '护府阵法'
+        ]);
+        assert.deepEqual(roomView.commands, [
+          `/配置闭关自动加速 ${toggle}`, '/打坐', '/炼丹', '/灵田', '/我的锻造', '/垂钓', '/洞府阵法'
+        ]);
         const buttons = rooms.value.filter(child => child.type === 'MD.button');
         assert.equal(buttons.length, 7);
         assert.ok(buttons.every(button => button.options?.autoEnter === false && !Object.hasOwn(button.options ?? {}, 'show')));
@@ -273,6 +277,11 @@ test('灵药师在职业页和指引页展示信息并保留手动入口', async
 
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
     const markdown = message.nodes.flatMap(node => (node.type === 'Markdown' ? node.value : []));
+    if (text === '/灵药师') {
+      const profession = markdown.find(node => node.type === 'MD.blockquote');
+      assert.ok(Array.isArray(profession?.value));
+      assert.deepEqual(profession.value[0], { type: 'MD.bold', value: '初阶灵药师' });
+    }
     const buttons = markdown
       .flatMap(node => (node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [node]))
       .filter(node => node.type === 'MD.button');
@@ -313,6 +322,22 @@ test('灵药师在职业页和指引页展示信息并保留手动入口', async
   assert.deepEqual(retired.errors, []);
   assert.equal(retired.messages.length, 0);
   assert.deepEqual(requests.map(request => request.path.split('/').at(-1)), ['profession.dashboard', 'profession.dashboard', 'cave.logs']);
+});
+
+test('满级灵药师加粗称谓并以 -- 代替经验数值', async t => {
+  const data = professionData('joined');
+  data.lingzhi = { ...data.lingzhi, title: '天蕴', level: 9, exp: 12345, nextExpRequired: null };
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, data));
+  await app.mount({ responseRouter: router });
+
+  const result = await app.dispatch(app.events.privateMessage({ text: '/灵药师', platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 1);
+  const nodes = result.messages[0].nodes;
+  const profession = nodes.flatMap(node => node.type === 'Markdown' ? node.value : []).find(node => node.type === 'MD.blockquote');
+  assert.ok(Array.isArray(profession?.value));
+  assert.deepEqual(profession.value[0], { type: 'MD.bold', value: '天蕴灵药师' });
+  assert.match(inspectMessage(nodes).text, /> 等级：9\n> 经验：--/);
 });
 
 test('未入门灵药师保留开始指引', async t => {
