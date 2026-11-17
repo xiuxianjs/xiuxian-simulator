@@ -62,6 +62,9 @@ export default onResponse(selects, async e => {
   quote.addText(`已修炼 ${data.elapsedText}`).addNewline();
   quote.addText(`本次获得修为：${data.normalExperienceGained ?? data.creditedExperience ?? data.expGained ?? 0}`).addNewline();
   quote.addText(`本次获得真气：${data.qiGained ?? 0}`);
+  if (data.experienceCapReached) {
+    quote.addNewline().addNewline().addText('已达到当前境界的修为积累上限。');
+  }
   if (data.boost) {
     quote.addNewline().addText(`本次加速费用：${data.boost.consumedStone}灵石`);
     if (data.boost.refundedStone > 0) {

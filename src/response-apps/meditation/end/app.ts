@@ -17,6 +17,7 @@ type MeditationEndResult =
         qiGained?: number;
         expGained?: number;
         creditedExperience?: number;
+        experienceCapReached?: boolean;
         recoveredMental?: number;
         totalQi?: number;
         dailyQiGained?: number;

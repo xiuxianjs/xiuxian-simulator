@@ -355,6 +355,33 @@ test('七个免费秘境的总收益与宝物掉落合并显示', async t => {
   previews.push({ slug: 'free-sweep-seven', text: view.text, commands: view.commands, nodes: message.nodes, rows, effects });
 });
 
+for (const experienceCapReached of [undefined, false, true]) {
+  test(`出关气泡修为上限提示 ${experienceCapReached}`, async t => {
+    const { app } = await gameFixture(t, request =>
+      businessEnvelope(request.bid, {
+        ...meditated,
+        normalExperienceGained: undefined,
+        expGained: 0,
+        creditedExperience: 0,
+        qiGained: 479,
+        elapsedText: '120小时0分钟',
+        experienceCapReached
+      })
+    );
+    const result = await app.runHandler(meditationEnd, app.events.privateMessage({ text: '/出关', platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const [message] = result.messages;
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const { text } = inspectMessage(message.nodes);
+    const notice = '已达到当前境界的修为积累上限。';
+    assert.equal(text.includes(notice), experienceCapReached === true);
+    if (experienceCapReached) {
+      assert.match(text, /本次获得真气：479[\s>]*已达到当前境界的修为积累上限。/);
+    }
+  });
+}
+
 for (const scenario of scenarios) for (const isPrivate of [true, false]) {
   test(`宝物收益独立段落 ${scenario.slug} private=${isPrivate}`, async t => {
     const freeSweep = scenario.slug === 'dungeon-free-summary';

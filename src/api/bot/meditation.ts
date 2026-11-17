@@ -78,6 +78,7 @@ export type BackendMeditationEnd = BackendMeditationBenefits & {
   elapsedText: string;
   bonusLine: string;
   rewardNotice: string;
+  experienceCapReached?: boolean;
 };
 export type BackendMeditationCommandGuard = { active: boolean; allowed: boolean };
 
@@ -263,6 +264,7 @@ export function parseMeditationEnd(value: unknown): BackendMeditationEnd {
     minimumRewardMinutes: numeric(row.minimumRewardMinutes, true),
     elapsedText: text(row.elapsedText),
     bonusLine: text(row.bonusLine),
-    rewardNotice: text(row.rewardNotice)
+    rewardNotice: text(row.rewardNotice),
+    ...(row.experienceCapReached === undefined ? {} : { experienceCapReached: flag(row.experienceCapReached) })
   };
 }
