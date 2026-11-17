@@ -23,6 +23,7 @@ const PERSONAL_ROWS = [
   { label: '我的奇遇', command: '/我的奇遇', introduction: '难道他才是主角' },
   { label: '活跃任务', command: '/日常活跃', introduction: '我修，这仙我修还不成嘛' },
   { label: '锻造委托', command: '/锻造委托', introduction: '查看发出的委托和待接的订单' },
+  { label: '送货商队', command: '/万宝楼商运', introduction: '查看万宝楼商队，护送或劫货' },
   { label: '半月活动', command: '/半月活动', introduction: '每月第三个周日,有好货等你来拿' },
   { label: '成就', command: '/成就', introduction: '天才只是见我的门槛' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架

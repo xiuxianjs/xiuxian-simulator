@@ -10,6 +10,7 @@ export type BackendStorylineSweep = {
   stageLabel: string;
   times: number;
   totalSpiritCost: number;
+  mentalTalismanSaved?: number;
   totalExp: number;
   totalSpiritStone: number;
   /** Signed adjustment to the base reward; the experience cap can make it negative. */
@@ -43,6 +44,7 @@ export function parseStorylineSweep(value: unknown): BackendStorylineSweep {
     typeof data.stageLabel !== 'string' ||
     !nonnegative(data.times) ||
     !nonnegative(data.totalSpiritCost) ||
+    (data.mentalTalismanSaved !== undefined && !nonnegative(data.mentalTalismanSaved)) ||
     !nonnegative(data.totalExp) ||
     !nonnegative(data.totalSpiritStone) ||
     !integer(data.totalBonusExp) ||
@@ -59,6 +61,7 @@ export function parseStorylineSweep(value: unknown): BackendStorylineSweep {
     stageLabel: data.stageLabel,
     times: data.times,
     totalSpiritCost: data.totalSpiritCost,
+    ...(nonnegative(data.mentalTalismanSaved) ? { mentalTalismanSaved: data.mentalTalismanSaved } : {}),
     totalExp: data.totalExp,
     totalSpiritStone: data.totalSpiritStone,
     totalBonusExp: data.totalBonusExp,

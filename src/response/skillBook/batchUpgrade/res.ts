@@ -29,6 +29,77 @@ const response = onResponse(selects, async e => {
   const [, parentNext] = useEvent();
   const failure = adviceRenderer(reply => sendMiddlewareReply(e, withBusinessRecovery('skill-books.batch-upgrade', reply), 'footer'));
 
+  if (countStr === '节费') {
+    const requested = Number(args[2] ?? '1');
+    const token = args[3];
+    const bookId = Number(skillBookIdStr);
+
+    if (
+      !Number.isSafeInteger(bookId) ||
+      bookId < 1 ||
+      !Number.isSafeInteger(requested) ||
+      requested < 0 ||
+      (token !== undefined && !/^[a-f0-9]{32}$/.test(token)) ||
+      args.length > 4
+    ) {
+      await failure({ title: '', heading: '', text: '请核对功法编号和用符张数。', buttons: [], advice: [] });
+
+      return;
+    }
+    const loaded = await runRobotBusiness<Record<string, unknown>>(
+      e,
+      'skill-books.upgrade-with-discount',
+      { bookId, requested, token },
+      value => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+          throw new Error('功法升级报价不完整');
+        }
+
+        return { ...value };
+      },
+      parentNext,
+      failure
+    ).catch(async () => {
+      await failure({ title: '', heading: '', text: '功法升级结果暂不可确认，请查看当前功法。', buttons: [], advice: [] });
+
+      return { handled: true as const };
+    });
+
+    if (loaded.handled) {
+      return;
+    }
+    const data = loaded.data;
+    const quote = (data.discountQuote ?? data) as Record<string, unknown>;
+    const uses = Array.isArray(quote.uses) ? quote.uses.map((entry: { amount: number }) => entry.amount) : [];
+    const applied = data.outcome === 'upgraded';
+    const available = Number(quote.available);
+    const footer = applied
+      ? [{ label: '查看功法', command: `/查看功法 ${bookId}` }]
+      : [
+          { label: '确认升级', command: `/升级功法 ${bookId} 节费 ${requested} ${String(quote.token)}` },
+          ...(requested > 0 ? [{ label: '少用一张', command: `/升级功法 ${bookId} 节费 ${Math.min(requested - 1, available)}` }] : []),
+          ...(requested < available ? [{ label: '多用一张', command: `/升级功法 ${bookId} 节费 ${requested + 1}` }] : [])
+        ];
+    const content = Format.createMarkdown().addText(String(quote.bookName));
+
+    if (data.outcome === 'requote') {
+      content.addNewline().addText('原报价已变化，本次未升级、未扣费。请确认当前报价。');
+    }
+    content.addNewline().addText(`原价 ${String(quote.baseCost)} 灵石 · 实付 ${String(quote.paidCost)} 灵石`);
+    content.addNewline().addText(`功法经验 ${String(quote.requiredExp)}`);
+    if (uses.length > 0) {
+      content.addNewline().addText(`${applied ? '已用' : '将用'} ${uses.length} 张惜灵符，各抵 ${uses.join('／')} 灵石`);
+    }
+    if (!applied) {
+      content.addNewline().addText(`另有 ${available - uses.length} 张保留，升级成功后才耗符。`);
+    } else {
+      content.addNewline().addText(`已升级次数 ${String(data.upgradeCount)} · ${String(data.attribute)} +${String(data.growth)}`);
+    }
+    await message.send(FormatGui({ isPrivate, bid, title: applied ? '功法升级成功' : '功法升级报价', content, footer }));
+
+    return;
+  }
+
   if (
     args.length > 2 ||
     (skillBookIdStr !== undefined && (!/^\d+$/.test(skillBookIdStr) || !Number.isSafeInteger(Number(skillBookIdStr)) || Number(skillBookIdStr) < 1)) ||

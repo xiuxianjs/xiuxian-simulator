@@ -13,21 +13,31 @@ function fixture(t: TestContext) {
   const batches: CommunityBatch[] = [];
   const absent = new Set<string>();
   const receipts = new Map<string, unknown>();
+  const leases = new Set<string>();
+  const missingReceipts = new Set<string>();
   const writes: Record<string, any>[] = [];
   const finished: Array<{ eventId: string; retry: boolean }> = [];
   let enabled = true;
+  let shopRaidEnabled = false;
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: Record<string, any>) {
       let data: unknown = null;
       if (path.endsWith('/community/claim')) data = batches.shift() ?? null;
-      else if (path.endsWith('/community/settings/read')) data = { welcomeEnabled: enabled, requestReminders: false };
+      else if (path.endsWith('/community/settings/read')) data = { welcomeEnabled: enabled, requestReminders: false, shopRaidEnabled };
       else if (path.endsWith('/community/settings/write')) { writes.push(body); enabled = body.settings.welcomeEnabled; }
       else if (path.endsWith('/availability/read')) data = { available: !absent.has(body.memberId), updatedAt: 1 };
       else if (path.endsWith('/permission/probe')) data = { previous: '', acquired: false };
       else if (path.endsWith('/permission/read')) data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
       else if (path.endsWith('/permission/cas')) data = null;
       else if (path.endsWith('/receipt/read')) data = receipts.get(body.eventId) ?? null;
-      else if (path.endsWith('/receipt/store')) receipts.set(body.eventId, body.receipt);
+      else if (path.endsWith('/receipt/lease/acquire')) {
+        data = { acquired: !leases.has(body.eventId) };
+        leases.add(body.eventId);
+      }
+      else if (path.endsWith('/receipt/store')) {
+        if (missingReceipts.has(body.eventId)) throw new Error('模拟回执存储失败');
+        receipts.set(body.eventId, body.receipt);
+      }
       else if (path.endsWith('/community/finish')) finished.push({ eventId: body.eventId, retry: body.retry });
       else throw new Error(`Unexpected request: ${path}`);
       return { data: { data } };
@@ -47,8 +57,48 @@ function fixture(t: TestContext) {
     batches.push(value);
     return app.runHandler(dispatchCommunityNotifications, app.events.groupMessage({ platform: 'qq-bot', botId: 'community-bot' }));
   };
-  return { app, batch, run, absent, finished, receipts, writes, disable: () => { enabled = false; } };
+  return { app, batch, run, absent, finished, receipts, writes, missingReceipts,
+    disable: () => { enabled = false; }, enableShopRaid: () => { shopRaidEnabled = true; } };
 }
+
+test('商运招募公示仅投给启用群，重复认领和过期消息都不发送', async t => {
+  const { run, batch, enableShopRaid, receipts } = fixture(t);
+  const value: CommunityBatch = {
+    ...batch('convoy-12', ['12']),
+    kind: 'shop-raid',
+    convoy: { id: 12, departureAt: new Date(Date.now() + 60_000).toISOString(), nextGuardSeat: 1,
+      manifest: [{ currency: 'SPIRIT_STONE', quantity: 1000 }] }
+  };
+  assert.equal((await run(value)).messages.length, 0);
+  enableShopRaid();
+  const delivered = await run(value);
+  assert.deepEqual(delivered.errors, []);
+  assert.equal(delivered.messages.length, 1);
+  const view = inspectMessage(delivered.messages[0].nodes);
+  assert.match(view.text, /万宝楼商队.*护卫招募中/);
+  assert.match(view.text, /灵石 ×1000/);
+  assert.deepEqual(view.commands, ['/加入商运护卫 12 1', '/打劫队 创建', '/万宝楼商运 12']);
+  assert.deepEqual(receipts.get(value.eventId), { route: 'group', reason: 'sent' });
+  assert.equal((await run(value)).messages.length, 0);
+  const expired = { ...value, eventId: 'expired', convoy: { ...value.convoy, departureAt: new Date(0).toISOString() } };
+  assert.equal((await run(expired)).messages.length, 0);
+});
+
+test('商运 QQ 已送达但回执暂时写不进时，同车重试不再发卡', async t => {
+  const { run, batch, enableShopRaid, missingReceipts, finished, receipts } = fixture(t);
+  enableShopRaid();
+  const value: CommunityBatch = {
+    ...batch('convoy-13', ['13']),
+    kind: 'shop-raid',
+    convoy: { id: 13, departureAt: new Date(Date.now() + 60_000).toISOString(),
+      manifest: [{ currency: 'SPIRIT_STONE', quantity: 1000 }] }
+  };
+  missingReceipts.add(value.eventId);
+  assert.equal((await run(value)).messages.length, 1);
+  assert.equal(receipts.has(value.eventId), false);
+  assert.equal((await run(value)).messages.length, 0);
+  assert.deepEqual(finished, [{ eventId: value.eventId, retry: true }, { eventId: value.eventId, retry: false }]);
+});
 
 function quoteOf(message: { nodes: NonNullable<Parameters<typeof inspectMessage>[0]> }) {
   const quotes = message.nodes.flatMap(node => node.type === 'Markdown' ? node.value.filter(child => child.type === 'MD.blockquote') : []);

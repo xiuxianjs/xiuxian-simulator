@@ -39,6 +39,7 @@ export interface SweepData {
   dungeonName: string;
   times: number;
   totalSpiritCost: number;
+  mentalTalismanSaved?: number;
   totalExp: number;
   totalCurrencyText: string;
   totalItemsText: string;
@@ -50,6 +51,7 @@ export function dungeonSweepView(value: DungeonSweep): SweepData {
     dungeonName: value.dungeonName,
     times: value.times,
     totalSpiritCost: value.totalSpiritCost,
+    mentalTalismanSaved: value.mentalTalismanSaved,
     totalExp: value.normalExperienceGained ?? value.totalExp,
     experienceBonusText: value.experienceBonusText,
     totalCurrencyText: value.currency.map(r => `${displayCurrencyText(r.name)} +${r.amount}`).join(' | '),

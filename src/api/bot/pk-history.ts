@@ -82,11 +82,26 @@ export function parsePKHistory(value: unknown) {
 
   return { items: data.items.map(parsePKHistoryEntry), nextCursor: data.nextCursor === undefined ? undefined : integer(data.nextCursor, 1) };
 }
+export function parsePKStatusTransfer(value: unknown) {
+  if (value === undefined) {
+    return undefined;
+  }
+  const status = record(value);
+
+  return {
+    name: text(status.name),
+    expiresAt: text(status.expiresAt),
+    remainingUses: status.remainingUses === undefined ? undefined : integer(status.remainingUses),
+    remainingQuota: status.remainingQuota === undefined ? undefined : integer(status.remainingQuota)
+  };
+}
+
 export function parsePKReport(value: unknown) {
   const data = record(value);
 
   return {
     summary: parsePKHistoryEntry(data.summary),
+    statusTransfer: parsePKStatusTransfer(data.statusTransfer),
     hasOrdinaryReplay: boolean(data.hasOrdinaryReplay),
     hasCounterReplay: boolean(data.hasCounterReplay),
     canPublishPursuit: data.canPublishPursuit === true,
