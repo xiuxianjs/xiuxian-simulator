@@ -629,7 +629,8 @@ export async function requestRobotBusiness<T>(
     body: { ...input, arguments: args },
     ...writeContext(
       request ??
-        (operation === 'checkin.view' ||
+        (operation === 'shop-raid.board' ||
+        operation === 'checkin.view' ||
         operation === 'storyline.state' ||
         operation === 'limited-event.payment-state' ||
         operation === 'sponsor.payment-state' ||
@@ -639,7 +640,7 @@ export async function requestRobotBusiness<T>(
               event,
               operation === 'limited-event.payment-timeout' || operation === 'sponsor.payment-timeout' || operation === 'normal.payment-timeout'
                 ? operation
-                : operation.startsWith('onboarding.')
+                : operation.startsWith('onboarding.') || operation.startsWith('shop-raid.')
                   ? operation
                   : undefined
             ))

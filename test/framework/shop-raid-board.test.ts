@@ -196,17 +196,23 @@ test('建队和入队使用独立指令，招募卡不发起组队抢', async t 
 });
 
 test('启程后队长从商队原卡发起组队抢并绑定当前阵容', async t => {
+  let prepared = true;
+  const replayKeys = new Set<string>();
   const { app, requests } = await gameFixture(t, request => {
+    assert.ok(request.idempotencyKey);
+    assert.ok(!replayKeys.has(request.idempotencyKey), '读榜、备战、刷新、出战必须分别使用自己的幂等键');
+    replayKeys.add(request.idempotencyKey);
     if (request.path.endsWith('/shop-raid.solo')) {
       return businessEnvelope(request.bid, { attemptId: 10, state: 'queued' });
     }
     if (request.path.endsWith('/shop-raid.crew')) {
       assert.deepEqual(request.body.arguments, { convoyId: 81, mode: 'prepare' });
+      prepared = true;
       return businessEnvelope(request.bid, {});
     }
     assert.ok(request.path.endsWith('/shop-raid.board'));
     return businessEnvelope(request.bid, {
-      teamsEnabled: true, myTeamId: 9, myTeamLeader: true,
+      teamsEnabled: true, myTeamId: prepared ? 9 : undefined, myTeamLeader: prepared,
       teams: [{ id: 9, leaderId: 123, members: [123, 456], revision: 3 }],
       items: [{
         id: 81, phase: 'traveling', revision: 4, canSoloRaid: true,
@@ -226,6 +232,7 @@ test('启程后队长从商队原卡发起组队抢并绑定当前阵容', async
   assert.match(card.text, /队长支付元力、胜后占用整车/);
   assert.ok(card.commands.includes('/立即抢商队 81'));
   assert.ok(card.commands.includes('/组队抢商队 81 行动'));
+  prepared = false;
   const receipt = await send('/组队抢商队 81 行动');
   assert.ok(receipt.commands.includes('/查看劫货进度 10'));
   assert.deepEqual(requests[4].body.arguments, { convoyId: 81, revision: 4, teamId: 9, teamRevision: 3 });
