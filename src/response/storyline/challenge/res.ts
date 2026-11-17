@@ -99,7 +99,11 @@ export default onResponse(selects, async e => {
       if (typeof battleRounds === 'number') {
         outcome.addNewline().addText(`回合数：${battleRounds}`);
       }
-      md.addBlockquote(outcome.addNewline().addText(`消耗精力：${spiritCost}`));
+      outcome.addNewline().addText(`消耗精力：${spiritCost}`);
+      if (typeof settlement.mentalTalismanSaved === 'number' && settlement.mentalTalismanSaved > 0) {
+        outcome.addNewline().addText(`符箓节省精力 ${settlement.mentalTalismanSaved} 点`);
+      }
+      md.addBlockquote(outcome);
       if (won) {
         md.addBlockquote(
           Format.createMarkdown()

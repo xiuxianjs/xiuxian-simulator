@@ -50,6 +50,7 @@ const response = onResponse(selects, async e => {
     const visibilityCommands = { SHOW: '/显示功法', HIDE: '/隐藏功法' } as const;
     const footer = [
       { label: '返回', command: '/我的功法' },
+      { label: '用符升级', command: `/升级功法 ${result.data.skillBookId} 节费` },
       { label: '升级', command: `/升级功法 ${result.data.skillBookId}` },
       { label: '换词', command: `/换词 ${result.data.skillBookId}` },
       ...(view.visibilityAction !== 'NONE'

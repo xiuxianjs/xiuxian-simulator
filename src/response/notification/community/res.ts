@@ -9,12 +9,13 @@ import { listCommunityJoinRequests, readCommunitySettings, writeCommunitySetting
 import { requireCommunityAdministrator, requireCommunityBotAdministrator } from '@src/notification/community';
 
 const safeSummary = (value: string): string => value.replace(/[\r\n<>`[\]*_]/g, ' ').slice(0, 80);
+const settingKeys = { 群欢迎: 'welcomeEnabled', 加群提醒: 'requestReminders', 商运公示: 'shopRaidEnabled' } as const;
 
 export default onResponse(selects, async e => {
   const [message] = useMessage();
   const quote = Format.createMarkdown();
   const text = (e.MessageText ?? '').trim().replace(/^[!！/#＃]/, '');
-  const configuration = text.match(/^配置(群欢迎|加群提醒)\s+(开启|关闭)$/);
+  const configuration = text.match(/^配置(群欢迎|加群提醒|商运公示)\s+(开启|关闭)$/);
   const history = text.match(/^加群申请记录(?:\s+(\d+))?$/);
   const [, next] = useEvent();
 
@@ -54,23 +55,26 @@ export default onResponse(selects, async e => {
 
       if (configuration) {
         const enabled = configuration[2] === '开启';
+        const name = configuration[1] as keyof typeof settingKeys;
+        const key = settingKeys[name];
 
         if (configuration[1] === '加群提醒' && enabled) {
           await requireCommunityBotAdministrator(target);
         }
         await writeCommunitySettings(target, {
           ...settings,
-          [configuration[1] === '群欢迎' ? 'welcomeEnabled' : 'requestReminders']: enabled,
+          [key]: enabled,
           updatedBy: e.UserId,
           updatedAt: Date.now()
         });
-        settings[configuration[1] === '群欢迎' ? 'welcomeEnabled' : 'requestReminders'] = enabled;
-        quote.addText(`结果：本群${configuration[1] === '群欢迎' ? '成员欢迎' : '加群提醒'}已${enabled ? '开启' : '关闭'}。`).addNewline();
+        settings[key] = enabled;
+        quote.addText(`结果：本群${name === '群欢迎' ? '成员欢迎' : name}已${enabled ? '开启' : '关闭'}。`).addNewline();
       } else if (text !== '群通知管理') {
         throw new Error('请使用 /群通知管理、/配置群欢迎 开启或关闭、/配置加群提醒 开启或关闭、/加群申请记录。');
       }
       quote.addText(`成员欢迎：${settings.welcomeEnabled ? '已开启' : '已关闭'}`).addNewline();
       quote.addText(`加群申请提醒：${settings.requestReminders ? '已开启' : '已关闭'}`).addNewline();
+      quote.addText(`万宝楼商运公示订阅：${settings.shopRaidEnabled ? '已开启' : '已关闭'}`).addNewline();
       quote.addText('这些设置不改变个人游戏订阅。主动提醒还需应用推送能力、额度及群授权。').addNewline();
       if (settings.failedBatches) {
         quote.addText(`有 ${settings.failedBatches} 批提醒多次失败，已停止重试；请核对权限和平台限制。`).addNewline();
@@ -86,6 +90,9 @@ export default onResponse(selects, async e => {
         })
         .addNewline();
       quote.addButton(markdownButtonLabel('申请记录'), { data: commandText('加群申请记录') });
+      quote.addText(' ').addButton(markdownButtonLabel(settings.shopRaidEnabled ? '关闭商运公示' : '开启商运公示'), {
+        data: commandText(`配置商运公示 ${settings.shopRaidEnabled ? '关闭' : '开启'}`)
+      });
     }
   } catch (error) {
     logger.warn('群通知管理操作未完成', error instanceof Error ? error.message : '未知错误');

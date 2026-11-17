@@ -1,9 +1,11 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { getBackendConfig } from '@src/api/bot/config';
+import { formatGameTime } from '@src/utils/gameTime';
 import { createHash, randomUUID } from 'crypto';
 import { Format, getConfigValue, logger } from 'alemonjs';
 import {
+  acquirePlatformDeliveryLease,
   claimCommunityNotification,
   finishCommunityNotification,
   readCommunitySettings,
@@ -37,6 +39,27 @@ const welcomeScenes = ['山门风铃轻响，又有道友踏云而来。', '云�
 
 /** 平台事件批次不进入玩家游戏历史，不猜测成员的私聊目标。 */
 export function buildCommunityBatch(batch: CommunityBatch) {
+  if (batch.kind === 'shop-raid') {
+    const { id, departureAt, nextGuardSeat, noPaidGuard, manifest } = batch.convoy;
+    const quote = Format.createMarkdown();
+    const cargo = manifest.map(item => {
+      const name = item.name || (item.currency === 'SPIRIT_STONE' ? '灵石' : item.currency === 'SPIRIT_CRYSTAL' ? '灵晶' : item.effectCode || `货物 #${item.templateId}`);
+      return `${name} ×${item.quantity}`;
+    });
+    quote.addText(cargo.join('、')).addNewline();
+    quote.addText(`启程：${formatGameTime(departureAt)}`).addNewline();
+    addOptions(quote, [
+      ...(!noPaidGuard && nextGuardSeat ? [{ label: '加入护卫队', command: `/加入商运护卫 ${id} ${nextGuardSeat}` }] : []),
+      { label: '组队抢', command: `/组队抢商队 ${id} 行动` },
+      { label: '查看商队', command: `/万宝楼商运 ${id}` }
+    ]);
+    return FormatGui({
+      mention: false,
+      bar: false,
+      title: '万宝楼商队｜护卫招募中',
+      content: Format.createMarkdown().addBlockquote(quote)
+    }).format.value;
+  }
   const members = [...new Set(batch.items)];
   const count = members.length;
   const quote = Format.createMarkdown();
@@ -85,10 +108,12 @@ export function buildCommunityBatch(batch: CommunityBatch) {
   }).format.value;
 }
 
-async function deliverBatch(batch: CommunityBatch) {
+async function deliverBatch(batch: CommunityBatch, consumer: string) {
   const settings = await readCommunitySettings(batch.target);
+  const enabled = batch.kind === 'shop-raid' ? settings.shopRaidEnabled : batch.kind === 'welcome' ? settings.welcomeEnabled : settings.requestReminders;
+  const expired = () => batch.kind === 'shop-raid' && !(Date.now() < Date.parse(batch.convoy.departureAt));
 
-  if (getAppConfig()?.close_proactive_message || !(batch.kind === 'welcome' ? settings.welcomeEnabled : settings.requestReminders)) {
+  if (getAppConfig()?.close_proactive_message || !enabled || expired()) {
     return false;
   }
   if ((await readPlatformAvailability(batch.target))?.available === false) {
@@ -112,10 +137,18 @@ async function deliverBatch(batch: CommunityBatch) {
     const members = await Promise.all(items.map(id => readPlatformAvailability(batch.target, id)));
 
     items = items.filter((_, index) => members[index]?.available === true);
-  } else {
+  } else if (batch.kind === 'request') {
     await requireCommunityBotAdministrator(batch.target);
   }
-  if (items.length === 0) {
+  if (items.length === 0 || expired()) {
+    return false;
+  }
+  // The lease lasts at least as long as this card remains useful. If QQ
+  // accepted a send but its receipt was lost, a retry cannot resend the card.
+  if (batch.kind === 'shop-raid' && !(await acquirePlatformDeliveryLease(batch.eventId, consumer))) {
+    return false;
+  }
+  if (expired()) {
     return false;
   }
   try {
@@ -162,7 +195,7 @@ export async function dispatchCommunityNotifications(): Promise<void> {
             }
             try {
               if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
-                const sent = await deliverBatch(batch);
+                const sent = await deliverBatch(batch, consumer);
 
                 if (sent) {
                   await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });

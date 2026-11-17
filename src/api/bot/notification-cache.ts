@@ -82,7 +82,7 @@ export async function recordPlatformAvailability(
   await post('/availability/event', { target, memberId, available, occurredAt, observedOnly });
 }
 
-export type CommunitySettings = { failedBatches?: number; welcomeEnabled: boolean; requestReminders: boolean; updatedBy?: string; updatedAt?: number };
+export type CommunitySettings = { failedBatches?: number; welcomeEnabled: boolean; requestReminders: boolean; shopRaidEnabled?: boolean; updatedBy?: string; updatedAt?: number };
 export type CommunityJoinRequest = { id: string; userId: string; userName: string; appliedAt: string; autoApproved: boolean; observedAt: number };
 export async function readCommunitySettings(target: NotificationTarget): Promise<CommunitySettings> {
   return await post('/community/settings/read', { target });
@@ -109,8 +109,14 @@ export async function acquirePlatformDeliveryLease(eventId: string, consumer: st
   return result.acquired;
 }
 
-export type CommunityBatch = { eventId: string; target: NotificationTarget; kind: 'welcome' | 'request'; items: string[] };
-export async function queueCommunityNotification(target: NotificationTarget, kind: CommunityBatch['kind'], itemId: string, occurredAt: number): Promise<void> {
+type CommunityConvoy = {
+  id: number; departureAt: string; nextGuardSeat?: number; noPaidGuard?: boolean;
+  manifest: { name?: string; templateId?: number; currency?: string; effectCode?: string; quantity: number }[];
+};
+export type CommunityBatch = { eventId: string; target: NotificationTarget; items: string[] } & (
+  { kind: 'welcome' | 'request' } | { kind: 'shop-raid'; convoy: CommunityConvoy }
+);
+export async function queueCommunityNotification(target: NotificationTarget, kind: 'welcome' | 'request', itemId: string, occurredAt: number): Promise<void> {
   await post('/community/queue', { target, kind, itemId, occurredAt });
 }
 export async function claimCommunityNotification(botId: string, consumer: string): Promise<CommunityBatch | null> {

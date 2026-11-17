@@ -93,7 +93,7 @@ export function createGameRouter() {
   res({ events: commandEvents, regular: commandPattern(/^\/?(?:开启每日机缘|关闭每日机缘)$/) }, () => import('@src/response/dailyFortune/res'));
 
   res(
-    { events: commandEvents, regular: commandPattern(/^\/?(?:群通知管理|配置群欢迎(?:\s|$)|配置加群提醒(?:\s|$)|加群申请记录(?:\s|$))/) },
+    { events: commandEvents, regular: commandPattern(/^\/?(?:群通知管理|配置(?:群欢迎|加群提醒|商运公示)(?:\s|$)|加群申请记录(?:\s|$))/) },
     () => import('@src/response/notification/community/res')
   );
 
@@ -458,6 +458,7 @@ export function createGameRouter() {
     xiuxian.use('邀请码', () => import('@src/response/referral/viewCode/res'));
     xiuxian.use('我的邀请', () => import('@src/response/referral/invitees/res'));
     xiuxian.use(['交易所', '珍宝楼'], () => import('@src/response/market/list/res'));
+    xiuxian.use(['我的状态', '万宝楼商运', '加入商运护卫', '确认商运护卫', '退出商运护卫', '递补商运主守', '商运结案', '确认商运结案', '立即抢商队', '查看劫货进度', '组队抢商队', '加入商运临时队', '退出商运临时队', '预览商运斗法', '确认商运斗法', '商运归还分成', '确认商运分成', '确认商运出战'], () => import('@src/response/shopRaid/res'));
     // xiuxian.use('小店', () => import('@src/response/shop/playerShop/list/res')); // 小店下架
     // xiuxian.use('小店排行', () => import('@src/response/shop/playerShop/ranking/res')); // 小店下架
     xiuxian.use('煞气', () => import('@src/response/shaQi/res'));

@@ -11,7 +11,7 @@ import type { GameEvent } from '../../src/types/event';
 after(() => shutdownLogger());
 
 for (const [role, queriedRole] of [['admin', undefined], ['owner', undefined], ['member', undefined], [undefined, undefined], [undefined, 'admin'], [undefined, 'member']] as const) {
-  test(`群欢迎配置使用 QQ 消息角色 ${role ?? '缺失'}（查询 ${queriedRole ?? '失败'}），不把查询失败当作非管理员`, async t => {
+  for (const setting of ['群欢迎', '商运公示']) test(`${setting}配置使用 QQ 消息角色 ${role ?? '缺失'}（查询 ${queriedRole ?? '失败'}），不把查询失败当作非管理员`, async t => {
     const writes: Record<string, unknown>[] = [];
     t.mock.method(axios, 'create', () => ({
       async post(path: string, body: Record<string, unknown>) {
@@ -39,7 +39,7 @@ for (const [role, queriedRole] of [['admin', undefined], ['owner', undefined], [
       cbp: { send: (event: GameEvent) => events.push(event) } as unknown as NonNullable<Parameters<typeof register>[1]>['cbp']
     }));
     app.run(() => client.emit('GROUP_AT_MESSAGE_CREATE', {
-      id: 'command-event', group_openid: 'community-group', content: '/配置群欢迎 开启',
+      id: 'command-event', group_openid: 'community-group', content: `/配置${setting} 开启`,
       author: { id: 'sender', member_openid: 'sender', member_role: role }
     }));
     assert.equal(events.length, 1);
@@ -53,7 +53,9 @@ for (const [role, queriedRole] of [['admin', undefined], ['owner', undefined], [
     if (role === 'admin' || role === 'owner' || queriedRole === 'admin') {
       assert.equal(writes.length, 1);
       assert.equal((writes[0].settings as { welcomeEnabled: boolean }).welcomeEnabled, true);
+      assert.equal((writes[0].settings as { shopRaidEnabled?: boolean }).shopRaidEnabled, setting === '商运公示' ? true : undefined);
       assert.match(text, /成员欢迎：已开启/);
+      assert.match(text, setting === '商运公示' ? /万宝楼商运公示订阅：已开启/ : /万宝楼商运公示订阅：已关闭/);
       assert.equal(queries, role ? 0 : 1);
     } else {
       assert.equal(writes.length, 0);

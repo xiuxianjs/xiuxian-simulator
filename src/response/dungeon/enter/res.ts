@@ -60,6 +60,9 @@ export default onResponse(selects, async e => {
   if (ownReward && ownReward.spiritCostPaid > 0) {
     md.addNewline().addText(`精力 -${ownReward.spiritCostPaid}`);
   }
+  if (ownReward?.mentalTalismanSaved) {
+    md.addNewline().addText(`符箓节省精力 ${ownReward.mentalTalismanSaved} 点`);
+  }
   if (data.won) {
     if (!ownReward?.eligible) {
       md.addNewline();
@@ -75,6 +78,9 @@ export default onResponse(selects, async e => {
       if (rewards.length) {
         md.addNewline();
         md.addText(`获得：${rewards.map(reward => `${displayCurrencyText(reward.name)}×${reward.amount}`).join('、')}`);
+      }
+      if (ownReward.stoneEffectBonus) {
+        md.addNewline().addText(`其中聚宝符额外获得灵石 ×${ownReward.stoneEffectBonus}`);
       }
       if (ownReward.firstClear?.length) {
         md.addNewline();

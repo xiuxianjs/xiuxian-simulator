@@ -55,6 +55,14 @@ export default onResponse(selects, async e => {
     }
     const actions: { label: string; command: string }[] = [];
 
+    if (data.statusTransfer) {
+      const status = data.statusTransfer;
+      const change = row.viewerRole === 'attacker' ? '夺得' : '失去';
+
+      lines.push(`${change} 1 张${status.name}效果，${formatGameTime(status.expiresAt)} 到期。`);
+      actions.push({ label: '我的状态', command: '/我的状态' });
+    }
+
     if (data.pursuitState) {
       const state = { open: '等待道友出战', fighting: '正在交手', expired_settling: '已到期，结算中', paid: '已追回并付赏', refunded: '赏金已退还' }[
         data.pursuitState

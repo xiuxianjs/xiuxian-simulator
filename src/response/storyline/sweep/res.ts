@@ -73,6 +73,9 @@ export default onResponse(selects, async e => {
   contentMd.addNewline();
 
   contentMd.addText(`消耗精力：${result.data.totalSpiritCost}`);
+  if (result.data.mentalTalismanSaved) {
+    contentMd.addNewline().addText(`符箓节省精力 ${result.data.mentalTalismanSaved} 点`);
+  }
   contentMd.addNewline();
 
   const experienceText =

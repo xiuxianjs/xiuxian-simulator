@@ -12,6 +12,7 @@ export type DungeonSweep = {
   dungeonName: string;
   times: number;
   totalSpiritCost: number;
+  mentalTalismanSaved?: number;
   totalExp: number;
   currency: DungeonSweepReward[];
   items: DungeonSweepReward[];
@@ -43,6 +44,7 @@ export function parseDungeonSweep(value: unknown): DungeonSweep {
     typeof value.dungeonName !== 'string' ||
     !integer(value.times) ||
     !integer(value.totalSpiritCost) ||
+    (value.mentalTalismanSaved !== undefined && !integer(value.mentalTalismanSaved)) ||
     !integer(value.totalExp) ||
     !Array.isArray(value.currency) ||
     !Array.isArray(value.items)
@@ -62,6 +64,7 @@ export function parseDungeonSweep(value: unknown): DungeonSweep {
     dungeonName: value.dungeonName,
     times: value.times,
     totalSpiritCost: value.totalSpiritCost,
+    ...(integer(value.mentalTalismanSaved) ? { mentalTalismanSaved: value.mentalTalismanSaved } : {}),
     totalExp: value.totalExp,
     currency: value.currency.map(reward),
     items: value.items.map(reward)

@@ -81,6 +81,9 @@ export default onResponse(selects, async e => {
   const contentMd = Format.createMarkdown();
 
   contentMd.addText(`${d.dungeonName} × ${d.times} | 精力 -${d.totalSpiritCost} | 修为 +${d.totalExp}`);
+  if (d.mentalTalismanSaved) {
+    contentMd.addNewline().addText(`符箓节省精力 ${d.mentalTalismanSaved} 点`);
+  }
   if (d.experienceBonusText?.trim()) {
     contentMd.addNewline().addText('其中：' + d.experienceBonusText);
   }

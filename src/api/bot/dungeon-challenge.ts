@@ -21,6 +21,8 @@ export type BackendDungeonChallenge = {
     eligible: boolean;
     noRewardReason?: string;
     spiritCostPaid: number;
+    mentalTalismanSaved?: number;
+    stoneEffectBonus?: number;
     experienceGained: number;
     currency: Array<{ category: string; name: string; amount: number }>;
     items: Array<{ category: string; name: string; amount: number }>;
@@ -41,6 +43,8 @@ const rewards = (value: unknown): BackendDungeonChallenge['rewardsByUser'] => {
       !integer(row.userId) ||
       typeof row.eligible !== 'boolean' ||
       !integer(row.spiritCostPaid) ||
+      (row.mentalTalismanSaved !== undefined && !integer(row.mentalTalismanSaved)) ||
+      (row.stoneEffectBonus !== undefined && !integer(row.stoneEffectBonus)) ||
       !integer(row.experienceGained) ||
       (row.noRewardReason !== undefined && typeof row.noRewardReason !== 'string')
       || (row.experienceBonusText !== undefined && typeof row.experienceBonusText !== 'string')
@@ -69,6 +73,8 @@ const rewards = (value: unknown): BackendDungeonChallenge['rewardsByUser'] => {
       eligible: row.eligible,
       ...(typeof row.noRewardReason === 'string' ? { noRewardReason: row.noRewardReason } : {}),
       spiritCostPaid: row.spiritCostPaid,
+      ...(integer(row.mentalTalismanSaved) ? { mentalTalismanSaved: row.mentalTalismanSaved } : {}),
+      ...(integer(row.stoneEffectBonus) ? { stoneEffectBonus: row.stoneEffectBonus } : {}),
       experienceGained: row.experienceGained,
       ...(typeof row.experienceBonusText === 'string' ? { experienceBonusText: row.experienceBonusText } : {}),
       currency: rewardList(row.currency),

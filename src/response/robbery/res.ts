@@ -1,3 +1,4 @@
+import { parsePKStatusTransfer } from '@src/api/bot/pk-history';
 import { parseTargetSuggestions, targetSuggestionsBubble } from '@src/response/targetSuggestions';
 import { fishingBlessingNote } from '@src/response/fishing/blessingNote';
 import { isPrivateEvent } from '@src/utils/privateEvent';
@@ -123,6 +124,11 @@ export default onResponse(selects, async e => {
     if (rewards.length) {
       md.addNewline().addBlockquote(createQuoteMarkdown(rewards));
     }
+    const statusTransfer = parsePKStatusTransfer(result.statusTransfer);
+
+    if (statusTransfer) {
+      possessions.push(`夺得 1 张${statusTransfer.name}效果，${formatGameTime(statusTransfer.expiresAt)} 到期。`);
+    }
     if (pk?.counterDeadline) {
       possessions.push(`对方反击截止：${formatGameTime(pk.counterDeadline)}`);
     }
@@ -150,6 +156,7 @@ export default onResponse(selects, async e => {
               command: pk && Number.isSafeInteger(result.logId) && result.logId > 0 ? `/争夺回放 ${result.logId} 原战 1` : `/查看战斗过程 ${result.battleLogId}`
             },
             ...(pk && Number.isSafeInteger(result.logId) && result.logId > 0 ? [{ label: '原战报', command: `/争夺战报 ${result.logId}` }] : []),
+            ...(statusTransfer ? [{ label: '我的状态', command: '/我的状态' }] : []),
             { label: '打劫记录', command: '/打劫记录' }
           ]
         },
