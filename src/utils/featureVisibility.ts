@@ -97,7 +97,7 @@ function featureFor(command: string, policy: Policy): string | undefined {
 
   // These activity pages can use the hub's feature when the catalogue has no dedicated entry.
   const activityCommands =
-    /^(半月活动|万宝楼商运|打劫队|立即抢商队|组队抢商队|查看劫货进度|预览商运斗法|确认商运斗法|确认商运出战|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|加入商运临时队|退出商运临时队|商运归还分成|确认商运分成)(?: |$)/;
+    /^(半月活动|万宝楼商运|我的状态|打劫队|立即抢商队|组队抢商队|查看劫货进度|预览商运斗法|确认商运斗法|确认商运出战|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|加入商运临时队|退出商运临时队|商运归还分成|确认商运分成)(?: |$)/;
 
   if (!feature && activityCommands.test(text)) {
     return policy.commands.find(([alias]) => alias === '我的活动')?.[1];

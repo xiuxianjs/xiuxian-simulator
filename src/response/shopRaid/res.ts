@@ -9,7 +9,7 @@ import { useMessage } from '@src/utils/useMessage';
 const command =
   /^[!！/#＃]?(万宝楼商运|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|立即抢商队|查看劫货进度|组队抢商队|加入商运临时队|退出商运临时队|预览商运斗法|确认商运斗法|商运归还分成|确认商运分成|确认商运出战)(?:\s+(.*))?$/;
 
-const statusCommand = /^[!！/#＃]?(我的状态)$/;
+const statusCommand = /^[!！/#＃]?(我的状态)(?:\s+([a-z_]{1,32}(?:\s+[1-9][0-9]{0,3})?))?$/;
 const crewCommand = /^[!！/#＃]?(打劫队)(?:\s+(.*))?$/;
 
 const phaseText: Record<string, string> = {
@@ -275,25 +275,64 @@ export default onResponse(selects, async event => {
 
       if (!entry.handled) {
         const effects = Array.isArray(entry.data.items) ? entry.data.items.map(record) : [];
+        const groups = new Map<string, Record<string, unknown>[]>();
+
+        for (const effect of effects) {
+          const code = String(effect.code ?? effect.name);
+          const same = groups.get(code) ?? [];
+
+          same.push(effect);
+          groups.set(code, same);
+        }
         const total = Math.min(
           10000,
           effects
-            .filter(effect => !effect.code || effect.code === 'yang_yuan' || effect.code === 'da_zhou_tian')
+            .filter(effect => effect.pending !== true && (!effect.code || effect.code === 'yang_yuan' || effect.code === 'da_zhou_tian'))
             .reduce((sum, effect) => sum + Number(effect.rateBps), 0)
         );
+        const detail = args[0];
+        const entries = detail ? [...groups.entries()].filter(([code]) => code === detail) : [...groups.entries()];
+        const pageSize = 8;
+        const detailCount = detail ? (entries[0]?.[1].length ?? 0) : 0;
+        const pages = Math.ceil(detailCount / pageSize);
+        const page = Math.min(Math.max(1, pages), Number(args[1] ?? 1));
+        const offset = (page - 1) * pageSize;
+        const items = entries.flatMap(([code, group]) => {
+          const name = String(group[0].name);
+
+          if (detail) {
+            return group.slice(offset, offset + pageSize).map((effect, index) => ({
+              title: `${effect.pending === true ? '待续' : '当前'} · 第 ${offset + index + 1} 张`,
+              lines:
+                effect.pending === true
+                  ? [
+                      `预计接续：${formatGameTime(String(effect.startedAt))}`,
+                      `预计到期：${formatGameTime(String(effect.expiresAt))}`,
+                      ...statusEffectLines(effect).filter(line => !line.endsWith(' 到期'))
+                    ]
+                  : statusEffectLines(effect)
+            }));
+          }
+          const current = group.find(effect => effect.pending !== true);
+          const pending = group.filter(effect => effect.pending === true).length;
+
+          return [
+            {
+              title: group.length > 1 ? `${name} ×${group.length}` : name,
+              lines: [...(current ? statusEffectLines(current) : []), ...(pending > 0 ? [`${pending} 张待续，当前一张结束后自动接上。`] : [])],
+              actions: pending > 0 && /^[a-z_]{1,32}$/.test(code) ? [{ label: `${name}详情`, command: `/我的状态 ${code}` }] : []
+            }
+          ];
+        });
 
         await message.send(
           listBubble({
             ...common,
-            title: total > 0 ? `我的状态｜闭关基础修为 +${total / 100}%` : '我的状态',
-            items:
-              effects.length > 0
-                ? effects.map(effect => ({
-                    title: String(effect.name),
-                    lines: statusEffectLines(effect)
-                  }))
-                : [{ lines: ['当前没有生效的符箓。'] }],
-            footer: [{ label: '刷新状态', command: '/我的状态' }]
+            title:
+              detail && entries.length ? `${String(entries[0][1][0].name)}详情` : total > 0 && !detail ? `我的状态｜闭关基础修为 +${total / 100}%` : '我的状态',
+            items: items.length ? items : [{ lines: ['当前没有生效或待续的符箓。'] }],
+            nav: detail && pages > 1 ? { current: page, total: pages, count: detailCount, command: `/我的状态 ${detail} {page}` } : undefined,
+            footer: [{ label: detail ? '返回我的状态' : '刷新状态', command: '/我的状态' }]
           })
         );
       }

@@ -458,9 +458,9 @@ test('我的状态逐张展示符箓的到期和合计加成', async t => {
   const { app } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/status-effects.list'));
     return businessEnvelope(request.bid, { items: [
-      { id: 1, name: '养元符', source: 'shop_raid', rateBps: 2500, expiresAt: '2026-11-23T15:00:00Z' },
-      { id: 2, name: '养元符', source: 'shop_raid', rateBps: 2500, expiresAt: '2026-11-23T16:00:00Z' },
-      { id: 3, name: '大周天符', source: 'shop_raid', rateBps: 5000, expiresAt: '2026-11-23T18:00:00Z' },
+      { id: 1, code: 'yang_yuan', name: '养元符', source: 'shop_raid', rateBps: 2500, expiresAt: '2026-11-23T15:00:00Z' },
+      { id: 2, code: 'yang_yuan', name: '养元符', source: 'shop_raid', rateBps: 2500, startedAt: '2026-11-23T15:00:00Z', expiresAt: '2026-11-23T21:00:00Z', pending: true },
+      { id: 3, code: 'da_zhou_tian', name: '大周天符', source: 'shop_raid', rateBps: 5000, expiresAt: '2026-11-23T18:00:00Z' },
       { id: 4, code: 'ju_bao', name: '聚宝符', source: 'shop_raid', rateBps: 5000, remainingUses: 2, remainingQuota: 1400, expiresAt: '2026-11-23T18:00:00Z' },
       { id: 5, code: 'yu_feng', name: '渔丰符', source: 'shop_raid', rateBps: 5000, remainingUses: 2, remainingQuota: 100, expiresAt: '2026-11-23T18:00:00Z' },
       { id: 6, code: 'jie_xing', name: '节行符', source: 'shop_raid', rateBps: 3000, remainingUses: 2, remainingQuota: 12, expiresAt: '2026-11-23T18:00:00Z' },
@@ -473,7 +473,7 @@ test('我的状态逐张展示符箓的到期和合计加成', async t => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.messages.length, 1);
   const card = inspectMessage(result.messages[0].nodes);
-  assert.match(card.text, /闭关基础修为 \+100%/);
+  assert.match(card.text, /闭关基础修为 \+75%/);
   assert.match(card.text, /养元符/);
   assert.match(card.text, /大周天符/);
   assert.match(card.text, /普通秘境基础灵石 \+50% · 剩 2 次、1400 灵石/);
@@ -484,14 +484,20 @@ test('我的状态逐张展示符箓的到期和合计加成', async t => {
   assert.match(card.text, /升级功法时可选用 · 灵石减 25% · 单张最多抵 2000 灵石/);
   assert.match(card.text, /万宝楼商运/);
   assert.ok(card.commands.includes('/我的状态'));
+  assert.match(card.text, /养元符 ×2/);
+  assert.match(card.text, /1 张待续/);
+  assert.ok(card.commands.includes('/我的状态 yang_yuan'));
+  const detail = await app.dispatch(app.events.groupMessage({ text: '/我的状态 yang_yuan', platform: 'qq-bot' }));
+  assert.deepEqual(detail.errors, []);
+  assert.match(inspectMessage(detail.messages[0].nodes).text, /预计接续/);
 });
 
 test('惜灵符报价显示实际用符，过期重新报价', async t => {
   const token = 'a'.repeat(32);
   const replacement = 'b'.repeat(32);
   const quote = {
-    bookId: 44, bookName: '破军', requested: 5, available: 5, baseCost: 1000, paidCost: 0, requiredExp: 100,
-    uses: [1, 2, 3, 4].map(id => ({ id, amount: 250 })), token
+    bookId: 44, bookName: '破军', requested: 5, available: 1, baseCost: 1000, paidCost: 750, requiredExp: 100,
+    uses: [{ id: 1, amount: 250 }], token
   };
   const { app } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/skill-books.upgrade-with-discount'));
@@ -504,9 +510,9 @@ test('惜灵符报价显示实际用符，过期重新报价', async t => {
   const preview = await app.dispatch(app.events.groupMessage({ text: '/升级功法 44 节费 5', platform: 'qq-bot' }));
   assert.deepEqual(preview.errors, []);
   const card = inspectMessage(preview.messages[0].nodes);
-  assert.match(card.text, /实付 0 灵石/);
-  assert.match(card.text, /将用 4 张惜灵符/);
-  assert.match(card.text, /另有 1 张保留/);
+  assert.match(card.text, /实付 750 灵石/);
+  assert.match(card.text, /将用 1 张惜灵符/);
+  assert.match(card.text, /每次升级最多用一张/);
   const confirm = `/升级功法 44 节费 5 ${token}`;
 
   assert.ok(card.commands.includes(confirm));

@@ -77,8 +77,8 @@ const response = onResponse(selects, async e => {
       ? [{ label: '查看功法', command: `/查看功法 ${bookId}` }]
       : [
           { label: '确认升级', command: `/升级功法 ${bookId} 节费 ${requested} ${String(quote.token)}` },
-          ...(requested > 0 ? [{ label: '少用一张', command: `/升级功法 ${bookId} 节费 ${Math.min(requested - 1, available)}` }] : []),
-          ...(requested < available ? [{ label: '多用一张', command: `/升级功法 ${bookId} 节费 ${requested + 1}` }] : [])
+          ...(requested > 0 && uses.length > 0 ? [{ label: '不使用惜灵符', command: `/升级功法 ${bookId} 节费 0` }] : []),
+          ...(requested === 0 && available > 0 ? [{ label: '使用惜灵符', command: `/升级功法 ${bookId} 节费 1` }] : [])
         ];
     const content = Format.createMarkdown().addText(String(quote.bookName));
 
@@ -91,7 +91,7 @@ const response = onResponse(selects, async e => {
       content.addNewline().addText(`${applied ? '已用' : '将用'} ${uses.length} 张惜灵符，各抵 ${uses.join('／')} 灵石`);
     }
     if (!applied) {
-      content.addNewline().addText(`另有 ${available - uses.length} 张保留，升级成功后才耗符。`);
+      content.addNewline().addText('每次升级最多用一张，升级成功后才耗符。');
     } else {
       content.addNewline().addText(`已升级次数 ${String(data.upgradeCount)} · ${String(data.attribute)} +${String(data.growth)}`);
     }
