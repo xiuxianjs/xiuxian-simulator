@@ -155,12 +155,11 @@ test('全 NPC 商队可立即抢，个人回执可查整车易手结果', async 
   assert.deepEqual(requests[1].body.arguments, { convoyId: 81, revision: 2 });
 });
 
-test('招募期可以从公开商队卡建立临时队，群友可点回执入队', async t => {
+test('建队和入队使用独立指令，招募卡不发起组队抢', async t => {
   const { app, requests } = await gameFixture(t, request => {
-    if (request.path.endsWith('/shop-raid.team')) {
+    if (request.path.endsWith('/shop-raid.crew')) {
       return businessEnvelope(request.bid, {
-        team: { id: 9, leaderId: 123, members: [123] },
-        card: { phase: 'recruiting', nextGuardSeat: 1 }
+        crew: { id: 9, leaderId: 123, members: [123] }, viewerId: 123, crews: []
       });
     }
     assert.ok(request.path.endsWith('/shop-raid.board'));
@@ -183,17 +182,15 @@ test('招募期可以从公开商队卡建立临时队，群友可点回执入�
   };
   const card = await send('/万宝楼商运 81');
   assert.ok(card.commands.includes('/加入商运护卫 81 1'));
-  assert.ok(card.commands.includes('/组队抢商队 81 行动'));
-  const team = await send('/组队抢商队 81');
+  assert.ok(card.commands.includes('/打劫队 创建'));
+  assert.ok(!card.commands.includes('/组队抢商队 81 行动'));
+  const team = await send('/打劫队 创建');
   assert.match(team.text, /队长 UID 123 · 1\/3 人/);
-  assert.ok(team.commands.includes('/加入商运临时队 81 9'));
-  assert.ok(team.commands.includes('/加入商运护卫 81 1'));
-  assert.ok(team.commands.includes('/组队抢商队 81 行动'));
-  assert.ok(!team.commands.includes('/立即抢商队 81'));
-  await send('/加入商运临时队 81 9');
+  assert.ok(team.commands.includes('/打劫队 加入 9'));
+  await send('/打劫队 加入 9');
   assert.deepEqual(requests.slice(1).map(request => request.body.arguments), [
-    { convoyId: 81, teamId: 0, mode: 'create' },
-    { convoyId: 81, teamId: 9, mode: 'join' }
+    { crewId: 0, memberId: 0, mode: 'create' },
+    { crewId: 9, memberId: 0, mode: 'join' }
   ]);
 });
 
@@ -201,6 +198,10 @@ test('启程后队长从商队原卡发起组队抢并绑定当前阵容', async
   const { app, requests } = await gameFixture(t, request => {
     if (request.path.endsWith('/shop-raid.solo')) {
       return businessEnvelope(request.bid, { attemptId: 10, state: 'queued' });
+    }
+    if (request.path.endsWith('/shop-raid.crew')) {
+      assert.deepEqual(request.body.arguments, { convoyId: 81, mode: 'prepare' });
+      return businessEnvelope(request.bid, {});
     }
     assert.ok(request.path.endsWith('/shop-raid.board'));
     return businessEnvelope(request.bid, {
@@ -226,7 +227,7 @@ test('启程后队长从商队原卡发起组队抢并绑定当前阵容', async
   assert.ok(card.commands.includes('/组队抢商队 81 行动'));
   const receipt = await send('/组队抢商队 81 行动');
   assert.ok(receipt.commands.includes('/查看劫货进度 10'));
-  assert.deepEqual(requests[2].body.arguments, { convoyId: 81, revision: 4, teamId: 9, teamRevision: 3 });
+  assert.deepEqual(requests[4].body.arguments, { convoyId: 81, revision: 4, teamId: 9, teamRevision: 3 });
 });
 
 test('有真人护卫时先显示财物对手，确认按钮绑定主守和临时队', async t => {
@@ -371,6 +372,10 @@ test('旁观者从旧劫货回执点击，用本人身份读取当前持货人�
       assert.equal(request.bid, 'observer');
       assert.deepEqual(request.body.arguments, { convoyId: 81, revision: 12 });
       return businessEnvelope(request.bid, { mainGuardId: 301, holderBattle: true, reverseEligible: true });
+    }
+    if (request.path.endsWith('/shop-raid.crew')) {
+      assert.deepEqual(request.body.arguments, { convoyId: 81, mode: 'prepare' });
+      return businessEnvelope(request.bid, {});
     }
     assert.ok(request.path.endsWith('/shop-raid.board'));
     assert.ok(request.bid === 'observer' || request.bid === 'first-raider');
@@ -532,7 +537,7 @@ test('无护送钱的实物车保留组队和启程后的抢货入口', async t 
   const before = await send();
 
   assert.match(before.text, /NPC 护送，启程后可争夺整车/);
-  assert.ok(before.commands.some(command => command.startsWith('/组队抢')));
+  assert.ok(before.commands.includes('/打劫队 创建'));
   assert.ok(!before.commands.some(command => command.startsWith('/加入商运护卫')));
   assert.ok(!before.commands.includes('/立即抢商队 81'));
   traveling = true;

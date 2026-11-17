@@ -362,6 +362,7 @@ const robotBusinessOperations = [
   'pvp.pk-targets',
   'pvp.pursuit-board',
   'shop-raid.board',
+  'shop-raid.crew',
   'status-effects.list',
   'shop-raid.guard',
   'shop-raid.team',

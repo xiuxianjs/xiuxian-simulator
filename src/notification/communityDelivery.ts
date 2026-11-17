@@ -43,16 +43,25 @@ export function buildCommunityBatch(batch: CommunityBatch) {
     const { id, departureAt, nextGuardSeat, noPaidGuard, manifest } = batch.convoy;
     const quote = Format.createMarkdown();
     const cargo = manifest.map(item => {
-      const name = item.name || (item.currency === 'SPIRIT_STONE' ? '灵石' : item.currency === 'SPIRIT_CRYSTAL' ? '灵晶' : item.effectCode || `货物 #${item.templateId}`);
+      const name = item.name?.length
+        ? item.name
+        : item.currency === 'SPIRIT_STONE'
+          ? '灵石'
+          : item.currency === 'SPIRIT_CRYSTAL'
+            ? '灵晶'
+            : (item.effectCode ?? `货物 #${item.templateId}`);
+
       return `${name} ×${item.quantity}`;
     });
+
     quote.addText(cargo.join('、')).addNewline();
     quote.addText(`启程：${formatGameTime(departureAt)}`).addNewline();
     addOptions(quote, [
-      ...(!noPaidGuard && nextGuardSeat ? [{ label: '加入护卫队', command: `/加入商运护卫 ${id} ${nextGuardSeat}` }] : []),
-      { label: '组队抢', command: `/组队抢商队 ${id} 行动` },
+      ...(!noPaidGuard && nextGuardSeat ? [{ label: '加入护卫', command: `/加入商运护卫 ${id} ${nextGuardSeat}` }] : []),
+      { label: '创队伍', command: '/打劫队 创建' },
       { label: '查看商队', command: `/万宝楼商运 ${id}` }
     ]);
+
     return FormatGui({
       mention: false,
       bar: false,

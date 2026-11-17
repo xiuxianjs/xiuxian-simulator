@@ -333,6 +333,7 @@ export type RobotBusinessOperation =
   | 'pvp.records'
   | 'pvp.pk-targets'
   | 'shop-raid.board'
+  | 'shop-raid.crew'
   | 'status-effects.list'
   | 'shop-raid.guard'
   | 'shop-raid.team'

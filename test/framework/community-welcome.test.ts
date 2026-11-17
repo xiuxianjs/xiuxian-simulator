@@ -77,7 +77,7 @@ test('商运招募公示仅投给启用群，重复认领和过期消息都不�
   const view = inspectMessage(delivered.messages[0].nodes);
   assert.match(view.text, /万宝楼商队.*护卫招募中/);
   assert.match(view.text, /灵石 ×1000/);
-  assert.deepEqual(view.commands, ['/加入商运护卫 12 1', '/组队抢商队 12 行动', '/万宝楼商运 12']);
+  assert.deepEqual(view.commands, ['/加入商运护卫 12 1', '/打劫队 创建', '/万宝楼商运 12']);
   assert.deepEqual(receipts.get(value.eventId), { route: 'group', reason: 'sent' });
   assert.equal((await run(value)).messages.length, 0);
   const expired = { ...value, eventId: 'expired', convoy: { ...value.convoy, departureAt: new Date(0).toISOString() } };
