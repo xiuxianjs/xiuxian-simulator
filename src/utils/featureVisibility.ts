@@ -91,6 +91,10 @@ function featureFor(command: string, policy: Policy): string | undefined {
 
   const feature = policy.commands.find(([alias]) => text === alias || text.startsWith(alias + ' '))?.[1];
 
+  if (!feature && text === '回归活动') {
+    return policy.commands.find(([alias]) => alias === '回归奖励')?.[1];
+  }
+
   // Earlier catalogues only declare the activity hub's feature.
   if (!feature && (text === '半月活动' || text.startsWith('半月活动 '))) {
     return policy.commands.find(([alias]) => alias === '我的活动')?.[1];

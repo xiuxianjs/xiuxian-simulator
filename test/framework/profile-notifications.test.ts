@@ -3,6 +3,8 @@ import { after, before, mock, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import { startFeatureVisibility } from '../../src/utils/featureVisibility';
+import activity from '../../src/response/activity/res';
+import router from '../../src/router';
 import handler from '../../src/response/message/me/res';
 import readAllHandler from '../../src/response/notification/read-all/res';
 import { validateHomeNotifications } from '../../src/api/bot/home-notification-queries';
@@ -281,3 +283,60 @@ for (const mode of ['combined', 'legacy', 'malformed'] as const) {
     assert.equal(requests.filter(r => r.path.endsWith('?view=access')).length, mode === 'combined' ? 0 : 2);
   });
 }
+
+test('回归活动在个人活动单列，在新人资料与新人狂欢同排', async t => {
+  const { app, requests } = await gameFixture(t, r => {
+    const features = { comeback: true, newcomer: true };
+    if (r.path.endsWith('?view=access')) return { gateVersion: 1, features };
+    if (r.path.endsWith('/content/tianshu')) return {
+      gateVersion: 1, intro: '', realmUnlocks: [], notes: [],
+      commandFeatures: { 回归奖励: 'comeback', 新人狂欢: 'newcomer' },
+      featureCatalog: [{ stageLevel: 0, stageName: '', features: Object.keys(features).map(id => ({
+        id, name: id, realm: '', description: '', realmReached: true, visible: true, conditions: []
+      })) }]
+    };
+    if (r.path.endsWith('/native-comeback.overview')) {
+      return businessEnvelope(r.bid, { enabled: false, current: null, rules: { smallSilentDays: 7, largeSilentDays: 30, expireDays: 7 } });
+    }
+    if (r.path.endsWith('/activity.hub')) {
+      return businessEnvelope(r.bid, {
+        limitedEvent: { activeCount: 0 }, guildCompetition: { phase: 'INACTIVE' },
+        guildSecretRealmWar: { phase: 'INACTIVE', activeStartAt: '', activeEndAt: '', maxAttackPerWeek: 0, remainingAttackCount: 0 },
+        access: { hasGuild: false, canAccessOverseasIsland: false }, newcomerVisible: true, giftCodesVisible: false
+      });
+    }
+    return businessEnvelope(r.bid, {
+      profile: { ...profile, isNewcomer: r.bid === 'newcomer' },
+      notifications: [], atmosphere: { text: null, kind: 'none' }
+    });
+  });
+  await app.invoke(app.events.groupMessage(), startFeatureVisibility);
+  for (const [route, text, userId, showsNewcomer] of [
+    [activity, '/我的活动', 'veteran', true],
+    [handler, '/我的资料', 'newcomer', true],
+    [handler, '/我的资料', 'veteran', false]
+  ] as const) {
+    const result = await app.runHandler(route, app.events.privateMessage({ text, userId, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const view = inspectMessage(message.nodes);
+    assert.ok(view.commands.includes('/回归活动'), text);
+    assert.equal(view.commands.includes('/新人狂欢'), showsNewcomer, text);
+    if (text === '/我的活动') {
+      assert.match(view.text, /新人狂欢[^\n]*初入仙途[^\n]*\n+[^\n]*回归活动[^\n]*查看回归资格与签到奖励/);
+    } else if (showsNewcomer) {
+      assert.match(view.text, /新人狂欢[^\n]*回归活动/, text);
+    }
+  }
+
+  await app.mount({ responseRouter: router });
+  for (const text of ['/回归活动', '/回归奖励', '/回归签到']) {
+    const result = await app.dispatch(app.events.privateMessage({ text, userId: 'veteran', platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    const message = result.messages[0];
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    assert.match(inspectMessage(message.nodes).text, /本服回归活动暂未开启/);
+    assert.equal(requests.filter(r => r.path.endsWith('/native-comeback.overview')).at(-1)?.body.messageText, text);
+  }
+});

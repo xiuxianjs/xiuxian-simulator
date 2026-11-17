@@ -33,6 +33,7 @@ const PERSONAL_ROWS = [
   { label: '登天梯', command: '/登天梯', introduction: '谁敢言不败，谁敢言无敌' },
   { label: '劫云榜', command: '/劫云榜', introduction: '落子无悔啊，落子无悔' },
   { label: '新人狂欢', command: '/新人狂欢', introduction: '初入仙途，寻仙问道' },
+  { label: '回归活动', command: '/回归活动', introduction: '查看回归资格与签到奖励' },
   { label: '邀请奖励', command: '/邀请奖励', introduction: '举杯，共饮天上水' },
   { label: '稻草人', command: '/挑战稻草人', introduction: '我的剑，也未尝不利' },
   { label: '悬赏', command: '/悬赏榜', introduction: '今日恩怨，今日了' },
@@ -80,7 +81,7 @@ export default onResponse(selects, async e => {
 
   for (const entry of entries) {
     const row = Format.createMarkdown()
-      .addButton(markdownButtonLabel(`${entry.label}`), { data: commandText(entry.command), autoEnter: false })
+      .addButton(markdownButtonLabel(entry.label), { data: commandText(entry.command), autoEnter: false })
       .addText(` — ${entry.introduction}`);
 
     if (entry.command === '/灵脉攻防战') {

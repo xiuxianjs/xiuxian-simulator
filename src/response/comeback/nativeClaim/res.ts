@@ -22,7 +22,7 @@ export default onResponse(selects, async e => {
         title: '回归签到',
         content,
         footer: [
-          { label: '回归奖励', command: '/回归奖励' },
+          { label: '回归活动', command: '/回归活动' },
           { label: '我的信息', command: '/我的信息' }
         ]
       })
@@ -55,7 +55,7 @@ export default onResponse(selects, async e => {
   }
 
   const footer = [
-    { label: '回归奖励', command: '/回归奖励' },
+    { label: '回归活动', command: '/回归活动' },
     { label: '我的信息', command: '/我的信息' }
   ];
 

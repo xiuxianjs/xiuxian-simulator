@@ -107,7 +107,7 @@ test('更多和指令大全沿用统一入口和常用指令，兼容旧入口�
   assert.deepEqual(marketNext.selected, ['/指令大全 交易与商店 1']);
   assert.ok(marketNext.rows?.every(row => row.startsWith('| 交易与商店 |')));
 
-  const comeback = COMMAND_CATALOG.find(([, commands]) => commands.includes('/回归奖励'));
+  const comeback = COMMAND_CATALOG.find(([, commands]) => commands.includes('/回归活动'));
   assert.ok(comeback?.[1].includes('/回归签到'));
 
   const unknown = await send('/指令大全 占位输入');

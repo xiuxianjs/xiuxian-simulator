@@ -56,7 +56,7 @@ export const returnRewardsActions = {
       },
       ['current']
     ),
-    () => '/回归奖励',
+    () => '/回归活动',
     parseNativeComebackOverview
   ),
   claim_native_comeback: mutation<{ intentId?: string; taskInput?: string }>(

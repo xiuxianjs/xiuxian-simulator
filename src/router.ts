@@ -1107,7 +1107,7 @@ export function createGameRouter() {
           seclusion.use('兑换码', () => import('@src/response/redeemCode/res'));
           seclusion.use(['礼包码', '礼品码'], () => import('@src/response/redeemCode/claim/res'));
           seclusion.use('领取邀请奖励', () => import('@src/response/referral/claimReward/res'));
-          seclusion.use(['回归奖励', '回归签到'], () => import('@src/response/comeback/native/res'));
+          seclusion.use(['回归活动', '回归奖励', '回归签到'], () => import('@src/response/comeback/native/res'));
           seclusion.use('领取回归奖励', () => import('@src/response/comeback/nativeClaim/res'));
           seclusion.use('绑定邀请码', () => import('@src/response/referral/bindCode/res'));
           seclusion.use(

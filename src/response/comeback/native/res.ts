@@ -27,7 +27,7 @@ export default onResponse(selects, async e => {
     }
     data = loaded.data;
   } catch (error) {
-    await renderFailure(error instanceof Error ? error.message : '加载本服回归奖励失败');
+    await renderFailure(error instanceof Error ? error.message : '加载本服回归活动失败');
 
     return;
   }
@@ -70,7 +70,7 @@ export default onResponse(selects, async e => {
 
   footer.push({ label: '我的信息', command: '/我的信息' });
 
-  void message.send(
+  await message.send(
     FormatGui({
       isPrivate,
       bid,

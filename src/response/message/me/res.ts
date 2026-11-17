@@ -221,7 +221,10 @@ export default onResponse(selects, (e: GameEvent) => measureTransportStage(
             ];
 
             const footer = [
-              ...(data.actions.isNewcomer ? [[{ label: '新人狂欢', command: '/新人狂欢' }]] : []),
+              [
+                ...(data.actions.isNewcomer ? [{ label: '新人狂欢', command: '/新人狂欢' }] : []),
+                { label: '回归活动', command: '/回归活动' }
+              ],
               ...(!isEarlyStarter || isPrivate
                 ? [
                     [

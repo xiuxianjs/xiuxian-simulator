@@ -18,12 +18,12 @@ export default async function App(params: { bid: string; uid: number }): Promise
 
     return { code: 'OK', data: parseNativeComebackOverview(data) };
   } catch (error) {
-    logger.error('加载本服回归奖励失败:', error);
+    logger.error('加载本服回归活动失败:', error);
 
     return {
       code: 'LOAD_FAILED',
       data: {
-        message: error instanceof Error ? error.message : '加载本服回归奖励失败'
+        message: error instanceof Error ? error.message : '加载本服回归活动失败'
       }
     };
   }
