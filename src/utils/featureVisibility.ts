@@ -95,8 +95,8 @@ function featureFor(command: string, policy: Policy): string | undefined {
     return policy.commands.find(([alias]) => alias === '回归奖励')?.[1];
   }
 
-  // Earlier catalogues only declare the activity hub's feature.
-  if (!feature && (text === '半月活动' || text.startsWith('半月活动 '))) {
+  // These activity pages can use the hub's feature when the catalogue has no dedicated entry.
+  if (!feature && (text === '半月活动' || text.startsWith('半月活动 ') || text === '万宝楼商运' || text.startsWith('万宝楼商运 '))) {
     return policy.commands.find(([alias]) => alias === '我的活动')?.[1];
   }
 

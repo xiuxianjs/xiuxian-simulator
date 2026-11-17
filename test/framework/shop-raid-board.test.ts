@@ -3,6 +3,7 @@ import { after, test } from 'node:test';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage } from 'alemonjs/testing';
 import { createGameRouter } from '../../src/router';
+import { startFeatureVisibility } from '../../src/utils/featureVisibility';
 import { businessEnvelope, gameFixture } from './fixture';
 
 after(() => shutdownLogger());
@@ -572,4 +573,56 @@ test('无护送钱的实物车保留组队和启程后的抢货入口', async t 
 
   assert.match(after.text, /NPC 护送，现可争夺整车/);
   assert.ok(after.commands.includes('/立即抢商队 81'));
+});
+
+test('个人活动的送货商队打开列表，即使当前没有发车', async t => {
+  let items: unknown[] = [];
+  const { app, requests } = await gameFixture(t, request => {
+    if (request.path.endsWith('/activity.hub')) {
+      return businessEnvelope(request.bid, {
+        limitedEvent: { activeCount: 0 },
+        guildCompetition: { phase: 'INACTIVE' },
+        guildSecretRealmWar: { phase: 'INACTIVE', activeStartAt: '', activeEndAt: '', maxAttackPerWeek: 0, remainingAttackCount: 0 },
+        access: { hasGuild: true, canAccessOverseasIsland: false },
+        newcomerVisible: false,
+        giftCodesVisible: false
+      });
+    }
+    if (request.path.endsWith('/shop-raid.board')) return businessEnvelope(request.bid, { items });
+    assert.ok(request.path.includes('/content/tianshu'));
+    return {
+      gateVersion: 1, intro: '说明', realmUnlocks: [], notes: [],
+      commandFeatures: { 我的活动: 'activities', 个人活动: 'activities', 宗门活动: 'activities', 宗门日常: 'activities' },
+      featureCatalog: [{
+        stageLevel: 0, stageName: '功能目录',
+        features: [{ id: 'activities', name: '活动', description: '活动入口', realm: '无境界限制', realmReached: true, visible: true, conditions: [] }]
+      }]
+    };
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  await app.invoke(app.events.groupMessage(), startFeatureVisibility);
+  const send = async (text: string) => {
+    const result = await app.dispatch(app.events.groupMessage({ text, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const [message] = result.messages;
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    return inspectMessage(message.nodes);
+  };
+  const personal = await send('/我的活动');
+  assert.match(personal.text, /送货商队/);
+  const entry = personal.commands.find(command => command === '/万宝楼商运');
+  assert.ok(entry);
+  assert.ok(!(await send('/宗门活动')).commands.includes(entry));
+  assert.match((await send(entry)).text, /当前没有正在招募或运送的商队/);
+  items = [{
+    id: 81, phase: 'recruiting', departureAt: '2026-11-23T13:02:00Z', arrivalAt: '2026-11-23T14:02:00Z', guardCount: 0,
+    manifest: [{ category: 'item', name: '精力丹', templateId: 38, quantity: 3 }]
+  }];
+  const board = await send(entry);
+  assert.match(board.text, /护卫招募中/);
+  assert.match(board.text, /精力丹 ×3/);
+  assert.deepEqual(requests.filter(request => request.path.endsWith('/shop-raid.board')).map(request => request.body.arguments), [
+    { convoyId: 0 }, { convoyId: 0 }
+  ]);
 });
