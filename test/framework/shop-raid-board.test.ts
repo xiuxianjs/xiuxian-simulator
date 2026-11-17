@@ -696,3 +696,89 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
     { convoyId: 0 }, { convoyId: 0 }
   ]);
 });
+
+test('同车单抢后协守，第三人从旧回执反抢但锁阵前有人退队', async t => {
+  let supports = false;
+  let holder = false;
+  const { app } = await gameFixture(t, request => {
+    const route = request.path.split('/').at(-1);
+    if (request.path.includes('/content/tianshu')) {
+      return {
+        gateVersion: 1, intro: '说明', realmUnlocks: [], notes: [],
+        commandFeatures: { 我的活动: 'activities' },
+        featureCatalog: [{
+          stageLevel: 0, stageName: '功能目录',
+          features: [{ id: 'activities', name: '活动', description: '活动入口', realm: '无境界限制', realmReached: true, visible: true, conditions: [] }]
+        }]
+      };
+    }
+    if (route === 'shop-raid.crew') {
+      const operation = (request.body.arguments as { mode: string }).mode;
+      if (operation === 'support') supports = true;
+      if (operation === 'leave') supports = false;
+      return businessEnvelope(request.bid, {
+        crew: operation === 'leave' ? undefined : { id: 9, leaderId: 101, members: operation === 'create' ? [101] : [101, 102] },
+        viewerId: request.bid === 'holder' ? 101 : 102, crews: []
+      });
+    }
+    if (route === 'shop-raid.solo') {
+      if (request.bid === 'holder') {
+        holder = true;
+        return businessEnvelope(request.bid, { attemptId: 1, convoyId: 81, state: 'settled', outcome: { attackWon: true } });
+      }
+      assert.equal(request.bid, 'spectator');
+      assert.equal((request.body.arguments as { defenderStamp: string }).defenderStamp, 'a1b2c3d4a1b2c3d4');
+      return businessEnvelope(request.bid, { attemptId: 2, convoyId: 81, state: 'queued' });
+    }
+    if (route === 'shop-raid.guard-preview') {
+      return businessEnvelope(request.bid, { mainGuardId: 101, holderBattle: true, reverseEligible: true,
+        defenders: supports ? [101, 102] : [101], defenderStamp: 'a1b2c3d4a1b2c3d4' });
+    }
+    if (route === 'shop-raid.solo-status') {
+      assert.equal(request.bid, 'spectator');
+      assert.equal(supports, false);
+      return businessEnvelope(request.bid, { attemptId: 2, convoyId: 81, state: 'ineligible', outcome: { rejectionReason: 'defenders_changed' } });
+    }
+    assert.equal(route, 'shop-raid.board');
+    return businessEnvelope(request.bid, { teamsEnabled: true, items: [{
+      id: 81, phase: holder ? 'contested' : 'traveling', revision: supports ? 5 : 4, canSoloRaid: !holder,
+      holderId: holder ? 101 : undefined, canClose: holder && request.bid === 'holder',
+      canSupport: holder && request.bid === 'supporter',
+      holdUntil: holder ? '2026-11-23T13:32:00Z' : undefined,
+      departureAt: '2026-11-23T13:02:00Z', arrivalAt: '2026-11-23T14:02:00Z',
+      manifest: [{ category: 'currency', currency: 'SPIRIT_STONE', quantity: 1000 }]
+    }] });
+  });
+  await app.mount({ responseRouter: app.run(createGameRouter).router });
+  await app.invoke(app.events.groupMessage(), startFeatureVisibility);
+  const send = async (userId: string, text: string) => {
+    const result = await app.dispatch(app.events.groupMessage({ text, userId, platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    return inspectMessage(result.messages[0].nodes);
+  };
+  const win = await send('holder', '/立即抢商队 81');
+  assert.match(win.text, /夺下整车货/);
+  assert.ok(win.commands.includes('/打劫队 创建'));
+  const crew = await send('holder', '/打劫队 创建');
+  assert.ok(crew.commands.includes('/打劫队 加入 9'));
+  await send('supporter', '/打劫队 加入 9');
+  const detail = await send('supporter', '/万宝楼商运 81');
+  const support = detail.commands.find(text => text.startsWith('/打劫队 协守'));
+  assert.ok(support);
+  assert.match((await send('supporter', support)).text, /已加入本车协守/);
+
+  const fromOldCard = win.commands.find(text => text === '/立即抢商队 81');
+  assert.ok(fromOldCard);
+  const counter = await send('spectator', fromOldCard);
+  assert.match(counter.text, /守货阵容 UID 101、102/);
+  const confirmation = counter.commands.find(text => text.startsWith('/确认商运斗法'));
+  assert.ok(confirmation);
+  const queued = await send('spectator', confirmation);
+  assert.match(queued.text, /本轮斗法正在处理/);
+  await send('supporter', '/打劫队 退出 9');
+  assert.match((await send('spectator', '/查看劫货进度 2')).text, /守货阵容已变，本次未出战，未扣元力/);
+  const final = await send('holder', '/万宝楼商运 81');
+  assert.match(final.text, /占用人：UID 101/);
+  assert.match(final.text, /守至.*21:32/);
+});
