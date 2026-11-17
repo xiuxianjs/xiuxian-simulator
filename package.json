@@ -78,7 +78,7 @@
     "lint": "eslint src --ext .ts,.tsx,.js --max-warnings=0",
     "lint:fix": "eslint src --ext .ts,.tsx,.js --fix --max-warnings=0",
     "typecheck": "node node_modules/@typescript/native/bin/tsc --noEmit",
-    "prepack": "yarn release:check",
+    "prepack": "yarn build",
     "precommit": "lint-staged",
     "prepare": "husky",
     "start": "pm2 startOrRestart pm2.config.cjs",
