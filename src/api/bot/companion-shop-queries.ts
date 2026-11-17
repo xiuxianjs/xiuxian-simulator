@@ -107,6 +107,7 @@ export function decodeShopData(data: Record<string, unknown>) {
       name: p.name,
       category: p.category,
       itemId: p.itemId ?? undefined,
+      itemSubtype: p.itemSubtype ?? undefined,
       priceAmount: p.priceAmount,
       priceCurrencyName: p.priceCurrencyName ?? undefined,
       quantity: p.quantity,

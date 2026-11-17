@@ -6,6 +6,7 @@ export interface ShopListProductItem {
   name: string;
   category: string;
   itemId?: number;
+  itemSubtype?: string;
   priceAmount: number;
   priceCurrencyName?: string;
   secondaryPriceAmount?: number;

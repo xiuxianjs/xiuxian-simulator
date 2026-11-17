@@ -124,7 +124,7 @@ const getShopHeader = (access: ShopAccessState, selection: ReturnType<typeof par
 
 // ==================== 列表 handler ====================
 
-const formatItem = (item: ShopListProductItem) => {
+const formatItem = (item: ShopListProductItem, omitRemaining: boolean) => {
   const actualPrice = item.discountPriceAmount ?? item.priceAmount;
   let price = `${actualPrice} ${item.priceCurrencyName}`;
 
@@ -136,7 +136,8 @@ const formatItem = (item: ShopListProductItem) => {
     price += ` + ${item.secondaryPriceAmount} ${item.secondaryPriceCurrencyName}`;
   }
 
-  const limitText = item.limit === -1 ? '不限购' : `限${item.limit}份 · 剩余${item.remaining}份`;
+  const remainingText = omitRemaining ? '' : ` · 剩余${item.remaining}份`;
+  const limitText = item.limit === -1 ? '不限购' : `限${item.limit}份${remainingText}`;
   const periodText = item.limit > 0 ? `${item.limitPeriodCN}` : '';
   const lockText = item.unlocked ? '' : ` 🔒${item.lockReason ?? '未解锁'}`;
 
@@ -175,11 +176,11 @@ const groupShopOffers = (products: ShopListProductItem[], groupFishing: boolean)
   return cards;
 };
 
-const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: ShopListProductItem) => {
-  const { limitText, periodText, lockText, price } = formatItem(item);
-  const detailCommand = getItemDetailCommand(item);
-  const shopBtns: { label: string; command: string }[] = [];
+const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: ShopListProductItem, compact: boolean) => {
   const soldOut = item.limit > 0 && item.remaining === 0;
+  const { limitText, periodText, lockText, price } = formatItem(item, compact && soldOut);
+  const detailCommand = compact ? undefined : getItemDetailCommand(item);
+  const shopBtns: { label: string; command: string }[] = [];
 
   if (item.unlocked && !soldOut) {
     const buyCmd = SHOP_META[item.shopCode]?.buyCmd ?? '购买';
@@ -190,9 +191,9 @@ const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: 
     shopBtns.push({ label: '详情', command: detailCommand });
   }
 
-  const lines = item.unlocked ? [] : [lockText];
+  const priceLine = compact ? `${price} · ${periodText}${limitText}` : `${price}  ${periodText}${limitText}`;
+  const lines = compact ? [priceLine, lockText.trim()].filter(Boolean) : [...(!item.unlocked ? [lockText] : []), priceLine];
 
-  lines.push(`${price}  ${periodText}${limitText}`);
   if (soldOut) {
     lines.push(
       ({ 每日: '今日已兑完', 每周: '本周已兑完', 每月: '本月已兑完', 终身: '终身额度已用完' } as Record<string, string>)[item.limitPeriodCN] ?? '当前额度已用完'
@@ -208,7 +209,7 @@ const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: 
   if (item.shopCode !== 'CHECKIN' && item.category === 'item' && (item.itemId === 38 || item.itemId === 39)) {
     shopBtns.push({ label: '查看签到兑换', command: `/商店 签到 搜索 ${item.itemId === 38 ? '精力丹' : '元力丹'}` });
   }
-  quote.absorb(createQuoteMarkdown(lines));
+  quote.absorb(createQuoteMarkdown(compact ? [lines.join(' · ')] : lines));
   if (shopBtns.length > 0) {
     addOptions(
       quote,
@@ -345,11 +346,19 @@ export const createShopListHandler = (shopCode?: string) => {
         // 商品列表
         groupShopOffers(result.data, activeShopCode === 'FISHING' && !currencyCode).forEach(offers => {
           const [first] = offers;
+          const grouped = offers.length > 1;
+          const compact = grouped || (first.shopCode === 'FISHING' && (first.itemSubtype === 'fishing_bait' || first.itemSubtype === 'fishing_chum'));
+          const productTag = grouped ? '' : `【${first.productId}】`;
           const typeTag = first.typeLabel ? `【${first.typeLabel}】` : '';
-          const quote = Format.createMarkdown().addBold(`【${first.productId}】${typeTag}${first.name} ×${first.quantity}`).addNewline();
+          const quote = Format.createMarkdown().addBold(`${productTag}${typeTag}${first.name} ×${first.quantity}`);
+          const detailCommand = compact ? getItemDetailCommand(first) : undefined;
 
+          if (detailCommand) {
+            addOptions(quote, [{ label: '详情', command: detailCommand, autoEnter: false }], undefined, false);
+          }
+          quote.addNewline();
           offers.forEach(item => {
-            appendShopOffer(quote, item);
+            appendShopOffer(quote, item, compact);
           });
           contentMd.addBlockquote(quote);
         });

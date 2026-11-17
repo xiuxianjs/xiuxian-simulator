@@ -19,7 +19,7 @@ test('渔市走标准商店目录，批量和大额确认走标准购买指令',
         priceAmount: 150, priceCurrencyCode: 'SPIRIT_STONE', priceCurrencyName: '灵石',
         secondaryPriceAmount: null, secondaryPriceCurrencyCode: null, secondaryPriceCurrencyName: null,
         grantCurrencyCode: null, grantCurrencyName: null, quantity: 1, used: 0, remaining: 100,
-        limit: 100, limitPeriod: 'daily', limitPeriodName: '每日', typeLabel: '鱼饵',
+        limit: 100, limitPeriod: 'daily', limitPeriodName: '每日', typeLabel: '物品',
         requiredRealmId: null, requiredStars: null, discountPriceAmount: null, discountRate: null, discountLabel: null,
         itemType: 'prop', itemSubtype: 'fishing_bait', requiredRealmName: null, lockReason: null, unlocked: true, nextPurchaseAt: null
       };
@@ -51,7 +51,10 @@ test('渔市走标准商店目录，批量和大额确认走标准购买指令',
   };
   const page = await send('/商店 渔市 饵料');
   assert.ok(page.commands.includes('/购买 501'));
-  assert.match(page.text, /‹购买›[^\n]*‹详情›/);
+  assert.deepEqual(page.text.split('\n').filter(line => line.startsWith('> ')), [
+    '> 【501】【物品】定鳞饵 ×1 ‹详情›',
+    '> 150 灵石 · 每日限100份 · 剩余100份 ‹购买›'
+  ]);
   assert.doesNotMatch(page.text, /‹买\d+份›/);
   assert.match(page.text, /\| 同心值 \| 小绿瓶 \| 灵鳞钱 \|\n\| 608 \| 42 \| 4\.43万 \|/);
   assert.doesNotMatch(page.text, /灵鳞钱：/);
@@ -66,7 +69,7 @@ test('渔市走标准商店目录，批量和大额确认走标准购买指令',
   assert.deepEqual(requests[3].body.arguments, { mode: 'reference', reference });
 });
 
-test('渔市升灵散按发放物品合并，购买仍使用各币种商品编号', async t => {
+test('渔市窝料与鱼饵共用报价格式，购买仍使用各币种商品编号', async t => {
   const crystal: CompanionShopQueryData['products'][number] = {
     shopCode: 'FISHING', productId: 598, name: '升灵散', category: 'item', itemId: 5032,
     priceAmount: 1600, priceCurrencyCode: 'SPIRIT_CRYSTAL', priceCurrencyName: '灵晶',
@@ -89,11 +92,21 @@ test('渔市升灵散按发放物品合并，购买仍使用各币种商品编�
     priceAmount: 100, priceCurrencyCode: 'REPUTATION', priceCurrencyName: '声望', used: 0, remaining: 1,
     discountPriceAmount: 92, discountLabel: 'VIP9.2折', itemSubtype: 'pill'
   };
+  const baitStone: typeof crystal = {
+    ...crystal, productId: 501, itemId: 5001, name: '定鳞饵', itemSubtype: 'fishing_bait',
+    priceAmount: 150, priceCurrencyCode: 'SPIRIT_STONE', priceCurrencyName: '灵石',
+    discountPriceAmount: null, discountRate: null, discountLabel: null, limit: 100, used: 0, remaining: 100
+  };
+  const baitCrystal: typeof crystal = {
+    ...baitStone, productId: 502, priceAmount: 10, priceCurrencyCode: 'SPIRIT_CRYSTAL', priceCurrencyName: '灵晶',
+    limit: 5, remaining: 5, unlocked: false, lockReason: '需鱼塘达到2级'
+  };
   const { app, requests } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/shops.list'));
-    const { shopCode } = request.body.arguments as { shopCode: string };
+    const { shopCode, filters } = request.body.arguments as { shopCode: string; filters?: { subtype?: string } };
     const deniedReason = shopCode === 'DAOLV' ? '道侣分类需拥有道侣后才会显示' : null;
-    const products = shopCode === 'FISHING' ? [coin, crystal, milk] : shopCode === 'WANBAOLOU' ? [other] : [];
+    const fishingOffers = filters?.subtype === 'fishing_bait' ? [baitStone, baitCrystal] : [coin, crystal, milk];
+    const products = shopCode === 'FISHING' ? fishingOffers : shopCode === 'WANBAOLOU' ? [other] : [];
 
     return businessEnvelope(request.bid, {
       access: { hasCompanion: !deniedReason, isFoundationRealm: true, canUseReputationShop: true, visibleShopCodes: ['WANBAOLOU', 'FISHING'], deniedReason },
@@ -113,10 +126,11 @@ test('渔市升灵散按发放物品合并，购买仍使用各币种商品编�
     return { ...inspectMessage(message.nodes), nodes: message.nodes };
   };
   const fishing = await render('/商店 渔市 窝料');
+  const bait = await render('/商店 渔市 饵料');
   const standard = await render('/商店 万宝楼');
 
   if (process.env.FISH_SHOP_OFFER_CAPTURE_OUTPUT) {
-    writeFileSync(process.env.FISH_SHOP_OFFER_CAPTURE_OUTPUT, JSON.stringify({ captures: { fishing, standard } }, null, 2));
+    writeFileSync(process.env.FISH_SHOP_OFFER_CAPTURE_OUTPUT, JSON.stringify({ captures: { fishing, bait, standard } }, null, 2));
   }
   const assertCard = (page: typeof fishing, expectedTitle: string) => {
     const markdown = page.nodes.find(node => node.type === 'Markdown');
@@ -134,13 +148,19 @@ test('渔市升灵散按发放物品合并，购买仍使用各币种商品编�
     return buttons.map(node => node.options?.data);
   };
 
-  assert.deepEqual(assertCard(fishing, '【597】【物品】升灵散 ×1'), [
-    '/购买 597', '/物品详情 物品 5032', '/物品详情 物品 5032', '/购买 599', '/物品详情 物品 5032'
+  assert.deepEqual(assertCard(fishing, '【物品】升灵散 ×1'), ['/物品详情 物品 5032', '/购买 597', '/购买 599']);
+  assert.deepEqual(fishing.text.split('\n').filter(line => line.startsWith('> ')), [
+    '> 【物品】升灵散 ×1 ‹详情›',
+    '> 7360 灵鳞钱（原价8000，9.2折） · 每周限3份 · 剩余3份 ‹购买›',
+    '> 1472 灵晶（原价1600，9.2折） · 每日限1份 · 今日已兑完',
+    '> 36 道晶（原价40，9.2折） · 不限购 ‹购买›'
   ]);
-  assert.match(fishing.text, /1472 灵晶（原价1600，9\.2折）  每日限1份 · 剩余0份\n> 今日已兑完.*‹详情›/);
-  assert.match(fishing.text, /7360 灵鳞钱（原价8000，9\.2折）  每周限3份 · 剩余3份[^\n]*‹购买›[^\n]*‹详情›/);
-  assert.match(fishing.text, /36 道晶（原价40，9\.2折）  不限购[^\n]*‹购买›[^\n]*‹详情›/);
-  assert.match(fishing.text, /7360 灵鳞钱[\s\S]*1472 灵晶[\s\S]*36 道晶/);
+  assert.deepEqual(assertCard(bait, '【物品】定鳞饵 ×1'), ['/物品详情 物品 5001', '/购买 501']);
+  assert.deepEqual(bait.text.split('\n').filter(line => line.startsWith('> ')), [
+    '> 【物品】定鳞饵 ×1 ‹详情›',
+    '> 150 灵石 · 每日限100份 · 剩余100份 ‹购买›',
+    '> 10 灵晶 · 每日限5份 · 剩余5份 · 🔒需鱼塘达到2级'
+  ]);
   assert.deepEqual(assertCard(standard, '【11】【丹药】清心丹 ×1'), ['/购买 11', '/物品详情 物品 88']);
   assert.match(standard.text, /92 声望（原价100，VIP9\.2折）/);
   assert.deepEqual(requests[0].body.arguments, { page: 1, shopCode: 'FISHING', filters: { category: 'prop', subtype: 'fishing_chum' } });
