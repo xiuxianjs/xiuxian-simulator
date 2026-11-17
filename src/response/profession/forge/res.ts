@@ -318,6 +318,10 @@ export default onResponse(selects, async e => {
             row.addNewline();
           }
           row.absorb(createQuoteMarkdown([v.nextTitle ? assessment : '状态：已达最高阶段'], v.nextTitle ? [catalogueActions[0]] : []));
+          if (v.nextTitle && !v.canAdvance && v.exp >= v.expRequired && v.assessmentDone >= v.assessmentRequired) {
+            row.addNewline();
+            row.absorb(createQuoteMarkdown(advanceStatus));
+          }
         }
         content.addText('我的职业').addNewline();
         content.addBlockquote(row);

@@ -60,7 +60,7 @@ export default onResponse(selects, async e => {
           }
         ]);
       } else {
-        md.addText('可切换天工');
+        md.addText(result.data.tools.some(tool => !tool.canReplace) ? '持有天工' : '可切换天工');
         md.addNewline();
 
         for (const [typeName, tools] of groups) {
@@ -70,11 +70,17 @@ export default onResponse(selects, async e => {
             md.addText(`【${tool.id}】${tool.name}-${tool.grade}`);
 
             addOptions(md, [
-              { label: '切换', command: `/替换 ${tool.id}` },
+              ...(tool.canReplace ? [{ label: '切换', command: `/替换 ${tool.id}` }] : []),
               { label: '详情', command: `/物品详情 ${tool.name}` }
             ]);
 
             md.addNewline();
+            if (tool.forgeRequirement) {
+              const { realm, level } = tool.forgeRequirement;
+
+              md.addText(realm && level !== null ? `装备条件：${realm}、锻造 ${level} 级` : '装备条件：暂不可用');
+              md.addNewline();
+            }
           }
         }
       }

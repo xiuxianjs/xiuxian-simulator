@@ -374,6 +374,7 @@ export interface ProfessionToolBagData {
     isEquipped: number;
     isLocked: number;
     canReplace: boolean;
+    forgeRequirement?: { realm: string; level: number | null };
     canToggleLock: boolean;
     displayName: string;
     displayGrade: string;

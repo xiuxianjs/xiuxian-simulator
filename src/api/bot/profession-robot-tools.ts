@@ -32,8 +32,16 @@ export function parseProfessionRobotTools(value: unknown) {
         page: bag.page,
         totalPages: bag.totalPages,
         tools: bag.items
-          .filter(item => item.canReplace)
-          .map(item => ({ id: item.id, name: item.name, typeName: item.typeName, grade: item.grade, isLocked: item.isLocked }))
+          .filter(item => item.canReplace || item.forgeRequirement)
+          .map(({ id, name, typeName, grade, isLocked, canReplace, forgeRequirement }) => ({
+            id,
+            name,
+            typeName,
+            grade,
+            isLocked,
+            canReplace,
+            forgeRequirement
+          }))
       }
     };
   }

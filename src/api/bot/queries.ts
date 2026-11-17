@@ -950,6 +950,7 @@ export function parseProfessionToolBag(value: unknown) {
       if (typeof item.displayName !== 'string' || typeof item.displayGrade !== 'string' || !Array.isArray(item.capabilities)) {
         throw new Error('天工接口缺少物品投影');
       }
+      const requirement = item.forgeRequirement === undefined ? undefined : record(item.forgeRequirement);
 
       return {
         id: integer(item.id),
@@ -961,6 +962,7 @@ export function parseProfessionToolBag(value: unknown) {
         isEquipped: integer(item.isEquipped),
         isLocked: integer(item.isLocked),
         canReplace: boolean(item.canReplace),
+        forgeRequirement: requirement ? { realm: text(requirement.realm), level: requirement.level === null ? null : integer(requirement.level) } : undefined,
         canToggleLock: boolean(item.canToggleLock),
         capabilities: item.capabilities.map(capability)
       };

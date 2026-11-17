@@ -85,6 +85,10 @@ test('切换天工可从默认分类切到锻造台并翻到持有工具的页�
         items: forgeType && page === 2 ? [{
           id: 12, toolId: 4, displayName: '测试炼器台', typeName, displayGrade: '凡阶', gradeId: 1,
           isEquipped: 0, isLocked: 0, canReplace: true, canToggleLock: true, capabilities: ['replace', 'lock', 'viewDetail']
+        }] : forgeType ? [{
+          id: 593, toolId: 17, displayName: '寒星炼器台', typeName, displayGrade: '灵器', gradeId: 3,
+          isEquipped: 0, isLocked: 0, canReplace: false, canToggleLock: true, capabilities: ['lock', 'viewDetail'],
+          forgeRequirement: { realm: '元婴初期', level: 3 }
         }] : []
       }
     });
@@ -103,6 +107,10 @@ test('切换天工可从默认分类切到锻造台并翻到持有工具的页�
   assert.ok((await open('/切换')).commands.includes('/替换 列表 1 锻造台'));
   const first = await open('/替换 列表 1 锻造台');
   assert.ok(first.commands.includes('/替换 列表 2 锻造台'));
+  assert.match(first.text, /寒星炼器台/);
+  assert.match(first.text, /装备条件：元婴初期、锻造 3 级/);
+  assert.ok(first.commands.includes('/物品详情 寒星炼器台'));
+  assert.ok(!first.commands.includes('/替换 593'));
   const second = await open('/替换 列表 2 锻造台');
   assert.match(second.text, /测试炼器台/);
   assert.ok(second.commands.includes('/替换 12'));
@@ -219,6 +227,28 @@ test('锻造总览不可用的原因不被推断为境界不足', async t => {
   assert.ok(!view.text.includes('境界不足'));
   assert.ok(!view.commands.includes('/闭关'));
   assert.ok(view.commands.includes('/我的洞府'));
+  assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+});
+
+test('锻造经验与考核达标时，职业页显示剩余晋升条件', async t => {
+  const { app } = await gameFixture(t, request =>
+    businessEnvelope(request.bid, {
+      ...structuredClone(fixtures.overview),
+      level: 2,
+      exp: 300,
+      expRequired: 300,
+      assessmentDone: 4,
+      assessmentRequired: 4,
+      nextTitle: '百炼器师',
+      canAdvance: false,
+      advanceReason: '晋升需要达到元婴初期'
+    })
+  );
+  const result = await app.runHandler(forge, app.events.privateMessage({ text: '/我的锻造', platform: 'qq-bot' }));
+  const message = result.messages[0];
+  const view = inspectMessage(message.nodes);
+  assert.match(view.text, /考核：4\/4[^\n]*\n>\n> 晋升需要达到元婴初期/);
+  assert.ok(!view.commands.includes('/锻造进阶 2'));
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
 });
 
