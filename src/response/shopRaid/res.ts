@@ -7,7 +7,7 @@ import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
 
 const command =
-  /^[!！/#＃]?(万宝楼商运|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|立即抢商队|查看劫货进度|组队抢商队|加入商运临时队|退出商运临时队|预览商运斗法|确认商运斗法|商运归还分成|确认商运分成|确认商运出战)(?:\s+(.*))?$/;
+  /^[!！/#＃]?(万宝楼商运|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|立即抢商队|查看劫货进度|查看商运战报|组队抢商队|加入商运临时队|退出商运临时队|预览商运斗法|确认商运斗法|商运归还分成|确认商运分成|确认商运出战)(?:\s+(.*))?$/;
 
 const statusCommand = /^[!！/#＃]?(我的状态)(?:\s+([a-z_]{1,32}(?:\s+[1-9][0-9]{0,3})?))?$/;
 const crewCommand = /^[!！/#＃]?(打劫队)(?:\s+(.*))?$/;
@@ -32,6 +32,71 @@ function record(value: unknown): Record<string, unknown> {
   }
 
   return value as Record<string, unknown>;
+}
+
+function ordinarySettlementLines(value: unknown): string[] {
+  if (!value) {
+    return [];
+  }
+
+  const result = record(value);
+  const { attackerId, victimId, experience, victimExperience, stoneReward, crystalReward, droppedItem, statusTransfer } = result;
+  const from = `UID ${victimId}`;
+  const to = `UID ${attackerId}`;
+  const changes: string[] = [];
+
+  if (typeof stoneReward === 'number' && stoneReward > 0) {
+    changes.push(`灵石 ×${stoneReward}`);
+  }
+  if (typeof crystalReward === 'number' && crystalReward > 0) {
+    changes.push(`灵晶 ×${crystalReward}`);
+  }
+  if (droppedItem) {
+    const item = record(droppedItem);
+
+    changes.push(`${item.name} ×${item.quantity}`);
+  }
+  if (statusTransfer) {
+    changes.push(`状态「${record(statusTransfer).name}」×1`);
+  }
+
+  return [
+    `修为：${to} +${experience} · ${from} +${victimExperience}`,
+    changes.length > 0 ? `财物：${from} → ${to} · ${changes.join('、')}` : '财物：双方无变化'
+  ];
+}
+
+function roundLines(data: Record<string, unknown>): string[] {
+  if (!Array.isArray(data.actions)) {
+    throw new Error('商运战报无效');
+  }
+
+  const names = record(data.names);
+  const name = (id: unknown) => (typeof id === 'string' && typeof names[id] === 'string' ? names[id] : undefined);
+  const entries = (value: unknown) => (Array.isArray(value) ? value.map(record) : []);
+
+  return data.actions.map(raw => {
+    const action = record(raw);
+    const effects = [
+      ...entries(action.damageResults).map(hit => hit.dodged === true
+          ? `${name(hit.targetId) ?? '未知目标'}闪避`
+          : `${name(hit.targetId) ?? '未知目标'}受伤 ${hit.actualDamage}${hit.crit === true ? '（暴击）' : ''}${hit.killed === true ? '（倒地）' : ''}${hit.shieldAbsorbed ? `（护盾吸收 ${hit.shieldAbsorbed}）` : ''}`
+      ),
+      ...entries(action.healResults).map(heal => `${name(heal.targetId) ?? '未知目标'}回复 ${heal.actual}`),
+      ...entries(action.tickEffects).map(tick => `${tick.buffName} ${tick.kind === 'heal' ? '回复' : tick.kind === 'damage' ? '伤害' : '生效'} ${tick.amount}`),
+      ...entries(action.appliedBuffs).map(buff => `${buff.targetName}获得「${buff.buffName}」`),
+      ...entries(action.removedBuffs).map(buff => `${buff.targetName}失去「${buff.buffName}」`)
+    ];
+
+    if (typeof action.mpGain === 'number' && action.mpGain > 0) {
+      effects.push(`灵力 +${action.mpGain}`);
+    }
+    if (typeof action.mentalGain === 'number' && action.mentalGain > 0) {
+      effects.push(`念力 +${action.mentalGain}`);
+    }
+
+    return `行动：${name(action.actor) ?? action.actorName ?? '未知'} · ${typeof action.skillName === 'string' && action.skillName ? action.skillName : '行动'}${effects.length ? ` · ${effects.join('、')}` : ''}`;
+  });
 }
 
 function parseBoard(value: unknown) {
@@ -413,6 +478,42 @@ export default onResponse(selects, async event => {
   }
   const seat = args[1] === undefined ? null : parsePKCommandInteger(args[1]);
 
+  if (action === '查看商运战报') {
+    if (convoyId === null || seat === null || args.length !== 2) {
+      await feedback('请从劫货回执打开战斗过程。');
+
+      return;
+    }
+
+    try {
+      const entry = await runRobotBusiness(event, 'shop-raid.solo-status', { attemptId: convoyId, round: seat }, record, next, reply => feedback(reply.text));
+
+      if (!entry.handled) {
+        const { round, total } = entry.data;
+
+        if (typeof round !== 'number' || typeof total !== 'number') {
+          throw new Error('商运战报无效');
+        }
+
+        const lines = roundLines(entry.data);
+
+        await message.send(
+          listBubble({
+            ...common,
+            title: '万宝楼商运战报',
+            items: [{ title: '斗法', id: convoyId, lines: [`回合：第 ${round} 回合，共 ${total} 回合`, ...lines] }],
+            nav: { current: round, total, command: `/查看商运战报 ${convoyId} {page}` },
+            footer: [{ label: '返回劫货回执', command: `/查看劫货进度 ${convoyId}` }]
+          })
+        );
+      }
+    } catch {
+      await feedback('商运战报暂时无法读取，请稍后再试。');
+    }
+
+    return;
+  }
+
   if (action === '确认商运出战') {
     const mode = args[3] === '继续守' ? 'hold' : args[3] === '只打' ? 'fight' : null;
     const stamp = args[2];
@@ -695,15 +796,24 @@ export default onResponse(selects, async event => {
         const canChallenge = !convoy || ['traveling', 'contested', 'fighting'].includes(convoy.phase);
         const lines = [
           summary,
+          ...(state === 'settled' && typeof outcome?.rounds === 'number' ? [`斗法：共 ${outcome.rounds} 回合`] : []),
+          ...(typeof outcome?.cargoHolderId === 'number'
+            ? [`整车货：${outcome.cargoHolderId > 0 ? `本场结算由 UID ${outcome.cargoHolderId} 占用` : '万宝楼商队保住整车'}`]
+            : []),
+          ...(typeof entry.data.qiPaid === 'number' ? [`元力：UID ${entry.data.actorId} 实扣 ${entry.data.qiPaid}`] : []),
+          ...ordinarySettlementLines(entry.data.ordinary),
           ...(convoy
             ? [
                 `货单：${convoy.cargo.join('、')}`,
                 ...(convoy.holderId && ['contested', 'fighting', 'sealed', 'ready'].includes(convoy.phase)
-                  ? [`当前占用：UID ${convoy.holderId}`, ...(convoy.holdUntil && convoy.phase !== 'ready' ? [`守至 ${formatGameTime(convoy.holdUntil)}`] : [])]
+                  ? [
+                      ...(convoy.holderId !== outcome?.cargoHolderId ? [`当前占用：UID ${convoy.holderId}`] : []),
+                      ...(convoy.holdUntil && convoy.phase !== 'ready' ? [`守货截止：${formatGameTime(convoy.holdUntil)}`] : [])
+                    ]
                   : [`当前状态：${convoy.status}`])
               ]
             : []),
-          ...(state === 'settled' && outcome?.attackWon === false
+          ...(!entry.data.ordinary && state === 'settled' && outcome?.attackWon === false
             ? [outcome.reversedLoot === true ? '财物：守方已反夺普通财物。' : '财物：本场未发生反夺。']
             : [])
         ];
@@ -718,6 +828,9 @@ export default onResponse(selects, async event => {
                 ? publicRaidActions(currentConvoy)
                 : []),
               ...(state === 'settled' && outcome?.attackWon === true ? [{ label: '创队伍', command: '/打劫队 创建' }] : []),
+              ...(state === 'settled' && typeof outcome?.rounds === 'number' && outcome.rounds > 0
+                ? [{ label: '查看战斗过程', command: `/查看商运战报 ${entry.data.attemptId} 1` }]
+                : []),
               ...(typeof outcome?.ordinaryLogId === 'number' && outcome.ordinaryLogId > 0
                 ? [{ label: '原争夺战报', command: `/争夺战报 ${outcome.ordinaryLogId}` }]
                 : []),
