@@ -1,13 +1,16 @@
 import { playerNotificationEnabled } from '@src/api/bot/notification-cache';
 import { getBackendConfig } from '@src/api/bot/config';
-import { withFlyMailBuffer, withNotificationBuffer } from '@src/notification/flymailBuffer';
-import type { NotificationRelayEvent } from '@src/api/bot/notification-relay';
+import { withFlyMailBuffer, withNotificationBuffer, withNotificationDeliveryCheck } from '@src/notification/flymailBuffer';
+import type { NotificationDelivery, NotificationRelayEvent } from '@src/api/bot/notification-relay';
 import { flyMailNoticeData } from '@src/utils/flyMailPresentation';
 import { deliverFlyMailNotification } from '@src/notification/flymailDelivery';
 import { getAppConfig } from '@src/utils/appConfig';
 import {
   acknowledgeNotificationRelay,
   archiveNotificationRelay,
+  canDeliverNotificationRelay,
+  beginNotificationRelayDelivery,
+  finishNotificationRelayDelivery,
   claimNotificationRelay,
   getLegacySentNotificationIDs,
   markLegacyNotificationSent,
@@ -76,6 +79,37 @@ function resolveNotificationOwner(row: { recipientUserId?: number; recipientBid?
   runtimeOwnerByBid.set(bid, owner);
 
   return owner;
+}
+
+async function deliverWithCurrentRecipient(
+  row: NotificationRelayEvent,
+  consumer: string,
+  ownerUserId: number | undefined,
+  send: () => Promise<NotificationDelivery>
+): Promise<NotificationDelivery> {
+  let blocked = false;
+  const result = await withNotificationDeliveryCheck(async () => {
+    if (blocked) { return false; }
+    if (ownerUserId === undefined) { return true; }
+
+    const startedAt = performance.now();
+    const token = await beginNotificationRelayDelivery(row.eventId, consumer, ownerUserId);
+
+    if (!token) {
+      blocked = true;
+
+      return false;
+    }
+
+    return {
+      // A delayed response or a paused worker must not hand off a request
+      // using an old hold. The server retains the hold for two minutes.
+      isCurrent: () => performance.now() - startedAt < 20_000,
+      finish: () => finishNotificationRelayDelivery(ownerUserId, token)
+    };
+  }, send);
+
+  return blocked ? { route: 'history', reason: 'no_target' } : result;
 }
 
 /** 一次只认领即将处理的事件，避免慢请求使整批事件的租约提前过期。 */
@@ -170,15 +204,17 @@ async function processPlayerNotification(
         return Promise.resolve({ route: 'history' as const, reason: 'no_target' as const });
       }
       if (payload.source === 'flymail.message.received') {
-        return deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', notificationSettingsData(data, payload.source), proactiveEnabled());
+        return deliverWithCurrentRecipient(row, consumer, ownerUserId, () => deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', notificationSettingsData(data, payload.source), proactiveEnabled())
+        );
       }
 
-      return deliverPlayerNotification(
-        ownerUserId,
-        row.recipientBid!,
-        notificationSettingsData(data, payload.source),
-        proactiveEnabled(),
-        blackBoxNotice ? { privateOnly: true } : undefined
+      return deliverWithCurrentRecipient(row, consumer, ownerUserId, () => deliverPlayerNotification(
+          ownerUserId,
+          row.recipientBid!,
+          notificationSettingsData(data, payload.source),
+          proactiveEnabled(),
+          blackBoxNotice ? { privateOnly: true } : undefined
+        )
       );
     });
 
@@ -220,23 +256,29 @@ async function dispatchWorkerMessages(loadLegacyIDs: LoadLegacyIDs): Promise<voi
       }
       // 服务端认定的所属玩家（recipientUserId/recipientBid）优先；
       // 旧消息池载荷里的 subscriptionUserId 只在服务端未下发归属时兜底。
-      const ownerUserId = payload.uid ? resolveNotificationOwner(row, payload.uid, payload.subscriptionUserId) : undefined;
+      const recipientBid = row.recipientBid ?? payload.uid;
+      const ownerUserId = recipientBid ? resolveNotificationOwner(row, recipientBid, payload.subscriptionUserId) : undefined;
 
-      // 定向消息先归档，发送后写库失败不会因归档而触发重复投递。
-      if (payload.uid) {
-        await archiveNotificationRelay(payload.uid, `platform.message:${messageId || row.eventId}`, data);
-      }
       const notice = notificationNavigationData(notificationSettingsData(notificationNoticeData(data)));
       const delivery = await deliverNotificationOnce(`platform:${messageId || row.eventId}`, async () => {
-        if (ownerUserId !== undefined && !(await playerNotificationEnabled(ownerUserId))) {
+        const enabled = ownerUserId === undefined || (await playerNotificationEnabled(ownerUserId));
+
+        if (!(await canDeliverNotificationRelay(row.eventId, consumer, ownerUserId))) {
+          return { route: 'history' as const, reason: 'no_target' as const };
+        }
+        if (recipientBid) {
+          await archiveNotificationRelay(recipientBid, `platform.message:${messageId || row.eventId}`, data, ownerUserId);
+        }
+        if (!enabled) {
           return { route: 'history' as const, reason: 'proactive_disabled' as const };
         }
-        if (ownerUserId !== undefined && payload.uid) {
-          return deliverPlayerNotification(
-            ownerUserId,
-            payload.uid,
-            notice.filter(block => block.type !== 'Mention'),
-            proactiveEnabled()
+        if (ownerUserId !== undefined && recipientBid) {
+          return deliverWithCurrentRecipient(row, consumer, ownerUserId, () => deliverPlayerNotification(
+              ownerUserId,
+              recipientBid,
+              notice.filter(block => block.type !== 'Mention'),
+              proactiveEnabled()
+            )
           );
         }
 

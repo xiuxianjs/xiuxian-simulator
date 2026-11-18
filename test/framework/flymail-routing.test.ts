@@ -17,7 +17,7 @@ function fixture(t: TestContext) {
  t.after(()=>app.dispose());
  const privateTarget = {platform:'qq-bot',BotId:'bot',scope:'c2c',targetId:'private-recipient'};
  const group = {platform:'qq-bot',BotId:'bot',scope:'group',targetId:'active-group'};
- const state = {private:true, blocked:false, privateScope:'c2c'};
+ const state = {private:true, blocked:false, privateScope:'c2c', deliveryAllowed:true};
  const requests:string[]=[];
  const queue:any[]=[];
  const acknowledgements:any[]=[];
@@ -27,6 +27,9 @@ function fixture(t: TestContext) {
   requests.push(path);
   let data:unknown=null;
   if(path.endsWith('/claim')) { const i=queue.findIndex(row=>row.eventType===body.eventType && (body.lane==='flymail'?row.eventId.startsWith('flymail.message:'):body.lane==='standard'?!row.eventId.startsWith('flymail.message:'):true)); data={event:i<0?null:queue.splice(i,1)[0]}; }
+  else if(path.endsWith('/delivery-check')) data={allowed:state.deliveryAllowed};
+  else if (path.endsWith('/delivery-start')) data = { allowed: state.deliveryAllowed, token: 'a'.repeat(64) };
+  else if (path.endsWith('/delivery-finish')) data = { ok: true };
   else if(path.endsWith('/ack')) acknowledgements.push(body);
   else if(path.endsWith('/legacy-sent-ids')) data={ids:[]};
   else if(path.endsWith('/player/categories')) data={enabled:true};
@@ -174,4 +177,15 @@ test('飞信任务合并同群收件人，正文保密，原事件分别确认',
   assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   assert.equal(new Set(acknowledgements.map(row => row.eventId)).size, 3);
   assert.ok(acknowledgements.every(row => row.delivery.route === 'group'));
+});
+
+test('已领取的飞信在发送前发现角色注销，仅确认历史记录', async t => {
+ const {run,state,queue,acknowledgements}=fixture(t);
+ state.deliveryAllowed=false;
+ queue.push({eventId:'flymail.message:retired:received:7',eventType:'player.notification.dispatch',recipientUserId:7,recipientBid:'recipient',
+  payload:{version:1,recipientUserId:7,source:'flymail.message.received',data:content}});
+ const result=await run(async()=>{await PushMessageTask();});
+ assert.deepEqual(result.errors,[]);
+ assert.equal(result.messages.length,0);
+ assert.deepEqual(acknowledgements.map(row=>row.delivery),[{route:'history',reason:'no_target'}]);
 });

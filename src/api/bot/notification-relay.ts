@@ -63,14 +63,39 @@ export async function claimNotificationRelay(eventType: string, consumer: string
 
   return data.event;
 }
+export async function canDeliverNotificationRelay(eventId: string, consumer: string, playerId?: number): Promise<boolean> {
+  const result = await post<{ allowed: boolean }>('/delivery-check', { eventId, consumer, playerId });
+
+  if (typeof result?.allowed !== 'boolean') {
+    throw new Error('通知投递校验回执不完整');
+  }
+
+  return result.allowed;
+}
+
+export async function beginNotificationRelayDelivery(eventId: string, consumer: string, playerId: number): Promise<string | null> {
+  const result = await post<{ allowed: boolean; token?: string }>('/delivery-start', { eventId, consumer, playerId });
+
+  if (result?.allowed === false) { return null; }
+  if (result?.allowed !== true || typeof result.token !== 'string' || !/^[a-f0-9]{64}$/.test(result.token)) {
+    throw new Error('通知发送凭据回执不完整');
+  }
+
+  return result.token;
+}
+
+export async function finishNotificationRelayDelivery(playerId: number, token: string): Promise<void> {
+  await post('/delivery-finish', { playerId, token });
+}
+
 export async function acknowledgeNotificationRelay(eventId: string, consumer: string, delivery: NotificationDelivery): Promise<void> {
   await post('/ack', { eventId, consumer, delivery });
 }
 export async function retryNotificationRelay(eventId: string, consumer: string, error: unknown): Promise<void> {
   await post('/retry', { eventId, consumer, error: error instanceof Error ? error.message : String(error) });
 }
-export async function archiveNotificationRelay(bid: string, key: string, data: unknown): Promise<void> {
-  await post('/archive', { bid, key, data });
+export async function archiveNotificationRelay(bid: string, key: string, data: unknown, playerId?: number): Promise<void> {
+  await post('/archive', { bid, key, data, playerId });
 }
 
 /**

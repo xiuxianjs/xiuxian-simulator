@@ -7,21 +7,29 @@ export const FLYMAIL_BUFFER_MS = 2_000;
 export const FLYMAIL_BATCH_LIMIT = 5;
 // 传输缓冲上限，不改变正文长度规则；超出单条按原有路径发送。
 const MAX_BATCH_SIZE = 12_000;
-const context = new AsyncLocalStorage<{ mode: string; reminderBid?: string }>();
+
+type SendPermit = { isCurrent: () => boolean; finish: () => Promise<void> };
+type SendCheck = () => Promise<boolean | SendPermit>;
+type Prepare = () => Promise<void>;
+const context = new AsyncLocalStorage<{ mode: string; reminderBid?: string; canSend?: SendCheck }>();
+
+export function withNotificationDeliveryCheck<T>(canSend: SendCheck, send: () => Promise<T>): Promise<T> {
+  return context.run({ mode: '', ...context.getStore(), canSend }, send);
+}
 
 export const NOTIFICATION_BUFFER_MS = 30_000;
 /** 仅保存传输缓冲，权威事件及回执仍在服务端。玩家隔离避免同群串合并。 */
 export const withNotificationBuffer = <T>(owner: string, send: () => Promise<T>): Promise<T> => context.run({ mode: `standard:${owner}` }, send);
 
-type Item = { data: DataEnums[]; reminderBid?: string; resolve: () => void; reject: (error: unknown) => void };
-type Batch = { items: Item[]; size: number; timer: ReturnType<typeof setTimeout>; send: (data: DataEnums[]) => Promise<void> };
+type Item = { data: DataEnums[]; reminderBid?: string; canSend?: SendCheck; resolve: () => void; reject: (error: unknown) => void };
+type Batch = { items: Item[]; size: number; timer: ReturnType<typeof setTimeout>; send: (data: DataEnums[]) => Promise<void>; prepare?: Prepare };
 const batches = new Map<string, Batch>();
 const sending = new Map<string, Promise<void>>();
 
 export const withFlyMailBuffer = <T>(send: () => Promise<T>): Promise<T> => context.run({ mode: 'flymail' }, send);
 
 /** 群提醒单独按实际群合并，保留飞信私聊的原有缓冲方式。 */
-export const withFlyMailGroupReminder = <T>(bid: string, send: () => Promise<T>): Promise<T> => context.run({ mode: context.getStore()?.mode === 'flymail' ? 'flymail-group' : '', reminderBid: bid }, send);
+export const withFlyMailGroupReminder = <T>(bid: string, send: () => Promise<T>): Promise<T> => context.run({ ...context.getStore(), mode: context.getStore()?.mode === 'flymail' ? 'flymail-group' : '', reminderBid: bid }, send);
 
 function addReminderMentions(data: DataEnums[], bids: string[]): DataEnums[] {
   const markdown = Format.createMarkdown();
@@ -68,41 +76,80 @@ function batchData(items: Item[]): DataEnums[] {
   return Format.create().addMarkdown(markdown).value;
 }
 
+async function sendItems(items: Item[], send: Batch['send'], prepare: Prepare | undefined, decorate: boolean): Promise<void> {
+  try {
+    await prepare?.();
+  } catch (error) {
+    items.forEach(item => item.reject(error));
+
+    return;
+  }
+
+  const checks = await Promise.allSettled(items.map(async item => (await item.canSend?.()) ?? true));
+  const permitted: Item[] = [];
+  const permits: SendPermit[] = [];
+
+  for (const [index, item] of items.entries()) {
+    const check = checks[index];
+
+    if (check.status === 'rejected') {
+      item.reject(check.reason);
+    } else if (!check.value) {
+      item.resolve();
+    } else if (check.value !== true && !check.value.isCurrent()) {
+      item.reject(new Error('通知发送凭据已过期'));
+      void check.value.finish().catch(() => {});
+    } else {
+      permitted.push(item);
+      if (check.value !== true) { permits.push(check.value); }
+    }
+  }
+  if (!permitted.length) { return; }
+
+  try {
+    const data = batchData(permitted);
+
+    await send(decorate ? notificationNavigationData(data) : data);
+    // A success can end the hold immediately. Uncertain platform results
+    // leave the hold in place until its server-side expiry.
+    await Promise.allSettled(permits.map(permit => permit.finish()));
+    permitted.forEach(item => item.resolve());
+  } catch (error) {
+    permitted.forEach(item => item.reject(error));
+  }
+}
+
 function flush(key: string, batch: Batch): void {
   if (batches.get(key) !== batch) {
     return;
   }
   batches.delete(key);
   clearTimeout(batch.timer);
-  const data = batchData(batch.items);
 
   // 同对象按批发送，前一批失败不能阻止后一批；每批独立回传结果。
   const previous = sending.get(key) ?? Promise.resolve();
-  const delivery = previous.catch(() => {}).then(() => batch.send(notificationNavigationData(data)));
+  const delivery = previous.catch(() => {}).then(() => sendItems(batch.items, batch.send, batch.prepare, true));
 
   sending.set(key, delivery);
-  void delivery
-    .then(
-      () => batch.items.forEach(item => item.resolve()),
-      error => batch.items.forEach(item => item.reject(error))
-    )
-    .finally(() => {
-      if (sending.get(key) === delivery) {
-        sending.delete(key);
-      }
-    });
+  void delivery.finally(() => {
+    if (sending.get(key) === delivery) {
+      sending.delete(key);
+    }
+  });
 }
 
 /** 仅通知消费链启用；按玩家和实际目标合并，所有原事件分别确认。 */
-export function bufferFlyMailSend(target: NotificationTarget, data: DataEnums[], send: (data: DataEnums[]) => Promise<void>): Promise<void> {
-  const { mode, reminderBid } = context.getStore() ?? {};
-  const singleData = () => (reminderBid ? addReminderMentions(data, [reminderBid]) : data);
+export function bufferFlyMailSend(target: NotificationTarget, data: DataEnums[], send: Batch['send'], prepare?: Prepare): Promise<void> {
+  const { mode, reminderBid, canSend } = context.getStore() ?? {};
+  const sendChecked = (decorate: boolean) => new Promise<void>((resolve, reject) => {
+      void sendItems([{ data, reminderBid, canSend, resolve, reject }], send, prepare, decorate);
+    });
 
   if (!mode) {
-    return send(singleData());
+    return sendChecked(false);
   }
   if (!data.every(block => block.type === 'Markdown' || block.type === 'Text' || block.type === 'Mention')) {
-    return send(notificationNavigationData(singleData()));
+    return sendChecked(true);
   }
   const serialized = JSON.stringify(data);
   const size = serialized.length + (reminderBid?.length ?? 0);
@@ -114,13 +161,14 @@ export function bufferFlyMailSend(target: NotificationTarget, data: DataEnums[],
     batch = undefined;
   }
   if (size > MAX_BATCH_SIZE) {
-    return send(notificationNavigationData(singleData()));
+    return sendChecked(true);
   }
   if (!batch) {
     const created: Batch = {
       items: [],
       size: 0,
       send,
+      prepare,
       timer: setTimeout(() => flush(key, created), mode.startsWith('flymail') ? FLYMAIL_BUFFER_MS : NOTIFICATION_BUFFER_MS)
     };
 
@@ -128,7 +176,7 @@ export function bufferFlyMailSend(target: NotificationTarget, data: DataEnums[],
     batch = created;
   }
   const current = batch;
-  const result = new Promise<void>((resolve, reject) => current.items.push({ data, reminderBid, resolve, reject }));
+  const result = new Promise<void>((resolve, reject) => current.items.push({ data, reminderBid, canSend, resolve, reject }));
 
   current.size += size;
   if (current.items.length >= FLYMAIL_BATCH_LIMIT) {

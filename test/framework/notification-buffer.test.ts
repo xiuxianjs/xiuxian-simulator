@@ -5,7 +5,7 @@ import axios from 'axios';
 import { createResult, onResponse, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { notificationChannel } from '../../src/notification/channel';
-import { withNotificationBuffer } from '../../src/notification/flymailBuffer';
+import { bufferFlyMailSend, withNotificationBuffer, withNotificationDeliveryCheck } from '../../src/notification/flymailBuffer';
 import { notificationNoticeData, notificationSettingsData } from '../../src/notification/presentation';
 
 after(() => shutdownLogger());
@@ -277,4 +277,70 @@ test('非飞信通知提取共用标题与列表入口，保留逐条到账金�
 
   const output = process.env.SYSTEM_NOTIFICATION_PREVIEW_OUTPUT;
   if (output) writeFileSync(output, JSON.stringify({ before: items.map(([owner, source, value]) => ({ owner, source, value })), general: general.text, reports: reports.text }));
+});
+
+test('通知已入缓冲，注销后发送前剔除旧角色内容', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let active = true;
+  const sent: string[] = [];
+  const send = async (data: unknown) => { sent.push(JSON.stringify(data)); };
+  const pending = withNotificationBuffer('same-recipient', () =>
+    withNotificationDeliveryCheck(async () => active, () => bufferFlyMailSend(target, content('已注销的内容'), send))
+  );
+  const allowed = withNotificationBuffer('same-recipient', () =>
+    withNotificationDeliveryCheck(async () => true, () => bufferFlyMailSend(target, content('可投递的内容'), send))
+  );
+  active = false;
+  t.mock.timers.tick(30_000);
+  await Promise.all([pending, allowed]);
+  assert.equal(sent.length, 1);
+  assert.doesNotMatch(sent[0], /已注销的内容/);
+  assert.match(sent[0], /可投递的内容/);
+});
+
+test('角色在最后一次通道读取期间注销，QQ 发送前拒绝该通知', async t => {
+  const app = fixture(t);
+  let notifyReading!: () => void;
+  let releaseReading!: () => void;
+  const reading = new Promise<void>(resolve => { notifyReading = resolve; });
+  const ready = new Promise<void>(resolve => { releaseReading = resolve; });
+  t.mock.method(axios, 'create', () => ({
+    async post(path: string) {
+      if (path.endsWith('/permission/read')) {
+        notifyReading();
+        await ready;
+      }
+      const data = path.endsWith('/availability/read') ? { available: true, updatedAt: 1 }
+        : { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
+      return { data: { data } };
+    }
+  }));
+  let active = true;
+  const result = await app.runHandler(async () => {
+    const pending = withNotificationDeliveryCheck(async () => active, () => notificationChannel.send(target, content('不能投递'), null));
+    await reading;
+    active = false;
+    releaseReading();
+    await pending;
+  }, app.events.groupMessage({ platform: 'qq-bot' }));
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.messages.length, 0);
+});
+
+test('发送成功才释放发送凭据，未确认结果保留凭据，过期凭据不发送', async () => {
+  const sent: string[] = [];
+  const release: string[] = [];
+  const attempt = (mode: 'success' | 'uncertain' | 'expired') => withNotificationDeliveryCheck(
+    async () => ({ isCurrent: () => mode !== 'expired', finish: async () => { release.push(mode); } }),
+    () => bufferFlyMailSend(target, content(mode), async () => {
+      sent.push(mode);
+      assert.ok(!release.includes(mode));
+      if (mode === 'uncertain') throw new Error('平台回执不确定');
+    })
+  );
+  await attempt('success');
+  await assert.rejects(attempt('uncertain'), /平台回执不确定/);
+  await assert.rejects(attempt('expired'), /发送凭据已过期/);
+  assert.deepEqual(sent, ['success', 'uncertain']);
+  assert.deepEqual(release, ['success', 'expired']);
 });

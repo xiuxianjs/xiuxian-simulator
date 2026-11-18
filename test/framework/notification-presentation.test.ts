@@ -200,6 +200,9 @@ test('真实中继任务为玩家与旧消息池发送按钮，归档仍保存�
       else if (path.endsWith('/permission/read')) data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
       else if (path.endsWith('/receipt/read')) data = null;
       else if (path.endsWith('/archive')) archived.push(body.data);
+      else if (path.endsWith('/delivery-check')) data = { allowed: true };
+      else if (path.endsWith('/delivery-start')) data = { allowed: true, token: 'a'.repeat(64) };
+      else if (path.endsWith('/delivery-finish')) data = { ok: true };
       else if (path.endsWith('/ack')) receipts.push(body.delivery);
       else if (!['/permission/cas', '/permission/failure', '/receipt/store', '/legacy-sent', '/subscription/receipt'].some(suffix => path.endsWith(suffix))) throw new Error(`Unexpected backend request: ${path}`);
       return { data: { data } };
@@ -304,6 +307,9 @@ for (const [label, privateTarget] of [
     else if (path.endsWith('/availability/read')) data = { available: true, updatedAt: 1 };
     else if (path.endsWith('/permission/read')) data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
     else if (path.endsWith('/receipt/read')) data = null;
+    else if (path.endsWith('/delivery-check')) data = { allowed: true };
+    else if (path.endsWith('/delivery-start')) data = { allowed: true, token: 'a'.repeat(64) };
+    else if (path.endsWith('/delivery-finish')) data = { ok: true };
     else if (path.endsWith('/ack')) { if ((body.delivery as {route:string}).route !== 'history') assert.ok(sent > acknowledgements.length, 'ack before platform success'); acknowledgements.push(body.delivery); }
     else if (!['/permission/cas', '/permission/failure', '/receipt/store', '/legacy-sent', '/subscription/receipt'].some(suffix => path.endsWith(suffix))) throw new Error(`Unexpected request: ${path}`);
     return { data: { data } };

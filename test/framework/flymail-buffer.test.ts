@@ -69,6 +69,9 @@ test('飞信每批最多 5 条，处理中最多 32 条，剩余留在服务端�
   t.mock.method(axios, 'create', () => ({ async post(path: string, body: Record<string, unknown>) {
     let data: unknown = null;
     if (path.endsWith('/claim')) { const event = queue.shift() ?? null; if (event) claimed++; data = { event }; }
+    else if (path.endsWith('/delivery-check')) data = { allowed: true };
+    else if (path.endsWith('/delivery-start')) data = { allowed: true, token: 'a'.repeat(64) };
+    else if (path.endsWith('/delivery-finish')) data = { ok: true };
     else if (path.endsWith('/ack')) { await blocked; receipts.push(body); }
     else if (path.endsWith('/retry')) throw new Error(String(body.error));
     else if (path.endsWith('/player/categories')) data = { enabled: true };

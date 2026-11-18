@@ -62,6 +62,9 @@ test('channel player notification uses native destination, real platform receipt
         data = { platform: 'qq-bot', scope: 'c2c', BotId: '100017', targetId: 'native-private' };
       } else if (path.endsWith('/availability/read')) data = { available: true, updatedAt: 1 };
       else if (path.endsWith('/permission/read')) data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
+      else if (path.endsWith('/delivery-check')) data = { allowed: true };
+      else if (path.endsWith('/delivery-start')) data = { allowed: true, token: 'a'.repeat(64) };
+      else if (path.endsWith('/delivery-finish')) data = { ok: true };
       else if (path.endsWith('/ack')) {
         assert.equal(delivered, true, 'ack must follow successful platform action');
         acknowledgements.push(body.delivery);

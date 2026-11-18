@@ -202,7 +202,18 @@ export const notificationChannel: NotificationChannel = {
     await recordPlatformPermissionFailure(target);
   },
   async send(target, data, previous) {
-    return await bufferFlyMailSend(target, data, content => sendNotificationNow(target, content, previous));
+    const prepare = async () => {
+      if (process.env.login && process.env.login !== target.platform) {
+        throw new Error(`通知目标平台与当前适配器不一致: ${target.platform}`);
+      }
+      const current = await notificationChannel.read(target);
+
+      if (current?.state === 'blocked') {
+        throw new Error('通知通道已关闭或失效');
+      }
+    };
+
+    return await bufferFlyMailSend(target, data, content => sendNotificationNow(target, content, previous), prepare);
   }
 };
 
@@ -211,15 +222,6 @@ async function sendNotificationNow(
   data: Parameters<NotificationChannel['send']>[1],
   previous: PermissionState | null
 ): Promise<void> {
-  if (process.env.login && process.env.login !== target.platform) {
-    throw new Error(`通知目标平台与当前适配器不一致: ${target.platform}`);
-  }
-  // 状态检查后发生关闭/删除时，发送前再核实，避免继续使用旧快照。
-  const current = await notificationChannel.read(target);
-
-  if (current?.state === 'blocked') {
-    throw new Error('通知通道已关闭或失效');
-  }
   assertCommandBudget(data);
   const direct = MessageDirect.create();
   const result = await measureTransportStage('notification.platform.send', () => withNotificationTimeout(() => {
