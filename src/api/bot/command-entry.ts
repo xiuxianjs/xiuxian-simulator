@@ -8,7 +8,7 @@ import type { NewcomerGuideProgress } from '../schemas/newcomer-guide';
 import type { CaptchaVerifyResult, CaptchaMuteReplyClaimResult, CaptchaOperationClaimResult, CaptchaChallengeResult } from '../schemas/captcha-state';
 import type { BackendPlayerEntryResult } from './player-entry';
 import { BackendAPIError, requestBackend } from './client';
-import { createBackendRequestContext } from './context';
+import { createBackendRequestContext, type BackendRequestContext } from './context';
 import type { GameEvent } from '../../types/event';
 import { parseBackendTeamMatchCommandGuard } from './team-match-queries';
 
@@ -38,6 +38,50 @@ export type RobotCommandEntryResult = {
 
 const entries = new WeakMap<object, { bid: string; signature: string; pending: Promise<RobotCommandEntryResult | null> }>();
 const phases = new WeakMap<object, number>();
+
+// A platform may deliver the same message twice, or the framework may replay a
+// command while the first admission query is still running. The server then
+// answers 409 IDEMPOTENCY_IN_PROGRESS for this message's own reservation, which
+// is not a failure: the original request is about to commit its result. Wait for
+// that reservation with the same key instead of showing the player an error.
+const commandEntryRetryDelaysMs = [1_000, 2_000, 3_000];
+
+function isIdempotencyInProgress(error: unknown): boolean {
+  return error instanceof BackendAPIError && error.code === 'IDEMPOTENCY_IN_PROGRESS';
+}
+
+async function waitBeforeCommandEntryRetry(delayMs: number): Promise<void> {
+  await new Promise<void>(resolve => setTimeout(resolve, delayMs));
+}
+
+async function requestCommandEntry(
+  event: GameEvent,
+  context: BackendRequestContext,
+  idempotencyKey: string,
+  body: Omit<RobotCommandProfile, 'catalogKind'>,
+  catalogRequest: unknown
+): Promise<RobotCommandEntryResult> {
+  const request = () =>
+    requestBackend(event.UserId, 'post_robot_command_entry', {
+      body: { ...body, messageText: event.MessageText ?? '' },
+      ...(catalogRequest !== undefined ? { headers: { 'X-Command-Catalog': 'v1' } } : {}),
+      requestId: context.requestId,
+      idempotencyKey
+    });
+
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await request();
+    } catch (error) {
+      // Only the caller's own in-flight reservation is retried. Every other
+      // failure, including key reuse and transport errors, keeps its status.
+      if (attempt >= commandEntryRetryDelaysMs.length || !isIdempotencyInProgress(error)) {
+        throw error;
+      }
+      await waitBeforeCommandEntryRetry(commandEntryRetryDelaysMs[attempt]);
+    }
+  }
+}
 
 function homeFactAllowed(value: RobotCommandEntryResult): boolean {
   return (
@@ -211,12 +255,7 @@ export function getEventCommandEntry(event: GameEvent, profile?: RobotCommandPro
   const catalogRequest = profile.playerEntry && profile.checkMute ? catalogRequestFromMessage(event.MessageText ?? '', profile.catalogKind) : undefined;
   const send = async (stages: RobotCommandProfile) => {
     const { catalogKind: _catalogKind, ...bodyStages } = stages;
-    const value = await requestBackend(event.UserId, 'post_robot_command_entry', {
-      body: { ...bodyStages, messageText: event.MessageText ?? '' },
-      ...(catalogRequest ? { headers: { 'X-Command-Catalog': 'v1' } } : {}),
-      requestId: context.requestId,
-      idempotencyKey
-    });
+    const value = await requestCommandEntry(event, context, idempotencyKey, bodyStages, catalogRequest);
 
     validate(value, event.UserId, stages);
 
