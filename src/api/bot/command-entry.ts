@@ -61,8 +61,7 @@ async function requestCommandEntry(
   body: Omit<RobotCommandProfile, 'catalogKind'>,
   catalogRequest: unknown
 ): Promise<RobotCommandEntryResult> {
-  const request = () =>
-    requestBackend(event.UserId, 'post_robot_command_entry', {
+  const request = () => requestBackend(event.UserId, 'post_robot_command_entry', {
       body: { ...body, messageText: event.MessageText ?? '' },
       ...(catalogRequest !== undefined ? { headers: { 'X-Command-Catalog': 'v1' } } : {}),
       requestId: context.requestId,

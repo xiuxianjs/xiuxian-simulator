@@ -14,6 +14,10 @@ import { parseOnboarding, type OnboardingView } from './onboarding';
 
 export type RobotBusinessFollowup = { onboarding?: OnboardingView; onboardingPending?: boolean };
 
+// Backoff for waiting on the caller's own in-flight idempotency reservation.
+// The server holds it for the duration of one request (typically 2-3s here).
+const inFlightRetryDelays = [1_000, 2_000, 3_000];
+
 export type RobotBusinessResult<T = unknown> =
   | { success: false; branch: 'business' | 'middleware'; middleware: RobotMiddlewareResult }
   | { success: true; branch: 'middleware'; middleware: RobotMiddlewareResult }
@@ -652,6 +656,29 @@ export async function requestRobotBusiness<T>(
   try {
     result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', parameters);
   } catch (error) {
+    // A duplicate platform delivery, or a replay while the first request is still
+    // running, hits the server reservation for this same message and answers 409
+    // IDEMPOTENCY_IN_PROGRESS. The original call is about to commit its result, so
+    // wait for it with the same key instead of surfacing 操作未完成 to the player.
+    if (error instanceof BackendAPIError && error.code === 'IDEMPOTENCY_IN_PROGRESS') {
+      for (let attempt = 0; ; attempt++) {
+        if (attempt >= inFlightRetryDelays.length) {
+          throw error;
+        }
+        await delay(inFlightRetryDelays[attempt]);
+        try {
+          result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', parameters);
+
+          return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
+        } catch (retryError) {
+          // Only keep waiting on the caller's own in-flight reservation. Any other
+          // failure, including key reuse, keeps its original status.
+          if (!(retryError instanceof BackendAPIError) || retryError.code !== 'IDEMPOTENCY_IN_PROGRESS') {
+            throw retryError;
+          }
+        }
+      }
+    }
     const recoverable = operation === 'skill-books.batch-decompose' || (operation === 'cave.accelerate' && args.mode === 'all' && args.accelerator === 'ripen');
 
     if (!recoverable || !(error instanceof BackendAPIError) || (error.code !== 'SDK_TIMEOUT' && error.status !== 504)) {
