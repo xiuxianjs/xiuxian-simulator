@@ -59,7 +59,7 @@ export function buildCommunityBatch(batch: CommunityBatch) {
     addOptions(quote, [
       ...(!noPaidGuard && nextGuardSeat ? [{ label: '加入护卫', command: `/加入商运护卫 ${id} ${nextGuardSeat}` }] : []),
       { label: '创队伍', command: '/打劫队 创建' },
-      { label: '查看商队', command: `/万宝楼商运 ${id}` }
+      { label: '查看商队', command: `/商运 ${id}` }
     ]);
 
     return FormatGui({

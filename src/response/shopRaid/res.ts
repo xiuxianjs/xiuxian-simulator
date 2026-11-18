@@ -7,7 +7,7 @@ import { formatGameTime } from '@src/utils/gameTime';
 import { useMessage } from '@src/utils/useMessage';
 
 const command =
-  /^[!！/#＃]?(万宝楼商运|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|立即抢商队|查看劫货进度|查看商运战报|组队抢商队|加入商运临时队|退出商运临时队|预览商运斗法|确认商运斗法|商运归还分成|确认商运分成|确认商运出战)(?:\s+(.*))?$/;
+  /^[!！/#＃]?(商运|万宝楼商运|加入商运护卫|确认商运护卫|退出商运护卫|递补商运主守|商运结案|确认商运结案|立即抢商队|查看劫货进度|查看商运战报|组队抢商队|加入商运临时队|退出商运临时队|预览商运斗法|确认商运斗法|商运归还分成|确认商运分成|确认商运出战)(?:\s+(.*))?$/;
 
 const statusCommand = /^[!！/#＃]?(我的状态)(?:\s+([a-z_]{1,32}(?:\s+[1-9][0-9]{0,3})?))?$/;
 const crewCommand = /^[!！/#＃]?(打劫队)(?:\s+(.*))?$/;
@@ -201,7 +201,7 @@ function publicRaidActions(convoyId: number) {
 function statusEffectLines(effect: Record<string, unknown>) {
   const rate = Number(effect.rateBps) / 100;
   const expires = `${formatGameTime(String(effect.expiresAt))} 到期`;
-  const source = effect.source === 'shop_raid' ? '来源：万宝楼商运' : String(effect.source);
+  const source = effect.source === 'shop_raid' ? '来源：商运' : String(effect.source);
   const uses = String(effect.remainingUses);
   const quota = String(effect.remainingQuota);
 
@@ -234,10 +234,10 @@ export default onResponse(selects, async event => {
   const [message] = useMessage();
   const common = { isPrivate: event.isPrivate ?? false, bid: event.UserId };
   const feedback = async (reason: string) => {
-    await message.send(errorBubble({ ...common, title: '万宝楼商运', reason, footer: [{ label: '返回坊市交易', command: '/更多 交易' }] }));
+    await message.send(errorBubble({ ...common, title: '商运', reason, footer: [{ label: '返回坊市交易', command: '/更多 交易' }] }));
   };
   const raw = match[2] ?? '';
-  let action = match[1];
+  let action = match[1] === '万宝楼商运' ? '商运' : match[1];
   const args = raw ? raw.split(/\s+/) : [];
   const crewFeedback = async (reason: string) => {
     await message.send(errorBubble({ ...common, title: '打劫队', reason, footer: [{ label: '打开打劫队', command: '/打劫队' }] }));
@@ -279,7 +279,7 @@ export default onResponse(selects, async event => {
             ...common,
             title: '已加入本车协守',
             items: [{ lines: ['下一场斗法按最新守货阵容受理。'] }],
-            footer: [{ label: '查看商队', command: `/万宝楼商运 ${crewId}` }]
+            footer: [{ label: '查看商队', command: `/商运 ${crewId}` }]
           })
         );
 
@@ -321,7 +321,7 @@ export default onResponse(selects, async event => {
             ...(crewView
               ? [
                   crewView === '列表' ? { label: '我的打劫队', command: '/打劫队 我的' } : { label: '打劫队列表', command: '/打劫队 列表' },
-                  { label: '返回送货商队', command: '/万宝楼商运' }
+                  { label: '返回商运', command: '/商运' }
                 ]
               : [{ label: '刷新队伍', command: '/打劫队' }])
           ]
@@ -407,7 +407,7 @@ export default onResponse(selects, async event => {
 
     return;
   }
-  const convoyId = action === '万宝楼商运' && args.length === 0 ? 0 : parsePKCommandInteger(args[0]);
+  const convoyId = action === '商运' && args.length === 0 ? 0 : parsePKCommandInteger(args[0]);
   const publicSolo = action === '立即抢商队' && args.length === 1;
   const publicTeam = action === '组队抢商队' && args.length === 2 && args[1] === '行动';
   let currentBoard: Awaited<ReturnType<typeof readBoard>> | undefined;
@@ -435,7 +435,7 @@ export default onResponse(selects, async event => {
               footer: [
                 { label: '创队伍', command: '/打劫队 创建' },
                 { label: '打劫队列表', command: '/打劫队 列表' },
-                { label: '查看商队', command: `/万宝楼商运 ${convoyId}` }
+                { label: '查看商队', command: `/商运 ${convoyId}` }
               ]
             })
           );
@@ -467,7 +467,7 @@ export default onResponse(selects, async event => {
           args.push(String(team.id), String(team.revision));
         }
       } else {
-        action = '万宝楼商运';
+        action = '商运';
         args.splice(1);
       }
     } catch {
@@ -500,7 +500,7 @@ export default onResponse(selects, async event => {
         await message.send(
           listBubble({
             ...common,
-            title: '万宝楼商运战报',
+            title: '商运战报',
             items: [{ title: '斗法', id: convoyId, lines: [`回合：第 ${round} 回合，共 ${total} 回合`, ...lines] }],
             nav: { current: round, total, command: `/查看商运战报 ${convoyId} {page}` },
             footer: [{ label: '返回劫货回执', command: `/查看劫货进度 ${convoyId}` }]
@@ -545,7 +545,7 @@ export default onResponse(selects, async event => {
             ...common,
             title: '商运出战已确认',
             items: [{ lines: [mode === 'hold' ? '本场获胜后，你会继续随队守货。' : '你只参加这场斗法。胜后离队，也不参与本段归还分成。'] }],
-            footer: [{ label: '查看商队', command: `/万宝楼商运 ${convoyId}` }]
+            footer: [{ label: '查看商队', command: `/商运 ${convoyId}` }]
           })
         );
       }
@@ -596,7 +596,7 @@ export default onResponse(selects, async event => {
               { lines: [`队员 UID ${memberId} · 合资格归还时分 ${amount} 灵晶。`, autoReturn ? '守满后自动归还并结算。' : '守满后由队长选择留用或归还。'] }
             ],
             footer: accept
-              ? [{ label: '查看商队', command: `/万宝楼商运 ${convoyId}` }]
+              ? [{ label: '查看商队', command: `/商运 ${convoyId}` }]
               : [{ label: '确认分成', command: `/确认商运分成 ${convoyId} ${seat} ${memberId} ${amount}${autoReturn ? ' 自动归还' : ''}` }]
           })
         );
@@ -663,7 +663,7 @@ export default onResponse(selects, async event => {
         ...common,
         title: '万宝楼劫货',
         reason,
-        footer: [{ label: '刷新商队', command: `/万宝楼商运 ${convoyId}` }]
+        footer: [{ label: '刷新商队', command: `/商运 ${convoyId}` }]
       })
     );
   };
@@ -700,7 +700,7 @@ export default onResponse(selects, async event => {
             footer: [
               ...(team && teamMode !== 'leave' ? [{ label: '加入这支队', command: `/加入商运临时队 ${convoyId} ${team.id}` }] : []),
               ...(!common.isPrivate ? publicActions : []),
-              { label: '查看商队', command: `/万宝楼商运 ${convoyId}` }
+              { label: '查看商队', command: `/商运 ${convoyId}` }
             ]
           })
         );
@@ -735,8 +735,8 @@ export default onResponse(selects, async event => {
             ],
             costs: [
               typeof entry.data.baseQiCost === 'number'
-                ? `实际出战才扣元力，基础消耗 ${entry.data.baseQiCost} 点，按出战时的减免结算。`
-                : '本场计入普通打劫，实际出战才扣元力。',
+                ? `元力随修为一起结算，基础消耗 ${entry.data.baseQiCost} 点，实扣按减免计算。`
+                : '本场计入普通打劫，元力随修为一起结算。',
               ...(leavingTeam ? ['如果你已加入打劫队，单抢实际锁阵时离队，未出战则留队。'] : []),
               reverse ? '若守方获胜、主守仍在场且攻方队长倒地，主守可能反夺普通财物。' : '本场守方获胜时仅保货。',
               ...(entry.data.holderBattle === true ? [] : ['参战劫货者次日不能在万宝楼购物。'])
@@ -747,7 +747,7 @@ export default onResponse(selects, async event => {
                 command: `/确认商运斗法 ${convoyId} ${seat} ${main}${teamAttack ? ` ${teamId} ${teamRevision}` : ''}${typeof entry.data.defenderStamp === 'string' ? ` 阵容${entry.data.defenderStamp}` : ''} ${reverse ? '可反夺' : '仅保货'}`
               }
             ],
-            back: { label: '刷新商队', command: `/万宝楼商运 ${convoyId}` }
+            back: { label: '刷新商队', command: `/商运 ${convoyId}` }
           })
         );
       }
@@ -788,9 +788,11 @@ export default onResponse(selects, async event => {
               : state === 'not_selected'
                 ? '本轮由另一方先出战，本次未出战，未扣元力。'
                 : state === 'ineligible'
-                  ? outcome?.rejectionReason === 'defenders_changed'
-                    ? '守货阵容已变，本次未出战，未扣元力。可按当前阵容重新确认。'
-                    : '本次未出战，未扣元力。请查看当前商队。'
+                  ? outcome?.rejectionReason === 'insufficient_qi'
+                    ? '结算时元力不足，本场已取消，未扣元力，整车归属未变。'
+                    : outcome?.rejectionReason === 'defenders_changed'
+                      ? '守货阵容已变，本次未出战，未扣元力。可按当前阵容重新确认。'
+                      : '本次未出战，未扣元力。请查看当前商队。'
                   : '本轮斗法正在处理。';
         const convoy = entry.data.currentConvoy ? parseBoard({ items: [entry.data.currentConvoy] })[0] : undefined;
         const canChallenge = !convoy || ['traveling', 'contested', 'fighting'].includes(convoy.phase);
@@ -821,7 +823,7 @@ export default onResponse(selects, async event => {
         await message.send(
           listBubble({
             ...common,
-            title: convoy ? `万宝楼劫货回执 #${convoy.id}` : '万宝楼劫货回执',
+            title: convoy ? `商运劫货回执 #${convoy.id}` : '商运劫货回执',
             items: [{ lines }],
             footer: [
               ...(!common.isPrivate && canChallenge && (action !== '查看劫货进度' || typeof entry.data.convoyId === 'number')
@@ -835,7 +837,7 @@ export default onResponse(selects, async event => {
                 ? [{ label: '原争夺战报', command: `/争夺战报 ${outcome.ordinaryLogId}` }]
                 : []),
               { label: '查看劫货进度', command: `/查看劫货进度 ${String(teamBattleId ?? entry.data.attemptId)}` },
-              { label: '查看商队', command: `/万宝楼商运 ${String(entry.data.convoyId ?? convoyId)}` }
+              { label: '查看商队', command: `/商运 ${String(entry.data.convoyId ?? convoyId)}` }
             ]
           })
         );
@@ -866,7 +868,7 @@ export default onResponse(selects, async event => {
               ...(Array.isArray(closed.data.items) && closed.data.items.map(record).some(item => item.category === 'effect')
                 ? [{ label: '我的状态', command: '/我的状态' }]
                 : []),
-              { label: '查看商队', command: `/万宝楼商运 ${convoyId}` }
+              { label: '查看商队', command: `/商运 ${convoyId}` }
             ]
           })
         );
@@ -875,7 +877,7 @@ export default onResponse(selects, async event => {
       return;
     }
     const response =
-      action === '万宝楼商运' || action === '加入商运护卫' || action === '商运结案'
+      action === '商运' || action === '加入商运护卫' || action === '商运结案'
         ? (currentBoard ?? (await readBoard()))
         : await runRobotBusiness(
             event,
@@ -913,7 +915,7 @@ export default onResponse(selects, async event => {
             closeAction === 'retain' ? '整车货物一起到账。' : `整车货物交回万宝楼，本趟报酬 ${closeAction === 'return' ? card.eligibleBounty : 0} 灵晶。`
           ],
           actions: [{ label: `确认${args[1]}`, command: `/确认商运结案 ${convoyId} ${args[1]} ${card.revision}` }],
-          back: { label: '刷新商队', command: `/万宝楼商运 ${convoyId}` }
+          back: { label: '刷新商队', command: `/商运 ${convoyId}` }
         })
       );
 
@@ -939,7 +941,7 @@ export default onResponse(selects, async event => {
             { label: '确认并同意主守', command: `/确认商运护卫 ${convoyId} ${seat} 主守` },
             ...(!card.nextNeedsMain ? [{ label: '确认仅助守', command: `/确认商运护卫 ${convoyId} ${seat} 助守` }] : [])
           ],
-          back: { label: '刷新商队', command: `/万宝楼商运 ${convoyId}` }
+          back: { label: '刷新商队', command: `/商运 ${convoyId}` }
         })
       );
 
@@ -986,7 +988,7 @@ export default onResponse(selects, async event => {
         }
       }
 
-      const actions = [{ label: '刷新商队', command: `/万宝楼商运 ${card.id}` }];
+      const actions = [{ label: '刷新商队', command: `/商运 ${card.id}` }];
       const teamOpen = card.phase === 'recruiting' || card.phase === 'traveling' || card.phase === 'contested';
       const challengeHolder = card.phase === 'contested' && !card.canClose;
       const needsPreview = challengeHolder || (card.phase === 'traveling' && card.guardCount > 0);
@@ -1121,7 +1123,7 @@ export default onResponse(selects, async event => {
     await message.send(
       listBubble({
         ...common,
-        title: '万宝楼商运',
+        title: '商运',
         items: items.length ? items : [{ lines: ['当前没有正在招募或运送的商队。'] }],
         footer: [
           { label: '打劫队列表', command: '/打劫队 列表' },

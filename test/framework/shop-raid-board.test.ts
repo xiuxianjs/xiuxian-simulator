@@ -8,7 +8,7 @@ import { businessEnvelope, gameFixture } from './fixture';
 
 after(() => shutdownLogger());
 
-test('万宝楼商运显示公示货单和下一席工钱，群友可刷新同一趟车', async t => {
+test('商运显示公示货单和下一席工钱，群友可刷新同一趟车', async t => {
   const { app, requests } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/shop-raid.board'));
     return businessEnvelope(request.bid, {
@@ -26,7 +26,7 @@ test('万宝楼商运显示公示货单和下一席工钱，群友可刷新同�
     });
   });
   await app.mount({ responseRouter: app.run(createGameRouter).router });
-  for (const command of ['/万宝楼商运', '/万宝楼商运 81']) {
+  for (const command of ['/商运', '/商运 81', '/万宝楼商运', '/万宝楼商运 81']) {
     const result = await app.dispatch(app.events.groupMessage({ text: command, platform: 'qq-bot' }));
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
@@ -36,10 +36,10 @@ test('万宝楼商运显示公示货单和下一席工钱，群友可刷新同�
     assert.match(rendered.text, /护卫招募中/);
     assert.match(rendered.text, /精力丹 ×3/);
     assert.match(rendered.text, /下一席工钱 15 灵晶/);
-    assert.ok(rendered.commands.includes('/万宝楼商运 81'));
+    assert.ok(rendered.commands.includes('/商运 81'));
     assert.ok(rendered.commands.includes('/加入商运护卫 81 1'));
   }
-  assert.deepEqual(requests.map(request => request.body.arguments), [{ convoyId: 0 }, { convoyId: 81 }]);
+  assert.deepEqual(requests.map(request => request.body.arguments), [{ convoyId: 0 }, { convoyId: 81 }, { convoyId: 0 }, { convoyId: 81 }]);
 });
 
 test('万宝楼护卫确认先展示工钱和主守风险，再提交席位', async t => {
@@ -489,7 +489,7 @@ test('我的状态逐张展示符箓的到期和合计加成', async t => {
   assert.match(card.text, /主线与普通秘境精力减 50% · 剩 8 次、90 点精力/);
   assert.match(card.text, /惜灵符/);
   assert.match(card.text, /升级功法时可选用 · 灵石减 25% · 单张最多抵 2000 灵石/);
-  assert.match(card.text, /万宝楼商运/);
+  assert.match(card.text, /商运/);
   assert.ok(card.commands.includes('/我的状态'));
   assert.match(card.text, /养元符 ×2/);
   assert.match(card.text, /1 张待续/);
@@ -593,7 +593,7 @@ test('无护送钱的实物车保留组队和启程后的抢货入口', async t 
   assert.ok(after.commands.includes('/立即抢商队 81'));
 });
 
-test('个人活动的送货商队打开列表，即使当前没有发车', async t => {
+test('个人活动的商运打开列表，即使当前没有发车', async t => {
   let items: unknown[] = [];
   const ownCrew = { id: 9, leaderId: 1, members: [1, 2] };
   const otherCrew = { id: 10, leaderId: 3, members: [3] };
@@ -650,8 +650,8 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
     return inspectMessage(message.nodes);
   };
   const personal = await send('/我的活动');
-  assert.match(personal.text, /送货商队/);
-  const entry = personal.commands.find(command => command === '/万宝楼商运');
+  assert.match(personal.text, /商运/);
+  const entry = personal.commands.find(command => command === '/商运');
   assert.ok(entry);
   assert.ok(!(await send('/宗门活动')).commands.includes(entry));
   const emptyBoard = await send(entry);
@@ -691,10 +691,10 @@ test('个人活动的送货商队打开列表，即使当前没有发车', async
   assert.ok(board.commands.includes(publicEntry));
   assert.ok(board.commands.includes(ownEntry));
   const won = await send('/查看劫货进度 1');
-  assert.match(won.text, /万宝楼劫货回执 #81/);
+  assert.match(won.text, /商运劫货回执 #81/);
   assert.match(won.text, /货单：灵石 ×1000/);
   assert.match(won.text, /当前占用：UID 301/);
-  assert.match(won.text, /守至 .*21:32:00/);
+  assert.match(won.text, /守货截止：.*21:32:00/);
   assert.ok(won.commands.includes('/立即抢商队 81'));
   assert.ok(won.commands.includes('/组队抢商队 81 行动'));
   assert.match((await send('/查看劫货进度 2')).text, /守货阵容已变，本次未出战，未扣元力/);

@@ -88,7 +88,7 @@ export const MORE_CATEGORIES: MoreCategory[] = [
     entries: [
       { label: '商店', command: '/商店', description: '选择商店与购买物品' },
       { label: '珍宝楼', command: '/珍宝楼', description: '分类选购与上架' },
-      { label: '万宝楼商运', command: '/万宝楼商运', description: '查看商队货单和护卫进度' }
+      { label: '商运', command: '/商运', description: '查看商队货单和护卫进度' }
       // { label: '玩家小店', command: '/小店', description: '浏览玩家店铺' } // 小店下架
     ]
   },

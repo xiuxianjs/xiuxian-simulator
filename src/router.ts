@@ -462,6 +462,7 @@ export function createGameRouter() {
       [
         '打劫队',
         '我的状态',
+        '商运',
         '万宝楼商运',
         '加入商运护卫',
         '确认商运护卫',

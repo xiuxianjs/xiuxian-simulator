@@ -74,7 +74,7 @@ export default onResponse(selects, async e => {
       }
       quote.addText(`成员欢迎：${settings.welcomeEnabled ? '已开启' : '已关闭'}`).addNewline();
       quote.addText(`加群申请提醒：${settings.requestReminders ? '已开启' : '已关闭'}`).addNewline();
-      quote.addText(`万宝楼商运公示订阅：${settings.shopRaidEnabled ? '已开启' : '已关闭'}`).addNewline();
+      quote.addText(`商运公示订阅：${settings.shopRaidEnabled ? '已开启' : '已关闭'}`).addNewline();
       quote.addText('这些设置不改变个人游戏订阅。主动提醒还需应用推送能力、额度及群授权。').addNewline();
       if (settings.failedBatches) {
         quote.addText(`有 ${settings.failedBatches} 批提醒多次失败，已停止重试；请核对权限和平台限制。`).addNewline();

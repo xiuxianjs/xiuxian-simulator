@@ -55,7 +55,7 @@ for (const [role, queriedRole] of [['admin', undefined], ['owner', undefined], [
       assert.equal((writes[0].settings as { welcomeEnabled: boolean }).welcomeEnabled, true);
       assert.equal((writes[0].settings as { shopRaidEnabled?: boolean }).shopRaidEnabled, setting === '商运公示' ? true : undefined);
       assert.match(text, /成员欢迎：已开启/);
-      assert.match(text, setting === '商运公示' ? /万宝楼商运公示订阅：已开启/ : /万宝楼商运公示订阅：已关闭/);
+      assert.match(text, setting === '商运公示' ? /商运公示订阅：已开启/ : /商运公示订阅：已关闭/);
       assert.equal(queries, role ? 0 : 1);
     } else {
       assert.equal(writes.length, 0);
