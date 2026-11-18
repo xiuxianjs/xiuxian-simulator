@@ -12,6 +12,7 @@ test('商运显示公示货单和下一席工钱，群友可刷新同一趟车',
   const { app, requests } = await gameFixture(t, request => {
     assert.ok(request.path.endsWith('/shop-raid.board'));
     return businessEnvelope(request.bid, {
+      schedule: { channel: false, windows: [{ from: '2026-11-23T21:00:00+08:00', until: '2026-11-24T01:00:00+08:00' }] },
       items: [{
         id: 81,
         phase: 'recruiting',
@@ -33,6 +34,8 @@ test('商运显示公示货单和下一席工钱，群友可刷新同一趟车',
     const [message] = result.messages;
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
     const rendered = inspectMessage(message.nodes);
+    if (command.endsWith(' 81')) assert.doesNotMatch(rendered.text, /今日运货时段/);
+    else assert.match(rendered.text, /今日运货时段：21:00–次日 01:00（北京时间）/);
     assert.match(rendered.text, /护卫招募中/);
     assert.match(rendered.text, /精力丹 ×3/);
     assert.match(rendered.text, /下一席工钱 15 灵晶/);
@@ -609,7 +612,10 @@ test('个人活动的商运打开列表，即使当前没有发车', async t => 
         giftCodesVisible: false
       });
     }
-    if (request.path.endsWith('/shop-raid.board')) return businessEnvelope(request.bid, { items });
+    if (request.path.endsWith('/shop-raid.board')) return businessEnvelope(request.bid, {
+      items,
+      schedule: { channel: true, windows: [{ from: '2026-11-23T03:00:00Z', until: '2026-11-23T07:00:00Z' }] }
+    });
     if (request.path.endsWith('/shop-raid.solo-status')) {
       const id = (request.body.arguments as { attemptId: number }).attemptId;
       return businessEnvelope(request.bid, {
@@ -656,6 +662,8 @@ test('个人活动的商运打开列表，即使当前没有发车', async t => 
   assert.ok(!(await send('/宗门活动')).commands.includes(entry));
   const emptyBoard = await send(entry);
   assert.match(emptyBoard.text, /当前没有正在招募或运送的商队/);
+  assert.match(emptyBoard.text, /今日运货时段：11:00–15:00（北京时间）/);
+  assert.match(emptyBoard.text, /整点、半点排程，刻钟视备货加开/);
   const publicEntry = emptyBoard.commands.find(command => command === '/打劫队 列表');
   const ownEntry = emptyBoard.commands.find(command => command === '/打劫队 我的');
   assert.ok(publicEntry);

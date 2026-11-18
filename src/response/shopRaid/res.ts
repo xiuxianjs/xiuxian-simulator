@@ -99,6 +99,38 @@ function roundLines(data: Record<string, unknown>): string[] {
   });
 }
 
+function scheduleLines(value: unknown): string[] {
+  if (!value || typeof value !== 'object') {
+    return ['今日运货时段：暂不可查'];
+  }
+
+  const { windows, channel } = record(value);
+
+  if (!Array.isArray(windows)) {
+    return ['今日运货时段：暂不可查'];
+  }
+  if (windows.length === 0) {
+    return ['今日运货时段：暂无排程'];
+  }
+
+  const times = windows.map(raw => {
+    const { from, until } = record(raw);
+
+    if (typeof from !== 'string' || typeof until !== 'string') {
+      return '时间未知';
+    }
+
+    const nextDay = formatGameTime(from, 'YYYY-MM-DD') !== formatGameTime(until, 'YYYY-MM-DD');
+
+    return `${formatGameTime(from, 'HH:mm')}–${nextDay ? '次日 ' : ''}${formatGameTime(until, 'HH:mm')}`;
+  });
+
+  return [
+    `今日运货时段：${times.join('、')}（北京时间）`,
+    channel === true ? '发车：整点、半点排程，刻钟视备货加开' : '发车：每 15 分钟排程，实际以商队公示为准'
+  ];
+}
+
 function parseBoard(value: unknown) {
   const {
     items,
@@ -189,6 +221,10 @@ function parseBoard(value: unknown) {
       nextGuardWage: typeof nextGuardWage === 'number' ? nextGuardWage : undefined
     };
   });
+}
+
+function parseBoardPage(value: unknown) {
+  return { cards: parseBoard(value), schedule: record(value).schedule };
 }
 
 function publicRaidActions(convoyId: number) {
@@ -413,7 +449,7 @@ export default onResponse(selects, async event => {
   let currentBoard: Awaited<ReturnType<typeof readBoard>> | undefined;
 
   function readBoard() {
-    return runRobotBusiness(event, 'shop-raid.board', { convoyId }, parseBoard, next, reply => feedback(reply.text));
+    return runRobotBusiness(event, 'shop-raid.board', { convoyId }, parseBoardPage, next, reply => feedback(reply.text));
   }
 
   if (convoyId !== null && (publicSolo || publicTeam)) {
@@ -423,7 +459,7 @@ export default onResponse(selects, async event => {
         return;
       }
 
-      let [card] = currentBoard.data;
+      let [card] = currentBoard.data.cards;
 
       if (publicTeam && (card?.raidPhase === 'traveling' || card?.raidPhase === 'contested')) {
         const prepared = await runRobotBusiness(event, 'shop-raid.crew', { mode: 'prepare', convoyId }, record, next, async r => {
@@ -448,7 +484,7 @@ export default onResponse(selects, async event => {
         if (currentBoard.handled) {
           return;
         }
-        [card] = currentBoard.data;
+        [card] = currentBoard.data.cards;
       }
       const open = card?.raidPhase === 'traveling' || card?.raidPhase === 'contested';
       const preview = (card?.raidPhase === 'traveling' && card.guardCount > 0 && !card.myGuardSeat) || (card?.raidPhase === 'contested' && !card.canClose);
@@ -888,7 +924,7 @@ export default onResponse(selects, async event => {
               mainGuard: args[2] === '主守',
               mode: action === '退出商运护卫' ? 'withdraw' : action === '递补商运主守' ? 'opt-in' : 'join'
             },
-            parseBoard,
+            parseBoardPage,
             next,
             reply => feedback(reply.text)
           );
@@ -898,7 +934,7 @@ export default onResponse(selects, async event => {
     }
 
     if (action === '商运结案') {
-      const [card] = response.data;
+      const [card] = response.data.cards;
 
       if (!card?.canClose || typeof card.revision !== 'number' || (closeAction === 'abandon' ? card.phase !== 'contested' : card.phase !== 'ready')) {
         await feedback('商队已变化，请刷新后查看可用动作。');
@@ -923,7 +959,7 @@ export default onResponse(selects, async event => {
     }
 
     if (action === '加入商运护卫') {
-      const [card] = response.data;
+      const [card] = response.data.cards;
 
       if (card?.phase !== 'recruiting' || card.noPaidGuard || card.nextGuardSeat !== seat || card.myGuardSeat) {
         await feedback('护卫席位已变化，请刷新商队。');
@@ -948,7 +984,7 @@ export default onResponse(selects, async event => {
       return;
     }
 
-    const items = response.data.map(card => {
+    const items = response.data.cards.map(card => {
       const lines = [card.cargo.join('、')];
 
       if (card.noPaidGuard && (card.phase === 'recruiting' || card.phase === 'traveling')) {
@@ -1124,7 +1160,12 @@ export default onResponse(selects, async event => {
       listBubble({
         ...common,
         title: '商运',
-        items: items.length ? items : [{ lines: ['当前没有正在招募或运送的商队。'] }],
+        items: [
+          ...(convoyId === 0 && action === '商运'
+            ? [{ lines: [...scheduleLines(response.data.schedule), ...(items.length ? [] : ['当前没有正在招募或运送的商队。'])] }]
+            : []),
+          ...items
+        ],
         footer: [
           { label: '打劫队列表', command: '/打劫队 列表' },
           { label: '我的打劫队', command: '/打劫队 我的' }
