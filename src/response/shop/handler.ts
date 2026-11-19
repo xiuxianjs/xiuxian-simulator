@@ -97,6 +97,8 @@ const SHOP_CODE_MAP: Record<string, string> = {
 type ShopAccessState = {
   visibleShopCodes: string[];
   deniedReason: string | null;
+  shopRaidBan: boolean;
+  shopRaidBanUntil: string | null;
 };
 
 const getShopHeader = (access: ShopAccessState, selection: ReturnType<typeof parseShopBrowseCommand>) => SHOP_HEADER_BASE.flatMap(item => {
@@ -176,13 +178,15 @@ const groupShopOffers = (products: ShopListProductItem[], groupFishing: boolean)
   return cards;
 };
 
-const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: ShopListProductItem, compact: boolean) => {
+const appendShopOffer = (quote: ReturnType<typeof Format.createMarkdown>, item: ShopListProductItem, compact: boolean, raidBanned = false) => {
   const soldOut = item.limit > 0 && item.remaining === 0;
   const { limitText, periodText, lockText, price } = formatItem(item, compact && soldOut);
   const detailCommand = compact ? undefined : getItemDetailCommand(item);
   const shopBtns: { label: string; command: string }[] = [];
 
-  if (item.unlocked && !soldOut) {
+  // A raid ban already explains itself in the page banner and the row lock text;
+  // keep the buy button off so the player cannot walk into the rejection.
+  if (item.unlocked && !soldOut && !(raidBanned && item.shopCode === 'WANBAOLOU')) {
     const buyCmd = SHOP_META[item.shopCode]?.buyCmd ?? '购买';
 
     shopBtns.push({ label: '购买', command: `/${buyCmd} ${item.productId}` });
@@ -343,6 +347,14 @@ export const createShopListHandler = (shopCode?: string) => {
         // 货币概览
         renderCurrency(contentMd);
 
+        // 劫车禁购：先说明原因和恢复时刻，再列商品，避免玩家点到购买才知道
+        const raidBanned = access.shopRaidBan && access.shopRaidBanUntil !== null;
+
+        if (raidBanned) {
+          contentMd.addText(`昨日参与劫车，${access.shopRaidBanUntil} 前无法在万宝楼购买。`);
+          contentMd.addNewline();
+        }
+
         // 商品列表
         groupShopOffers(result.data, activeShopCode === 'FISHING' && !currencyCode).forEach(offers => {
           const [first] = offers;
@@ -358,7 +370,7 @@ export const createShopListHandler = (shopCode?: string) => {
           }
           quote.addNewline();
           offers.forEach(item => {
-            appendShopOffer(quote, item, compact);
+            appendShopOffer(quote, item, compact, raidBanned);
           });
           contentMd.addBlockquote(quote);
         });

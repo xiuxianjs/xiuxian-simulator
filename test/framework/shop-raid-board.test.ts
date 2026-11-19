@@ -797,3 +797,45 @@ test('同车单抢后协守，第三人从旧回执反抢但锁阵前有人退�
   assert.match(final.text, /占用人：UID 101/);
   assert.match(final.text, /守至.*21:32/);
 });
+
+// /商运 首屏自己说明禁购规则：被禁购时给恢复时刻，未禁购时说明出手后果
+for (const banUntil of ['2026-11-20 00:00', undefined]) {
+  test(`商运首屏提示万宝楼禁购规则 ${banUntil ?? '未禁购'}`, async t => {
+    const { app } = await gameFixture(t, request => {
+      if (request.path.endsWith('/shop-raid.board')) {
+        return businessEnvelope(request.bid, {
+          items: [],
+          schedule: { channel: true, windows: [{ from: '2026-11-23T03:00:00Z', until: '2026-11-23T07:00:00Z' }] },
+          ...(banUntil ? { shopRaidBanUntil: banUntil } : {})
+        });
+      }
+      assert.ok(request.path.includes('/content/tianshu'));
+      return {
+        gateVersion: 1, intro: '说明', realmUnlocks: [], notes: [],
+        commandFeatures: { 我的活动: 'activities', 个人活动: 'activities', 宗门活动: 'activities', 宗门日常: 'activities' },
+        featureCatalog: [{
+          stageLevel: 0, stageName: '功能目录',
+          features: [{ id: 'activities', name: '活动', description: '活动入口', realm: '无境界限制', realmReached: true, visible: true, conditions: [] }]
+        }]
+      };
+    });
+    await app.mount({ responseRouter: app.run(createGameRouter).router });
+    await app.invoke(app.events.groupMessage(), startFeatureVisibility);
+    const result = await app.dispatch(app.events.groupMessage({ text: '/商运', platform: 'qq-bot' }));
+    assert.deepEqual(result.errors, []);
+    assert.equal(result.messages.length, 1);
+    const [message] = result.messages;
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+    const rendered = inspectMessage(message.nodes);
+    assert.match(rendered.text, /今日运货时段：11:00–15:00（北京时间）/);
+    assert.match(rendered.text, /当前没有正在招募或运送的商队/);
+    if (banUntil) {
+      assert.match(rendered.text, /你昨日参与过劫车，2026-11-20 00:00 前无法在万宝楼购买。/);
+    } else {
+      assert.match(rendered.text, /实际对商队出战（输赢都算），次日 00:00 起全天无法在万宝楼购买。/);
+      assert.doesNotMatch(rendered.text, /你昨日参与过劫车/);
+    }
+    assert.ok(rendered.commands.includes('/打劫队 列表'), rendered.commands.join(' '));
+    assert.ok(rendered.commands.includes('/打劫队 我的'), rendered.commands.join(' '));
+  });
+}

@@ -16,8 +16,8 @@ const artifact = {
   requiredRealmName: null, requiredStars: null, lockReason: null, unlocked: true,
   limit: 3, used: 0, remaining: 3, limitPeriod: 'weekly', limitPeriodName: '每周'
 };
-const catalog = (products: object[]) => ({
-  access: { hasCompanion: false, isFoundationRealm: true, canUseReputationShop: true, visibleShopCodes: ['WANBAOLOU', 'CHECKIN', 'TOWER_SCORE'], deniedReason: null },
+const catalog = (products: object[], access: Record<string, unknown> = {}) => ({
+  access: { hasCompanion: false, isFoundationRealm: true, canUseReputationShop: true, visibleShopCodes: ['WANBAOLOU', 'CHECKIN', 'TOWER_SCORE'], deniedReason: null, ...access },
   currencies: { spiritStone: 0, spiritsCrystal: 1000, spiritsMilk: 0, signInCoin: 100, towerScore: 1000, reputation: 0, tongxin: 0, greenBottle: 0 },
   page: 1, totalPages: 1, total: products.length, products
 });
@@ -57,6 +57,32 @@ test('签到月额度售罄不生成购买按钮', async t => {
   assert.ok(result.messages[0].text.includes('本月已兑完'));
   assert.ok(result.messages[0].text.includes('每月1日00:00重置'));
   assert.ok(!result.messages[0].commands.includes('/购买 574'));
+});
+
+// 劫车禁购：先把原因和恢复时刻说清楚，再隐藏万宝楼的购买按钮，其他商店照常
+for (const isPrivate of [false, true]) {
+  test(`万宝楼劫车禁购时置顶提示并隐藏购买按钮 ${isPrivate}`, async t => {
+    const { app } = await gameFixture(t, r => businessEnvelope(r.bid, catalog([
+      { ...artifact, productId: 2, shopCode: 'WANBAOLOU', name: '精力丹', category: 'item', itemId: 38, typeLabel: '丹药', priceAmount: 80, priceCurrencyCode: 'SPIRIT_CRYSTAL', priceCurrencyName: '灵晶', lockedRaidBan: true },
+      { ...artifact, productId: 3, shopCode: 'CHECKIN', name: '补签令', priceAmount: 40, priceCurrencyName: '签到币', priceCurrencyCode: 'CHECKIN_COIN' }
+    ], { shopRaidBan: true, shopRaidBanUntil: '2026-11-20 00:00' })));
+    const event = isPrivate ? app.events.privateMessage({ text: '/商店 万宝楼', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/商店 万宝楼', platform: 'qq-bot' });
+    const result = await app.runHandler(createShopListHandler(), event);
+    const message = result.messages[0];
+    assert.ok(message.text.includes('昨日参与劫车，2026-11-20 00:00 前无法在万宝楼购买。'), message.text);
+    assert.ok(message.text.includes('精力丹'), message.text);
+    assert.ok(!message.commands.includes('/购买 2'), message.commands.join(' '));
+    assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
+  });
+}
+
+test('未被禁购的万宝楼保留购买按钮且不显示提示', async t => {
+  const { app } = await gameFixture(t, r => businessEnvelope(r.bid, catalog([
+    { ...artifact, productId: 2, shopCode: 'WANBAOLOU', name: '精力丹', category: 'item', itemId: 38, typeLabel: '丹药' }
+  ], { shopRaidBan: false, shopRaidBanUntil: null })));
+  const result = await app.runHandler(createShopListHandler(), app.events.privateMessage({ text: '/商店 万宝楼', platform: 'qq-bot' }));
+  assert.ok(result.messages[0].commands.includes('/购买 2'));
+  assert.ok(!result.messages[0].text.includes('无法在万宝楼购买'));
 });
 
 for (const confirmedPreview of [false, true]) {

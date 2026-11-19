@@ -328,7 +328,11 @@ const checkin = object({
 });
 const shop = object({
   ...fields(integer, 'page totalPages total'),
-  access: object({ visibleShopCodes: list(text), deniedReason: text }, ['deniedReason']),
+  access: object({ visibleShopCodes: list(text), deniedReason: text, shopRaidBan: boolean, shopRaidBanUntil: text }, [
+    'deniedReason',
+    'shopRaidBan',
+    'shopRaidBanUntil'
+  ]),
   products: list(
     object(
       {

@@ -33,7 +33,15 @@ export interface ShopListProductsResult {
 
 export interface CompanionShopQueryData {
   nextCursor?: string;
-  access: { hasCompanion: boolean; isFoundationRealm: boolean; canUseReputationShop: boolean; visibleShopCodes: string[]; deniedReason: string | null };
+  access: {
+    hasCompanion: boolean;
+    isFoundationRealm: boolean;
+    canUseReputationShop: boolean;
+    visibleShopCodes: string[];
+    deniedReason: string | null;
+    shopRaidBan: boolean;
+    shopRaidBanUntil: string | null;
+  };
   currencies: CurrencyCardData;
   products: Array<{
     shopCode: string;

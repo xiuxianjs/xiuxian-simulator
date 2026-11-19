@@ -224,7 +224,14 @@ function parseBoard(value: unknown) {
 }
 
 function parseBoardPage(value: unknown) {
-  return { cards: parseBoard(value), schedule: record(value).schedule };
+  const raw = record(value).shopRaidBanUntil;
+
+  return { cards: parseBoard(value), schedule: record(value).schedule, banUntil: typeof raw === 'string' && raw ? raw : null };
+}
+
+/** The Wanbaolou ban is explained on every /商运 entry, banned or not. */
+function banNoticeLines(banUntil: string | null): string[] {
+  return [banUntil ? `你昨日参与过劫车，${banUntil} 前无法在万宝楼购买。` : '实际对商队出战（输赢都算），次日 00:00 起全天无法在万宝楼购买。'];
 }
 
 function publicRaidActions(convoyId: number) {
@@ -451,6 +458,9 @@ export default onResponse(selects, async event => {
   function readBoard() {
     return runRobotBusiness(event, 'shop-raid.board', { convoyId }, parseBoardPage, next, reply => feedback(reply.text));
   }
+
+  // /商运 首屏要能看到禁购规则：车队卡里只有在能出手时才出现这条提示
+  const banNotice = (banUntil: string | null) => [{ lines: banNoticeLines(banUntil) }];
 
   if (convoyId !== null && (publicSolo || publicTeam)) {
     try {
@@ -1161,9 +1171,14 @@ export default onResponse(selects, async event => {
         ...common,
         title: '商运',
         items: [
+          // 首屏固定带运货时段和禁购规则，这样玩家在出手前就知道次日买不了万宝楼
           ...(convoyId === 0 && action === '商运'
-            ? [{ lines: [...scheduleLines(response.data.schedule), ...(items.length ? [] : ['当前没有正在招募或运送的商队。'])] }]
-            : []),
+            ? [
+                { lines: scheduleLines(response.data.schedule) },
+                ...banNotice(response.data.banUntil),
+                ...(items.length ? [] : [{ lines: ['当前没有正在招募或运送的商队。'] }])
+              ]
+            : banNotice(response.data.banUntil)),
           ...items
         ],
         footer: [
