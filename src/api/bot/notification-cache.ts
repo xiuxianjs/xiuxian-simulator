@@ -82,7 +82,14 @@ export async function recordPlatformAvailability(
   await post('/availability/event', { target, memberId, available, occurredAt, observedOnly });
 }
 
-export type CommunitySettings = { failedBatches?: number; welcomeEnabled: boolean; requestReminders: boolean; shopRaidEnabled?: boolean; updatedBy?: string; updatedAt?: number };
+export type CommunitySettings = {
+  failedBatches?: number;
+  welcomeEnabled: boolean;
+  requestReminders: boolean;
+  shopRaidEnabled?: boolean;
+  updatedBy?: string;
+  updatedAt?: number;
+};
 export type CommunityJoinRequest = { id: string; userId: string; userName: string; appliedAt: string; autoApproved: boolean; observedAt: number };
 export async function readCommunitySettings(target: NotificationTarget): Promise<CommunitySettings> {
   return await post('/community/settings/read', { target });
@@ -110,7 +117,10 @@ export async function acquirePlatformDeliveryLease(eventId: string, consumer: st
 }
 
 type CommunityConvoy = {
-  id: number; departureAt: string; nextGuardSeat?: number; noPaidGuard?: boolean;
+  id: number;
+  departureAt: string;
+  nextGuardSeat?: number;
+  noPaidGuard?: boolean;
   manifest: { name?: string; templateId?: number; currency?: string; effectCode?: string; quantity: number }[];
 };
 export type CommunityBatch = { eventId: string; target: NotificationTarget; items: string[] } & (
@@ -152,10 +162,6 @@ export async function rememberPlatformGroupActivity(bid: string, activity: Notif
 }
 export async function readPlatformGroupActivity(platform: string, bid: string, botId = ''): Promise<NotificationGroupActivity | null> {
   return await post('/activity/read', { platform, bid, botId });
-}
-
-export async function readPlatformGroupCandidates(platform: string, bid: string, botId = ''): Promise<NotificationGroupActivity[]> {
-  return await post('/activity/candidates', { platform, bid, botId });
 }
 
 export type NotificationCategory = { id: string; label: string; enabled: boolean };

@@ -89,8 +89,12 @@ async function deliverWithCurrentRecipient(
 ): Promise<NotificationDelivery> {
   let blocked = false;
   const result = await withNotificationDeliveryCheck(async () => {
-    if (blocked) { return false; }
-    if (ownerUserId === undefined) { return true; }
+    if (blocked) {
+      return false;
+    }
+    if (ownerUserId === undefined) {
+      return true;
+    }
 
     const startedAt = performance.now();
     const token = await beginNotificationRelayDelivery(row.eventId, consumer, ownerUserId);
@@ -204,7 +208,7 @@ async function processPlayerNotification(
         return Promise.resolve({ route: 'history' as const, reason: 'no_target' as const });
       }
       if (payload.source === 'flymail.message.received') {
-        return deliverWithCurrentRecipient(row, consumer, ownerUserId, () => deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', notificationSettingsData(data, payload.source), proactiveEnabled())
+        return deliverWithCurrentRecipient(row, consumer, ownerUserId, () => deliverFlyMailNotification(row.eventId, row.recipientBid ?? '', notificationSettingsData(data, payload.source), proactiveEnabled(), ownerUserId)
         );
       }
 

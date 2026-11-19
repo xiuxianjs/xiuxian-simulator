@@ -4,12 +4,7 @@ import {
   recordNotificationSubscriptionDelivery,
   type NotificationSubscriptionTarget
 } from '@src/api/bot/notification-relay';
-import {
-  readPlatformAvailability,
-  readPlatformDeliveryReceipt,
-  storePlatformDeliveryReceipt,
-  readPlatformGroupCandidates
-} from '@src/api/bot/notification-cache';
+import { readPlatformAvailability, readPlatformDeliveryReceipt, storePlatformDeliveryReceipt } from '@src/api/bot/notification-cache';
 import type { NotificationTarget, NotificationDelivery } from '@src/types/notification';
 import { deliverNotification, legacyNotificationTarget } from './delivery';
 import { getNotificationPrivateTarget, notificationChannel, refreshNotificationPermission } from './channel';
@@ -51,18 +46,15 @@ export async function deliverPlayerNotification(
   const platform = subscription?.platform ?? process.env.login ?? '';
   const botId = subscription?.botId ?? undefined;
   const isGroup = (target: NotificationTarget) => target.scope === 'group' || target.scope === 'channel';
-  // 群回退同样需要玩家开启订阅；无订阅记录不代表同意群投递。
-  // Fetch lazily: a successful explicitly selected group needs no fallback read.
-  const fallbackGroups =
-    enabled && !options?.privateOnly && subscription?.isEnabled === true
-      ? async () => (await readPlatformGroupCandidates(platform, bid, botId)).map(activity => activity.target)
-      : undefined;
+  // 订阅群是唯一的群投放点：玩家在其他群最近发过言不能成为投递理由，
+  // 否则「传讯约定 · 群通知订阅」形同虚设，通知会出现在没订阅的群。
+  // 订阅群不可达时按既有顺序回退私聊，再落到 /我的通知 站内记录。
   const candidate = enabled ? ((await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId)) : null;
 
   const privateTarget = options?.privateOnly && candidate && !['c2c', 'direct'].includes(candidate.scope) ? null : candidate;
 
   return await deliverNotification(
-    { group, fallbackGroups, privateTarget, data, mention: bid, enabled, fallbackOnFailure: options?.fallbackOnFailure },
+    { group, privateTarget, data, mention: bid, enabled, fallbackOnFailure: options?.fallbackOnFailure },
     {
       ...notificationChannel,
       async read(target) {

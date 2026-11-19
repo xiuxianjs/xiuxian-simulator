@@ -9,8 +9,8 @@ export type { NotificationChannel, NotificationDelivery, NotificationTarget, Per
 /** 订阅是玩家意愿，权限是通道状态；任何投递失败都不改变玩家订阅。 */
 export async function deliverNotification(
   input: {
+    /** 唯一的群投放点；没有订阅群就不向任何群投递。 */
     group?: NotificationTarget | null;
-    fallbackGroups?: () => Promise<NotificationTarget[]>;
     privateTarget?: NotificationTarget | null;
     data: DataEnums[];
     mention?: string;
@@ -86,13 +86,9 @@ export async function deliverNotification(
     return await tryTarget(target, data);
   };
 
+  // 两个候选按固定顺序尝试：订阅群 → 私聊。没有订阅群时没有任何群候选。
   if (input.group && (await tryGroup(input.group))) {
     return { route: 'group', reason: 'sent' };
-  }
-  for (const target of (await input.fallbackGroups?.()) ?? []) {
-    if (await tryGroup(target)) {
-      return { route: 'group', reason: 'sent' };
-    }
   }
   if (input.privateTarget) {
     const data = input.mention ? FormatGui({ isPrivate: true, bid: input.mention, content: input.data, bar: false }).format.value : input.data;
@@ -104,6 +100,7 @@ export async function deliverNotification(
     return { route: 'history', reason: 'permission_blocked' };
   }
 
+  // 订阅群不可用且没有已知私聊地址时，只能留在站内记录。
   return { route: 'history', reason: seen.size > 0 ? 'permission_blocked' : 'no_private_target' };
 }
 
