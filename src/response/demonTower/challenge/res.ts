@@ -7,6 +7,7 @@ import { useMessage } from '@src/utils/useMessage';
  */
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { demonTowerChallengeArguments, parseRobotDemonTowerChallenge } from '@src/api/bot/demon-tower-challenge-robot-query';
+import type { DemonTowerBuffGap } from '@src/api/schemas/demon-tower-challenge';
 import { selects } from '@src/response/config';
 import type { GuiButton } from '@src/utils/messageHelper';
 import { FormatGui } from '@src/utils/messageHelper';
@@ -23,6 +24,45 @@ export default onResponse(selects, async e => {
     const md = Format.createMarkdown().addText(text);
 
     await message.send(FormatGui({ isPrivate, bid, title: invalidStar ? '' : '妖塔挑战', content: md, footer: [] }));
+  };
+  /**
+   * Render the layer-buff gap the server decided. Every number here comes from
+   * the service payload; this only lays it out (gameplay-simplify: the robot
+   * never infers the gap or its price).
+   */
+  const sendBuffGap = async (gap: DemonTowerBuffGap) => {
+    const md = Format.createMarkdown();
+
+    md.addText(`状态：缺少${gap.missingName}`);
+    md.addText(gap.reason);
+
+    if (gap.kind === 'hardGate') {
+      md.addText('');
+      md.addText(`需要：累计 ${gap.required}🌟`);
+      md.addText(`现有：累计 ${gap.available}🌟 / 还差 ${Math.max(0, gap.required - gap.available)}🌟`);
+    } else {
+      if (gap.preselected) {
+        md.addText(`预选：${gap.preselected.label}（${gap.preselected.cnKey}）`);
+      }
+      const others = gap.candidates.filter(item => item.key !== gap.preselected?.key);
+
+      if (others.length > 0) {
+        md.addText(`可选：${others.map(item => `${item.label}（需 ${item.minStars}🌟）`).join('、')}`);
+      }
+      md.addText(`累计：${gap.cumulativeStars}🌟 / 待选：${gap.pendingBuffSelections} 次`);
+    }
+    md.addText('');
+    md.addText('说明：层间加成只在本轮生效，可随时用 /妖塔选buff 更换。');
+
+    const footer: GuiButton[] = [];
+    const actions = gap.candidates.slice(0, 3);
+
+    for (const buff of actions) {
+      footer.push({ label: `用${buff.cnKey}继续`, command: `/妖塔选buff ${buff.cnKey} 1` });
+    }
+    footer.push({ label: '返回妖塔', command: gap.recoverPath || '/妖塔' });
+
+    await message.send(FormatGui({ isPrivate, bid, title: '妖塔 · 需要先选加成', content: md, footer }));
   };
   const loaded = await runRobotBusiness(e, 'demon-tower.challenge', args, parseRobotDemonTowerChallenge, next, async reply => {
     await sendFailure(reply.text);
@@ -47,6 +87,15 @@ export default onResponse(selects, async e => {
   }
 
   const d = result.data;
+
+  // The server fills a pending layer buff by itself when the choice is
+  // unambiguous, and returns a structured gap when it is a real decision.
+  // Either way the player never sees the bare "请先选择层间 Buff" dead end.
+  if (d.buffNeeded) {
+    await sendBuffGap(d.buffNeeded);
+
+    return;
+  }
 
   trackDemonTower(e.uid, d.success, {
     starsEarned: d.starsEarned,
@@ -74,6 +123,12 @@ export default onResponse(selects, async e => {
 
     if (d.milestonesTriggered.length > 0) {
       lines.push(`里程碑达成：${d.milestonesTriggered.map(item => `${item.stars}🌟→+${item.score}`).join('、')}`);
+    }
+
+    if (d.autoBuff) {
+      lines.push('');
+      lines.push(`自动加成：${d.autoBuff.label}（${d.autoBuff.cnKey}）`);
+      lines.push(`说明：本层加成已自动启用，可随时用 ${d.autoBuff.revokePath} 更换。`);
     }
 
     if (d.allCleared) {
