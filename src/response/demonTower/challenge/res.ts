@@ -9,6 +9,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { demonTowerChallengeArguments, parseRobotDemonTowerChallenge } from '@src/api/bot/demon-tower-challenge-robot-query';
 import type { DemonTowerBuffGap } from '@src/api/schemas/demon-tower-challenge';
 import { selects } from '@src/response/config';
+import { errorBubble, type BubbleAction } from '@src/response/presentation';
 import type { GuiButton } from '@src/utils/messageHelper';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
@@ -31,38 +32,36 @@ export default onResponse(selects, async e => {
    * never infers the gap or its price).
    */
   const sendBuffGap = async (gap: DemonTowerBuffGap) => {
-    const md = Format.createMarkdown();
-
-    md.addText(`状态：缺少${gap.missingName}`);
-    md.addText(gap.reason);
+    // 配置型/硬门槛缺口用统一 errorBubble：❌ 徽章 + 单一引用块 + 事实行带标签。
+    const lines = [`原因：${gap.reason}`];
 
     if (gap.kind === 'hardGate') {
-      md.addText('');
-      md.addText(`需要：累计 ${gap.required}🌟`);
-      md.addText(`现有：累计 ${gap.available}🌟 / 还差 ${Math.max(0, gap.required - gap.available)}🌟`);
+      lines.push(`需要：累计 ${gap.required}🌟`, `现有：累计 ${gap.available}🌟`, `还差：${Math.max(0, gap.required - gap.available)}🌟`);
     } else {
       if (gap.preselected) {
-        md.addText(`预选：${gap.preselected.label}（${gap.preselected.cnKey}）`);
+        lines.push(`预选：${gap.preselected.label}（${gap.preselected.cnKey}）`);
       }
       const others = gap.candidates.filter(item => item.key !== gap.preselected?.key);
 
       if (others.length > 0) {
-        md.addText(`可选：${others.map(item => `${item.label}（需 ${item.minStars}🌟）`).join('、')}`);
+        lines.push(`可选：${others.map(item => `${item.label}（需 ${item.minStars}🌟）`).join('、')}`);
       }
-      md.addText(`累计：${gap.cumulativeStars}🌟 / 待选：${gap.pendingBuffSelections} 次`);
+      lines.push(`现有：累计 ${gap.cumulativeStars}🌟`, `待选：${gap.pendingBuffSelections} 次`);
     }
-    md.addText('');
-    md.addText('说明：层间加成只在本轮生效，可随时用 /妖塔选buff 更换。');
+    lines.push('说明：层间加成只在本轮生效，可随时用 /妖塔选buff 更换。');
 
-    const footer: GuiButton[] = [];
-    const actions = gap.candidates.slice(0, 3);
+    const actions: BubbleAction[] = gap.candidates.slice(0, 3).map(buff => ({ label: `用${buff.cnKey}继续`, command: `/妖塔选buff ${buff.cnKey} 1` }));
 
-    for (const buff of actions) {
-      footer.push({ label: `用${buff.cnKey}继续`, command: `/妖塔选buff ${buff.cnKey} 1` });
-    }
-    footer.push({ label: '返回妖塔', command: gap.recoverPath || '/妖塔' });
-
-    await message.send(FormatGui({ isPrivate, bid, title: '妖塔 · 需要先选加成', content: md, footer }));
+    await message.send(
+      errorBubble({
+        isPrivate,
+        bid,
+        title: `妖塔 · 需要先选${gap.missingName}`,
+        reason: lines.join('\n'),
+        actions,
+        footer: [{ label: '返回妖塔', command: gap.recoverPath || '/妖塔' }]
+      })
+    );
   };
   const loaded = await runRobotBusiness(e, 'demon-tower.challenge', args, parseRobotDemonTowerChallenge, next, async reply => {
     await sendFailure(reply.text);
