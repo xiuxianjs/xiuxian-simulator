@@ -331,6 +331,15 @@ export function withBusinessRecovery(operation: RobotBusinessOperation, reply: R
     ...((operation.startsWith('storyline.') || operation.startsWith('dungeon.')) && /精力不足/.test(text)
       ? { buttons: reply.buttons.filter(button => !/^\/服用 精力丹\s+\d+$/.test(button.command)) }
       : {}),
-    advice: tips.map(({ label, command, description }) => ({ command, description: `${label}：${description}` }))
+    // Server-decided gaps become advice entries: advice is the only channel both
+    // the default and custom feedback renderers display, and the id comes from
+    // the server, so the bot never guesses a source target.
+    advice: [
+      ...(reply.shortages ?? []).map(shortage => ({
+        command: `/物品详情 材料 ${shortage.itemId}`,
+        description: `${shortage.name} 哪里可以获取：缺 ${shortage.missing}，查看产出途径和前往入口`
+      })),
+      ...tips.map(({ label, command, description }) => ({ command, description: `${label}：${description}` }))
+    ]
   };
 }

@@ -30,6 +30,8 @@ export type RobotMiddlewareReply = {
   text: string;
   buttons: Array<{ label: string; command: string }>;
   advice: Array<{ command: string; description: string }>;
+  /** Exact item gaps the server already read; the bot only lays them out. */
+  shortages?: Array<{ itemId: number; name: string; required: number; available: number; missing: number }>;
 };
 export type RobotTaskContinuation = {
   outcome: 'started' | 'expected' | 'next' | 'completed' | 'not_running' | 'invalid_runtime';
@@ -180,10 +182,28 @@ export function parseRobotMiddlewareResult(value: unknown, bid: string, requireR
   }
   if (
     !Array.isArray(value.replies) ||
-    !value.replies.every(
-      reply => record(reply) &&
-        textFields(reply, ['title', 'heading', 'text']) &&
+    !value.replies.every((reply): boolean => {
+      if (!record(reply) || !textFields(reply, ['title', 'heading', 'text'])) {
+        return false;
+      }
+      // A shortage reply may add entry buttons beside its raw lines.
+      const shortageEntries =
+        reply.shortages === undefined ||
+        (Array.isArray(reply.shortages) &&
+          reply.shortages.every(
+            shortage => record(shortage) &&
+              typeof shortage.name === 'string' &&
+              shortage.name.length > 0 &&
+              Number.isSafeInteger(shortage.itemId) &&
+              (shortage.itemId as number) > 0 &&
+              Number.isSafeInteger(shortage.missing) &&
+              (shortage.missing as number) > 0
+          ));
+      const hasShortages = Array.isArray(reply.shortages) && reply.shortages.length > 0;
+
+      return (
         (reply.nav === undefined || validMiddlewareNav(reply.nav)) &&
+        shortageEntries &&
         (reply.rawLines === undefined ||
           (Array.isArray(reply.rawLines) &&
             reply.rawLines.length > 0 &&
@@ -194,7 +214,7 @@ export function parseRobotMiddlewareResult(value: unknown, bid: string, requireR
             reply.quote === undefined &&
             reply.blocks === undefined &&
             Array.isArray(reply.buttons) &&
-            reply.buttons.length === 0 &&
+            (reply.buttons.length === 0 || hasShortages) &&
             Array.isArray(reply.advice) &&
             reply.advice.length === 0)) &&
         optionalTextFields(reply, ['quote']) &&
@@ -213,7 +233,8 @@ export function parseRobotMiddlewareResult(value: unknown, bid: string, requireR
         reply.buttons.every(button => textFields(button, ['label', 'command'])) &&
         Array.isArray(reply.advice) &&
         reply.advice.every(tip => textFields(tip, ['command', 'description']))
-    ) ||
+      );
+    }) ||
     !Array.isArray(value.contextWarnings) ||
     !value.contextWarnings.every(warning => ['RECIPIENT_NOT_SAVED', 'PRIVATE_TARGET_NOT_SAVED'].includes(warning))
   ) {

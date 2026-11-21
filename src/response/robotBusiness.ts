@@ -160,8 +160,14 @@ export async function finishRobotBusiness<T>(
 
     // Structured advice must use a renderer that preserves descriptions and actions.
     const immediateAlchemy = operation.startsWith('alchemy.') && reply.title === '炼丹' && reply.buttons.some(button => button.command.startsWith('/炼丹'));
+    // A shortage reply must reach the default renderer: it is the only renderer
+    // that puts entry buttons in the footer (advice renders as inline commands).
+    const shortageReply = (reply.shortages?.length ?? 0) > 0;
 
-    if (businessFeedback && renderFeedback && !immediateAlchemy && !reply.rawLines && (!reply.advice.length || renderFeedback.preservesAdvice)) {
+    const keepsAdvice =
+      businessFeedback && renderFeedback && !immediateAlchemy && !shortageReply && !reply.rawLines && (!reply.advice.length || renderFeedback.preservesAdvice);
+
+    if (keepsAdvice) {
       await measureTransportStage('middleware.feedback.render', () => renderFeedback(presentMiddlewareReply(reply, true)), event);
     } else {
       await measureTransportStage(
