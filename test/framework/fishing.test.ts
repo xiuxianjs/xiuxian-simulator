@@ -99,21 +99,21 @@ test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接�
     action('锦鲤赐福', '/垂钓 赐福'), action('沧澜钓仙会', '/垂钓 大赛')
   ];
   let active = false;
+  // 统一首页：配置入口贴在同一事实行右侧，各入口在同一个引用块内。
+  const asset = (lines: string[], label: string, command: string) => ({ title: '', id: '', suffix: '', quote: true, lines, actions: [action(label, command)] });
   const { app, requests } = await gameFixture(t, request => {
     if (['/fishing.start-current', '/fishing.renew-current', '/fishing.use-net-current'].some(route => request.path.endsWith(route))) {
       return businessEnvelope(request.bid, base({ view: 'receipt', title: '操作完成', sections: [], footer: [] }));
     }
     return businessEnvelope(request.bid, base({
       status: 'home-unified',
-      sections: [{
-        title: '', id: '', suffix: '', quote: true,
-        lines: [
-          active ? '状态：🎣垂钓中🎣' : '状态：👐可开钓👐', '水域：炼气水域', '钓竿：青竹灵竿 · 一阶',
-          '鱼饵：素灵饵2份', '窝料：未打窝', '每竿用时：10分钟', '预计可钓：20分钟（上限12小时）'
-        ],
-        actions: [action('升级', '/垂钓 升塘'), action('换竿', '/垂钓 钓具 1'), action('换饵', '/垂钓 饵料'),
-          action('打窝', '/垂钓 打窝'), action('当前概率', '/垂钓 当前概率')]
-      }, {
+      sections: [
+        asset([active ? '状态：🎣垂钓中🎣' : '状态：👐可开钓👐', '水域：炼气水域', '等级：钓技 Lv.2', '经验：0 / 800'], '升级', '/垂钓 升塘'),
+        asset(['钓竿：青竹灵竿 · 一阶'], '换竿', '/垂钓 钓具 1'),
+        asset(['鱼饵：素灵饵2份'], '换饵', '/垂钓 饵料'),
+        asset(['窝料：未打窝'], '打窝', '/垂钓 打窝'),
+        asset(['每竿用时：10分钟', '预计可钓：20分钟（上限12小时）'], '当前概率', '/垂钓 当前概率'),
+        {
         title: '操作', id: '', suffix: '', quote: true, lines: [],
         actions: [
           active ? action('继续垂钓', renew) : action('开始垂钓', start),
@@ -129,7 +129,9 @@ test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接�
   const ready = await send('/垂钓');
   assert.match(ready.text, /状态：👐可开钓👐/);
   assert.match(ready.text, /‹开始垂钓› *‹3小时› *‹6› *‹12›\n> *‹捕灵网›/);
-  assert.deepEqual(ready.commands.slice(5, 9), [start, `${start} 3`, `${start} 6`, `${start} 12`]);
+  // 配置入口贴在各引用块内：升级、换竿、换饵、打窝 先行，操作区一组随后。
+  assert.deepEqual(ready.commands.slice(0, 4), ['/垂钓 升塘', '/垂钓 钓具 1', '/垂钓 饵料', '/垂钓 打窝']);
+  assert.deepEqual(ready.commands.slice(4, 8), [start, `${start} 3`, `${start} 6`, `${start} 12`]);
   assert.ok(!ready.commands.includes('/垂钓 收竿'));
   await send(ready.commands.find(command => command === `${start} 3`)!);
   assert.ok(requests.at(-1)!.path.endsWith('/fishing.start-current'));
@@ -138,11 +140,12 @@ test('垂钓统一首页在相同位置显示配置，续钓和捕灵网直接�
   const fishing = await send('/垂钓');
   assert.match(fishing.text, /状态：🎣垂钓中🎣/);
   assert.match(fishing.text, /‹继续垂钓› *‹3小时› *‹6› *‹12›\n> *‹结束垂钓›/);
-  assert.deepEqual(fishing.commands.slice(5, 9), [renew, `${renew} 3`, `${renew} 6`, `${renew} 12`]);
+  assert.deepEqual(fishing.commands.slice(4, 8), [renew, `${renew} 3`, `${renew} 6`, `${renew} 12`]);
   assert.ok(fishing.commands.includes('/垂钓 收竿'));
   assert.ok(!fishing.commands.includes('/垂钓 开钓'));
-  assert.deepEqual(ready.commands.slice(0, 5), fishing.commands.slice(0, 5));
-  assert.deepEqual(fishing.commands.slice(0, 5), ['/垂钓 升塘', '/垂钓 钓具 1', '/垂钓 饵料', '/垂钓 打窝', '/垂钓 当前概率']);
+  assert.deepEqual(ready.commands.slice(0, 4), fishing.commands.slice(0, 4));
+  assert.deepEqual(fishing.commands.slice(0, 4), ['/垂钓 升塘', '/垂钓 钓具 1', '/垂钓 饵料', '/垂钓 打窝']);
+
   await send(fishing.commands.find(command => command === renew)!);
   assert.ok(requests.at(-1)!.path.endsWith('/fishing.renew-current'));
   assert.deepEqual(requests.at(-1)!.body.arguments, { sessionId });
@@ -469,6 +472,31 @@ test('提交回执发送失败后只提供原引用重试，不重建新预览',
   assert.ok(view.commands.includes(command));
   assert.equal(requests.length, 1);
   assert.ok(requests[0].path.endsWith('.confirm'));
+});
+
+test('垂钓统一首页的配置入口贴在同一事实行右侧', async t => {
+  const sessionId = 'fs_' + 'a'.repeat(32);
+  const renew = `/垂钓 继续垂钓 ${sessionId}`;
+  const section = (lines: string[], actions: FishingView['footer']) => ({ title: '', id: '', suffix: '', quote: true, lines, actions });
+  const sections = [
+    section(['状态：🎣垂钓中🎣', '水域：洞虚水域', '等级：钓技 Lv.7', '经验：26646 / 50000'], [{ label: '升级', command: '/垂钓 升塘' }]),
+    section(['钓竿：照渊寻珍竿 · 六阶'], [{ label: '换竿', command: '/垂钓 钓具 1' }]),
+    section(['鱼饵：唤王饵 719份'], [{ label: '换饵', command: '/垂钓 饵料' }]),
+    section(['窝料：未打窝'], [{ label: '打窝', command: '/垂钓 打窝' }]),
+    section(['每竿用时：10分钟', '预计可钓：9小时3分钟（上限12小时）'], [{ label: '当前概率', command: '/垂钓 当前概率' }]),
+    section([], [{ label: '继续垂钓', command: renew }, { label: '3小时', command: `${renew} 3` }, { label: '6', command: `${renew} 6` },
+      { label: '12', command: `${renew} 12` }, { label: '结束垂钓', command: '/垂钓 收竿' }, { label: '捕灵网', command: '/垂钓 捕灵网' }])
+  ];
+  const { app } = await gameFixture(t, request => businessEnvelope(request.bid, base({ status: 'home-unified', sections })));
+  const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })), '统一首页·配置入口');
+  // 每个引用块只放它自己的事实和入口，入口贴在所属事实行末尾。
+  assert.match(view.text, /> 状态：🎣垂钓中🎣\n> 水域：洞虚水域 ‹升级›\n> 等级：钓技 Lv\.7\n> 经验：26646 \/ 50000$/m);
+  assert.match(view.text, /> 钓竿：照渊寻珍竿 · 六阶 ‹换竿›/);
+  assert.match(view.text, /> 鱼饵：唤王饵 719份 ‹换饵›/);
+  assert.match(view.text, /> 窝料：未打窝 ‹打窝›/);
+  assert.match(view.text, /> 每竿用时：10分钟\n> 预计可钓：9小时3分钟（上限12小时）$/m);
+  assert.ok(view.text.includes('‹继续垂钓›‹3小时›‹6›‹12›‹结束垂钓›‹捕灵网›'), view.text);
+  assert.ok(!/等级：钓技 Lv\.7 ‹换竿›|经验：26646 \/ 50000 ‹换饵›|钓竿：照渊寻珍竿 · 六阶 ‹打窝›/.test(view.text));
 });
 
 for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显示，礼包在设置左边 · ${hasBoss ? '遇见后' : '遇见前'}`,async t=>{
@@ -940,3 +968,5 @@ test('首次壁后幽潭四段剧情使用通用气泡，只接原建塘预览�
   assert.ok(preview.commands.includes(`/垂钓 确认 ${ref}`));
   assert.ok(requests.every(request=>!request.path.endsWith('fishing.confirm')));
 });
+
+

@@ -87,9 +87,47 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       target.addButton(markdownButtonLabel(action.label, selected), { data: action.command, autoEnter: false });
     });
   };
-  const block = (section: FishingSection, quote: boolean, inline = false, titleActions = false, terminal = false, number?: number, actionOffset = 0) => {
-    quote = section.quote ?? quote;
+  // 统一首页：配置入口贴到所属事实行右侧（升级→水域、换竿→钓竿、换饵→鱼饵、打窝→窝料）。
+  const assetRows = (section: FishingSection) => {
+    const anchors: Record<string, string> = { 升级: '水域：', 换竿: '钓竿：', 换饵: '鱼饵：', 打窝: '窝料：' };
+    const used = new Set<number>();
+    const rows = new Map<number, FishingAction[]>();
+
+    for (const action of section.actions) {
+      const prefix = anchors[action.label];
+
+      if (!prefix) {
+        continue;
+      }
+      const row = section.lines.findIndex((line, index) => !used.has(index) && line.startsWith(prefix));
+
+      if (row >= 0) {
+        used.add(row);
+        rows.set(row, [...(rows.get(row) ?? []), action]);
+      }
+    }
+
+    return rows;
+  };
+
+  type RowActions = Map<number, FishingAction[]>;
+  interface BlockOptions {
+    quote: boolean;
+    /** 每条事实行右侧跟一个操作。 */
+    inline?: boolean;
+    /** 操作跟对象标题同一行。 */
+    titleActions?: boolean;
+    terminal?: boolean;
+    number?: number;
+    actionOffset?: number;
+    /** 统一首页：操作贴到指定事实行右侧。 */
+    rowActions?: RowActions;
+  }
+  const block = (section: FishingSection, options: BlockOptions) => {
+    const { inline = false, titleActions = false, terminal = false, number, actionOffset = 0, rowActions } = options;
+    const quote = section.quote ?? options.quote;
     const target = Format.createMarkdown();
+    const fallback = (target: FishingSection) => target.actions.slice(Math.max(0, target.lines.length - actionOffset));
     const recordView = ['history', 'cast', 'pending'].includes(data.view);
     const showID =
       !['gear', 'history', 'cast', 'species', 'catalog', 'instances', 'market-fish-species'].includes(data.view) &&
@@ -138,13 +176,17 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
       } else {
         text(target, line);
       }
-      const inlineAction = inline ? section.actions[index - actionOffset] : undefined;
+      const rowAction = rowActions?.get(index);
+      const inlineAction = inline && !rowActions ? section.actions[index - actionOffset] : undefined;
 
       if (inlineAction) {
         buttons(target, [inlineAction]);
+      } else if (rowAction) {
+        buttons(target, [rowAction[0]]);
       }
     });
-    const rest = titleActions ? [] : inline ? section.actions.slice(Math.max(0, section.lines.length - actionOffset)) : section.actions;
+    const placed = new Set([...(rowActions?.values() ?? [])].flat());
+    const rest = (placed.size ? section.actions : titleActions ? [] : inline ? fallback(section) : section.actions).filter(action => !placed.has(action));
 
     if (rest.length) {
       if (title || section.lines.length) {
@@ -180,11 +222,12 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
   }
 
   if (data.view === 'overview' && data.status === 'home-unified') {
-    sections.forEach((section, index) => {
-      if (index === 0) {
-        block(section, true, true, false, false, undefined, 1);
-      } else if (index === 1 && section.actions.length) {
-        md.addText(section.title || '操作').addNewline();
+    // 统一首页：每个引用块左侧事实行，升级/换竿/换饵/打窝 各自贴在同一行右侧。
+    sections.filter(section => section.title !== '操作').forEach(section => block(section, { quote: true, inline: true, rowActions: assetRows(section) }));
+    sections
+      .filter(section => section.title === '操作')
+      .forEach(section => {
+        md.addText(section.title).addNewline();
         const controls = Format.createMarkdown();
         const quickHourLabels = ['3小时', '6', '12'];
         const firstRowCount = quickHourLabels.every((label, index) => section.actions[index + 1]?.label === label) ? 4 : 1;
@@ -195,12 +238,11 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
           buttons(controls, [action]);
         }
         md.addBlockquote(controls).addNewline();
-      }
-    });
+      });
   } else if (data.view === 'overview' && data.status === 'home-compact') {
-    sections.forEach(section => block(section, true));
+    sections.forEach(section => block(section, { quote: true }));
   } else if (data.view === 'start' && data.status === 'config-compact') {
-    sections.forEach(section => block(section, true, section.lines.length >= section.actions.length));
+    sections.forEach(section => block(section, { quote: true, inline: section.lines.length >= section.actions.length }));
   } else if (data.view === 'overview' && sections.length === 4) {
     sections.forEach((section, index) => {
       if (index === sections.length - 1) {
@@ -212,22 +254,22 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
           md.addNewline();
         });
       } else {
-        block(section, index !== 0, index <= 2);
+        block(section, { quote: index !== 0, inline: index <= 2 });
       }
     });
   } else if (data.view === 'rod-upgrade-preview' && data.sections.length === 3) {
-    data.sections.forEach((section, index) => block(section, index === 1, false, false, index === 2));
+    data.sections.forEach((section, index) => block(section, { quote: index === 1, terminal: index === 2 }));
   } else if (['history', 'species', 'bag-materials', 'market-fish-species', 'market-fish-instances'].includes(data.view) && data.navRows?.length) {
     for (const row of data.navRows) {
       renderSubTabs(md, row, data.status);
     }
     md.addNewline();
-    data.sections.forEach(section => block(section, Boolean(section.title || section.id)));
+    data.sections.forEach(section => block(section, { quote: Boolean(section.title || section.id) }));
   } else if (data.view === 'blessing') {
     const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
 
     if (intro) {
-      block(intro, false);
+      block(intro, { quote: false });
     }
     for (const row of data.navRows ?? []) {
       buttons(md, row);
@@ -236,7 +278,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     if (data.navRows?.length) {
       md.addNewline();
     }
-    data.sections.slice(intro ? 1 : 0).forEach(section => block(section, Boolean(section.title), false, Boolean(section.title)));
+    data.sections.slice(intro ? 1 : 0).forEach(section => block(section, { quote: Boolean(section.title), titleActions: Boolean(section.title) }));
   } else if (data.view === 'packages') {
     for (const row of data.navRows ?? []) {
       buttons(md, row, data.status);
@@ -245,7 +287,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     if (data.navRows?.length) {
       md.addNewline();
     }
-    data.sections.forEach(section => block(section, Boolean(section.title || section.id)));
+    data.sections.forEach(section => block(section, { quote: Boolean(section.title || section.id) }));
   } else if (
     ['boss', 'boss-drops', 'boss-battle', 'boss-rewards', 'contest', 'contest-species', 'contest-ranking', 'contest-rewards', 'contest-history'].includes(
       data.view
@@ -254,7 +296,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     const intro = data.navRows?.length && !data.sections[0]?.title && !data.sections[0]?.id ? data.sections[0] : undefined;
 
     if (intro) {
-      block(intro, false);
+      block(intro, { quote: false });
     }
     for (const row of data.navRows ?? []) {
       buttons(md, row);
@@ -263,7 +305,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     if (data.navRows?.length) {
       md.addNewline();
     }
-    data.sections.slice(intro ? 1 : 0).forEach(section => block(section, Boolean(section.title || section.id)));
+    data.sections.slice(intro ? 1 : 0).forEach(section => block(section, { quote: Boolean(section.title || section.id) }));
   } else if (data.view === 'net-receipt') {
     const result = Format.createMarkdown();
 
@@ -286,7 +328,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     });
     md.addBlockquote(result);
   } else if (data.view === 'shop-purchase-preview' || data.view === 'shop-purchase-receipt') {
-    data.sections.forEach(section => block(section, false));
+    data.sections.forEach(section => block(section, { quote: false }));
   } else if (data.view === 'shop') {
     const modeActions = data.navRows?.flat().filter(action => ['转为出售', '转为购买'].includes(action.label)) ?? [];
     const buying = modeActions.some(action => action.label === '转为出售');
@@ -295,7 +337,7 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     const inlineSale = buying && Boolean(balance?.lines.length);
 
     if (balance) {
-      block(inlineSale ? { ...balance, actions: [sellCatch, ...balance.actions] } : balance, inlineSale, inlineSale);
+      block(inlineSale ? { ...balance, actions: [sellCatch, ...balance.actions] } : balance, { quote: inlineSale, inline: inlineSale });
     }
     if (!inlineSale && modeActions.length) {
       buttons(md, buying ? [sellCatch] : modeActions);
@@ -312,10 +354,10 @@ export function fishingBubble(data: FishingView, event: GameEvent, confirmationC
     buttons(md, typeActions);
     md.addNewline().addNewline();
 
-    data.sections.slice(1).forEach((section, index) => block(section, true, false, false, false, buying ? index + 1 : undefined));
+    data.sections.slice(1).forEach((section, index) => block(section, { quote: true, number: buying ? index + 1 : undefined }));
     footer = footer.filter(action => !tabs.includes(action));
   } else {
-    data.sections.forEach(section => block(section, Boolean(section.title || section.id || data.confirmationRef)));
+    data.sections.forEach(section => block(section, { quote: Boolean(section.title || section.id || data.confirmationRef) }));
   }
 
   if (data.confirmationRef) {

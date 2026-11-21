@@ -205,8 +205,9 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
     const actions = absent(section.actions) ? [] : array(section.actions, action);
 
     const unifiedHome = view === 'overview' && data.status === 'home-unified';
-    const homeActions = [5, 7];
-    const maxActions = (unifiedHome ? homeActions[index] : undefined) ?? (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3);
+    // 统一首页：各事实块只带各自配置入口，末块「操作」放开钓/续钓、时长、收竿、捕灵网与免费窝料。
+    const homeActions = unifiedHome ? (index === 5 ? 7 : 1) : undefined;
+    const maxActions = homeActions ?? (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3);
 
     if (actions.length > maxActions) {
       return invalid();
