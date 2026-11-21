@@ -75,16 +75,34 @@ test('robot and chat requests share a rolling failure window and switch origin a
   assert.match(requests.at(-1)!, /^https:\/\/gateway\.test\/new-api\//);
 });
 
-test('an insecure channel fallback is never selected', t => {
+test('channel requests accept non-loopback HTTP origins for both primary and fallback', async t => {
   mockBackendConfig(t, {
-    api_base_url: 'https://gateway.test',
+    api_base_url: 'http://gateway.test',
     api_base_path: '/channel-api',
     api_url: 'http://fallback.test',
     robot_auth_token: 'merchant-token',
     channel_mode: true
   });
-  const config = getBackendConfig();
+  const requests: string[] = [];
+  t.mock.method(axios, 'create', config => ({
+    post: async (path: string) => {
+      requests.push(config?.baseURL + path);
+      if (config?.baseURL === 'http://gateway.test') {
+        throw new axios.AxiosError('timed out', 'ECONNABORTED');
+      }
 
-  assert.equal(config.onUnavailable, undefined);
-  assert.equal(config.url, 'https://gateway.test');
+      return { data: null };
+    }
+  }) as never);
+
+  for (let i = 0; i < 3; i++) {
+    await assert.rejects(claimChatNotice('100017'), { code: 'ECONNABORTED' });
+  }
+  assert.equal(await claimChatNotice('100017'), null);
+  assert.deepEqual(requests, [
+    'http://gateway.test/channel-api/v1/internal/chat/claim',
+    'http://gateway.test/channel-api/v1/internal/chat/claim',
+    'http://gateway.test/channel-api/v1/internal/chat/claim',
+    'http://fallback.test/api/v1/internal/chat/claim'
+  ]);
 });

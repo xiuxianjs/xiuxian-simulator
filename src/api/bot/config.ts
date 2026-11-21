@@ -10,14 +10,12 @@ const normalizeBackendUrl = (value: unknown): string => String(value ?? '')
     .trim()
     .replace(/\/+$/, '');
 
-function isBackendOrigin(url: string, channelMode: boolean): boolean {
+function isBackendOrigin(url: string): boolean {
   try {
     const endpoint = new URL(url);
-    const localHTTP = endpoint.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(endpoint.hostname);
 
     return (
       ['http:', 'https:'].includes(endpoint.protocol) &&
-      (!channelMode || endpoint.protocol === 'https:' || localHTTP) &&
       !endpoint.username &&
       !endpoint.password &&
       endpoint.pathname === '/' &&
@@ -56,10 +54,10 @@ export function getBackendConfig() {
 
   const configuredUrl = primaryUrl || legacyUrl;
 
-  if ((channelMode || primaryUrl) && !isBackendOrigin(configuredUrl, channelMode)) {
-    throw new Error(channelMode ? '渠道 API 需要 HTTPS origin；HTTP 仅允许本机回环 IP' : 'backend.api_base_url 必须是 HTTP(S) origin');
+  if ((channelMode || primaryUrl) && !isBackendOrigin(configuredUrl)) {
+    throw new Error(`backend.${primaryUrl ? 'api_base_url' : 'api_url'} 必须是 HTTP(S) origin`);
   }
-  const fallbackUrl = primaryUrl && isBackendOrigin(legacyUrl, channelMode) ? legacyUrl : '';
+  const fallbackUrl = primaryUrl && isBackendOrigin(legacyUrl) ? legacyUrl : '';
   const route = selectBackendRoute(configuredUrl, primaryBase, fallbackUrl, channelMode);
   const { url, apiBase } = route;
   const config = {

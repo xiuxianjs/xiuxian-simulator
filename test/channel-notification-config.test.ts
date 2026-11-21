@@ -66,10 +66,15 @@ test('channel origin and platform event must belong to the configured robot', t 
   ]) assert.throws(() => assertChannelRobotEvent(event), /不匹配/);
 });
 
-for (const url of ['http://channel.invalid', 'https://user:secret@channel.invalid', 'https://channel.invalid/api/v1', 'https://channel.invalid/?secret=value', 'https://channel.invalid/#fragment']) {
-  test('channel transport rejects insecure or non-origin endpoint: ' + new URL(url).hostname, t => {
+test('channel API accepts a non-loopback HTTP origin as api_url', t => {
+  mockBackendConfig(t, { api_url: 'http://channel.invalid', channel_mode: true, robot_auth_token: 'merchant-token' });
+  assert.equal(getNotificationBackendConfig().url, 'http://channel.invalid');
+});
+
+for (const url of ['ftp://channel.invalid', 'https://user:secret@channel.invalid', 'https://channel.invalid/api/v1', 'https://channel.invalid/?secret=value', 'https://channel.invalid/#fragment']) {
+  test('channel transport rejects non-HTTP(S) or non-origin endpoint: ' + new URL(url).hostname, t => {
     mockBackendConfig(t, { api_url: url, channel_mode: true, robot_auth_token: 'merchant-token' });
-    assert.throws(() => getBackendConfig(), /HTTPS origin/);
+    assert.throws(() => getBackendConfig(), /HTTP\(S\) origin/);
   });
 }
 
