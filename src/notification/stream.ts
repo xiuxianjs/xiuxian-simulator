@@ -1,3 +1,4 @@
+import { recordBackendStatus } from '../api/bot/backend-availability';
 import { notificationResponseError } from '../api/bot/notification-error';
 import { dispatchChatNotices, startChatNotices, stopChatNotices } from './chat';
 import { dispatchCommunityNotifications } from './communityDelivery';
@@ -119,6 +120,11 @@ export const startNotificationStream = (): void => {
             ...(config.channelMode ? { redirect: 'error' } : {}),
             signal: controller.signal
           });
+        } catch (error) {
+          if (currentGeneration === generation) {
+            config.onUnavailable?.();
+          }
+          throw error;
         } finally {
           clearTimeout(connectionTimer);
         }
@@ -126,6 +132,9 @@ export const startNotificationStream = (): void => {
         if (!response.ok) {
           const data = response.headers.get('content-type')?.includes('application/json') ? await response.json().catch(() => undefined) : undefined;
 
+          if (currentGeneration === generation) {
+            recordBackendStatus(config, response.status, typeof data?.error?.code === 'string');
+          }
           void response.body?.cancel();
           throw notificationResponseError(`${config.apiBase}/v1/internal/notification-relay/events/stream`, {
             response: {
@@ -136,11 +145,13 @@ export const startNotificationStream = (): void => {
           });
         }
         if (!response.body) {
+          config.onUnavailable?.();
           throw new Error('通知 SSE 响应缺少事件流');
         }
         const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase();
 
         if (contentType !== 'text/event-stream') {
+          config.onUnavailable?.();
           void response.body.cancel();
           throw new Error(`通知 SSE 响应类型错误: HTTP ${response.status}, Content-Type ${contentType ?? '未提供'}`);
         }

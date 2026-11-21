@@ -201,7 +201,7 @@ test('等待扫码期间销毁会取消配置订阅', async t => {
 
 test('通知流等待后端地址，补齐后只连接一次，停止时取消等待', async t => {
   const backend = config['xiuxian-game'].backend;
-  const waitingConfig = { ...config, 'xiuxian-game': { backend: { ...backend, api_base_url: ' ' } } };
+  const waitingConfig = { ...config, 'xiuxian-game': { backend: { ...backend, api_base_url: ' ', api_url: ' ' } } };
   const readyConfig = { ...config, 'xiuxian-game': { backend: { ...backend, api_base_url: 'https://relay.invalid/' } } };
   const app = createTestApp({ config: waitingConfig });
   t.after(() => { stopNotificationStream(); app.dispose(); });

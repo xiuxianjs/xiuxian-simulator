@@ -1,3 +1,4 @@
+import { observeBackendRequest } from './backend-availability';
 import { notificationRequestContext, notificationRequestError } from './notification-error';
 import type { NotificationDelivery, NotificationTarget, PermissionState } from '@src/types/notification';
 import axios from 'axios';
@@ -16,15 +17,15 @@ function cacheClient() {
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
 
-  return { client, context, apiBase: config.apiBase };
+  return { client, context, config };
 }
 
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const { client, context, apiBase } = cacheClient();
-  const endpoint = `${apiBase}/v1/internal/notification-relay/cache${path}`;
+  const { client, context, config } = cacheClient();
+  const endpoint = `${config.apiBase}/v1/internal/notification-relay/cache${path}`;
 
   try {
-    const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });
+    const response = await observeBackendRequest(config, () => client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } }));
 
     return response.data.data;
   } catch (error) {

@@ -42,7 +42,7 @@ export type PlayerProfileQueryData = {
   mental: PlayerProfileResource;
   qi: PlayerProfileResource;
   access: Record<string, boolean>;
-  isNewcomer: boolean;
+  isNewcomer?: boolean;
   canStoreGreenBottle: boolean;
   absenceDays: number | null;
   combatPower: number;

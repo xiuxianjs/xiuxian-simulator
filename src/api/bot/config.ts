@@ -2,6 +2,7 @@ import { getCurrentEvent } from 'alemonjs';
 import { getAppConfig } from '../../utils/appConfig';
 import { getQQBotAppId, getQQBotAppIds } from '../../utils/qqBotIdentity';
 import { DEFAULT_API_BASE, isValidApiBase, isValidTimeout } from '../core/helpers';
+import { selectBackendRoute } from './backend-availability';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
@@ -9,10 +10,29 @@ const normalizeBackendUrl = (value: unknown): string => String(value ?? '')
     .trim()
     .replace(/\/+$/, '');
 
+function isBackendOrigin(url: string, channelMode: boolean): boolean {
+  try {
+    const endpoint = new URL(url);
+    const localHTTP = endpoint.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(endpoint.hostname);
+
+    return (
+      ['http:', 'https:'].includes(endpoint.protocol) &&
+      (!channelMode || endpoint.protocol === 'https:' || localHTTP) &&
+      !endpoint.username &&
+      !endpoint.password &&
+      endpoint.pathname === '/' &&
+      !endpoint.search &&
+      !endpoint.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function hasNotificationBackendUrl(): boolean {
   const backend = getAppConfig().backend;
 
-  return Boolean(normalizeBackendUrl(backend?.api_base_url === undefined ? backend?.api_url : backend.api_base_url));
+  return Boolean(normalizeBackendUrl(backend?.api_base_url) || normalizeBackendUrl(backend?.api_url));
 }
 
 export function getBackendConfig() {
@@ -25,20 +45,28 @@ export function getBackendConfig() {
     throw new Error('backend.channel_mode 必须为布尔值');
   }
   const timeoutMs = Number(value.api_timeout_ms);
-  const apiBase = value.api_base_path === undefined ? DEFAULT_API_BASE : value.api_base_path;
+  const primaryUrl = normalizeBackendUrl(value.api_base_url);
+  const legacyUrl = normalizeBackendUrl(value.api_url);
+  const channelMode = value.channel_mode === true;
+  const primaryBase = primaryUrl && value.api_base_path !== undefined ? value.api_base_path : DEFAULT_API_BASE;
 
-  if (!isValidApiBase(apiBase)) {
+  if (!isValidApiBase(primaryBase)) {
     throw new Error('backend.api_base_path 必须是单层路径前缀，例如 /api 或 /channel-api');
   }
 
-  const hasBaseUrl = value.api_base_url !== undefined;
-  const url = normalizeBackendUrl(hasBaseUrl ? value.api_base_url : value.api_url);
+  const configuredUrl = primaryUrl || legacyUrl;
+
+  if ((channelMode || primaryUrl) && !isBackendOrigin(configuredUrl, channelMode)) {
+    throw new Error(channelMode ? '渠道 API 需要 HTTPS origin；HTTP 仅允许本机回环 IP' : 'backend.api_base_url 必须是 HTTP(S) origin');
+  }
+  const fallbackUrl = primaryUrl && isBackendOrigin(legacyUrl, channelMode) ? legacyUrl : '';
+  const route = selectBackendRoute(configuredUrl, primaryBase, fallbackUrl, channelMode);
+  const { url, apiBase } = route;
   const config = {
-    url,
-    apiBase,
+    ...route,
     scope: apiBase === DEFAULT_API_BASE ? url : url + apiBase,
     robotAuthToken: String(value.robot_auth_token ?? '').trim(),
-    channelMode: value.channel_mode === true,
+    channelMode,
     channelBotId: getQQBotAppId(),
     timeoutMs: isValidTimeout(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS,
     logTransportTimings: value.log_transport_timings === true,
@@ -52,30 +80,6 @@ export function getBackendConfig() {
     }
     if (getQQBotAppIds().length > 1 && !config.channelBotId) {
       throw new Error('QQ 多机器人配置缺少有效的 default_bot，无法确定渠道 BOT_TOKEN 对应的机器人');
-    }
-  }
-
-  if (config.channelMode || hasBaseUrl) {
-    const originError = config.channelMode ? '渠道 API 需要 HTTPS origin；HTTP 仅允许本机回环 IP' : 'backend.api_base_url 必须是 HTTP(S) origin';
-    let endpoint: URL;
-
-    try {
-      endpoint = new URL(config.url);
-    } catch {
-      throw new Error(originError);
-    }
-    const localHTTP = endpoint.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(endpoint.hostname);
-
-    if (
-      !['http:', 'https:'].includes(endpoint.protocol) ||
-      (config.channelMode && endpoint.protocol === 'http:' && !localHTTP) ||
-      endpoint.username ||
-      endpoint.password ||
-      endpoint.pathname !== '/' ||
-      endpoint.search ||
-      endpoint.hash
-    ) {
-      throw new Error(originError);
     }
   }
 

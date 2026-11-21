@@ -1,3 +1,4 @@
+import { observeBackendRequest } from './backend-availability';
 import { notificationRequestContext, notificationRequestError } from './notification-error';
 import { measureTransportStage } from '../../utils/transportTiming';
 import axios from 'axios';
@@ -44,14 +45,14 @@ function relayClient() {
     ...(config.channelMode ? { maxRedirects: 0 } : {})
   });
 
-  return { client, context, apiBase: config.apiBase };
+  return { client, context, config };
 }
 async function post<T>(path: string, body: unknown): Promise<T> {
-  const { client, context, apiBase } = relayClient();
-  const endpoint = `${apiBase}/v1/internal/notification-relay${path}`;
+  const { client, context, config } = relayClient();
+  const endpoint = `${config.apiBase}/v1/internal/notification-relay${path}`;
 
   try {
-    const response = await client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } });
+    const response = await observeBackendRequest(config, () => client.post<{ data: T }>(endpoint, body, { headers: { 'X-Request-ID': context.requestId } }));
 
     return response.data.data;
   } catch (error) {
@@ -76,7 +77,9 @@ export async function canDeliverNotificationRelay(eventId: string, consumer: str
 export async function beginNotificationRelayDelivery(eventId: string, consumer: string, playerId: number): Promise<string | null> {
   const result = await post<{ allowed: boolean; token?: string }>('/delivery-start', { eventId, consumer, playerId });
 
-  if (result?.allowed === false) { return null; }
+  if (result?.allowed === false) {
+    return null;
+  }
   if (result?.allowed !== true || typeof result.token !== 'string' || !/^[a-f0-9]{64}$/.test(result.token)) {
     throw new Error('通知发送凭据回执不完整');
   }
@@ -148,9 +151,10 @@ export async function markLegacyNotificationSent(messageId: string): Promise<voi
 /** When Node owns the schedule, it triggers the same Go scanner the autonomous Worker uses. */
 export async function scanLegacyNotificationPool(): Promise<void> {
   getWorkerBackendConfig();
-  const { client, context, apiBase } = relayClient();
+  const { client, context, config } = relayClient();
 
-  await client.post(`${apiBase}/v1/internal/workers/push-message-relay/run`, {}, { headers: { 'X-Request-ID': context.requestId } });
+  await observeBackendRequest(config, () => client.post(`${config.apiBase}/v1/internal/workers/push-message-relay/run`, {}, { headers: { 'X-Request-ID': context.requestId } })
+  );
 }
 
 export type NotificationSubscriptionTarget = {

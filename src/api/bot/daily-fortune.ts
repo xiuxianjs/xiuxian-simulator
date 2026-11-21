@@ -1,3 +1,4 @@
+import { observeBackendRequest } from './backend-availability';
 import type { GameEvent } from '@src/types/event';
 import type { NotificationTarget } from '@src/types/notification';
 import axios from 'axios';
@@ -37,10 +38,11 @@ export async function configureDailyFortune(event: GameEvent, enabled: boolean):
   if (!config.url || !config.workerToken) {
     throw new BackendAPIError('每日机缘管理 API 未配置。', 'DAILY_FORTUNE_CONFIG_MISSING', 400);
   }
-  await axios.post(
-    `${config.url}${config.apiBase}/v1/internal/daily-fortune/settings`,
-    { target, enabled, actor: event.UserId },
-    { ...backendConnectionPools, timeout: config.timeoutMs, headers: { 'X-Worker-Token': config.workerToken } }
+  await observeBackendRequest(config, () => axios.post(
+      `${config.url}${config.apiBase}/v1/internal/daily-fortune/settings`,
+      { target, enabled, actor: event.UserId },
+      { ...backendConnectionPools, timeout: config.timeoutMs, headers: { 'X-Worker-Token': config.workerToken } }
+    )
   );
 }
 

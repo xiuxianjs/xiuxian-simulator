@@ -284,7 +284,7 @@ for (const mode of ['combined', 'legacy', 'malformed'] as const) {
   });
 }
 
-test('回归活动在个人活动单列，在新人资料与新人狂欢同排', async t => {
+test('个人活动保留新人狂欢和回归活动，资料页不展示这两个入口', async t => {
   const { app, requests } = await gameFixture(t, r => {
     const features = { comeback: true, newcomer: true };
     if (r.path.endsWith('?view=access')) return { gateVersion: 1, features };
@@ -305,15 +305,16 @@ test('回归活动在个人活动单列，在新人资料与新人狂欢同排',
         access: { hasGuild: false, canAccessOverseasIsland: false }, newcomerVisible: true, giftCodesVisible: false
       });
     }
+    const { isNewcomer: _, ...profileFacts } = profile;
     return businessEnvelope(r.bid, {
-      profile: { ...profile, isNewcomer: r.bid === 'newcomer' },
+      profile: { ...profileFacts, ...(r.bid === 'newcomer' ? { isNewcomer: true } : {}) },
       notifications: [], atmosphere: { text: null, kind: 'none' }
     });
   });
   await app.invoke(app.events.groupMessage(), startFeatureVisibility);
   for (const [route, text, userId, showsNewcomer] of [
     [activity, '/我的活动', 'veteran', true],
-    [handler, '/我的资料', 'newcomer', true],
+    [handler, '/我的资料', 'newcomer', false],
     [handler, '/我的资料', 'veteran', false]
   ] as const) {
     const result = await app.runHandler(route, app.events.privateMessage({ text, userId, platform: 'qq-bot' }));
@@ -321,12 +322,10 @@ test('回归活动在个人活动单列，在新人资料与新人狂欢同排',
     const message = result.messages[0];
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(message.nodes);
-    assert.ok(view.commands.includes('/回归活动'), text);
+    assert.equal(view.commands.includes('/回归活动'), text === '/我的活动', text);
     assert.equal(view.commands.includes('/新人狂欢'), showsNewcomer, text);
     if (text === '/我的活动') {
       assert.match(view.text, /新人狂欢[^\n]*初入仙途[^\n]*\n+[^\n]*回归活动[^\n]*查看回归资格与签到奖励/);
-    } else if (showsNewcomer) {
-      assert.match(view.text, /新人狂欢[^\n]*回归活动/, text);
     }
   }
 

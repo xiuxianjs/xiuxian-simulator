@@ -38,7 +38,7 @@ test('documented YAML example is accepted by the actual config reader', t => {
   assert.equal(getBackendConfig().timeoutMs, example['xiuxian-game'].backend.api_timeout_ms);
 });
 
-test('API base URL and path can be configured independently', t => {
+test('API base path applies only to the primary API base URL', t => {
   const backend: { api_url: string; api_base_url?: string; api_base_path?: string } = { api_url: 'https://legacy.test', api_base_url: 'http://gateway.test/' };
   mockBackendConfig(t, backend);
   assert.equal(getBackendConfig().url, 'http://gateway.test');
@@ -51,8 +51,12 @@ test('API base URL and path can be configured independently', t => {
   assert.throws(() => getBackendConfig(), /backend.api_base_url/);
 
   delete backend.api_base_url;
-  assert.equal(getBackendConfig().scope, 'https://legacy.test/channel-api');
+  assert.equal(getBackendConfig().scope, 'https://legacy.test');
+  assert.equal(getBackendConfig().apiBase, '/api');
 
+  backend.api_base_url = '   ';
   backend.api_base_path = '//other.test';
+  assert.equal(getBackendConfig().apiBase, '/api');
+  backend.api_base_url = 'https://gateway.test';
   assert.throws(() => getBackendConfig(), /backend.api_base_path/);
 });

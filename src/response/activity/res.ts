@@ -24,7 +24,7 @@ const PERSONAL_ROWS = [
   { label: '活跃任务', command: '/日常活跃', introduction: '我修，这仙我修还不成嘛' },
   { label: '锻造委托', command: '/锻造委托', introduction: '查看发出的委托和待接的订单' },
   { label: '商运', command: '/商运', introduction: '道友就是我粮仓' },
-  { label: '半月活动', command: '/半月活动', introduction: '每月第三个周日,有好货等你来拿' },
+  { label: '半月活动', command: '/半月活动', introduction: '每月第三个周日开启' },
   { label: '成就', command: '/成就', introduction: '天才只是见我的门槛' },
   // { label: '拍卖会', command: '/黑盒拍卖', introduction: '按场次鉴宝、匿名暗标竞拍' }, // 拍卖会下架
   { label: '上古遗珍', command: '/上古遗珍', introduction: '夺天地之造化' },

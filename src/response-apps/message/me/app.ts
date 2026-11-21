@@ -39,7 +39,6 @@ export type MeHomeData = {
     socialTargetUid: number;
     renameValue: string;
     canStoreGreenBottle: boolean;
-    isNewcomer: boolean;
     isEarlyStarter: boolean;
     canAcceptApprentice: boolean;
     canJoinMasterAsDisciple: boolean;
@@ -131,7 +130,6 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
           socialTargetUid: user.id,
           renameValue,
           canStoreGreenBottle: facts.canStoreGreenBottle,
-          isNewcomer: facts.isNewcomer,
           isEarlyStarter: facts.homeView.isEarlyStarter,
           canAcceptApprentice: access.canAcceptDisciple,
           canJoinMasterAsDisciple: access.canJoinMasterAsDisciple,

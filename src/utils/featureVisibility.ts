@@ -1,3 +1,4 @@
+import { recordBackendStatus } from '../api/bot/backend-availability';
 import { internalCommandText } from './commandPrefix';
 import { getQQBotAppIds } from './qqBotIdentity';
 import { Format, logger, type DataEnums, type OutgoingMessage } from 'alemonjs';
@@ -60,12 +61,21 @@ export async function startFeatureVisibility(): Promise<void> {
     const response = await fetch(`${config.url}${config.apiBase}/v1/content/tianshu`, {
       headers: { Authorization: `Bearer ${config.robotAuthToken}` },
       signal: AbortSignal.timeout(config.timeoutMs)
+    }).catch(error => {
+      config.onUnavailable?.();
+      throw error;
     });
 
     if (!response.ok) {
+      const data = config.onUnavailable && response.status === 404 ? await response.json().catch(() => undefined) : undefined;
+
+      recordBackendStatus(config, response.status, typeof data?.error?.code === 'string');
       throw new Error(`功能规则读取失败 (${response.status})`);
     }
-    const envelope = (await response.json()) as { data?: unknown };
+    const envelope = (await response.json().catch(error => {
+      config.onUnavailable?.();
+      throw error;
+    })) as { data?: unknown };
 
     runtime.policy = policyFrom(parseBackendTianshuContent(envelope.data));
   })();
@@ -122,7 +132,7 @@ export async function presentationCommandFilter(event?: object & { UserId?: stri
       /* Unknown rules stay hidden; next message may retry. */
     }
   }
-  const policy = runtime.policy;
+  const policy = runtimes.get(runtimeKey().key)?.policy;
 
   if (!policy) {
     return () => false;

@@ -86,7 +86,6 @@ export function validatePlayerProfile(data: PlayerProfileQueryData): PlayerProfi
     !validAccess ||
     !validHomeView ||
     (data.found && homeView === null) ||
-    typeof data.isNewcomer !== 'boolean' ||
     typeof data.canStoreGreenBottle !== 'boolean' ||
     (data.absenceDays !== null && !finite(data.absenceDays)) ||
     !integer(data.combatPower) ||

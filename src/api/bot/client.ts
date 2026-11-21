@@ -8,6 +8,7 @@ import { invalidateEventAccessFacts } from './access-facts';
 import { backendRequestTimeout, backendTransportOperation, isBattleOperation, UNKNOWN_BATTLE_RESULT } from './battle-request';
 import { getQQBotAppIds } from '../../utils/qqBotIdentity';
 import { assertChannelRobotEvent, getBackendConfig } from './config';
+import { recordBackendError } from './backend-availability';
 import { backendConnectionPools } from './connection-pools';
 import type { BackendRequestContext } from './context';
 import { createBackendRequestContext, getEventTransportDiagnosticContext } from './context';
@@ -105,6 +106,7 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
 
     return result;
   } catch (error) {
+    recordBackendError(config, error);
     if (error instanceof SDKError) {
       if (error.code === 'SDK_ROBOT_BID_INVALID') {
         logger.warn('机器人请求缺少有效玩家标识', {

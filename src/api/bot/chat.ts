@@ -1,3 +1,4 @@
+import { observeBackendRequest } from './backend-availability';
 import { notificationRequestContext, notificationRequestError } from './notification-error';
 import axios from 'axios';
 import { getBackendConfig, getNotificationBackendConfig, getWorkerBackendConfig } from './config';
@@ -32,9 +33,14 @@ async function post<T>(path: string, data: unknown): Promise<T> {
   const context = notificationRequestContext(config.timeoutMs);
 
   try {
-    const response = await axios
-      .create({ ...backendConnectionPools, baseURL: config.url, timeout: config.timeoutMs, headers, ...(channel ? { maxRedirects: 0 } : {}) })
-      .post<T>(endpoint, data, { headers: { 'X-Request-ID': context.requestId } });
+    const client = axios.create({
+      ...backendConnectionPools,
+      baseURL: config.url,
+      timeout: config.timeoutMs,
+      headers,
+      ...(channel ? { maxRedirects: 0 } : {})
+    });
+    const response = await observeBackendRequest(config, () => client.post<T>(endpoint, data, { headers: { 'X-Request-ID': context.requestId } }));
 
     return response.data;
   } catch (error) {
