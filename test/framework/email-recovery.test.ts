@@ -123,3 +123,19 @@ for (const entry of entries) for (const isPrivate of [false, true]) {
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }
+
+test('treasure fragment claim shows the actual reward and treasure entry', async t => {
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, {
+    emailId: 101,
+    issued: [{ type: 'treasure_fragment', name: '玉净瓶碎片', amount: 1 }]
+  }));
+  const event = app.events.privateMessage({ text: '/领取邮件 101', platform: 'qq-bot' });
+  const result = await app.runHandler(claim, event);
+  assert.equal(requests.length, 1);
+  assert.equal(result.messages.length, 1);
+  const view = inspectMessage(result.messages[0].nodes);
+  assert.ok(view.text.includes('玉净瓶碎片 ×1'), view.text);
+  assert.ok(!view.text.includes('已添加到背包'));
+  assert.ok(view.commands.includes('/宝物'));
+  assert.ok(view.commands.includes('/我的邮件'));
+});

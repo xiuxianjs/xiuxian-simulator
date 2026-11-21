@@ -30,14 +30,24 @@ export default onResponse(selects, async e => {
   if (loaded.handled) {
     return;
   }
+  const hasFragments = loaded.data.issued.some(reward => reward.type === 'treasure_fragment');
+  const content = Format.createMarkdown().addText(hasFragments ? '领取成功' : '领取成功！物品已添加到背包');
+
+  if (hasFragments) {
+    for (const reward of loaded.data.issued) {
+      content.addNewline().addText(`${reward.name} ×${reward.amount}`);
+    }
+  }
+
   await message.send(
     FormatGui({
       isPrivate,
       bid,
       title: '领取邮件',
-      content: Format.createMarkdown().addText('领取成功！物品已添加到背包'),
+      content,
       footer: [
         { label: '返回邮件列表', command: '/我的邮件' },
+        ...(hasFragments ? [{ label: '查看宝物', command: '/宝物' }] : []),
         { label: '储物袋', command: '/储物袋' }
       ]
     })
