@@ -27,6 +27,13 @@ export default onResponse(selects, async event => {
     const receipts = await message.send(body);
 
     if (!receipts.length || receipts.some(receipt => receipt.code !== ResultCode.Ok)) {
+      // 诊断：投递失败时记录平台回执码与入站文本形态，用于区分被动回复被拒与业务失败。
+      logger.warn('[fishing] 投递回执非成功', {
+        receipts: receipts.map(receipt => ({ code: receipt.code, message: receipt.message })),
+        count: receipts.length,
+        prefixed: (event.MessageText ?? '').trimStart().startsWith('/'),
+        isPrivate: isPrivateEvent(event)
+      });
       throw new Error('垂钓消息未确认送达');
     }
   };
