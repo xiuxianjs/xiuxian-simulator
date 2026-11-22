@@ -23,6 +23,25 @@ const previewResult = object({ kind: text, summary: list(text), confirmationRef:
 ]);
 const empty = object({});
 
+function treasureResultJSON(kind: string, result: unknown): string {
+  if (kind !== 'explore' || !result || typeof result !== 'object' || !('pulls' in result) || !Array.isArray(result.pulls)) {
+    return JSON.stringify(result);
+  }
+
+  const privateKeys = new Set(['dispersionStageBefore', 'dispersionStageAfter', 'dispersionProbability', 'dispersionHit']);
+
+  return JSON.stringify({
+    ...result,
+    pulls: result.pulls.map(pull => {
+      if (!pull || typeof pull !== 'object') {
+        return pull;
+      }
+
+      return Object.fromEntries(Object.entries(pull).filter(([key]) => !privateKeys.has(key)));
+    })
+  });
+}
+
 function preview<I extends Record<string, unknown>>(
   kind: TreasurePreviewKind,
   description: string,
@@ -120,6 +139,7 @@ export const treasureActions = {
       shapeRates: object(fields(number, 'singleComplete tenExpectedComplete tenAverageComplete')),
       pity: list(
         object({ rarity: integer, name: text, counter: integer, hardPity: integer, nextProbability: number, conditionalProbability: number, scope: text }, [
+          'nextProbability',
           'conditionalProbability',
           'scope'
         ])
@@ -346,7 +366,7 @@ export const treasureActions = {
         throw new Error('宝物原结果不完整');
       }
 
-      return { operationId: row.operationId, status: row.status, kind: row.kind, resultJson: JSON.stringify(row.result) };
+      return { operationId: row.operationId, status: row.status, kind: row.kind, resultJson: treasureResultJSON(row.kind, row.result) };
     }
   ),
   confirm_treasure_action: mutation<{ confirmationRef: string }>(
@@ -359,7 +379,7 @@ export const treasureActions = {
       const parsed = parseTreasureReceipt(data);
       const row = data as Record<string, unknown>;
 
-      return { kind: parsed.kind, operationId: parsed.operationId, message: parsed.result.message, resultJson: JSON.stringify(row.result) };
+      return { kind: parsed.kind, operationId: parsed.operationId, message: parsed.result.message, resultJson: treasureResultJSON(parsed.kind, row.result) };
     },
     input => ({ confirmationRef: input.confirmationRef }),
     input => {

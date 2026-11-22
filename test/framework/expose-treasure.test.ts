@@ -7,6 +7,7 @@ import { Expose, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { goTestFixture } from '../helpers/go-fixture.mjs';
 import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
+import { mythicDispersionRulesVersion } from '../../src/api/bot/treasures';
 
 after(() => shutdownLogger());
 const output = goTestFixture(['test', './internal/service', '-run', '^TestTreasureExpose(Fixtures|BatchFixtures)$', '-v', '-count=1'], { cwd: fileURLToPath(new URL('../../../xiuxian-game-server/', import.meta.url)), encoding: 'utf8' }).toString();
@@ -36,7 +37,17 @@ test('宝物查询、原预览、结算和状态核对使用真实服务数据',
     op = operation; data = fixtures[fixture]; expected = {};
     const result = await call(action, {}); assert.equal(result.value.ok, true, JSON.stringify(result.value));
     if (result.value.ok && fixture === 'overview') assert.equal((result.value.data as any).result.items.length, data.items.length);
-    if (result.value.ok && fixture === 'relics') { const actual = (result.value.data as any).result; assert.deepEqual(actual.balances, data.balances); assert.deepEqual(actual.pity, data.pity); assert.deepEqual(actual.shapeRates, data.shapeRates); assert.deepEqual(actual.wholeRates, data.wholeRates); assert.deepEqual(actual.rules, data.rules); }
+    if (result.value.ok && fixture === 'relics') {
+      const actual = (result.value.data as any).result;
+      assert.deepEqual(actual.balances, data.balances);
+      const expectedPity = data.rulesVersion === mythicDispersionRulesVersion
+        ? data.pity.map(({ rarity, name, counter, hardPity, scope }: Record<string, unknown>) => ({ rarity, name, counter, hardPity, scope }))
+        : data.pity;
+      assert.deepEqual(actual.pity, expectedPity);
+      assert.deepEqual(actual.shapeRates, data.shapeRates);
+      assert.deepEqual(actual.wholeRates, data.wholeRates);
+      assert.deepEqual(actual.rules, data.rules);
+    }
   }
   for (const [kind, action, input, args] of [
     ['explore', 'preview_treasure_exploration', { source: 'spirit_crystal', count: 1 }, { kind: 'explore', source: 'spirit_crystal', count: 1 }],
@@ -55,7 +66,20 @@ test('宝物查询、原预览、结算和状态核对使用真实服务数据',
     op = 'treasures.confirm'; data = fixtures[`confirm-${kind}`]; expected = { confirmationRef: ref };
     const confirm = () => call('confirm_treasure_action', { confirmationRef: ref });
     const result = await confirm(); assert.equal(result.value.ok, true, `${kind}: ${JSON.stringify(result.value)}`);
-    if (result.value.ok) { assert.equal((result.value.data as any).result.operationId, operationId); assert.deepEqual(JSON.parse((result.value.data as any).result.resultJson), data.result); }
+    if (result.value.ok) {
+      const actual = (result.value.data as any).result;
+      const expectedResult = structuredClone(data.result);
+      if (kind === 'explore') {
+        for (const pull of expectedResult.pulls ?? []) {
+          delete pull.dispersionStageBefore;
+          delete pull.dispersionStageAfter;
+          delete pull.dispersionProbability;
+          delete pull.dispersionHit;
+        }
+      }
+      assert.equal(actual.operationId, operationId);
+      assert.deepEqual(JSON.parse(actual.resultJson), expectedResult);
+    }
     await confirm(); assert.equal(keys.at(-1), keys.at(-2));
     if (!fixtures[`status-${kind}`]) continue;
     op = 'treasures.operation-status'; data = fixtures[`status-${kind}`]; expected = { operationId };
