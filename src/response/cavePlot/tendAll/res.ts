@@ -57,7 +57,19 @@ export default onResponse(selects, async e => {
       addOptions(quote, [{ label: '照料并代收割', command: '/一键照料道侣灵田 代收割' }]);
     }
   } catch (error) {
-    quote.addText(error instanceof Error ? error.message : '操作失败，请稍后重试').addNewline();
+    const reason = error instanceof Error ? error.message : '操作失败，请稍后重试';
+
+    quote.addText(reason).addNewline();
+    // A transport timeout or abort leaves the batch's committed steps unknown.
+    // Keep the recovery entry so the player checks the current plots instead of
+    // replaying the whole batch.
+    const failureTips = caveRecoveryTips(companion ? 'cave.companion-tend-all' : 'cave.tend-all', reason);
+
+    settled = false;
+    if (failureTips.length) {
+      quote.addText('本次打理结果未获完整确认，请先核对当前灵田与原回执。').addNewline();
+      appendMiddlewareAdvice(quote, failureTips);
+    }
   }
   addOptions(quote, [{ label: companion ? '我的道侣' : '我的灵田', command: companion ? '/我的道侣' : '/我的灵田' }]);
   const md = Format.createMarkdown().addBlockquote(quote);

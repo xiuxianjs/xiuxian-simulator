@@ -203,7 +203,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
     if (/格式错误|灵田互动参数无效/.test(text)) {
       return [{ label: '核对互动对象', command: '/我的好友', description: '从当前列表核对目标 UID，按原格式选择地块和动作，不使用示例编号反复提交' }];
     }
-    if (/操作失败，请稍后重试/.test(text)) {
+    if (/操作失败，请稍后重试|Request timed out|Network request failed|Request aborted/.test(text)) {
       return [
         {
           label: '核对本次已完成结果',
@@ -215,7 +215,7 @@ export function caveRecoveryTips(operation: string, text: string): RecoveryTip[]
 
     return [];
   }
-  if (operation === 'cave.tend-all' && /操作失败，请稍后重试/.test(text)) {
+  if (operation === 'cave.tend-all' && /操作失败，请稍后重试|结果未获完整确认|Request timed out|Network request failed|Request aborted/.test(text)) {
     return [
       { label: '核对已完成的灵田操作', command: '/灵田', description: '保留已完成照料和收割结果，部分失败不等于整批回滚；先检查当前灵田，不自动重放整批操作' }
     ];

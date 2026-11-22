@@ -55,6 +55,12 @@ const fishingWriteOperations = new Set([
   'fishing.pack-checkout'
 ]);
 
+// Cave batch actions settle several plots in one request and compose their own
+// per-step transactions, so one command costs about as much as four single-plot
+// commands. Give them the same budget as a settling battle; the idempotency key
+// is unchanged, so a longer wait never authorizes a retry.
+const caveSettlementOperations = new Set(['cave.tend-all', 'cave.companion-tend-all', 'cave.harvest']);
+
 export function backendRequestTimeout(operation: OperationId, configured: number, parameters?: unknown): number {
   // Fishing writes can advance an existing session, reserve supplies and commit
   // an original receipt. Keep their budget separate from battle error wording;
@@ -64,6 +70,9 @@ export function backendRequestTimeout(operation: OperationId, configured: number
     const business = path && typeof path === 'object' && 'operation' in path ? path.operation : undefined;
 
     if (typeof business === 'string' && fishingWriteOperations.has(business)) {
+      return Math.max(configured, 60_000);
+    }
+    if (typeof business === 'string' && caveSettlementOperations.has(business)) {
       return Math.max(configured, 60_000);
     }
   }
