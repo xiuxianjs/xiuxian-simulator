@@ -190,6 +190,32 @@ const action = (value: unknown): FishingAction => {
 
 const absent = (value: unknown) => value === undefined || value === null;
 
+const fishingHomeConfigurationCommands = new Set(['/垂钓 升塘', '/垂钓 钓具 1', '/垂钓 饵料', '/垂钓 打窝', '/垂钓 当前概率']);
+
+function fishingSectionActionLimit(view: string, status: string, sectionTitle: string, actions: FishingAction[]): number {
+  if (view === 'blessing') {
+    return 4;
+  }
+  if (view !== 'overview') {
+    return 3;
+  }
+  if (sectionTitle === '上古龙鲤') {
+    return 2;
+  }
+  const unifiedHome = status === 'home-unified';
+
+  if (unifiedHome && sectionTitle === '操作') {
+    return 7;
+  }
+  const commands = new Set(actions.map(({ command }) => command));
+
+  if (!sectionTitle && commands.size === actions.length && actions.every(({ command }) => fishingHomeConfigurationCommands.has(command))) {
+    return unifiedHome ? fishingHomeConfigurationCommands.size : 4;
+  }
+
+  return unifiedHome ? 1 : 3;
+}
+
 /** One strict DTO for query, original preview and committed receipt. */
 export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y' | 'z' = 'y'): FishingView {
   const data = row(value);
@@ -200,21 +226,18 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
   if (!rulesVersion.trim() || !view.trim() || !title.trim()) {
     return invalid();
   }
-  const sections = array(data.sections, (value, index) => {
+  const status = absent(data.status) ? '' : text(data.status);
+  const sections = array(data.sections, value => {
     const section = row(value);
+    const sectionTitle = absent(section.title) ? '' : text(section.title);
     const actions = absent(section.actions) ? [] : array(section.actions, action);
 
-    const unifiedHome = view === 'overview' && data.status === 'home-unified';
-    // 统一首页：各事实块只带各自配置入口，末块「操作」放开钓/续钓、时长、收竿、捕灵网与免费窝料。
-    const homeActions = unifiedHome ? (index === 5 ? 7 : 1) : undefined;
-    const maxActions = homeActions ?? (view === 'blessing' || (view === 'overview' && index === 1) ? 4 : 3);
-
-    if (actions.length > maxActions) {
+    if (actions.length > fishingSectionActionLimit(view, status, sectionTitle, actions)) {
       return invalid();
     }
 
     return {
-      title: absent(section.title) ? '' : text(section.title),
+      title: sectionTitle,
       id: absent(section.id) ? '' : text(section.id),
       suffix: absent(section.suffix) ? '' : text(section.suffix),
       lines: array(section.lines, text),
@@ -231,7 +254,7 @@ export function parseFishingView(value: unknown, uid?: number, referenceKind: 'y
   if (footer.length > 8) {
     return invalid();
   }
-  const result: FishingView = { rulesVersion, view, title, sections, footer, status: absent(data.status) ? '' : text(data.status) };
+  const result: FishingView = { rulesVersion, view, title, sections, footer, status };
 
   if (!absent(data.emphasisNames)) {
     result.emphasisNames = array(data.emphasisNames, text);

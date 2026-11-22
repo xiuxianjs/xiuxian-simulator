@@ -484,8 +484,8 @@ test('垂钓统一首页的配置入口贴在同一事实行右侧', async t => 
     section(['鱼饵：唤王饵 719份'], [{ label: '换饵', command: '/垂钓 饵料' }]),
     section(['窝料：未打窝'], [{ label: '打窝', command: '/垂钓 打窝' }]),
     section(['每竿用时：10分钟', '预计可钓：9小时3分钟（上限12小时）'], [{ label: '当前概率', command: '/垂钓 当前概率' }]),
-    section([], [{ label: '继续垂钓', command: renew }, { label: '3小时', command: `${renew} 3` }, { label: '6', command: `${renew} 6` },
-      { label: '12', command: `${renew} 12` }, { label: '结束垂钓', command: '/垂钓 收竿' }, { label: '捕灵网', command: '/垂钓 捕灵网' }])
+    { ...section([], [{ label: '继续垂钓', command: renew }, { label: '3小时', command: `${renew} 3` }, { label: '6', command: `${renew} 6` },
+      { label: '12', command: `${renew} 12` }, { label: '结束垂钓', command: '/垂钓 收竿' }, { label: '捕灵网', command: '/垂钓 捕灵网' }]), title: '操作' }
   ];
   const { app } = await gameFixture(t, request => businessEnvelope(request.bid, base({ status: 'home-unified', sections })));
   const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })), '统一首页·配置入口');
@@ -495,9 +495,52 @@ test('垂钓统一首页的配置入口贴在同一事实行右侧', async t => 
   assert.match(view.text, /> 鱼饵：唤王饵 719份 ‹换饵›/);
   assert.match(view.text, /> 窝料：未打窝 ‹打窝›/);
   assert.match(view.text, /> 每竿用时：10分钟\n> 预计可钓：9小时3分钟（上限12小时）$/m);
-  assert.ok(view.text.includes('‹继续垂钓›‹3小时›‹6›‹12›‹结束垂钓›‹捕灵网›'), view.text);
+  assert.match(view.text, /‹继续垂钓› *‹3小时› *‹6› *‹12›\n> *‹结束垂钓›\n> *‹捕灵网›/);
   assert.ok(!/等级：钓技 Lv\.7 ‹换竿›|经验：26646 \/ 50000 ‹换饵›|钓竿：照渊寻珍竿 · 六阶 ‹打窝›/.test(view.text));
 });
+
+for (const layout of ['旧版合并配置', '新版分块配置']) {
+  test(`垂钓统一首页接受服务端双按钮龙鲤奇遇 · ${layout}`, async t => {
+    const bossCommand = '/垂钓 奇遇 fb_' + 'a'.repeat(32);
+    const section = (title: string, lines: string[], actions: FishingView['footer']): FishingView['sections'][number] => ({
+      title, id: '', suffix: '', quote: true, lines, actions
+    });
+    const configuration = [
+      section('', ['状态：可开钓', '水域：炼气水域'], [{ label: '升级', command: '/垂钓 升塘' }]),
+      section('', ['钓竿：青竹灵竿'], [{ label: '换竿', command: '/垂钓 钓具 1' }]),
+      section('', ['鱼饵：素灵饵2份'], [{ label: '换饵', command: '/垂钓 饵料' }]),
+      section('', ['窝料：未打窝'], [{ label: '打窝', command: '/垂钓 打窝' }]),
+      section('', ['每竿用时：10分钟', '预计可钓：20分钟'], [{ label: '当前概率', command: '/垂钓 当前概率' }])
+    ];
+    const start = '/垂钓 开钓';
+    const operation = section('操作', [], [
+      { label: '开始垂钓', command: start },
+      { label: '3小时', command: `${start} 3` },
+      { label: '6', command: `${start} 6` },
+      { label: '12', command: `${start} 12` },
+      { label: '捕灵网', command: '/垂钓 捕灵网' },
+      { label: '领免费窝料', command: '/垂钓 每日补给' }
+    ]);
+    const encounter = section('上古龙鲤', ['水域异动，上古龙鲤现身！', '境界：炼气 · 大圆满', '状态：等待挑战'], [
+      { label: '垂钓奇遇', command: bossCommand },
+      { label: '我的队伍', command: '/我的队伍' }
+    ]);
+    const facts = layout === '旧版合并配置'
+      ? [section('', configuration.flatMap(block => block.lines), configuration.flatMap(block => block.actions))]
+      : configuration;
+    const home = base({ status: 'home-unified', sections: [...facts, operation, encounter] });
+    const { app } = await gameFixture(t, request => businessEnvelope(request.bid, home));
+    const view = delivered(await app.runHandler(handler, app.events.privateMessage({ text: '/垂钓', platform: 'qq-bot' })), '统一首页·龙鲤奇遇');
+
+    assert.match(view.text, /垂钓奇遇/);
+    assert.doesNotMatch(view.text, /查询未完成/);
+    assert.ok(view.commands.includes(bossCommand));
+    assert.ok(operation.actions.every(({ command }) => view.commands.includes(command)));
+
+    const oversizedEncounter = { ...encounter, actions: [...encounter.actions, { label: '帮助', command: '/垂钓 帮助' }] };
+    assert.throws(() => parseFishingView({ ...home, sections: [...facts, operation, oversizedEncounter] }), { code: 'SDK_INVALID_RESPONSE' });
+  });
+}
 
 for (const hasBoss of [false, true]) test(`垂钓主页顶栏按奇遇状态显示，礼包在设置左边 · ${hasBoss ? '遇见后' : '遇见前'}`,async t=>{
   const sections = [

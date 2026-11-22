@@ -1,0 +1,230 @@
+{
+  "withEncounter": {
+    "emphasisNames": [
+      "素灵饵",
+      "青竹灵竿"
+    ],
+    "rulesVersion": "fishing-v1-f1e5a8eea8d13705",
+    "view": "overview",
+    "title": "我的洞府 · 灵塘",
+    "sections": [
+      {
+        "quote": true,
+        "lines": [
+          "状态：🎣垂钓中🎣",
+          "水域：炼气水域",
+          "等级：钓技 Lv.2",
+          "经验：0 / 1500",
+          "钓竿：青竹灵竿 · 一阶",
+          "鱼饵：素灵饵999份",
+          "窝料：未打窝",
+          "每竿用时：10分钟",
+          "预计可钓：1小时（上限12小时）"
+        ],
+        "actions": [
+          {
+            "label": "升级",
+            "command": "/垂钓 升塘"
+          },
+          {
+            "label": "换竿",
+            "command": "/垂钓 钓具 1"
+          },
+          {
+            "label": "换饵",
+            "command": "/垂钓 饵料"
+          },
+          {
+            "label": "打窝",
+            "command": "/垂钓 打窝"
+          },
+          {
+            "label": "当前概率",
+            "command": "/垂钓 当前概率"
+          }
+        ]
+      },
+      {
+        "quote": true,
+        "title": "操作",
+        "lines": [],
+        "actions": [
+          {
+            "label": "继续垂钓",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab"
+          },
+          {
+            "label": "3小时",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 3"
+          },
+          {
+            "label": "6",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 6"
+          },
+          {
+            "label": "12",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 12"
+          },
+          {
+            "label": "结束垂钓",
+            "command": "/垂钓 收竿"
+          },
+          {
+            "label": "捕灵网",
+            "command": "/垂钓 捕灵网"
+          },
+          {
+            "label": "领免费窝料",
+            "command": "/垂钓 每日补给"
+          }
+        ]
+      },
+      {
+        "title": "上古龙鲤",
+        "lines": [
+          "水域异动，上古龙鲤现身！",
+          "境界：炼气 · 大圆满",
+          "状态：等待挑战"
+        ],
+        "actions": [
+          {
+            "label": "垂钓奇遇",
+            "command": "/垂钓 奇遇 fb_f31bfac93760e0a54a23e4c6f5c5e050"
+          },
+          {
+            "label": "我的队伍",
+            "command": "/我的队伍"
+          }
+        ]
+      }
+    ],
+    "footer": [
+      {
+        "label": "垂钓记录",
+        "command": "/垂钓 记录"
+      },
+      {
+        "label": "渔获",
+        "command": "/储物袋 渔获"
+      },
+      {
+        "label": "渔市",
+        "command": "/垂钓 渔市"
+      },
+      {
+        "label": "锦鲤赐福",
+        "command": "/垂钓 赐福"
+      },
+      {
+        "label": "沧澜钓仙会",
+        "command": "/垂钓 大赛"
+      }
+    ],
+    "status": "home-unified"
+  },
+  "withoutEncounter": {
+    "emphasisNames": [
+      "素灵饵",
+      "青竹灵竿"
+    ],
+    "rulesVersion": "fishing-v1-f1e5a8eea8d13705",
+    "view": "overview",
+    "title": "我的洞府 · 灵塘",
+    "sections": [
+      {
+        "quote": true,
+        "lines": [
+          "状态：🎣垂钓中🎣",
+          "水域：炼气水域",
+          "等级：钓技 Lv.2",
+          "经验：0 / 1500",
+          "钓竿：青竹灵竿 · 一阶",
+          "鱼饵：素灵饵999份",
+          "窝料：未打窝",
+          "每竿用时：10分钟",
+          "预计可钓：1小时（上限12小时）"
+        ],
+        "actions": [
+          {
+            "label": "升级",
+            "command": "/垂钓 升塘"
+          },
+          {
+            "label": "换竿",
+            "command": "/垂钓 钓具 1"
+          },
+          {
+            "label": "换饵",
+            "command": "/垂钓 饵料"
+          },
+          {
+            "label": "打窝",
+            "command": "/垂钓 打窝"
+          },
+          {
+            "label": "当前概率",
+            "command": "/垂钓 当前概率"
+          }
+        ]
+      },
+      {
+        "quote": true,
+        "title": "操作",
+        "lines": [],
+        "actions": [
+          {
+            "label": "继续垂钓",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab"
+          },
+          {
+            "label": "3小时",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 3"
+          },
+          {
+            "label": "6",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 6"
+          },
+          {
+            "label": "12",
+            "command": "/垂钓 继续垂钓 fs_dcb776e5b143931c5cdd39772e7e56ab 12"
+          },
+          {
+            "label": "结束垂钓",
+            "command": "/垂钓 收竿"
+          },
+          {
+            "label": "捕灵网",
+            "command": "/垂钓 捕灵网"
+          },
+          {
+            "label": "领免费窝料",
+            "command": "/垂钓 每日补给"
+          }
+        ]
+      }
+    ],
+    "footer": [
+      {
+        "label": "垂钓记录",
+        "command": "/垂钓 记录"
+      },
+      {
+        "label": "渔获",
+        "command": "/储物袋 渔获"
+      },
+      {
+        "label": "渔市",
+        "command": "/垂钓 渔市"
+      },
+      {
+        "label": "锦鲤赐福",
+        "command": "/垂钓 赐福"
+      },
+      {
+        "label": "沧澜钓仙会",
+        "command": "/垂钓 大赛"
+      }
+    ],
+    "status": "home-unified"
+  }
+}
