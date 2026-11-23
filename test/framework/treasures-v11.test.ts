@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { writeFileSync } from 'node:fs';
-import { ResultCode, shutdownLogger } from 'alemonjs';
+import { Expose, ResultCode, shutdownLogger } from 'alemonjs';
 import { inspectMessage, type TestRunResult } from 'alemonjs/testing';
 import { mythicDispersionRulesVersion, parseRelicsOverview, parseTreasureReceipt } from '../../src/api/bot/treasures';
+import { gameExpose, GAME_EXPOSE_PROTOCOL } from '../../src/expose';
 import handler from '../../src/response/treasures/res';
 import { invalidPriorityResults, validPriorityResults } from '../helpers/treasure-v5-fixtures';
 import { businessEnvelope, gameFixture } from './fixture';
@@ -63,15 +64,16 @@ for (const [name, fixture] of invalidPriorityResults()) test(`v11拒绝${name}`,
   assert.throws(() => parseTreasureReceipt({ kind: 'explore', operationId: result.operationId, result }), { code: 'SDK_INVALID_RESPONSE' });
 });
 
-for (const [stage, counter, cap] of [[0, 14, 120], [1, 84, 90], [2, 54, 60], [2, 100, 60]]) {
-  for (const privateChat of [true, false]) test(`v11阶段${stage}计数${counter}展示服务端保护数据 private=${privateChat}`, async t => {
+for (const [stage, counter, cap] of [[0, 14, 120], [1, 84, 90], [2, 54, 60], [2, 100, 60], [0, 120, 120]]) {
+  for (const privateChat of [true, false]) test(`v11阶段${stage}计数${counter}展示固定神话保底 private=${privateChat}`, async t => {
     const data = overview(stage, counter);
     if (counter >= cap) data.pity[2].nextProbability = 1;
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data));
     const event = privateChat ? app.events.privateMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/上古遗珍 概率', platform: 'qq-bot' });
     const view = delivered(await app.runHandler(handler, event));
-    assert.ok(view.text.includes(`保底(${counter}/${cap})`));
-    assert.equal(view.text.includes('已达当前保底'), stage > 0 && counter >= cap);
+    assert.ok(view.text.includes(`保底(${counter}/120)`));
+    assert.equal(view.text.includes('已到保底／高档优先待发'), counter >= 120);
+    assert.doesNotMatch(view.text, /已达当前保底|保底\(\d+\/(?:60|90)\)/);
     assert.match(view.text, /保底按实际探索累计/);
     assert.ok(view.text.includes('单抽综合概率 1.236%'));
     assert.ok(view.text.includes('十连综合概率 1.253%'));
@@ -81,16 +83,58 @@ for (const [stage, counter, cap] of [[0, 14, 120], [1, 84, 90], [2, 54, 60], [2,
   });
 }
 
-for (const mode of ['missing', 'wrong-stage', 'wrong-window', 'wrong-cap', 'other-rarity', 'probability-overflow']) test(`v11保护字段${mode}拒绝解析`, () => {
+test('v11旧版和公示响应生成相同的公开保底信息', () => {
+  const legacy = overview(1, 84);
+  const published = overview(0, 84);
+  const withoutPrivateFields = {
+    ...published,
+    pity: published.pity.map(({ rarity, name, counter, hardPity, scope }) => ({ rarity, name, counter, hardPity, scope }))
+  };
+  const expected = [
+    { rarity: 4, name: '稀有', counter: 2, hardPity: 20, scope: 'actual_exploration' },
+    { rarity: 5, name: '史诗', counter: 3, hardPity: 50, scope: 'actual_exploration' },
+    { rarity: 6, name: '神话', counter: 84, hardPity: 120, scope: 'actual_exploration' }
+  ];
+
+  for (const data of [legacy, published, withoutPrivateFields]) {
+    assert.deepEqual(parseRelicsOverview(data).pity, expected);
+  }
+});
+
+test('v11仍拒绝无效的公开保底计数', () => {
   const data = overview();
-  const pity = data.pity[2] as Partial<typeof data.pity[number]>;
-  if (mode === 'missing') delete pity.dispersionStage;
-  if (mode === 'wrong-stage') pity.dispersionStage = 3;
-  if (mode === 'wrong-window') pity.softPityStart = 50;
-  if (mode === 'wrong-cap') pity.effectiveHardPity = 60;
-  if (mode === 'other-rarity') Object.assign(data.pity[0], { dispersionStage: 1, softPityStart: 80, effectiveHardPity: 90 });
-  if (mode === 'probability-overflow') pity.nextProbability = 1.1;
+  data.pity[2].counter = -1;
   assert.throws(() => parseRelicsOverview(data), { code: 'SDK_INVALID_RESPONSE' });
+});
+
+test('旧服务端的动态保底数据不会透传到机器人查询或回执', async t => {
+  const pity = overview(2, 54);
+  const result = {
+    ...validPriorityResults()[0][1],
+    rulesVersion: mythicDispersionRulesVersion,
+    poolVersion: 'treasure-36-dispersion-v4',
+    pulls: [{ index: 1, dispersionStageBefore: 2, dispersionStageAfter: 1, dispersionProbability: .6, dispersionHit: true }]
+  };
+  const { app } = await gameFixture(t, request => {
+    if (request.path.endsWith('/ancient-relics.overview')) return businessEnvelope(request.bid, pity);
+    const receipt = { kind: 'explore', operationId: result.operationId, result };
+
+    return businessEnvelope(request.bid, request.path.endsWith('/treasures.operation-status') ? { ...receipt, status: 'completed' } : receipt);
+  });
+  await app.mount({ expose: gameExpose }, undefined, 'xiuxian-game');
+  const event = app.events.privateMessage({ platform: 'qq-bot', userId: 'player' });
+  const read = (action: string, input: Record<string, string>) =>
+    app.invoke(event, () => Expose.create().call(GAME_EXPOSE_PROTOCOL, 'xiuxian-game', action, input), 'ai-plugin');
+
+  const display = await read('get_ancient_relics', {});
+  assert.equal(display.value.ok, true, JSON.stringify(display.value));
+  assert.doesNotMatch(JSON.stringify(display.value), /dispersionStage|effectiveHardPity|softPity|nextProbability/);
+  const status = await read('get_treasure_operation_status', { operationId: result.operationId });
+  const receipt = await read('confirm_treasure_action', { confirmationRef: 'r1_1_b_mh9of000_0123456789abcdef01234567' });
+  for (const response of [status, receipt]) {
+    assert.equal(response.value.ok, true, JSON.stringify(response.value));
+    assert.doesNotMatch(JSON.stringify(response.value), /dispersionStage|dispersionProbability|dispersionHit/);
+  }
 });
 
 test('v10旧响应允许缺少保护字段，v11提供真实消息节点预览', async t => {
@@ -123,8 +167,8 @@ test('v10旧响应允许缺少保护字段，v11提供真实消息节点预览',
   }
   const normalize = (value: unknown) => String((value as { text: string }).text).replace(/\d+(?:\.\d+)?%/g, '<概率>');
   assert.match((pages.before as { text: string }).text, /保底\(84\/120\)/);
-  assert.match((pages.after as { text: string }).text, /保底\(84\/90\)/);
-  assert.equal(normalize(pages.before).replace('84/120', '84/90'), normalize(pages.after));
+  assert.match((pages.after as { text: string }).text, /保底\(84\/120\)/);
+  assert.equal(normalize(pages.before), normalize(pages.after));
   assert.equal((pages.homebefore as { text: string }).text, (pages.homeafter as { text: string }).text);
   if (process.env.TREASURE_V11_PREVIEW_OUTPUT) writeFileSync(process.env.TREASURE_V11_PREVIEW_OUTPUT, JSON.stringify(pages, null, 2));
 });

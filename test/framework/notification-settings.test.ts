@@ -11,11 +11,12 @@ import { businessEnvelope } from './fixture';
 after(async () => { await shutdownLogger(); });
 
 test('通知设置在启用功能过滤时仍提供每类独立的手动开关', async () => {
+  // market（珍宝楼交易）默认关闭；其余分类默认开启，与服务端 notificationCategories 一致。
   const categories = [
     ['meditation', '闭关'], ['exploration', '秘境探索'], ['cave', '洞府灵田'], ['forge', '锻造委托'], ['tribulation', '渡劫'],
     ['pk', '切磋与劫掠'], ['friend', '好友'], ['companion', '道侣'], ['master', '师徒'], ['team', '队伍'],
-    ['guild', '宗门'], ['flymail', '飞信'], ['black-box', '黑盒'], ['other', '其他及旧版通知']
-  ].map(([id, label]) => ({ id, label, enabled: true }));
+    ['guild', '宗门'], ['flymail', '飞信'], ['black-box', '黑盒'], ['market', '珍宝楼交易'], ['other', '其他及旧版通知']
+  ].map(([id, label]) => ({ id, label, enabled: id !== 'market' }));
   const writes: unknown[] = [];
   const server = createServer(async (req, res) => {
     let raw = '';
@@ -74,9 +75,10 @@ test('通知设置在启用功能过滤时仍提供每类独立的手动开关',
         .flatMap(node => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [])
         .filter(node => node.type === 'MD.button');
 
-      assert.equal(buttons.length, 13);
+      assert.equal(buttons.length, 14);
       for (const [index, item] of categories.filter(category => category.id !== 'black-box').entries()) {
-        const enabled = item.id !== 'team' || !text.endsWith('关闭');
+        // team 是本轮唯一被指令切换的分类；market 保持默认关闭，其余维持默认开启。
+        const enabled = item.id === 'team' ? !text.endsWith('关闭') : item.enabled;
         const action = enabled ? '关闭' : '开启';
 
         assert.ok(view.text.includes(`${item.label} · ${enabled ? '已开启' : '已关闭'} ‹${action}›`));

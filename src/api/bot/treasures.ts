@@ -312,33 +312,19 @@ export function parseRelicsOverview(value: unknown) {
       const p = row(value);
       const parsedRarity = rarity(p.rarity);
       const hardPity = integer(p.hardPity);
-      const dispersion = p.dispersionStage === undefined ? undefined : integer(p.dispersionStage);
-
-      if (
-        item.rulesVersion === mythicDispersionRulesVersion &&
-        (dispersion === undefined ||
-          dispersion > 2 ||
-          (parsedRarity !== 6 && dispersion !== 0) ||
-          p.softPityStart !== (dispersion === 1 ? 80 : dispersion === 2 ? 50 : 0) ||
-          p.softPityEnd !== (dispersion === 1 ? 90 : dispersion === 2 ? 60 : 0) ||
-          p.effectiveHardPity !== (dispersion === 1 ? 90 : dispersion === 2 ? 60 : hardPity) ||
-          number(p.nextProbability) > 1)
-      ) {
-        return invalid();
-      }
 
       return {
         rarity: parsedRarity,
         name: text(p.name),
         counter: integer(p.counter),
-        hardPity,
-        nextProbability: number(p.nextProbability),
-        ...(p.conditionalProbability === undefined ? {} : { conditionalProbability: number(p.conditionalProbability) }),
+        hardPity: parsedRarity === 6 ? 120 : hardPity,
         ...(p.scope === undefined ? {} : { scope: text(p.scope) }),
-        ...(dispersion === undefined ? {} : { dispersionStage: dispersion }),
-        ...(p.softPityStart === undefined ? {} : { softPityStart: integer(p.softPityStart) }),
-        ...(p.softPityEnd === undefined ? {} : { softPityEnd: integer(p.softPityEnd) }),
-        ...(p.effectiveHardPity === undefined ? {} : { effectiveHardPity: integer(p.effectiveHardPity) })
+        ...(item.rulesVersion === mythicDispersionRulesVersion
+          ? {}
+          : {
+              nextProbability: number(p.nextProbability),
+              ...(p.conditionalProbability === undefined ? {} : { conditionalProbability: number(p.conditionalProbability) })
+            })
       };
     }),
     wholeRates: array(item.wholeRates, value => {

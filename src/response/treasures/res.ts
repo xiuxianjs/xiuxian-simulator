@@ -894,10 +894,9 @@ export default onResponse(selects, async event => {
           for (const rate of rates) {
             const counters = data.pity.filter(item => item.rarity === rate.rarity);
             const pity = counters.length === 1 ? counters[0] : undefined;
-            const cap = pity && (data.rulesVersion === mythicDispersionRulesVersion ? (pity.effectiveHardPity ?? pity.hardPity) : pity.hardPity);
             const progress =
               pity && pity.hardPity > 0 && (actualPity ? pity.counter <= pity.hardPity + 3 : pity.counter < pity.hardPity)
-                ? `保底(${pity.counter}/${cap})${actualPity && cap !== undefined && pity.counter >= cap ? (cap < pity.hardPity ? ' · 已达当前保底' : ' · 已到保底／高档优先待发') : ''}`
+                ? `保底(${pity.counter}/${pity.hardPity})${actualPity && pity.counter >= pity.hardPity ? ' · 已到保底／高档优先待发' : ''}`
                 : '保底信息暂未同步';
 
             const tenProbability = rate.tenProbability === undefined ? '暂未同步' : probability(rate.tenProbability);
