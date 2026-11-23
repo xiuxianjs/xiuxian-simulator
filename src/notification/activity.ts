@@ -6,8 +6,32 @@ import { legacyNotificationTarget } from './delivery';
 type Observation = { bid: string; activity: NotificationGroupActivity };
 const pending = new Map<string, Observation>();
 let running = 0;
+let resumeTimer: ReturnType<typeof setTimeout> | undefined;
 const MAX_PENDING = 2000;
 const CONCURRENCY = 4;
+const UNAVAILABLE_PAUSE_MS = 5_000;
+
+function startDraining(): void {
+  if (resumeTimer !== undefined) {
+    return;
+  }
+  while (running < CONCURRENCY && pending.size > 0) {
+    running++;
+    void drain();
+  }
+}
+
+function pauseDraining(error: unknown): void {
+  if (resumeTimer !== undefined) {
+    return;
+  }
+  resumeTimer = setTimeout(() => {
+    resumeTimer = undefined;
+    startDraining();
+  }, UNAVAILABLE_PAUSE_MS);
+  resumeTimer.unref();
+  logger.warn('通知缓存暂时不可用，暂停玩家群活动上报', error);
+}
 
 /** Observe all incoming messages, including messages that match no game command. */
 export function observePlayerGroupActivity(event: Events[keyof Events]): void {
@@ -43,21 +67,28 @@ export function observePlayerGroupActivity(event: Events[keyof Events]): void {
   pending.set(key, { bid: event.UserId, activity: { target, occurredAt } });
   // The event hook never awaits HTTP. Bound concurrency and coalesce bursts
   // from the same account so a slow backend cannot accumulate requests.
-  while (running < CONCURRENCY && pending.size > 0) {
-    running++;
-    void drain();
-  }
+  startDraining();
 }
 
 async function drain(): Promise<void> {
   try {
-    while (pending.size > 0) {
+    while (resumeTimer === undefined && pending.size > 0) {
       const [key, observation] = pending.entries().next().value!;
 
       pending.delete(key);
       // 活动只记录真实出现过的位置；权限由实际投递及明确操作查询，
       // 避免普通聊天消耗机器人查询额度或反复请求后端权限接口。
-      await rememberPlatformGroupActivity(observation.bid, observation.activity).catch(error => logger.error('玩家群活动位置上报失败', error));
+      try {
+        await rememberPlatformGroupActivity(observation.bid, observation.activity);
+      } catch (error) {
+        const status = (error as { status?: number } | undefined)?.status;
+
+        if (status === undefined || status === 429 || status >= 500) {
+          pauseDraining(error);
+        } else {
+          logger.error('玩家群活动位置上报失败', error);
+        }
+      }
     }
   } finally {
     running--;

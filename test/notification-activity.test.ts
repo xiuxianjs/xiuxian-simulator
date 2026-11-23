@@ -58,3 +58,42 @@ test('activity observes unmatched group messages asynchronously and ignores priv
   assert.ok(paths.every(path => path.endsWith('/activity/remember')), '普通消息只上报活动，不读取或探测权限');
   assert.equal(app.actions.calls.length, 0, '活动上报不调用 QQ 平台接口');
 });
+
+test('activity pauses on cache unavailability and resumes with the latest queued observations', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const app = createTestApp({ timeoutMs: 20_000, config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'https://synthetic.test', worker_token: 'test' } } } });
+  t.after(() => app.dispose());
+  const sent: { bid: string; occurredAt: number }[] = [];
+  t.mock.method(axios, 'create', () => ({
+    post: async (_path: string, body: { bid: string; occurredAt: number }) => {
+      sent.push(body);
+      if (sent.length === 1) {
+        throw Object.assign(new axios.AxiosError('unavailable'), {
+          response: { status: 503, data: { error: { code: 'SERVICE_UNAVAILABLE' } } }
+        });
+      }
+      return { data: { data: { ok: true } } };
+    }
+  }));
+  const flush = () => new Promise(resolve => setImmediate(resolve));
+  await app.invoke(app.events.groupMessage({ platform: 'qq-bot' }), async () => {
+    const observe = (UserId: string, OccurredAt: number) => observePlayerGroupActivity({
+      name: 'message.create', Platform: 'qq-bot', BotId: 'bot', UserId, ChannelId: 'group-a', SpaceId: 'GROUP:group-a', OccurredAt
+    } as Events[keyof Events]);
+    observe('failed', 100);
+    await flush();
+    assert.equal(sent.length, 1);
+    observe('queued', 200);
+    observe('queued', 300);
+    observe('another', 250);
+    t.mock.timers.tick(4999);
+    await flush();
+    assert.equal(sent.length, 1);
+    t.mock.timers.tick(1);
+    await flush();
+    assert.deepEqual(sent.map(({ bid, occurredAt }) => [bid, occurredAt]), [['failed', 100], ['queued', 300], ['another', 250]]);
+    observe('recovered', 400);
+    await flush();
+    assert.equal(sent.at(-1)?.bid, 'recovered');
+  });
+});
