@@ -223,10 +223,7 @@ function ordinaryPKNotice(lines: string[]) {
     return undefined;
   }
 
-  const facts = [
-    experience && `修为：+${experience}`,
-    deadline && `反击截止：${deadline}`
-  ].filter(Boolean);
+  const facts = [experience && `修为：+${experience}`, deadline && `反击截止：${deadline}`].filter(Boolean);
   const item = lines.find(line => line.startsWith('物品：'));
 
   return pkNotice(pkReportTitle, reportId, [...(facts.length ? [facts.join(' · ')] : ['结果：已结算']), ...(item ? [item] : [])]);
@@ -240,7 +237,8 @@ function expiredPKNotice(lines: string[]) {
     return undefined;
   }
 
-  const details = joinNotificationWrapping(lines.slice(2)).filter(line => line.trim() && line !== '反击状态：窗口已结束' && line !== expiredCurrency && line !== `查看战报：/争夺战报 ${reportId}`
+  const details = joinNotificationWrapping(lines.slice(2)).filter(
+    line => line.trim() && line !== '反击状态：窗口已结束' && line !== expiredCurrency && line !== `查看战报：/争夺战报 ${reportId}`
   );
 
   if (details.some(line => !/^(物品|原物归属|交付状态|处理)：/.test(line))) {
@@ -253,12 +251,14 @@ function expiredPKNotice(lines: string[]) {
 function pkNotice(title: string, reportId: string, lines: string[]) {
   return buildBubble({
     title: '修仙 · 通知',
-    sections: [{
-      title,
-      id: reportId,
-      lines,
-      actions: [{ label: '查看战报', command: `/争夺战报 ${reportId}`, autoEnter: false }]
-    }],
+    sections: [
+      {
+        title,
+        id: reportId,
+        lines,
+        actions: [{ label: '查看战报', command: `/争夺战报 ${reportId}`, autoEnter: false }]
+      }
+    ],
     bar: false
   }).format.value;
 }
@@ -270,36 +270,65 @@ type GroupedNotice = { key: string; title: string; lines: string[]; actions: Act
 const groupedNotices = new WeakMap<MarkdownNode, GroupedNotice>();
 const noticeHeadings = new WeakMap<MarkdownNode, GroupedNotice>();
 const notificationTitles = new Map([
-  ['meditation.limit', '闭关收益已达上限'], ['exploration.completed', '探索已结束'],
-  ['cave.plot.matured', '灵田作物已成熟'], ['forge.order.expired', '炼器委托已到期'],
-  ['market.listing.expired', '珍宝楼挂单已到期'], ['bounty.expired.reward', '悬赏赏金已入账'],
-  ['bounty.expired.refund', '悬赏余款已退还'], ['scheduled.email.sent', '收到新邮件'],
-  ['companion.anniversary.gift', '道侣周年纪念'], ['companion.proposal.created', '收到道侣申请'],
-  ['companion.proposal.accepted', '已结为道侣'], ['companion.proposal.rejected', '道侣申请未通过'],
-  ['friend.request.created', '收到结交申请'], ['friend.request.accepted', '结交申请已通过'],
-  ['friend.request.rejected', '结交申请未通过'], ['master.proposal.created', '收到拜师申请'],
-  ['master.proposal.accepted', '已具师徒名分'], ['master.proposal.rejected', '拜师申请未通过'],
-  ['master.graduation.created', '收到出师申请'], ['master.graduation.accepted', '已出师'],
-  ['master.graduation.rejected', '出师申请未通过'], ['master.relation.rebelled', '徒弟已叛离师门'],
-  ['master.relation.expelled', '已被逐出师门'], ['guild.application.approved', '入宗申请已通过'],
-  ['guild.application.rejected', '入宗申请未通过'], ['guild.leave.successor', '已继任宗主'],
-  ['guild.leadership.transfer', '已继任宗主'], ['guild.leadership.impeach.successor', '已继任宗主'],
-  ['guild.leadership.impeach.leader', '宗门职位已变更'], ['guild.role.appointed', '宗门职位已变更'],
-  ['guild.member.kicked', '已被移出宗门'], ['guild.dissolve', '宗门已解散'], ['guild.red_packet.sent', '宗门有新红包'],
-  ['tribulation.available', '已具备渡劫资格'], ['tribulation.announced', '渡劫确认窗口已开启'],
-  ['tribulation.reminder', '渡劫确认即将截止'], ['tribulation.settled', '渡劫已结算'],
-  ['pk.counter_won', '反击获胜'], ['pk.counter_lost', '反击未获胜'], ['pk.delivery', '物品交付更新'],
-  ['fishing.result.rare', '洞府垂钓 · 稀有鱼渔讯'], ['fishing.result.king', '洞府垂钓 · 鱼王渔讯'],
+  ['meditation.limit', '闭关收益已达上限'],
+  ['exploration.completed', '探索已结束'],
+  ['cave.plot.matured', '灵田作物已成熟'],
+  ['forge.order.expired', '炼器委托已到期'],
+  ['market.listing.expired', '珍宝楼挂单已到期'],
+  ['bounty.expired.reward', '悬赏赏金已入账'],
+  ['bounty.expired.refund', '悬赏余款已退还'],
+  ['scheduled.email.sent', '收到新邮件'],
+  ['companion.anniversary.gift', '道侣周年纪念'],
+  ['companion.proposal.created', '收到道侣申请'],
+  ['companion.proposal.accepted', '已结为道侣'],
+  ['companion.proposal.rejected', '道侣申请未通过'],
+  ['friend.request.created', '收到结交申请'],
+  ['friend.request.accepted', '结交申请已通过'],
+  ['friend.request.rejected', '结交申请未通过'],
+  ['master.proposal.created', '收到拜师申请'],
+  ['master.proposal.accepted', '已具师徒名分'],
+  ['master.proposal.rejected', '拜师申请未通过'],
+  ['master.graduation.created', '收到出师申请'],
+  ['master.graduation.accepted', '已出师'],
+  ['master.graduation.rejected', '出师申请未通过'],
+  ['master.relation.rebelled', '徒弟已叛离师门'],
+  ['master.relation.expelled', '已被逐出师门'],
+  ['guild.application.approved', '入宗申请已通过'],
+  ['guild.application.rejected', '入宗申请未通过'],
+  ['guild.leave.successor', '已继任宗主'],
+  ['guild.leadership.transfer', '已继任宗主'],
+  ['guild.leadership.impeach.successor', '已继任宗主'],
+  ['guild.leadership.impeach.leader', '宗门职位已变更'],
+  ['guild.role.appointed', '宗门职位已变更'],
+  ['guild.member.kicked', '已被移出宗门'],
+  ['guild.dissolve', '宗门已解散'],
+  ['guild.red_packet.sent', '宗门有新红包'],
+  ['tribulation.available', '已具备渡劫资格'],
+  ['tribulation.announced', '渡劫确认窗口已开启'],
+  ['tribulation.reminder', '渡劫确认即将截止'],
+  ['tribulation.settled', '渡劫已结算'],
+  ['pk.counter_won', '反击获胜'],
+  ['pk.counter_lost', '反击未获胜'],
+  ['pk.delivery', '物品交付更新'],
+  ['fishing.result.rare', '洞府垂钓 · 稀有鱼渔讯'],
+  ['fishing.result.king', '洞府垂钓 · 鱼王渔讯'],
   [fishingBossNotificationSource, '洞府垂钓 · 垂钓奇遇'],
-  ['team.invitation:created', '收到队伍邀请'], ['team.invitation:rejected', '队伍邀请未通过'],
-  ['team.application:created', '收到入队申请'], ['team.application:approved', '入队申请已通过'],
-  ['team.application:rejected', '入队申请未通过'], ['team:leader-inherited', '已成为队长']
+  ['team.invitation:created', '收到队伍邀请'],
+  ['team.invitation:rejected', '队伍邀请未通过'],
+  ['team.application:created', '收到入队申请'],
+  ['team.application:approved', '入队申请已通过'],
+  ['team.application:rejected', '入队申请未通过'],
+  ['team:leader-inherited', '已成为队长']
 ]);
 
 function notificationGroupTitle(source: string, firstLine: string): string | undefined {
   if (source === 'team.match') {
-    if (firstLine.startsWith('匹配超时')) { return '组队匹配超时'; }
-    if (firstLine.startsWith('匹配成功')) { return '组队匹配成功'; }
+    if (firstLine.startsWith('匹配超时')) {
+      return '组队匹配超时';
+    }
+    if (firstLine.startsWith('匹配成功')) {
+      return '组队匹配成功';
+    }
 
     return '组队匹配结果';
   }
@@ -308,14 +337,25 @@ function notificationGroupTitle(source: string, firstLine: string): string | und
 }
 
 const commonNoticeFacts = new Set([
-  '货币：灵石、灵晶结算不变', '你的身份：受袭者', '你的身份：原打劫者', '反击机会：已使用',
-  '反击结果：受袭者获胜', '反击结果：受袭者未获胜', '交付状态：本批原物交付状态已更新',
-  '状态：已到期', '挂单：已到期并自动下架', '返还：剩余物品已退回背包', '返还：预付材料及灵石已退回',
-  '状态：已自动发放', '状态：未使用赏金已退还', '状态：已成熟，可收割'
+  '货币：灵石、灵晶结算不变',
+  '你的身份：受袭者',
+  '你的身份：原打劫者',
+  '反击机会：已使用',
+  '反击结果：受袭者获胜',
+  '反击结果：受袭者未获胜',
+  '交付状态：本批原物交付状态已更新',
+  '状态：已到期',
+  '挂单：已到期并自动下架',
+  '返还：剩余物品已退回背包',
+  '返还：预付材料及灵石已退回',
+  '状态：已自动发放',
+  '状态：未使用赏金已退还',
+  '状态：已成熟，可收割'
 ]);
 
 function joinNotificationWrapping(lines: string[]): string[] {
-  return lines.join('\n')
+  return lines
+    .join('\n')
     .replaceAll('物品：归属已确定，\n待交付', '物品：归属已确定，待交付')
     .replaceAll('处理：系统后台继续交付，\n不占用角色', '处理：系统后台继续交付，不占用角色')
     .replaceAll('状态：已成熟，\n可收割', '状态：已成熟，可收割')
@@ -356,7 +396,7 @@ function rememberGroupedNotice(data: DataEnums[], source: string, title: string,
     return;
   }
 
-  const nodes = data.flatMap(block => block.type === 'Markdown' ? block.value : []);
+  const nodes = data.flatMap(block => (block.type === 'Markdown' ? block.value : []));
   const quote = nodes.find(node => node.type === 'MD.blockquote');
 
   if (!quote) {
@@ -442,7 +482,8 @@ export function notificationSettingsData(data: DataEnums[], source = ''): DataEn
     team: '队伍',
     guild: '宗门',
     flymail: '飞信',
-    'black-box': '黑盒'
+    'black-box': '黑盒',
+    market: '珍宝楼交易'
   };
   const prefix = source.split(/[.:]/)[0];
   const category = Object.hasOwn(categories, prefix) ? prefix : 'other';
@@ -453,7 +494,7 @@ export function notificationSettingsData(data: DataEnums[], source = ''): DataEn
   return [...data, ...Format.create().addMarkdown(Format.createMarkdown().addBlockquote(controls)).value];
 }
 
-const quoteNodes = (node: MarkdownNode) => node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : [];
+const quoteNodes = (node: MarkdownNode) => (node.type === 'MD.blockquote' && Array.isArray(node.value) ? node.value : []);
 
 function pkReportGroup(node: MarkdownNode) {
   const [title] = quoteNodes(node);
@@ -470,8 +511,7 @@ const isPKSettings = (node: MarkdownNode) => quoteNodes(node).some(child => chil
 function expiredGroupFacts(reports: MarkdownNode[]) {
   const roleLine = quoteNodes(reports[0]).find(line => line.type === 'MD.text' && typeof line.value === 'string' && line.value.startsWith('身份：'));
   const role = roleLine?.type === 'MD.text' ? roleLine.value : undefined;
-  const sameRole = typeof role === 'string' && reports.every(report => quoteNodes(report).some(line => line.type === 'MD.text' && line.value === role)
-  );
+  const sameRole = typeof role === 'string' && reports.every(report => quoteNodes(report).some(line => line.type === 'MD.text' && line.value === role));
 
   if (sameRole) {
     for (const [index, report] of reports.entries()) {
@@ -506,7 +546,9 @@ function noticeObject(lines: string[]) {
 function renderNoticeGroup(notices: GroupedNotice[]): MarkdownNode[] {
   const [first] = notices;
   const repeated = notices.length > 1;
-  const header = Format.createMarkdown().addBold(repeated ? `${first.title} · ${notices.length} 条` : first.title).addNewline();
+  const header = Format.createMarkdown()
+    .addBold(repeated ? `${first.title} · ${notices.length} 条` : first.title)
+    .addNewline();
   const commonFacts = new Set(
     (repeated ? first.lines : []).filter(line => commonNoticeFacts.has(line) && notices.every(notice => notice.lines.includes(line)))
   );
@@ -551,7 +593,7 @@ function notificationBody(data: DataEnums[]): DataEnums[] {
   const groups = new Map<string, Group>();
   const settings = new Set<string>();
   const genericCounts = new Map<string, number>();
-  const flattened = data.flatMap(block => block.type === 'Markdown' ? block.value : []);
+  const flattened = data.flatMap(block => (block.type === 'Markdown' ? block.value : []));
 
   for (const node of flattened) {
     const notice = groupedNotices.get(node);
@@ -562,7 +604,7 @@ function notificationBody(data: DataEnums[]): DataEnums[] {
   }
   const hasPKReports = flattened.some(pkReportGroup);
   let pkSettings: MarkdownNode | undefined;
-  const selected = (notice: GroupedNotice | undefined) => notice && (!notice.fishing || (genericCounts.get(notice.key) ?? 0) > 1) ? notice : undefined;
+  const selected = (notice: GroupedNotice | undefined) => (notice && (!notice.fishing || (genericCounts.get(notice.key) ?? 0) > 1) ? notice : undefined);
   const body = data.map(block => {
     if (block.type !== 'Markdown') {
       return block;
@@ -590,10 +632,14 @@ function notificationBody(data: DataEnums[]): DataEnums[] {
         continue;
       } else if (hasPKReports && isPKSettings(node)) {
         pkSettings ??= node;
-        if (command) { settings.add(command); }
+        if (command) {
+          settings.add(command);
+        }
       } else {
         nodes.push(node);
-        if (command) { settings.add(command); }
+        if (command) {
+          settings.add(command);
+        }
       }
     }
 
@@ -612,10 +658,14 @@ function notificationBody(data: DataEnums[]): DataEnums[] {
     if (key === expiredReportTitle) {
       header.addBold(`反击窗口结束 · ${reports.length} 条`).addNewline().addText(expiredGroupFacts(reports)).addNewline();
     } else {
-      const hasDeadline = reports.some(node => quoteNodes(node).some(line => line.type === 'MD.text' && typeof line.value === 'string' && line.value.includes('反击截止：')));
+      const hasDeadline = reports.some(node => quoteNodes(node).some(line => line.type === 'MD.text' && typeof line.value === 'string' && line.value.includes('反击截止：'))
+      );
 
       header.addBold(`受到打劫 · ${reports.length} 条`).addNewline();
-      footer.addNewline().addText(`说明：${hasDeadline ? '截止时间为北京时间。' : ''}反击资格以战报为准。`).addNewline();
+      footer
+        .addNewline()
+        .addText(`说明：${hasDeadline ? '截止时间为北京时间。' : ''}反击资格以战报为准。`)
+        .addNewline();
     }
 
     nodes.splice(index, 0, ...header.value.value, ...reports, ...footer.value.value, ...(pkSettings ? [pkSettings] : []));
@@ -623,10 +673,15 @@ function notificationBody(data: DataEnums[]): DataEnums[] {
   }
 
   // 合并后收拢原有条目间隔。
-  return groups.size ? body.map(block => block.type === 'Markdown' ? {
-    ...block,
-    value: block.value.filter((node, index, nodes) => node.type !== 'MD.newline' || nodes[index - 1]?.type !== 'MD.newline')
-  } : block) : body;
+  return groups.size
+    ? body.map(block => block.type === 'Markdown'
+          ? {
+              ...block,
+              value: block.value.filter((node, index, nodes) => node.type !== 'MD.newline' || nodes[index - 1]?.type !== 'MD.newline')
+            }
+          : block
+      )
+    : body;
 }
 
 /** 导航只由实际发送批次追加一次，不能放进各通知条目。 */
