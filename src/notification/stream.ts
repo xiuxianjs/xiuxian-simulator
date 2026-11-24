@@ -5,7 +5,7 @@ import { dispatchCommunityNotifications } from './communityDelivery';
 import { getNotificationBackendConfig, hasNotificationBackendUrl } from '@src/api/bot/config';
 import { logger, onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from '../utils/qqBotIdentity';
-import { PushFlyMailTask, dispatchStandardMessages } from '@src/task/pushMessageTask';
+import { PushFlyMailTask, dispatchStandardMessages, wakeFlyMailTask, wakeStandardMessages } from '@src/task/pushMessageTask';
 import { NotificationDispatcher, type NotificationWakeupScope } from './dispatch';
 
 let started = false;
@@ -26,7 +26,7 @@ function notificationWakeupScope(lines: string[]): NotificationWakeupScope | und
   try {
     const scope: unknown = JSON.parse(data)?.scope;
 
-    return scope === 'chat' || scope === 'relay' || scope === 'flymail' || scope === 'standard' ? scope : undefined;
+    return scope === 'chat' || scope === 'relay' || scope === 'flymail' || scope === 'standard' || scope === 'community' ? scope : undefined;
   } catch {
     return undefined;
   }
@@ -36,6 +36,7 @@ const consume = async (body: ReadableStream<Uint8Array>, controller: AbortContro
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let splitCommunity = false;
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
   const resetIdleTimer = () => {
     clearTimeout(idleTimer);
@@ -65,9 +66,15 @@ const consume = async (body: ReadableStream<Uint8Array>, controller: AbortContro
           .trim();
 
         if (event === 'stream.ready') {
+          splitCommunity = notificationWakeupScope(lines) === 'community';
           dispatcher.wake();
         } else if (event === 'notification.ready') {
-          dispatcher.wake(notificationWakeupScope(lines));
+          const scope = notificationWakeupScope(lines);
+
+          dispatcher.wake(scope);
+          if (scope === 'relay' && !splitCommunity) {
+            dispatcher.wake('community');
+          }
         }
         boundary = buffer.indexOf('\n\n');
       }
@@ -101,9 +108,9 @@ export const startNotificationStream = (): void => {
   warnedMissingBackendUrl = false;
   started = true;
   const dispatcher = new NotificationDispatcher([
-    { name: '飞信', scope: 'flymail', run: PushFlyMailTask },
-    { name: '玩家通知', scope: 'standard', run: dispatchStandardMessages },
-    { name: '群通知', scope: 'relay', run: dispatchCommunityNotifications },
+    { name: '飞信', scope: 'flymail', run: PushFlyMailTask, wakeRunning: wakeFlyMailTask },
+    { name: '玩家通知', scope: 'standard', run: dispatchStandardMessages, wakeRunning: wakeStandardMessages },
+    { name: '群通知', scope: 'community', run: dispatchCommunityNotifications },
     { name: '运营消息', scope: 'chat', run: dispatchChatNotices }
   ]);
 
@@ -131,7 +138,7 @@ export const startNotificationStream = (): void => {
         let response: Response;
 
         try {
-          response = await fetch(`${config.url}${config.apiBase}/v1/internal/notification-relay/events/stream`, {
+          response = await fetch(`${config.url}${config.apiBase}/v1/internal/notification-relay/events/stream?communityScope=1`, {
             headers: { ...config.headers, Accept: 'text/event-stream' },
             cache: 'no-store',
             ...(config.channelMode ? { redirect: 'error' } : {}),

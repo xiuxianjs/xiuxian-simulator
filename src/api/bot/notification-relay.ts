@@ -92,7 +92,23 @@ export async function finishNotificationRelayDelivery(playerId: number, token: s
 }
 
 export async function acknowledgeNotificationRelay(eventId: string, consumer: string, delivery: NotificationDelivery): Promise<void> {
-  await post('/ack', { eventId, consumer, delivery });
+  const body = { eventId, consumer, delivery };
+
+  try {
+    await post('/ack', body);
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    const { status, code } = error as Error & { status?: number; code?: string };
+    const retryable =
+      status === undefined ? ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'EPIPE', 'ERR_NETWORK'].includes(code ?? '') : [500, 502, 503, 504].includes(status);
+
+    if (!retryable) {
+      throw error;
+    }
+    await post('/ack', body);
+  }
 }
 export async function retryNotificationRelay(eventId: string, consumer: string, error: unknown): Promise<void> {
   await post('/retry', { eventId, consumer, error: error instanceof Error ? error.message : String(error) });

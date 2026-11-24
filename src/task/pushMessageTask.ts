@@ -119,6 +119,17 @@ async function deliverWithCurrentRecipient(
 /** 一次只认领即将处理的事件，避免慢请求使整批事件的租约提前过期。 */
 type LoadLegacyIDs = () => Promise<Set<string>>;
 
+let wakeStandard: (() => void) | undefined;
+
+export const wakeStandardMessages = (): boolean => {
+  if (!wakeStandard) {
+    return false;
+  }
+  wakeStandard();
+
+  return true;
+};
+
 async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: 'flymail' | 'standard'): Promise<void> {
   const consumer = `node.${lane}.player-notification:${randomUUID()}`;
 
@@ -129,13 +140,27 @@ async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: '
       if (active.size >= 64) {
         await Promise.race(active);
       }
+      let notified = false;
+      const signal = new Promise<void>(resolve => {
+        wakeStandard = () => {
+          notified = true;
+          resolve();
+        };
+      });
       const row = await claimNotificationRelay('player.notification.dispatch', consumer, lane);
 
       if (!row) {
+        if (notified) {
+          continue;
+        }
         if (!active.size) {
           break;
         }
-        await Promise.race(active);
+        // An individual delivery completion carries no new queue evidence.
+        await Promise.race([Promise.all(active), signal]);
+        if (!notified) {
+          break;
+        }
         continue;
       }
       const owner = String(row.recipientUserId ?? row.recipientBid ?? row.eventId);
@@ -145,6 +170,7 @@ async function dispatchPlayerNotifications(loadLegacyIDs: LoadLegacyIDs, lane: '
       void delivery.finally(() => active.delete(delivery)).catch(() => {});
     }
   } finally {
+    wakeStandard = undefined;
     await Promise.allSettled(active);
   }
 }
@@ -307,6 +333,8 @@ let pending = false;
 export const dispatchStandardMessages = async (): Promise<void> => {
   pending = true;
   if (running) {
+    wakeStandardMessages();
+
     return;
   }
   running = true;
@@ -332,8 +360,17 @@ const FLYMAIL_IN_FLIGHT_LIMIT = 32;
 let flyMailRunning = false;
 let wakeFlyMail: (() => void) | undefined;
 
+export const wakeFlyMailTask = (): boolean => {
+  if (!wakeFlyMail) {
+    return false;
+  }
+  wakeFlyMail();
+
+  return true;
+};
+
 export const PushFlyMailTask = async (): Promise<void> => {
-  wakeFlyMail?.();
+  wakeFlyMailTask();
   if (flyMailRunning) {
     return;
   }
@@ -361,13 +398,16 @@ export const PushFlyMailTask = async (): Promise<void> => {
       const row = await claimNotificationRelay('player.notification.dispatch', consumer, 'flymail');
 
       if (!row) {
+        if (notified) {
+          continue;
+        }
         if (!active.size) {
-          if (notified) {
-            continue;
-          }
           break;
         }
-        await Promise.race([...active, signal]);
+        await Promise.race([Promise.all(active), signal]);
+        if (!notified) {
+          break;
+        }
         continue;
       }
       const delivery = withFlyMailBuffer(() => processPlayerNotification(row, consumer, emptyLegacyIDs, 'flymail'));

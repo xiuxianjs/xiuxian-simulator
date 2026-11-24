@@ -56,6 +56,8 @@ export async function sendChatNotice(claim: ChatClaim): Promise<ChatReceipt> {
   }
 }
 
+const recoveryPollMs = 30_000;
+
 /** One bounded batch, with an explicit continuation and a recovery poll for
  * missed SSE publications. A failed receipt never repeats the platform send. */
 class ChatNoticeLane {
@@ -65,6 +67,7 @@ class ChatNoticeLane {
   private retryNotBefore = 0;
   private timer?: ReturnType<typeof setTimeout>;
   private readonly claimNotBefore = new Map<string, number>();
+  private readonly idleUntil = new Map<string, number>();
   private readonly inFlight = new Map<string, number>();
   private readonly receiptWaits = new Set<() => void>();
 
@@ -75,7 +78,14 @@ class ChatNoticeLane {
     private readonly finish = finishChatNotice
   ) {}
 
-  async dispatch(): Promise<void> {
+  dispatch(): Promise<void> {
+    // An SSE wakeup can announce new work for any bot in this lane.
+    this.idleUntil.clear();
+
+    return this.poll();
+  }
+
+  private async poll(): Promise<void> {
     if (this.stopped) {
       return;
     }
@@ -98,7 +108,7 @@ class ChatNoticeLane {
 
     this.running = true;
     this.requested = false;
-    let delay = 30_000;
+    let delay = recoveryPollMs;
 
     try {
       // Process one item per bot per tick. This bounds work without losing
@@ -114,6 +124,13 @@ class ChatNoticeLane {
           continue;
         }
         this.claimNotBefore.delete(botId);
+        const idleUntil = this.idleUntil.get(botId);
+
+        if (idleUntil !== undefined && idleUntil > Date.now()) {
+          delay = Math.min(delay, idleUntil - startedAt);
+          continue;
+        }
+        this.idleUntil.delete(botId);
         if ((this.inFlight.get(botId) ?? 0) >= 32) {
           delay = Math.min(delay, 125);
           continue;
@@ -131,6 +148,10 @@ class ChatNoticeLane {
           } else {
             delay = Math.min(delay, 125);
           }
+        } else if (!this.requested) {
+          // A busy bot may drive this lane every 125 ms. Keep independent
+          // recovery deadlines for bots the server already reported empty.
+          this.idleUntil.set(botId, startedAt + recoveryPollMs);
         }
         if (!next.claim) {
           continue;
@@ -156,7 +177,7 @@ class ChatNoticeLane {
         this.timer = setTimeout(
           () => {
             this.timer = undefined;
-            void this.dispatch();
+            void this.poll();
           },
           Math.max(0, this.retryNotBefore - Date.now(), (this.requested ? Math.min(125, delay) : delay) - (Date.now() - startedAt))
         );

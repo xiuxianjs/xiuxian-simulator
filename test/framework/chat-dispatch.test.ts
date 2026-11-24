@@ -241,3 +241,52 @@ test('服务端限流提示仅延后对应 bot 和场景，SSE 不提前重试',
   await settle();
   assert.equal(calls.filter(key => key === 'slow:c2c').length, 2);
 });
+
+test('忙队列续跑不轮询空队列，SSE 唤醒与丢失唤醒后的恢复检查仍可领取', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  let busyPolls = 0;
+  let idlePolls = 0;
+  let nextNotice: ChatClaim | null = null;
+  const sent: number[] = [];
+  const dispatcher = new ChatNoticeDispatcher(
+    () => ['busy', 'idle'],
+    async bot => {
+      if (bot === 'busy') {
+        busyPolls++;
+        return { claim: null, pending: true };
+      }
+      idlePolls++;
+      const item = nextNotice;
+      nextNotice = null;
+      return { claim: item, pending: false };
+    },
+    async item => {
+      sent.push(item.contactId);
+      return receipt(item);
+    },
+    async () => ({})
+  );
+  t.after(() => dispatcher.stop());
+  await dispatcher.dispatch();
+  for (let tick = 0; tick < 10; tick++) {
+    t.mock.timers.tick(125);
+    await settle();
+  }
+  assert.equal(busyPolls, 11);
+  assert.equal(idlePolls, 1);
+
+  nextNotice = { ...claim(1), botId: 'idle' };
+  await dispatcher.dispatch();
+  await settle();
+  assert.equal(idlePolls, 2);
+  assert.deepEqual(sent, [1]);
+
+  nextNotice = { ...claim(2), botId: 'idle' };
+  t.mock.timers.tick(29_999);
+  await settle();
+  assert.equal(idlePolls, 2);
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(idlePolls, 3);
+  assert.deepEqual(sent, [1, 2]);
+});

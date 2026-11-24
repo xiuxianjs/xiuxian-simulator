@@ -233,7 +233,7 @@ test('通知流等待后端地址，补齐后只连接一次，停止时取消�
     app.configure(readyConfig);
     notify?.();
     startNotificationStream();
-    assert.deepEqual(urls, ['https://relay.invalid/api/v1/internal/notification-relay/events/stream']);
+    assert.deepEqual(urls, ['https://relay.invalid/api/v1/internal/notification-relay/events/stream?communityScope=1']);
     assert.equal(stopped, 1);
     stopNotificationStream();
 

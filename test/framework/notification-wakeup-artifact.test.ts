@@ -33,11 +33,11 @@ test('服务端 SSE 帧与机器人构建产物按队列配对', t => {
   env.XIUXIAN_NOTIFICATION_WAKEUP_WIRE = wire;
   const result = execFileSync(process.execPath, [
     '--import', 'tsx', '--import', './test/helpers/register-image-assets.ts',
-    '--test', '--test-name-pattern=SSE 按范围', 'test/framework/notification-failure-isolation.test.ts'
+    '--test', '--test-name-pattern=SSE 按范围|投递完成不会逐条', 'test/framework/notification-failure-isolation.test.ts'
   ], {
     cwd: root,
     env,
     encoding: 'utf8'
   });
-  assert.match(result, /^# pass 2$/m, result);
+  assert.match(result, /^# pass 6$/m, result);
 });

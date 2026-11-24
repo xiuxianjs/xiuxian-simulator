@@ -18,8 +18,8 @@ const config = {
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise<void>(resolve => setImmediate(resolve)); };
 after(() => shutdownLogger());
 
-for (const channelMode of [false, true]) {
-test(`SSE 按范围唤醒通知队列，旧版或未知范围仍唤醒全部 channel=${channelMode}`, async t => {
+for (const [channelMode, splitCommunity] of [[false, false], [false, true], [true, false], [true, true]] as const) {
+test(`SSE 按范围唤醒通知队列 channel=${channelMode} splitCommunity=${splitCommunity}`, async t => {
   const artifact = process.env.XIUXIAN_NOTIFICATION_STREAM_ARTIFACT;
   const wirePath = process.env.XIUXIAN_NOTIFICATION_WAKEUP_WIRE;
   const runtime = artifact ? await import(pathToFileURL(artifact).href) as typeof import('../../src/notification/stream') : { startNotificationStream, stopNotificationStream };
@@ -36,15 +36,19 @@ test(`SSE 按范围唤醒通知队列，旧版或未知范围仍唤醒全部 cha
   });
   const encoder = new TextEncoder();
   let stream!: ReadableStreamDefaultController<Uint8Array>;
-  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) =>
-    new Response(new ReadableStream<Uint8Array>({
+  t.mock.method(globalThis, 'fetch', async (url: string, options: RequestInit) => {
+    assert.equal(new URL(url).searchParams.get('communityScope'), '1');
+    return new Response(new ReadableStream<Uint8Array>({
       start(controller) {
         stream = controller;
-        controller.enqueue(encoder.encode('event: stream.ready\ndata: {}\n\n'));
+        const ready = splitCommunity
+          ? frames?.['ready+community'] ?? 'event: stream.ready\ndata: {"scope":"community"}\n\n'
+          : 'event: stream.ready\ndata: {}\n\n';
+        controller.enqueue(encoder.encode(ready));
         options.signal?.addEventListener('abort', () => controller.close(), { once: true });
       }
-    }), { headers: { 'Content-Type': 'text/event-stream' } })
-  );
+    }), { headers: { 'Content-Type': 'text/event-stream' } });
+  });
   const counts = { chat: 0, relay: 0, flymail: 0, standard: 0, community: 0 };
   t.mock.method(axios, 'create', () => ({
     post: async (path: string, input?: { lane?: string }) => {
@@ -66,7 +70,7 @@ test(`SSE 按范围唤醒通知队列，旧版或未知范围仍唤醒全部 cha
   const result = await app.runHandler(async () => {
     runtime.startNotificationStream();
     await settle();
-    assert.ok(counts.chat > 0 && counts.relay > 0);
+    assert.ok(counts.chat > 0 && counts.relay > 0 && counts.community > 0);
     const probeFrame = async (expected: string, wireScope?: string) => {
       const before = { ...counts };
       let frame = expected;
@@ -88,22 +92,107 @@ test(`SSE 按范围唤醒通知队列，旧版或未知范围仍唤醒全部 cha
     const frame = (data: string) => `event: notification.ready\ndata: ${data}\n\n`;
     const probe = (data: string, wireScope?: string) => probeFrame(frame(data), wireScope);
     const chat = await probe('{"scope":"chat"}', 'chat');
-    const relay = await probe('{"scope":"relay"}', 'relay');
+    const relay = await probe('{"scope":"relay"}', splitCommunity ? 'split+relay' : 'relay');
     const standardProbes = channelMode ? 1 : 2;
+    const community = { chat: 0, relay: 0, flymail: 0, standard: 0, community: 1 };
     assert.deepEqual(chat, { chat: 2, relay: 0, flymail: 0, standard: 0, community: 0 });
-    assert.deepEqual(relay, { chat: 0, relay: 1 + standardProbes, flymail: 1, standard: 1, community: 1 });
+    assert.deepEqual(relay, { chat: 0, relay: 1 + standardProbes, flymail: 1, standard: 1, community: splitCommunity ? 0 : 1 });
+    assert.deepEqual(await probe('{"scope":"community"}', 'community'), community);
     assert.deepEqual(await probe('{"scope":"flymail"}', 'flymail'), { chat: 0, relay: 1, flymail: 1, standard: 0, community: 0 });
     assert.deepEqual(await probe('{"scope":"standard"}', 'standard'), { chat: 0, relay: standardProbes, flymail: 0, standard: 1, community: 0 });
     assert.deepEqual(await probeFrame(frame('{"scope":"chat"}') + frame('{"scope":"standard"}'), 'chat+standard'), {
       chat: chat.chat, relay: standardProbes, flymail: 0, standard: 1, community: 0
     });
-    assert.deepEqual(await probe('{}', ''), { ...relay, chat: chat.chat });
+    assert.deepEqual(await probe('{}', ''), { ...relay, chat: chat.chat, community: 1 });
     for (const data of ['{"scope":"future"}', 'invalid']) {
-      assert.deepEqual(await probe(data), { ...relay, chat: chat.chat });
+      assert.deepEqual(await probe(data), { ...relay, chat: chat.chat, community: 1 });
     }
   }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
   assert.deepEqual(result.errors, []);
 });
+}
+
+for (const scope of ['standard', 'flymail'] as const) {
+  test(`投递完成不会逐条查询空队列，SSE 可唤醒仍在处理的 ${scope} 通道`, async t => {
+    const artifact = process.env.XIUXIAN_NOTIFICATION_STREAM_ARTIFACT;
+    const wirePath = process.env.XIUXIAN_NOTIFICATION_WAKEUP_WIRE;
+    const runtime = artifact ? await import(pathToFileURL(artifact).href) as typeof import('../../src/notification/stream') : { startNotificationStream, stopNotificationStream };
+    const frames = wirePath ? JSON.parse(readFileSync(wirePath, 'utf8')) as Record<string, string> : undefined;
+    const app = createTestApp({ config });
+    const previousLogin = process.env.login;
+    process.env.login = 'qq-bot';
+    const receipts = new Map<string, () => void>();
+    t.after(() => {
+      runtime.stopNotificationStream();
+      for (const release of receipts.values()) release();
+      app.dispose();
+      if (previousLogin === undefined) delete process.env.login;
+      else process.env.login = previousLogin;
+    });
+
+    const encoder = new TextEncoder();
+    let stream!: ReadableStreamDefaultController<Uint8Array>;
+    t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) => new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream = controller;
+        controller.enqueue(encoder.encode('event: stream.ready\ndata: {}\n\n'));
+        options.signal?.addEventListener('abort', () => controller.close(), { once: true });
+      }
+    }), { headers: { 'Content-Type': 'text/event-stream' } }));
+    const queued = ['first', 'second', 'third'];
+    let claims = 0;
+    t.mock.method(axios, 'create', () => ({
+      async post(path: string, input: { lane?: string; eventId?: string }) {
+        let data: unknown = null;
+        if (path.endsWith('/claim') && input.lane === scope) {
+          claims++;
+          const eventId = queued.shift();
+          data = { event: eventId ? { eventId, recipientUserId: 7, payload: { version: 1, recipientUserId: 7, source: 'black-box.reminder', data: [] } } : null };
+        } else if (path.endsWith('/claim')) {
+          data = { event: null };
+        } else if (path.endsWith('/legacy-sent-ids')) {
+          data = { ids: [] };
+        } else if (path.endsWith('/ack') && input.eventId) {
+          await new Promise<void>(resolve => { receipts.set(input.eventId!, resolve); });
+        } else if (!path.endsWith('/community/claim') && !path.endsWith('/claim-next')) {
+          throw new Error(`Unexpected notification request: ${path}`);
+        }
+        return { data: { data } };
+      }
+    }));
+    const result = await app.runHandler(async () => {
+      runtime.startNotificationStream();
+      await settle();
+      assert.equal(claims, 4, 'three claims followed by one empty probe');
+      assert.equal(receipts.size, 3);
+
+      receipts.get('first')!();
+      await settle();
+      assert.equal(claims, 4, 'a receipt alone must not probe the empty queue');
+
+      queued.push('fourth');
+      const frame = frames ? frames[scope] : `event: notification.ready\ndata: {"scope":"${scope}"}\n\n`;
+      assert.ok(frame, `missing server SSE frame for ${scope}`);
+      stream.enqueue(encoder.encode(frame));
+      await settle();
+      assert.equal(claims, 6);
+      assert.ok(receipts.has('fourth'), 'new work must run while earlier receipts remain in flight');
+
+      for (const release of receipts.values()) release();
+      await settle();
+      assert.equal(claims, 6, 'draining the full batch must not re-probe the known-empty lane');
+
+      queued.push('fifth');
+      stream.enqueue(encoder.encode(frame));
+      await settle();
+      assert.equal(claims, 8, 'a later wakeup restarts the idle lane');
+      assert.ok(receipts.has('fifth'), 'the new delivery was not lost at drain shutdown');
+      receipts.get('fifth')!();
+      await settle();
+      assert.equal(claims, 8, 'the final receipt must not cause another claim');
+    }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
+    assert.deepEqual(result.errors, []);
+  });
 }
 
 function unavailable() {

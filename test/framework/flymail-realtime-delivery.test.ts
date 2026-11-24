@@ -35,6 +35,8 @@ test('SSE 飞信按固定窗口推送，普通消息认领阻塞时也不等待�
   }), { headers: { 'Content-Type': 'text/event-stream' } }));
   t.mock.method(axios, 'create', () => ({ async post(path: string, body: Record<string, unknown>) {
     let data: unknown = null;
+    if (path.endsWith('/claim-next')) return { data: { claim: null, pending: false } };
+    if (path.endsWith('/community/claim')) return { data: { data: null } };
     if (path.endsWith('/claim')) {
       if (body.eventType === 'platform.message.dispatch') { entered(); await standardRelease; }
       if (body.lane === 'flymail' && pending) {
@@ -51,8 +53,10 @@ test('SSE 飞信按固定窗口推送，普通消息认领阻塞时也不等待�
       acknowledged();
     } else if (path.endsWith('/retry')) throw new Error(String(body.error));
     else if (path.endsWith('/legacy-sent-ids')) throw new Error('飞信不得等待旧消息池快照');
-    else if (path.endsWith('/community/claim')) data = null;
     else if (path.endsWith('/player/categories')) data = { enabled: true };
+    else if (path.endsWith('/delivery-check')) data = { allowed: true };
+    else if (path.endsWith('/delivery-start')) data = { allowed: true, token: 'a'.repeat(64) };
+    else if (path.endsWith('/delivery-finish')) data = { ok: true };
     else if (path.endsWith('/subscription')) data = { platform: 'qq-bot', channelId: 'flymail-group', botId: 'bot', targetScope: 'group', isEnabled: true, failureCount: 0, lastDeliveryAt: null, lastError: null };
     else if (path.endsWith('/private-target/read')) data = { platform: 'qq-bot', scope: 'c2c', targetId: 'private-recipient', BotId: 'bot' };
     else if (path.endsWith('/availability/read')) data = { available: true, updatedAt: 1 };

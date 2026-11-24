@@ -1,8 +1,8 @@
 import { logger } from 'alemonjs';
 
-export type NotificationWakeupScope = 'chat' | 'relay' | 'flymail' | 'standard';
+export type NotificationWakeupScope = 'chat' | 'relay' | 'flymail' | 'standard' | 'community';
 
-type Job = { name: string; scope?: NotificationWakeupScope; run: () => Promise<void> };
+type Job = { name: string; scope?: NotificationWakeupScope; run: () => Promise<void>; wakeRunning?: () => boolean };
 type Lane = Job & { running: boolean; pending: boolean; delay: number; timer?: ReturnType<typeof setTimeout> };
 
 /** SSE 负责唤醒；仅失败的队列退避重试，已成功的队列不会被连带重跑。 */
@@ -15,10 +15,16 @@ export class NotificationDispatcher {
   }
 
   wake(scope?: NotificationWakeupScope): void {
+    if (this.stopped) {
+      return;
+    }
     for (const lane of this.lanes) {
       const wakesRelayLane = scope === 'relay' && (lane.scope === 'flymail' || lane.scope === 'standard');
 
       if (scope !== undefined && lane.scope !== scope && !wakesRelayLane) {
+        continue;
+      }
+      if (lane.running && lane.wakeRunning?.()) {
         continue;
       }
       lane.pending = true;
