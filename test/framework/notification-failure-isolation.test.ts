@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, test } from 'node:test';
+import { pathToFileURL } from 'node:url';
 import axios, { AxiosError } from 'axios';
 import { logger, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
@@ -15,6 +17,95 @@ const config = {
 };
 const settle = async () => { for (let i = 0; i < 12; i++) await new Promise<void>(resolve => setImmediate(resolve)); };
 after(() => shutdownLogger());
+
+for (const channelMode of [false, true]) {
+test(`SSE 按范围唤醒通知队列，旧版或未知范围仍唤醒全部 channel=${channelMode}`, async t => {
+  const artifact = process.env.XIUXIAN_NOTIFICATION_STREAM_ARTIFACT;
+  const wirePath = process.env.XIUXIAN_NOTIFICATION_WAKEUP_WIRE;
+  const runtime = artifact ? await import(pathToFileURL(artifact).href) as typeof import('../../src/notification/stream') : { startNotificationStream, stopNotificationStream };
+  const frames = wirePath ? JSON.parse(readFileSync(wirePath, 'utf8')) as Record<string, string> : undefined;
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const app = createTestApp({ config: { ...config, 'xiuxian-game': { backend: { ...config['xiuxian-game'].backend, channel_mode: channelMode } } } });
+  t.after(() => app.dispose());
+  t.after(() => runtime.stopNotificationStream());
+  const previousLogin = process.env.login;
+  process.env.login = 'qq-bot';
+  t.after(() => {
+    if (previousLogin === undefined) delete process.env.login;
+    else process.env.login = previousLogin;
+  });
+  const encoder = new TextEncoder();
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  t.mock.method(globalThis, 'fetch', async (_url: unknown, options: RequestInit) =>
+    new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        stream = controller;
+        controller.enqueue(encoder.encode('event: stream.ready\ndata: {}\n\n'));
+        options.signal?.addEventListener('abort', () => controller.close(), { once: true });
+      }
+    }), { headers: { 'Content-Type': 'text/event-stream' } })
+  );
+  const counts = { chat: 0, relay: 0, flymail: 0, standard: 0, community: 0 };
+  t.mock.method(axios, 'create', () => ({
+    post: async (path: string, input?: { lane?: string }) => {
+      if (path.endsWith('/claim-next')) {
+        counts.chat++;
+        return { data: { claim: null, pending: false } };
+      }
+      if (path.endsWith('/community/claim')) {
+        counts.community++;
+        return { data: { data: null } };
+      }
+      assert.ok(path.endsWith('/claim'), path);
+      counts.relay++;
+      if (input?.lane === 'flymail') counts.flymail++;
+      if (input?.lane === 'standard') counts.standard++;
+      return { data: { data: { event: null } } };
+    }
+  } as never));
+  const result = await app.runHandler(async () => {
+    runtime.startNotificationStream();
+    await settle();
+    assert.ok(counts.chat > 0 && counts.relay > 0);
+    const probeFrame = async (expected: string, wireScope?: string) => {
+      const before = { ...counts };
+      let frame = expected;
+      if (frames && wireScope !== undefined) {
+        assert.equal(frames[wireScope], frame);
+        frame = frames[wireScope];
+      }
+
+      stream.enqueue(encoder.encode(frame));
+      await settle();
+      return {
+        chat: counts.chat - before.chat,
+        relay: counts.relay - before.relay,
+        flymail: counts.flymail - before.flymail,
+        standard: counts.standard - before.standard,
+        community: counts.community - before.community
+      };
+    };
+    const frame = (data: string) => `event: notification.ready\ndata: ${data}\n\n`;
+    const probe = (data: string, wireScope?: string) => probeFrame(frame(data), wireScope);
+    const chat = await probe('{"scope":"chat"}', 'chat');
+    const relay = await probe('{"scope":"relay"}', 'relay');
+    const standardProbes = channelMode ? 1 : 2;
+    assert.deepEqual(chat, { chat: 2, relay: 0, flymail: 0, standard: 0, community: 0 });
+    assert.deepEqual(relay, { chat: 0, relay: 1 + standardProbes, flymail: 1, standard: 1, community: 1 });
+    assert.deepEqual(await probe('{"scope":"flymail"}', 'flymail'), { chat: 0, relay: 1, flymail: 1, standard: 0, community: 0 });
+    assert.deepEqual(await probe('{"scope":"standard"}', 'standard'), { chat: 0, relay: standardProbes, flymail: 0, standard: 1, community: 0 });
+    assert.deepEqual(await probeFrame(frame('{"scope":"chat"}') + frame('{"scope":"standard"}'), 'chat+standard'), {
+      chat: chat.chat, relay: standardProbes, flymail: 0, standard: 1, community: 0
+    });
+    assert.deepEqual(await probe('{}', ''), { ...relay, chat: chat.chat });
+    for (const data of ['{"scope":"future"}', 'invalid']) {
+      assert.deepEqual(await probe(data), { ...relay, chat: chat.chat });
+    }
+  }, app.events.groupMessage({ platform: 'qq-bot', botId: '100017' }));
+  assert.deepEqual(result.errors, []);
+});
+}
+
 function unavailable() {
   return new AxiosError('raw transport with secret-bot-token', 'ERR_BAD_RESPONSE', undefined, undefined, {
     status: 503, statusText: 'Service Unavailable', data: { error: { code: 'SERVICE_UNAVAILABLE', message: '渠道凭据暂时无法验证 secret-bot-token secret-worker-token', requestId: 'req_notification_test' }, private: 'never-log-response-body' }, headers: {}, config: { headers: { Authorization: 'Bearer secret-bot-token' } }

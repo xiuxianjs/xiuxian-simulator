@@ -1,18 +1,26 @@
 import { logger } from 'alemonjs';
 
-type Lane = { name: string; run: () => Promise<void>; running: boolean; pending: boolean; delay: number; timer?: ReturnType<typeof setTimeout> };
+export type NotificationWakeupScope = 'chat' | 'relay' | 'flymail' | 'standard';
+
+type Job = { name: string; scope?: NotificationWakeupScope; run: () => Promise<void> };
+type Lane = Job & { running: boolean; pending: boolean; delay: number; timer?: ReturnType<typeof setTimeout> };
 
 /** SSE 负责唤醒；仅失败的队列退避重试，已成功的队列不会被连带重跑。 */
 export class NotificationDispatcher {
   private stopped = false;
   private readonly lanes: Lane[];
 
-  constructor(jobs: { name: string; run: () => Promise<void> }[]) {
+  constructor(jobs: Job[]) {
     this.lanes = jobs.map(job => ({ ...job, running: false, pending: false, delay: 1000 }));
   }
 
-  wake(): void {
+  wake(scope?: NotificationWakeupScope): void {
     for (const lane of this.lanes) {
+      const wakesRelayLane = scope === 'relay' && (lane.scope === 'flymail' || lane.scope === 'standard');
+
+      if (scope !== undefined && lane.scope !== scope && !wakesRelayLane) {
+        continue;
+      }
       lane.pending = true;
       if (!lane.running && !lane.timer) {
         void this.drain(lane);

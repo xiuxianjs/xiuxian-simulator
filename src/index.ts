@@ -6,7 +6,7 @@ import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
 import { startCustomerSupportPolling, stopCustomerSupportPolling } from './api/bot/customer-support';
 import { normalizeRobotBid } from './api/bot/robot-bid';
 import { gameExpose } from './expose';
-import { observePlayerGroupActivity } from './notification/activity';
+import { observePlayerGroupActivity, startPlayerGroupActivityObserver, stopPlayerGroupActivityObserver } from './notification/activity';
 import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
 import { startNotificationStream, stopNotificationStream } from './notification/stream';
 import { handleCommandError } from './response/commandError';
@@ -61,6 +61,7 @@ export default defineChildren({
   onCreated: async () => {
     disposed = false;
     servicesStarted = false;
+    startPlayerGroupActivityObserver();
     startAnalyticsDelivery();
     stopAnalyticsConfigWatch = onWatchConfigValue(startAnalyticsDelivery);
     await startReadyServices();
@@ -93,6 +94,7 @@ export default defineChildren({
   // 应用销毁阶段触发。
   onDispose: async () => {
     disposed = true;
+    stopPlayerGroupActivityObserver();
     stopAnalyticsConfigWatch?.();
     stopAnalyticsConfigWatch = undefined;
     stopAnalyticsDelivery();

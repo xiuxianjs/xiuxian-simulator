@@ -21,6 +21,7 @@ export class ChatContactObserver {
   private running = false;
   private disposed = false;
   private retryDelay = 1000;
+  private retryAt = 0;
   private readonly outbox: ChatContactOutbox;
 
   constructor(
@@ -141,7 +142,8 @@ export class ChatContactObserver {
     if (this.running || this.disposed) {
       return;
     }
-    const due = Date.now() + delay;
+    const now = Date.now();
+    const due = Math.max(now + delay, this.retryAt);
 
     if (this.timer && this.scheduledAt <= due) {
       return;
@@ -153,7 +155,7 @@ export class ChatContactObserver {
     this.timer = setTimeout(() => {
       this.timer = undefined;
       void this.flush();
-    }, delay);
+    }, due - now);
     this.timer.unref?.();
   }
 
@@ -167,18 +169,34 @@ export class ChatContactObserver {
     }
     this.running = true;
     let delay = 5000;
+    const scanStarted = performance.now();
+    let scanMs: number | undefined;
+    let batchSize: number | undefined;
+    let fileCount: number | undefined;
+    let requestStarted: number | undefined;
+    let requestMs: number | undefined;
+    let phase = 'scan';
 
     try {
-      const batch = await this.outbox.batch();
+      const { entries: batch, fileCount: pendingFiles } = await this.outbox.batch();
+
+      scanMs = Math.round(performance.now() - scanStarted);
+      batchSize = batch.length;
+      fileCount = pendingFiles;
 
       if (!batch.length || this.disposed) {
         return;
       }
+      phase = 'request';
+      requestStarted = performance.now();
       const result = await this.send(batch.map(entry => entry.item));
 
+      requestMs = Math.round(performance.now() - requestStarted);
+      phase = 'receipt';
       if (!Array.isArray(result?.items) || result.items.length !== batch.length) {
         throw new Error('好友感知回执不完整');
       }
+      phase = 'acknowledge';
       await this.outbox.acknowledge(batch);
       for (const { item } of batch) {
         if (item.kind === 'group_exit' || item.kind === 'group_join') {
@@ -210,11 +228,23 @@ export class ChatContactObserver {
         this.groups.delete(this.groups.keys().next().value!);
       }
       this.retryDelay = 1000;
+      this.retryAt = 0;
       delay = 250;
     } catch (error) {
-      logger.warn('好友状态异步上报失败，磁盘待同步记录保留并退避重试', error);
-      delay = this.retryDelay;
+      delay = Math.round(this.retryDelay * (0.75 + Math.random() * 0.25));
+      this.retryAt = Date.now() + delay;
       this.retryDelay = Math.min(60_000, this.retryDelay * 2);
+      const failedAt = performance.now();
+
+      logger.warn('好友状态异步上报失败，磁盘待同步记录保留并退避重试', {
+        phase,
+        batchSize,
+        fileCount,
+        scanMs: scanMs ?? Math.round(failedAt - scanStarted),
+        requestMs: requestMs ?? (requestStarted === undefined ? undefined : Math.round(failedAt - requestStarted)),
+        retryDelayMs: delay,
+        error
+      });
     } finally {
       this.running = false;
       // Also discover pending records left by another process or a restart.

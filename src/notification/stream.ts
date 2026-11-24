@@ -6,7 +6,7 @@ import { getNotificationBackendConfig, hasNotificationBackendUrl } from '@src/ap
 import { logger, onWatchConfigValue } from 'alemonjs';
 import { getQQBotAppIds } from '../utils/qqBotIdentity';
 import { PushFlyMailTask, dispatchStandardMessages } from '@src/task/pushMessageTask';
-import { NotificationDispatcher } from './dispatch';
+import { NotificationDispatcher, type NotificationWakeupScope } from './dispatch';
 
 let started = false;
 let stopWaitingForConfig: (() => void) | undefined;
@@ -16,6 +16,21 @@ let activeController: AbortController | undefined;
 let cancelReconnect: (() => void) | undefined;
 
 let activeDispatcher: NotificationDispatcher | undefined;
+
+function notificationWakeupScope(lines: string[]): NotificationWakeupScope | undefined {
+  const data = lines
+    .filter(line => line === 'data' || line.startsWith('data:'))
+    .map(line => line.slice(5).replace(/^ /, ''))
+    .join('\n');
+
+  try {
+    const scope: unknown = JSON.parse(data)?.scope;
+
+    return scope === 'chat' || scope === 'relay' || scope === 'flymail' || scope === 'standard' ? scope : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const consume = async (body: ReadableStream<Uint8Array>, controller: AbortController, dispatcher: NotificationDispatcher): Promise<void> => {
   const reader = body.getReader();
@@ -43,14 +58,16 @@ const consume = async (body: ReadableStream<Uint8Array>, controller: AbortContro
         const frame = buffer.slice(0, boundary);
 
         buffer = buffer.slice(boundary + 2);
-        const event = frame
-          .split('\n')
+        const lines = frame.split('\n');
+        const event = lines
           .find(line => line.startsWith('event:'))
           ?.slice(6)
           .trim();
 
-        if (event === 'stream.ready' || event === 'notification.ready') {
+        if (event === 'stream.ready') {
           dispatcher.wake();
+        } else if (event === 'notification.ready') {
+          dispatcher.wake(notificationWakeupScope(lines));
         }
         boundary = buffer.indexOf('\n\n');
       }
@@ -84,10 +101,10 @@ export const startNotificationStream = (): void => {
   warnedMissingBackendUrl = false;
   started = true;
   const dispatcher = new NotificationDispatcher([
-    { name: '飞信', run: PushFlyMailTask },
-    { name: '玩家通知', run: dispatchStandardMessages },
-    { name: '群通知', run: dispatchCommunityNotifications },
-    { name: '运营消息', run: dispatchChatNotices }
+    { name: '飞信', scope: 'flymail', run: PushFlyMailTask },
+    { name: '玩家通知', scope: 'standard', run: dispatchStandardMessages },
+    { name: '群通知', scope: 'relay', run: dispatchCommunityNotifications },
+    { name: '运营消息', scope: 'chat', run: dispatchChatNotices }
   ]);
 
   activeDispatcher = dispatcher;

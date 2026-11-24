@@ -1,17 +1,18 @@
 import assert from 'node:assert/strict';
 import { after, test, type TestContext } from 'node:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import axios from 'axios';
-import { onResponse, shutdownLogger, type Events } from 'alemonjs';
+import { logger, onResponse, shutdownLogger, type Events } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { ChatContactObserver } from '../../src/notification/chatContacts';
+import { ChatContactOutbox } from '../../src/notification/chatContactOutbox';
 import type { ChatContactObservation } from '../../src/api/bot/chat';
 
 after(() => shutdownLogger());
-async function fixture(t: TestContext) {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+async function fixture(t: TestContext, mockClock = false) {
+  t.mock.timers.enable({ apis: mockClock ? ['Date', 'setTimeout'] : ['setTimeout'] });
   const directory = await mkdtemp(join(tmpdir(), 'chat-observer-'));
   const app = createTestApp({ config: { 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test' } } } });
   const observer = new ChatContactObserver(undefined, () => app.clock.now(), directory);
@@ -117,6 +118,59 @@ test('失败保留待同步，重试不覆盖新私聊状态；每批最多 100 
   assert.equal(calls, 4);
   await observer.dispose(); await run(group('after-dispose')); await observer.flush();
   assert.equal(calls, 4);
+});
+
+test('失败退避期间的新 QQ 事件继续落盘，但不会提前触发重试', async t => {
+  const { app, observer, group, run } = await fixture(t, true);
+  t.mock.method(Math, 'random', () => 0);
+  const warnings = t.mock.method(logger, 'warn', () => {});
+  let calls = 0;
+  let retryStarted!: (items: ChatContactObservation[]) => void;
+  const retried = new Promise<ChatContactObservation[]>(resolve => { retryStarted = resolve; });
+  t.mock.method(axios, 'create', () => ({ async post(_path: string, body: { items: ChatContactObservation[] }) {
+    calls++;
+    if (calls === 1) throw new Error('offline');
+    retryStarted(body.items);
+    return { data: { items: body.items.map(item => ({ ...item, relationState: 1, relationAt: item.occurredAt, enabled: true })) } };
+  } }));
+  await run(group('original'));
+  await app.run(() => observer.flush());
+  const diagnostic = warnings.mock.calls.find(call => String(call.arguments[0]).includes('好友状态异步上报失败'))?.arguments[1];
+  assert.ok(diagnostic);
+  assert.partialDeepStrictEqual(diagnostic, { phase: 'request', batchSize: 1, fileCount: 1, retryDelayMs: 750 });
+  assert.ok(Number.isFinite(diagnostic.scanMs) && Number.isFinite(diagnostic.requestMs));
+  const timers = t.mock.method(globalThis, 'setTimeout');
+  await run(group('new'));
+  assert.equal(timers.mock.calls.filter(call => call.arguments[1] === 250).length, 0);
+  t.mock.timers.tick(749);
+  assert.equal(calls, 1);
+  app.run(() => t.mock.timers.tick(1));
+  const items = await retried;
+  assert.equal(calls, 2);
+  assert.deepEqual(items.map(item => item.openId).sort(), ['new', 'original']);
+});
+
+test('并行扫描跨窗口合并同一联系人，只确认选中的文件版本', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'chat-outbox-scan-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const outbox = new ChatContactOutbox(directory);
+  const observation = { botId: 'bot', openId: 'person', bid: 'person', kind: 'private', occurredAt: 1000, groupSeen: false };
+
+  for (let index = 0; index < 101; index++) {
+    await writeFile(join(directory, `${String(index).padStart(3, '0')}.json`), JSON.stringify({ ...observation, openId: `person-${index}` }));
+  }
+  await writeFile(join(directory, 'newer.json'), JSON.stringify({ ...observation, openId: 'person-0', occurredAt: 2000 }));
+  await writeFile(join(directory, 'unfinished.tmp'), '{');
+  const { entries, fileCount } = await outbox.batch();
+  assert.equal(fileCount, 102);
+  assert.equal(entries.length, 100);
+  assert.equal(entries[0].item.occurredAt, 2000);
+  assert.equal(entries[0].paths.length, 2);
+  await outbox.acknowledge(entries);
+  assert.deepEqual((await readdir(directory)).sort(), ['100.json', 'unfinished.tmp']);
+  await writeFile(join(directory, 'broken.json'), '{"private-marker": broken}');
+  await assert.rejects(outbox.batch(), { message: '通讯录待同步文件不是有效 JSON' });
+  assert.deepEqual((await readdir(directory)).sort(), ['100.json', 'broken.json', 'unfinished.tmp']);
 });
 
 test('重启补报缓存期的新证据；无时间删除保留待核对事件；群退出不记录操作人', async t => {

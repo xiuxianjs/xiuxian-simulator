@@ -19,6 +19,26 @@ export const newerObservation = (a: ChatContactObservation, b: ChatContactObserv
 };
 
 type PendingObservation = { item: ChatContactObservation; paths: string[] };
+const OUTBOX_READ_CONCURRENCY = 8;
+
+async function readObservation(path: string): Promise<{ item: ChatContactObservation; path: string } | undefined> {
+  let content: string;
+
+  try {
+    content = await readFile(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+
+    return undefined;
+  }
+  try {
+    return { item: JSON.parse(content), path };
+  } catch {
+    throw new Error('通讯录待同步文件不是有效 JSON');
+  }
+}
 
 /** Durable transport spool, not a relationship authority. Immutable filenames
  * make acknowledgements safe when another process writes to the same volume. */
@@ -74,37 +94,38 @@ export class ChatContactOutbox {
     return operation;
   }
 
-  async batch(): Promise<PendingObservation[]> {
+  async batch(): Promise<{ entries: PendingObservation[]; fileCount: number }> {
     await this.writes;
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const selected = new Map<string, PendingObservation>();
+    const names = (await readdir(this.directory)).filter(name => name.endsWith('.json')).sort();
 
-    for (const name of (await readdir(this.directory)).filter(name => name.endsWith('.json')).sort()) {
-      const path = join(this.directory, name);
-      let item: ChatContactObservation;
+    for (let offset = 0; offset < names.length; offset += OUTBOX_READ_CONCURRENCY) {
+      const results = await Promise.allSettled(names.slice(offset, offset + OUTBOX_READ_CONCURRENCY).map(name => readObservation(join(this.directory, name))));
 
-      try {
-        item = JSON.parse(await readFile(path, 'utf8'));
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      for (const result of results) {
+        if (result.status === 'rejected') {
+          throw result.reason;
+        }
+        if (!result.value) {
           continue;
         }
-        throw error;
-      }
-      const key = observationKey(item);
-      const previous = selected.get(key);
+        const { item, path } = result.value;
+        const key = observationKey(item);
+        const previous = selected.get(key);
 
-      if (previous) {
-        previous.paths.push(path);
-        if (newerObservation(item, previous.item)) {
-          previous.item = item;
+        if (previous) {
+          previous.paths.push(path);
+          if (newerObservation(item, previous.item)) {
+            previous.item = item;
+          }
+        } else if (selected.size < 100) {
+          selected.set(key, { item, paths: [path] });
         }
-      } else if (selected.size < 100) {
-        selected.set(key, { item, paths: [path] });
       }
     }
 
-    return [...selected.values()];
+    return { entries: [...selected.values()], fileCount: names.length };
   }
 
   async acknowledge(batch: PendingObservation[]): Promise<void> {
