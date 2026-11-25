@@ -28,30 +28,45 @@ const handlers=await import('data:text/javascript;base64,'+Buffer.from(bundle.ou
 const output=goTestFixture(['test','./internal/httpapi','-run','^TestRobotBusinessLeaderboardMenu','-v','-count=1'], {cwd:fileURLToPath(new URL('../../xiuxian-game-server/',import.meta.url)),encoding:'utf8',maxBuffer:64*1024*1024});
 const rows=[...output.matchAll(/ROBOT_LEADERBOARD_MENU=(.+)/g)].map(m=>JSON.parse(m[1]));assert.equal(rows.length,12);
 async function run(kind,row,isPrivate){Object.assign(state,{kind,row,sent:[],calls:[],next:0,legacyCalls:0});const e={name:'message.create',UserId:'player',uid:1,MessageText:row.text,isPrivate};await framework.run(handlers[kind], e, ()=>state.next++);return structuredClone(state.sent);}
-test('leaderboard menu preserves catalog ordering and reaches every board across pages',async()=>{
- const groups=['实力成长','修仙百业','道友互动','竞技与活动','其他'];
- for(const row of rows.filter(r=>r.state==='ready'))for(const isPrivate of [false,true]){
-  const entries=groups.flatMap(group=>row.v1.data.flatMap(entry=>entry.menu?.group===group && !mentionsRetiredFeature(entry.menu.command) && !mentionsRetiredFeature(entry.menu.label)?[entry.menu]:[]));
-  const commands=[];
-  const pageCount=Math.ceil(entries.length/18);
-  const size=Math.ceil(entries.length/pageCount);
-  for(let page=1;page<=pageCount;page++){
-   const actual=await run('current',{...row,text:page===1?row.text:row.text+' 2'},isPrivate);
-   assert.equal(state.calls.length,1);
-   assert.deepEqual(state.calls[0],{op:'leaderboard.menu',args:row.arguments});
+test('leaderboard tabs use the activity hub layout and reach every active board', async () => {
+ const tabs=['/排行榜 综合榜','/排行榜 玩法榜'];
+ const toolbar=['/我','/属性面板','/查看主线','/我的活动','/商店'];
+ for(const row of rows.filter(r=>r.state==='ready')) for(const isPrivate of [false,true]){
+  const entries=row.v1.data.flatMap(({menu})=>menu && !mentionsRetiredFeature(menu.command) && !mentionsRetiredFeature(menu.label)?[menu]:[]);
+  const descriptions=new Map(entries.map(entry=>[entry.command,entry.description]));
+  const render=async text=>{
+   const actual=await run('current',{...row,text},isPrivate);
+   assert.deepEqual(state.calls,[{op:'leaderboard.menu',args:row.arguments}]);
    assert.equal(state.legacyCalls,0);
    assert.equal(state.next,0);
    assert.equal(actual.length,1);
    const view=inspectMessage(actual[0]);
-   const shown=entries.slice((page-1)*size,page*size);
-   const projected=view.commands.filter(command=>entries.some(entry=>entry.command===command));
-   assert.deepEqual(projected,shown.map(entry=>entry.command));
-   for(const entry of shown) assert.ok(view.text.includes(entry.description),entry.command);
-   assert.ok(view.text.includes(row.v1.data.find(entry=>entry.menuHint).menuHint));
-   assert.ok(view.commands.includes(`/排行榜 ${page===1?2:page-1}`));
-   commands.push(...projected);
-  }
-  assert.deepEqual(commands,entries.map(entry=>entry.command));
+   assert.deepEqual(view.commands.slice(0,2),tabs);
+   assert.deepEqual(view.commands.slice(-5),toolbar);
+   assert.ok(!view.text.includes(row.v1.data.find(entry=>entry.menuHint).menuHint));
+   const markdown=actual[0].find(node=>node.type==='Markdown');
+   const blocks=markdown.value.filter(node=>node.type==='MD.blockquote');
+   const commands=blocks.map(({value})=>{
+    assert.deepEqual(value.map(node=>node.type),['MD.button','MD.text']);
+    const [button,description]=value;
+    assert.equal(button.options.autoEnter,false);
+    assert.ok([...button.options.data].length<=80);
+    assert.equal(description.value,' — '+descriptions.get(button.options.data));
+    return button.options.data;
+   });
+   assert.deepEqual(view.commands.slice(2,-5),commands);
+   return {view,commands};
+  };
+  const general=await render('/排行榜');
+  assert.ok(general.view.text.includes('▸综合榜'));
+  assert.match(general.view.text,/个人主线榜/);
+  assert.match(general.view.text,/宗门主线榜/);
+  assert.deepEqual(general.commands.slice(6,9),['/灵石榜','/灵晶榜','/珍宝楼商誉榜']);
+  const gameplay=await render(tabs[1]);
+  assert.ok(gameplay.view.text.includes('▸玩法榜'));
+  assert.deepEqual((await render('/排行榜 2')).view.commands,gameplay.view.commands);
+  assert.deepEqual((await render(tabs[0])).view.commands,general.view.commands);
+  assert.deepEqual([...general.commands,...gameplay.commands].sort(),entries.map(entry=>entry.command).sort());
  }
 });
 test('leaderboard middleware calls parent next; transport or invalid receipt ends with original failure bubble',async()=>{

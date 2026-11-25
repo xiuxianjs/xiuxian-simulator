@@ -127,8 +127,20 @@ for (const entry of entries) for (const isPrivate of [false, true]) {
     assert.deepEqual(requests[0].body.arguments, entry.args);
     assert.ok(!view.text.includes('建议：'));
     if (entry.handler === menu) {
-      for (const text of ['原目录提示', '原榜单', '原描述']) assert.ok(view.text.includes(text));
-      assert.ok(view.commands.includes('/境界排行榜'));
+      assert.ok(view.text.includes('境界榜'));
+      assert.ok(!view.text.includes('原目录提示'));
+      assert.ok(!view.text.includes('原榜单'));
+      const markdown = result.messages[0].nodes.find(node => node.type === 'Markdown');
+      assert.ok(markdown && Array.isArray(markdown.value));
+      const row = markdown.value.find(node => node.type === 'MD.blockquote');
+      assert.ok(row?.type === 'MD.blockquote' && Array.isArray(row.value));
+      assert.deepEqual(row.value.map(node => node.type), ['MD.button', 'MD.text']);
+      const [button, description] = row.value;
+      assert.ok(button.type === 'MD.button' && button.options);
+      assert.ok(description.type === 'MD.text');
+      assert.equal(button.options.data, '/境界排行榜');
+      assert.equal(button.options.autoEnter, false);
+      assert.equal(description.value, ' — 原描述');
     } else {
       assert.ok(view.text.includes('原道友'));
       assert.ok(view.text.includes(entry.handler === realm ? '#88' : 'ID:88'));
