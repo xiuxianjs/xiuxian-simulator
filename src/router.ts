@@ -624,6 +624,10 @@ export function createGameRouter() {
     xiuxian.use('主线排行榜', () => import('@src/response/storyline/leaderboard/res'));
     xiuxian.use('妖塔排行榜', () => import('@src/response/demonTower/leaderboard/res'));
     xiuxian.use(['丹师排行榜', '炼丹师排行榜'], () => import('@src/response/alchemy/leaderboard/res'));
+    xiuxian.use(
+      ['锻造师榜', '宝录收藏榜', '灵植师榜', '同届新秀榜', '灵脉宗门榜', '宗门主线榜', '竞技周榜', '珍宝楼商誉榜', '灵石榜', '灵晶榜'],
+      () => import('@src/response/leaderboard/collectionRes')
+    );
     xiuxian.use('人气排行榜', () => import('@src/response/leaderboard/popularity/res'));
     xiuxian.use('凶兽排行', () => import('@src/response/worldBoss/leaderboard/res'));
     xiuxian.use('凶兽奖励', () => import('@src/response/worldBoss/rewards/res'));

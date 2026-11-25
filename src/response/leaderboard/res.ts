@@ -4,6 +4,7 @@ import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { rankingFeedbackMarkdown, rankingFailureMarkdown } from './view';
 import { useMessage } from '@src/utils/useMessage';
+import { BUBBLE_LIMITS } from '@src/response/presentation/index';
 /**
  * 统一排行榜入口
  * 指令：/排行榜
@@ -50,8 +51,17 @@ export default onResponse(selects, async e => {
     return;
   }
 
-  for (const group of ['实力成长', '修仙百业', '道友互动', '竞技与活动', '其他']) {
-    const items = menu.items.filter(item => item.group === group && !mentionsRetiredFeature(item.command) && !mentionsRetiredFeature(item.label));
+  const groups = ['实力成长', '修仙百业', '道友互动', '竞技与活动', '其他'];
+  const active = menu.items.filter(item => !mentionsRetiredFeature(item.command) && !mentionsRetiredFeature(item.label));
+  const visible = groups.flatMap(group => active.filter(item => item.group === group));
+  const total = Math.max(1, Math.ceil(visible.length / BUBBLE_LIMITS.homeTotalButtons));
+  const pageSize = Math.ceil(visible.length / total);
+  const requested = Number(e.MessageText?.trim().match(/排行榜\s*(\d+)$/u)?.[1] ?? 1);
+  const page = Math.min(total, Math.max(1, requested));
+  const shown = visible.slice((page - 1) * pageSize, page * pageSize);
+
+  for (const group of groups) {
+    const items = shown.filter(item => item.group === group);
 
     if (items.length === 0) {
       continue;
@@ -72,7 +82,8 @@ export default onResponse(selects, async e => {
       isPrivate,
       bid,
       title: '排行榜',
-      content: md
+      content: md,
+      nav: total > 1 ? { current: page, total, count: visible.length, command: '/排行榜 {page}' } : undefined
     })
   );
 });

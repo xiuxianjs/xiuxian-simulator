@@ -12,6 +12,22 @@ const commands: Record<string, string> = {
 };
 
 export function leaderboardRecoveryTips(operation: string, text: string): RecoveryTip[] {
+  if (
+    [
+      'leaderboard.forge',
+      'leaderboard.baolu',
+      'leaderboard.herbalist',
+      'leaderboard.newcomers',
+      'leaderboard.spirit-war',
+      'leaderboard.guild-story',
+      'leaderboard.spar',
+      'leaderboard.merchants',
+      'leaderboard.spirit-stone',
+      'leaderboard.spirit-crystal'
+    ].includes(operation)
+  ) {
+    return [{ label: '返回排行榜', command: '/排行榜', description: '可先浏览其他榜单，稍后再查看当前榜单' }];
+  }
   if (!commands[operation] || /炼气五层及以上方可开启/.test(text)) {
     return [];
   }

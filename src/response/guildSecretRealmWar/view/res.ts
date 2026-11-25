@@ -65,7 +65,10 @@ export default onResponse(selects, async e => {
       title: '灵脉攻防战',
       items: items.length > 0 ? items : [{ lines: ['状态：本页暂无阵位'] }],
       nav: realmNo ? { current: page, hasNext: items.length === 5, command: `/灵脉攻防战查看 ${realmNo} {page}` } : undefined,
-      footer: [{ label: '攻防列表', command: '/灵脉攻防战列表 1', autoEnter: false }]
+      footer: [
+        ...(realmNo ? [{ label: '本战场排行', command: `/灵脉宗门榜 1 ${realmNo}` }] : []),
+        { label: '攻防列表', command: '/灵脉攻防战列表 1', autoEnter: false }
+      ]
     })
   );
 });
