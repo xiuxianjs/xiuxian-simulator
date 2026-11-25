@@ -14,6 +14,7 @@ import type { BackendRequestContext } from './context';
 import { createBackendRequestContext, getEventTransportDiagnosticContext } from './context';
 import { receiveRepeatPresentation } from './repeat-presentation';
 import { normalizeRobotBid } from './robot-bid';
+import { capturePrivateTargetRecovery } from './private-target-recovery';
 
 // Event-local diagnostics only; never cache identities, replies or write results.
 const eventRequestTimings = new WeakMap<object, { sequence: number; active: number; totalMs: number; startedAt: number }>();
@@ -78,10 +79,29 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
     eventRequestTimings.set(event, eventTiming);
   }
 
+  const privateRecovery =
+    event &&
+    'UserId' in event &&
+    event.UserId === bid &&
+    'OccurredAt' in event &&
+    (operationId === 'post_robot_middleware_entry' ||
+      operationId === 'post_robot_home_overview' ||
+      operationId === 'post_v2_robot_business_operation' ||
+      operationId === 'post_v2_robot_home_overview')
+      ? capturePrivateTargetRecovery(bid, event.OccurredAt, tracedArgs[0]?.body, config)
+      : undefined;
+
   try {
     const normalizedBid = normalizeRobotBid(bid);
     const timeoutMs = backendRequestTimeout(transportOperation, config.timeoutMs, args[0]);
     let timedArgs = tracedArgs;
+
+    if (privateRecovery) {
+      const headers = new Headers(tracedArgs[0]?.headers);
+
+      headers.set('X-Private-Target-Observed-At', String(privateRecovery.observedAt));
+      timedArgs = [{ ...tracedArgs[0], headers }] as RequestArguments<I>;
+    }
 
     if (operationId === 'post_robot_command_entry' && new Headers(tracedArgs[0]?.headers).get('X-Command-Catalog') === 'v1') {
       const headers = new Headers(tracedArgs[0]?.headers);
@@ -106,6 +126,7 @@ export async function requestBackend<I extends OperationId>(bid: unknown, operat
 
     return result;
   } catch (error) {
+    privateRecovery?.recordUnconfirmed(error);
     recordBackendError(config, error);
     if (error instanceof SDKError) {
       if (error.code === 'SDK_ROBOT_BID_INVALID') {

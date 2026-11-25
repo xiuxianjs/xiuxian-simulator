@@ -6,6 +6,8 @@ import { getBackendConfig } from './config';
 type HTTPFailure = { response?: { data?: unknown; status?: number; headers?: Record<string, unknown> }; code?: string };
 type NotificationRequestContext = { requestId: string; timeoutMs: number; startedAt: number };
 
+export class NotificationReceiptLookupUnavailableError extends Error {}
+
 export function notificationRequestContext(timeoutMs: number): NotificationRequestContext {
   return { requestId: randomUUID(), timeoutMs, startedAt: performance.now() };
 }
@@ -61,4 +63,13 @@ export function notificationRequestError(path: string, error: unknown, context?:
   }
 
   return notificationResponseError(path, error, context);
+}
+
+export function isRetryableNotificationRequestError(error: unknown): boolean {
+  if (!(error instanceof Error) || error.name !== 'NotificationRequestError') {
+    return false;
+  }
+  const status = (error as Error & { status?: number }).status;
+
+  return status === undefined || status === 408 || status === 429 || status >= 500;
 }

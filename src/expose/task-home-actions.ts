@@ -5,7 +5,7 @@ import { intentIdSchema, replySchema, taskInputSchema, validateIntentId } from '
 import { boolean, list, object, project, text } from './schema';
 import { createBackendRequestContext } from '../api/bot/context';
 import { requestBackend, writeContext } from '../api/bot/client';
-import { middlewareInputFromEvent } from '../api/bot/middleware-entry';
+import { capturePrivateTargetRecovery, middlewareInputFromEvent } from '../api/bot/middleware-entry';
 import { parseRobotBusinessResult } from '../api/bot/robot-business';
 import type { GameEvent } from '../types/event';
 
@@ -54,6 +54,7 @@ export const taskHomeActions = {
 
       context.signal.throwIfAborted();
       const body = { ...middlewareInputFromEvent(event), messageText, taskInput: input.taskInput };
+      const recovery = capturePrivateTargetRecovery(event, body);
       const raw = await requestBackend(event.UserId, 'post_v2_robot_home_overview', {
         body,
         ...writeContext(request),
@@ -61,6 +62,7 @@ export const taskHomeActions = {
       });
       const result = parseRobotBusinessResult(raw, event.UserId);
 
+      recovery?.record(result.middleware);
       context.signal.throwIfAborted();
 
       return project(output, {

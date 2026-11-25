@@ -9,6 +9,7 @@ import { seedEventBackendRobotIdentity } from './identity';
 import { seedEventAccessFacts } from './access-facts';
 import { BackendAPIError, requestBackend, writeContext } from './client';
 import { createBackendRequestContext } from './context';
+import { capturePrivateTargetRecovery as captureRecovery } from './private-target-recovery';
 
 export type RobotMiddlewareInput = {
   messageText: string;
@@ -300,6 +301,10 @@ export function businessInputFromEvent(event: GameEvent): RobotMiddlewareInput &
   return taskInput === undefined ? input : { ...input, taskInput };
 }
 
+export function capturePrivateTargetRecovery(event: GameEvent, input: RobotMiddlewareInput) {
+  return captureRecovery(event.UserId, event.OccurredAt, input);
+}
+
 const entries = new WeakMap<object, { bid: string; pending: Promise<RobotMiddlewareResult> }>();
 
 /** One raw-message request per event. Errors never probe, retry or fall back. */
@@ -315,9 +320,12 @@ export function getEventMiddlewareEntry(event: GameEvent): Promise<RobotMiddlewa
   }
   const pending = (async () => {
     const context = writeContext(createBackendRequestContext(event));
-    const value = await requestBackend(event.UserId, 'post_robot_middleware_entry', { body: middlewareInputFromEvent(event), ...context });
+    const body = middlewareInputFromEvent(event);
+    const recovery = capturePrivateTargetRecovery(event, body);
+    const value = await requestBackend(event.UserId, 'post_robot_middleware_entry', { body, ...context });
     const result = parseRobotMiddlewareResult(value, event.UserId);
 
+    recovery?.record(result);
     seedEventBackendRobotIdentity(event, result.identity);
     const uid = result.identity.account.playerId;
 

@@ -1,40 +1,28 @@
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { getBackendConfig } from '@src/api/bot/config';
+import { isRetryableNotificationRequestError, NotificationReceiptLookupUnavailableError } from '@src/api/bot/notification-error';
 import { formatGameTime } from '@src/utils/gameTime';
-import { createHash, randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { Format, getConfigValue, logger } from 'alemonjs';
 import {
   acquirePlatformDeliveryLease,
   claimCommunityNotification,
-  finishCommunityNotification,
+  memberAvailabilityBatchSize,
+  NotificationMemberAvailabilityUnavailableError,
   readCommunitySettings,
   readPlatformAvailability,
-  queueCommunityNotification,
-  readPlatformDeliveryReceipt,
-  storePlatformDeliveryReceipt,
+  readPlatformMemberAvailability,
   type CommunityBatch
 } from '@src/api/bot/notification-cache';
 import { getAppConfig } from '@src/utils/appConfig';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { notificationChannel, NotificationProbeDeferredError, refreshNotificationPermission } from './channel';
 import { requireCommunityBotAdministrator } from './community';
-import type { LifecycleEvent } from './lifecycle';
+import { notificationDeliveryReceipt } from './deliveryReceipt';
+import { platformObservationOutbox } from './platformObservationOutbox';
 
-export async function queueCommunityWelcome(event: LifecycleEvent): Promise<void> {
-  if (event.Platform !== 'qq-bot' || event.name !== 'member.add' || !event.Target || !event.MemberId || !event.BotId) {
-    return;
-  }
-  const target = { ...event.Target, platform: event.Platform, BotId: event.BotId };
-  const state = await readPlatformAvailability(target, event.MemberId);
-  const occurredAt = Number.isSafeInteger(event.OccurredAt) && (event.OccurredAt ?? 0) > 0 ? event.OccurredAt : undefined;
-
-  if (state?.available !== true || (occurredAt && state.updatedAt > occurredAt)) {
-    return;
-  }
-  await queueCommunityNotification(target, 'welcome', event.MemberId, occurredAt ?? state.updatedAt);
-}
-
+const memberAvailabilityConcurrency = 8;
 const welcomeScenes = ['山门风铃轻响，又有道友踏云而来。', '云间传来脚步声，仙途又添一位同行人。', '洞府外清风拂过，一段新的相逢就此开始。'];
 
 /** 平台事件批次不进入玩家游戏历史，不猜测成员的私聊目标。 */
@@ -117,6 +105,40 @@ export function buildCommunityBatch(batch: CommunityBatch) {
   }).format.value;
 }
 
+async function availableWelcomeMembers(target: CommunityBatch['target'], ids: string[]): Promise<string[]> {
+  const available: string[] = [];
+  let useBatchRead = ids.length > memberAvailabilityConcurrency;
+
+  for (let offset = 0; offset < ids.length;) {
+    if (useBatchRead) {
+      const members = ids.slice(offset, offset + memberAvailabilityBatchSize);
+      const flags = await readPlatformMemberAvailability(target, members);
+
+      if (flags !== null) {
+        available.push(...members.filter((_, index) => flags[index]));
+        offset += members.length;
+        continue;
+      }
+      useBatchRead = false;
+    }
+
+    const members = ids.slice(offset, offset + memberAvailabilityConcurrency);
+    const results = await Promise.allSettled(members.map(id => readPlatformAvailability(target, id)));
+
+    for (const [index, result] of results.entries()) {
+      if (result.status === 'rejected') {
+        throw result.reason;
+      }
+      if (result.value?.available === true) {
+        available.push(members[index]);
+      }
+    }
+    offset += members.length;
+  }
+
+  return available;
+}
+
 async function deliverBatch(batch: CommunityBatch, consumer: string) {
   const settings = await readCommunitySettings(batch.target);
   const enabled = batch.kind === 'shop-raid' ? settings.shopRaidEnabled : batch.kind === 'welcome' ? settings.welcomeEnabled : settings.requestReminders;
@@ -135,7 +157,7 @@ async function deliverBatch(batch: CommunityBatch, consumer: string) {
     return false;
   }
   if (permission?.state !== 'allowed') {
-    throw new Error('群主动消息权限暂时无法确认');
+    throw new NotificationProbeDeferredError('群主动消息权限暂时无法确认');
   }
   if (permission.retryAt && permission.retryAt > Date.now()) {
     throw new NotificationProbeDeferredError('群通知通道仍在失败冷却中');
@@ -143,9 +165,7 @@ async function deliverBatch(batch: CommunityBatch, consumer: string) {
   let items = [...new Set(batch.items)];
 
   if (batch.kind === 'welcome') {
-    const members = await Promise.all(items.map(id => readPlatformAvailability(batch.target, id)));
-
-    items = items.filter((_, index) => members[index]?.available === true);
+    items = await availableWelcomeMembers(batch.target, items);
   } else if (batch.kind === 'request') {
     await requireCommunityBotAdministrator(batch.target);
   }
@@ -163,7 +183,9 @@ async function deliverBatch(batch: CommunityBatch, consumer: string) {
   try {
     await notificationChannel.send(batch.target, buildCommunityBatch({ ...batch, items }), permission);
   } catch (error) {
-    await notificationChannel.recordFailure(batch.target);
+    if (!isRetryableNotificationRequestError(error)) {
+      await notificationChannel.recordFailure(batch.target).catch(cacheError => logger.error('群平台通知失败状态保存失败', cacheError));
+    }
     throw error;
   }
 
@@ -194,31 +216,53 @@ export async function dispatchCommunityNotifications(): Promise<void> {
 
       const results = await Promise.allSettled(
         selectedBotIds.map(async botId => {
-          const consumer = `node.community:${randomUUID()}`;
-
           for (let processed = 0; processed < 10; processed++) {
-            const batch = await claimCommunityNotification(botId, consumer);
+            if (getBackendConfig().notificationQueueScope !== backend.notificationQueueScope) {
+              return;
+            }
+            const claim = await claimCommunityNotification(botId);
 
-            if (!batch) {
+            if (!claim) {
               break;
             }
-            try {
-              if (!(await readPlatformDeliveryReceipt(batch.eventId))) {
-                const sent = await deliverBatch(batch, consumer);
+            const { batch, consumer, clearRecovery } = claim;
 
+            if (getBackendConfig().notificationQueueScope !== backend.notificationQueueScope) {
+              await platformObservationOutbox.recordCommunityFinish(backend.notificationQueueScope, batch.eventId, consumer, true, true);
+              clearRecovery?.();
+
+              return;
+            }
+            let sent = false;
+            let retry = false;
+            let deferred = false;
+
+            try {
+              const receipt = notificationDeliveryReceipt(batch.eventId);
+
+              if (!(await receipt.read())) {
+                sent = await deliverBatch(batch, consumer);
                 if (sent) {
-                  await storePlatformDeliveryReceipt(batch.eventId, { route: 'group', reason: 'sent' });
+                  await receipt.save({ route: 'group', reason: 'sent' });
                 }
               }
-              await finishCommunityNotification(batch.eventId, consumer, false);
             } catch (error) {
-              const deferred = error instanceof NotificationProbeDeferredError;
+              retry = true;
+              const unavailableBeforeSend =
+                !sent &&
+                (error instanceof NotificationReceiptLookupUnavailableError ||
+                  error instanceof NotificationMemberAvailabilityUnavailableError ||
+                  isRetryableNotificationRequestError(error));
 
-              if (!deferred) {
+              deferred = unavailableBeforeSend || error instanceof NotificationProbeDeferredError;
+              if (unavailableBeforeSend) {
+                logger.warn('群平台通知发送前依赖不可用，延期重试', error);
+              } else if (!deferred) {
                 logger.warn('群平台通知等待重试', error instanceof Error ? error.message : '未知错误');
               }
-              await finishCommunityNotification(batch.eventId, consumer, true, deferred);
             }
+            await platformObservationOutbox.recordCommunityFinish(backend.notificationQueueScope, batch.eventId, consumer, retry, deferred);
+            clearRecovery?.();
             if (processed === 9) {
               pending = true;
             }

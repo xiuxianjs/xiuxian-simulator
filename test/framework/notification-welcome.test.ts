@@ -1,20 +1,31 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, test } from 'node:test';
 import axios from 'axios';
 import { ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
-import welcome from '../../src/response/notification/welcome/res';
 
 after(() => shutdownLogger());
 
 test('入群欢迎使用陪伴式口吻并保留权限入口与修为引导，说明和按钮在同一个引用块', async t => {
+  const cwd = process.cwd();
+  const directory = await mkdtemp(join(tmpdir(), 'notification-event-'));
+  process.chdir(directory);
+  t.after(async () => {
+    process.chdir(cwd);
+    await rm(directory, { recursive: true, force: true });
+  });
+  const { default: welcome } = await import('../../src/response/notification/welcome/res');
   const requests: Array<{ path: string; body: unknown }> = [];
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: unknown) {
       requests.push({ path, body });
       if (path.endsWith('/availability/read')) return { data: { data: { available: true, updatedAt: 1 } } };
+      if (path.endsWith('/receipt/read')) return { data: { data: null } };
       if (path.endsWith('/receipt/lease/acquire')) return { data: { data: { acquired: true } } };
-      if (path.endsWith('/availability/event') || path.endsWith('/receipt/store')) return { data: { data: null } };
+      if (path.endsWith('/availability/event') || path.endsWith('/receipt/store')) return { data: { data: { ok: true } } };
       throw new Error(`Unexpected backend request: ${path}`);
     }
   }));
@@ -43,8 +54,8 @@ test('入群欢迎使用陪伴式口吻并保留权限入口与修为引导，�
   assert.deepEqual(view.commands, ['/修仙帮助', '/踏入仙途', '/我的设置', '/登录']);
   assert.doesNotMatch(view.text, /固定翻倍|已开启|已允许|我是系统|我是修仙机器人|退出AI/);
   assert.deepEqual(requests.map(request => request.path.split('/cache')[1]), [
-    '/availability/event', '/availability/read', '/receipt/lease/acquire', '/receipt/store'
+    '/availability/event', '/availability/read', '/receipt/read', '/receipt/lease/acquire', '/receipt/store'
   ]);
-  const receipt = requests[3].body as { receipt: { route: string; reason: string } };
+  const receipt = requests.at(-1)!.body as { receipt: { route: string; reason: string } };
   assert.deepEqual(receipt.receipt, { route: 'group', reason: 'sent' });
 });

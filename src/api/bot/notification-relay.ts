@@ -1,5 +1,5 @@
 import { observeBackendRequest } from './backend-availability';
-import { notificationRequestContext, notificationRequestError } from './notification-error';
+import { notificationRequestContext, notificationRequestError, NotificationReceiptLookupUnavailableError } from './notification-error';
 import { measureTransportStage } from '../../utils/transportTiming';
 import axios from 'axios';
 import { getAppConfig } from '@src/utils/appConfig';
@@ -111,7 +111,12 @@ export async function acknowledgeNotificationRelay(eventId: string, consumer: st
   }
 }
 export async function retryNotificationRelay(eventId: string, consumer: string, error: unknown): Promise<void> {
-  await post('/retry', { eventId, consumer, error: error instanceof Error ? error.message : String(error) });
+  await post('/retry', {
+    eventId,
+    consumer,
+    error: error instanceof Error ? error.message : String(error),
+    ...(error instanceof NotificationReceiptLookupUnavailableError ? { receiptLookupUnavailable: true } : {})
+  });
 }
 export async function archiveNotificationRelay(bid: string, key: string, data: unknown, playerId?: number): Promise<void> {
   await post('/archive', { bid, key, data, playerId });

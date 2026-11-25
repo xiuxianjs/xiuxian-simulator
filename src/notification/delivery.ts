@@ -11,7 +11,7 @@ export async function deliverNotification(
   input: {
     /** 唯一的群投放点；没有订阅群就不向任何群投递。 */
     group?: NotificationTarget | null;
-    privateTarget?: NotificationTarget | null;
+    privateTarget?: NotificationTarget | null | (() => Promise<NotificationTarget | null>);
     data: DataEnums[];
     mention?: string;
     recipientBid?: string;
@@ -90,10 +90,12 @@ export async function deliverNotification(
   if (input.group && (await tryGroup(input.group))) {
     return { route: 'group', reason: 'sent' };
   }
-  if (input.privateTarget) {
+  const privateTarget = typeof input.privateTarget === 'function' ? await input.privateTarget() : input.privateTarget;
+
+  if (privateTarget) {
     const data = input.mention ? FormatGui({ isPrivate: true, bid: input.mention, content: input.data, bar: false }).format.value : input.data;
 
-    if (await tryTarget(input.privateTarget, data)) {
+    if (await tryTarget(privateTarget, data)) {
       return { route: 'private', reason: 'sent' };
     }
 

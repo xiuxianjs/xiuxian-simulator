@@ -2,13 +2,16 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { after, test, type TestContext } from 'node:test';
 import axios from 'axios';
-import { createResult, onResponse, ResultCode, shutdownLogger } from 'alemonjs';
+import { createResult, getConfig, onResponse, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp, inspectMessage } from 'alemonjs/testing';
 import { notificationChannel } from '../../src/notification/channel';
 import { bufferFlyMailSend, withNotificationBuffer, withNotificationDeliveryCheck } from '../../src/notification/flymailBuffer';
 import { notificationNoticeData, notificationSettingsData } from '../../src/notification/presentation';
 
-after(() => shutdownLogger());
+after(async () => {
+  getConfig().dispose();
+  await shutdownLogger();
+});
 const turn = () => new Promise<void>(resolve => setImmediate(resolve));
 const content = (value: string) => notificationNoticeData([{ type: 'Text', value }]);
 const target = { platform: 'qq-bot', BotId: 'bot', scope: 'group' as const, targetId: 'group' };

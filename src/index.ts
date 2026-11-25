@@ -6,7 +6,7 @@ import { assertChannelRobotEvent, getBackendConfig } from './api/bot/config';
 import { startCustomerSupportPolling, stopCustomerSupportPolling } from './api/bot/customer-support';
 import { normalizeRobotBid } from './api/bot/robot-bid';
 import { gameExpose } from './expose';
-import { observePlayerGroupActivity, startPlayerGroupActivityObserver, stopPlayerGroupActivityObserver } from './notification/activity';
+import { platformObservationOutbox } from './notification/platformObservationOutbox';
 import { observeChatContact, resetChatContactObserver, stopChatContactObserver } from './notification/chatContacts';
 import { startNotificationStream, stopNotificationStream } from './notification/stream';
 import { handleCommandError } from './response/commandError';
@@ -46,6 +46,7 @@ async function startReadyServices(): Promise<void> {
   startCustomerSupportPolling();
   startRechargeSubscriptions();
   await resetChatContactObserver();
+  platformObservationOutbox.start();
   try {
     await startFeatureVisibility();
   } catch {
@@ -61,7 +62,6 @@ export default defineChildren({
   onCreated: async () => {
     disposed = false;
     servicesStarted = false;
-    startPlayerGroupActivityObserver();
     startAnalyticsDelivery();
     stopAnalyticsConfigWatch = onWatchConfigValue(startAnalyticsDelivery);
     await startReadyServices();
@@ -78,7 +78,6 @@ export default defineChildren({
     if (typeof event.UserId === 'number' || typeof event.UserId === 'bigint') {
       event.UserId = normalizeRobotBid(event.UserId);
     }
-    observePlayerGroupActivity(event);
     observeChatContact(event);
     // 记录事件处理阶段的时间戳。
     startTransportEvent(event);
@@ -94,7 +93,6 @@ export default defineChildren({
   // 应用销毁阶段触发。
   onDispose: async () => {
     disposed = true;
-    stopPlayerGroupActivityObserver();
     stopAnalyticsConfigWatch?.();
     stopAnalyticsConfigWatch = undefined;
     stopAnalyticsDelivery();
@@ -103,6 +101,7 @@ export default defineChildren({
     stopNotificationStream();
     await stopCustomerSupportPolling();
     stopRechargeSubscriptions();
+    await platformObservationOutbox.stop();
     await stopChatContactObserver();
   },
   // 注册路由

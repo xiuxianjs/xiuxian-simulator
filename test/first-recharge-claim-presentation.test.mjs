@@ -23,7 +23,7 @@ const bundle=await build({stdin:{resolveDir:process.cwd(),contents:`export {defa
  b.onResolve({filter:/^(\.\/client|@src\/api\/bot\/client)$/},()=>({path:'client',namespace:'seam'}));
  b.onLoad({filter:/.*/,namespace:'seam'},()=>({resolveDir:process.cwd(),contents:`
  import {getCurrentEvent} from 'alemonjs';
- import {receiveRepeatPresentation} from '/Users/lemonade/Documents/xiuxian-game/src/api/bot/repeat-presentation.ts';
+ import {receiveRepeatPresentation} from './src/api/bot/repeat-presentation.ts';
  export const BackendAPIError=globalThis.__firstError;
  export const selects=['message.create','private.message.create','interaction.create','private.interaction.create'];
  export const writeContext=()=>({});

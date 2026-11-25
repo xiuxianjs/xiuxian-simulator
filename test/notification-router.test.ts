@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import router from '../src/router';
-import { queueCommunityWelcome } from '../src/notification/communityDelivery';
-import { handleNotificationLifecycle } from '../src/notification/lifecycle';
+import { handleNotificationLifecycle, type LifecycleEvent } from '../src/notification/lifecycle';
 import { handleCommunityJoinRequest } from '../src/notification/community';
 import { handleNotificationPermissionEvent } from '../src/notification/channel';
 import { sendNotificationWelcome } from '../src/notification/welcome';
@@ -28,9 +27,8 @@ test('main router selects platform events precisely without platform restriction
 });
 
 test('QQ-only notification actions safely ignore events from other platforms', async () => {
-  const other = { Platform: 'other', name: 'member.add' } as Parameters<typeof queueCommunityWelcome>[0];
-  await queueCommunityWelcome(other);
-  await handleNotificationLifecycle(other);
+  const other = { Platform: 'other', name: 'member.add' } as LifecycleEvent;
+  await handleNotificationLifecycle(other, true);
   await handleCommunityJoinRequest({ Platform: 'other', name: 'notice.create' } as Parameters<typeof handleCommunityJoinRequest>[0]);
   await handleNotificationPermissionEvent({ Platform: 'other', name: 'notice.create' } as Parameters<typeof handleNotificationPermissionEvent>[0]);
   let sent = false;

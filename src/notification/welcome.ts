@@ -1,10 +1,11 @@
 import { commandText } from '@src/utils/commandPrefix';
-import { acquirePlatformDeliveryLease, readPlatformAvailability, storePlatformDeliveryReceipt } from '@src/api/bot/notification-cache';
+import { acquirePlatformDeliveryLease, readPlatformAvailability } from '@src/api/bot/notification-cache';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, type Events } from 'alemonjs';
 import { createHash, randomUUID } from 'crypto';
 import { assertNotificationReceipt, readNotificationChannel, withNotificationTimeout } from './channel';
+import { notificationDeliveryReceipt } from './deliveryReceipt';
 import type { LifecycleEvent } from './lifecycle';
 
 const pending = new Set<string>();
@@ -32,7 +33,9 @@ export async function sendNotificationWelcome(event: WelcomeEvent, send: (data: 
     .update(JSON.stringify([event.Platform, event.BotId, event.name, event.MessageId]))
     .digest('hex')}`;
 
-  if (pending.has(key) || !(await acquirePlatformDeliveryLease(key, randomUUID()))) {
+  const receipt = notificationDeliveryReceipt(key);
+
+  if (pending.has(key) || (await receipt.read()) || !(await acquirePlatformDeliveryLease(key, randomUUID()))) {
     return;
   }
   // 服务端租约防止其他进程同时回复；本地集合保护当前进程。
@@ -45,7 +48,7 @@ export async function sendNotificationWelcome(event: WelcomeEvent, send: (data: 
     const result = await withNotificationTimeout(() => send(data));
 
     assertNotificationReceipt(result);
-    await storePlatformDeliveryReceipt(key, { route: target.scope === 'group' ? 'group' : 'private', reason: 'sent' });
+    await receipt.save({ route: target.scope === 'group' ? 'group' : 'private', reason: 'sent' });
   } finally {
     pending.delete(key);
   }

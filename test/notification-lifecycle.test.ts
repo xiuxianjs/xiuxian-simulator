@@ -25,7 +25,7 @@ test('raw QQ member identifiers restore the real target and persist removal', as
   const bodies: Record<string, unknown>[] = [];
   t.mock.method(axios, 'create', () => ({ post: async (_path: string, body: Record<string, unknown>) => {
     bodies.push(body);
-    return { data: { data: {} } };
+    return { data: { data: { ok: true } } };
   } }));
   const event = lifecycle({ BotId: 'bot', UserId: 'operator', OccurredAt: 1000, value: { group_openid: 'group', member_openid: 'departed', op_member_openid: 'operator' } });
   assert.equal(await handleNotificationLifecycle(event), true);

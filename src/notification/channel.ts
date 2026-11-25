@@ -1,5 +1,6 @@
 import { assertCommandBudget } from '@src/utils/commandPrefix';
 import { bufferFlyMailSend } from './flymailBuffer';
+import { platformObservationOutbox } from './platformObservationOutbox';
 import { NotificationDeliveryUncertainError } from '@src/types/notification';
 import { measureTransportStage } from '@src/utils/transportTiming';
 import { logger, MessageDirect, Ok, useGuild, type Events, type GuildBotState } from 'alemonjs';
@@ -15,7 +16,6 @@ import {
   compareAndSetPlatformPermission,
   readPlatformPermission,
   readPlatformPrivateTarget,
-  recordPlatformPermissionEvent,
   recordPlatformPermissionFailure,
   rememberPlatformPrivateTarget
 } from '@src/api/bot/notification-cache';
@@ -265,7 +265,13 @@ export async function rememberNotificationTarget(event: NotificationContextEvent
     privateTarget = { platform, BotId: botId, scope: 'c2c', targetId: event.UserId };
   }
   if (privateTarget && 'UserId' in event && event.UserId) {
-    await rememberPlatformPrivateTarget(platform, event.UserId, privateTarget);
+    const occurredAt = event.OccurredAt;
+
+    if (occurredAt !== undefined && Number.isSafeInteger(occurredAt) && occurredAt > 0) {
+      await platformObservationOutbox.recordPrivateTarget(platform, event.UserId, privateTarget, occurredAt);
+    } else {
+      await rememberPlatformPrivateTarget(platform, event.UserId, privateTarget);
+    }
   }
 }
 
@@ -282,7 +288,7 @@ export async function handleNotificationPermissionEvent(event: NotificationConte
   const occurredAt = event.OccurredAt;
   const observedOnly = !Number.isSafeInteger(occurredAt) || (occurredAt ?? 0) <= 0;
 
-  await recordPlatformPermissionEvent(target, event.Notice.enabled, observedOnly ? Date.now() : occurredAt!, observedOnly);
+  await platformObservationOutbox.recordPermission(target, event.Notice.enabled, observedOnly ? Date.now() : occurredAt!, observedOnly);
   await rememberNotificationTarget(event);
 }
 

@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import axios from 'axios';
 import { dispatchCommunityNotifications } from '../../src/notification/communityDelivery';
-import { createResult, ResultCode, shutdownLogger } from 'alemonjs';
+import { createResult, getConfig, ResultCode, shutdownLogger } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { readNotificationBotRole, refreshNotificationPermission } from '../../src/notification/channel';
 
-after(() => shutdownLogger());
+after(async () => {
+  getConfig().dispose();
+  await shutdownLogger();
+});
 
 test('并发角色检查等待同一次真实框架查询，后续命中快照', async t => {
   const app = createTestApp({ config: { 'qq-bot': { app_id: '123' }, 'xiuxian-game': { backend: { api_url: 'http://offline.invalid', worker_token: 'test-token' } } } });
@@ -68,7 +71,7 @@ test('官服多机器人中一个领取失败不阻断另一个', async t => {
     if (body.botId === '101') throw new Error('first bot unavailable');
     return { data: { data: null } };
   } }));
-  await app.invoke(app.events.groupMessage({ platform: 'qq-bot' }), () => dispatchCommunityNotifications());
+  await assert.rejects(app.invoke(app.events.groupMessage({ platform: 'qq-bot' }), () => dispatchCommunityNotifications()), /community\/claim/);
   assert.deepEqual(claimed.sort(), ['101', '202']);
 });
 

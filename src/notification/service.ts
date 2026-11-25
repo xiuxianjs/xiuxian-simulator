@@ -4,10 +4,11 @@ import {
   recordNotificationSubscriptionDelivery,
   type NotificationSubscriptionTarget
 } from '@src/api/bot/notification-relay';
-import { readPlatformAvailability, readPlatformDeliveryReceipt, storePlatformDeliveryReceipt } from '@src/api/bot/notification-cache';
+import { readPlatformAvailability } from '@src/api/bot/notification-cache';
 import type { NotificationTarget, NotificationDelivery } from '@src/types/notification';
 import { deliverNotification, legacyNotificationTarget } from './delivery';
 import { getNotificationPrivateTarget, notificationChannel, refreshNotificationPermission } from './channel';
+import { notificationDeliveryReceipt } from './deliveryReceipt';
 
 const subscriptionTarget = (subscription: NotificationSubscriptionTarget): NotificationTarget => ({
   platform: subscription.platform,
@@ -18,14 +19,15 @@ const subscriptionTarget = (subscription: NotificationSubscriptionTarget): Notif
 
 /** 成功后数据库 ack 失败时复用回执。7 天覆盖常规重试窗口，不是玩家历史的保留期限。 */
 export async function deliverNotificationOnce(eventId: string, send: () => Promise<NotificationDelivery>): Promise<NotificationDelivery> {
-  const cached = await readPlatformDeliveryReceipt(eventId);
+  const receipt = notificationDeliveryReceipt(eventId);
+  const cached = await receipt.read();
 
   if (cached) {
     return cached;
   }
   const delivery = await send();
 
-  await storePlatformDeliveryReceipt(eventId, delivery).catch(error => logger.error('通知回执缓存失败，继续确认数据库事件', error));
+  await receipt.save(delivery).catch(error => logger.error('通知回执缓存失败，继续确认数据库事件', error));
 
   return delivery;
 }
@@ -49,9 +51,11 @@ export async function deliverPlayerNotification(
   // 订阅群是唯一的群投放点：玩家在其他群最近发过言不能成为投递理由，
   // 否则「传讯约定 · 群通知订阅」形同虚设，通知会出现在没订阅的群。
   // 订阅群不可达时按既有顺序回退私聊，再落到 /我的通知 站内记录。
-  const candidate = enabled ? ((await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId)) : null;
+  const privateTarget = async () => {
+    const candidate = (await getNotificationPrivateTarget(platform, bid, botId)) ?? legacyNotificationTarget(bid, 'private', platform, botId);
 
-  const privateTarget = options?.privateOnly && candidate && !['c2c', 'direct'].includes(candidate.scope) ? null : candidate;
+    return options?.privateOnly && candidate && !['c2c', 'direct'].includes(candidate.scope) ? null : candidate;
+  };
 
   return await deliverNotification(
     { group, privateTarget, data, mention: bid, enabled, fallbackOnFailure: options?.fallbackOnFailure },
@@ -110,15 +114,16 @@ export async function deliverPlayerNotification(
 export async function deliverLegacyNotification(input: { cid?: string; uid?: string; data: DataEnums[] }, enabled: boolean) {
   const platform = process.env.login ?? '';
   const group = input.cid ? legacyNotificationTarget(input.cid, 'group', platform) : null;
-  const privateTarget = input.uid
-    ? ((await getNotificationPrivateTarget(platform, input.uid)) ?? legacyNotificationTarget(input.uid, 'private', platform))
+  const recipientBid = input.uid;
+  const privateTarget = recipientBid
+    ? async () => (await getNotificationPrivateTarget(platform, recipientBid)) ?? legacyNotificationTarget(recipientBid, 'private', platform)
     : null;
 
   return await deliverNotification(
-    { group, privateTarget, recipientBid: input.uid, data: input.data, enabled },
+    { group, privateTarget, recipientBid, data: input.data, enabled },
     {
       ...notificationChannel,
-      send: (target, data, previous) => notificationChannel.send(target, target === privateTarget ? data.filter(block => block.type !== 'Mention') : data, previous)
+      send: (target, data, previous) => notificationChannel.send(target, target === group ? data : data.filter(block => block.type !== 'Mention'), previous)
     }
   );
 }

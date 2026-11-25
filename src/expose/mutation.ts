@@ -9,7 +9,7 @@ import { guideSchema, projectGuideReceipt } from './guide-receipt';
 import { onboardingSchema } from './onboarding-schema';
 import { createBackendRequestContext } from '../api/bot/context';
 import { requestBackend, writeContext } from '../api/bot/client';
-import { middlewareInputFromEvent } from '../api/bot/middleware-entry';
+import { capturePrivateTargetRecovery, middlewareInputFromEvent } from '../api/bot/middleware-entry';
 import { isRobotPublicEntry, parseRobotBusinessEnvelope, type RobotBusinessOperation } from '../api/bot/robot-business';
 import { invalidateEventBackendRobotIdentity } from '../api/bot/identity';
 import { invalidateEventCommandEntry } from '../api/bot/command-entry';
@@ -187,6 +187,7 @@ export function mutation<I extends Record<string, unknown>>(
         middleware.channelId = event.Target.targetId;
       }
       const catalog = options.freshRead ? preparePublicCatalogRequest(operation, args) : undefined;
+      const recovery = capturePrivateTargetRecovery(event, middleware);
       const raw = await requestBackend(event.UserId, 'post_v2_robot_business_operation', {
         path: { operation },
         body: { ...middleware, messageText, arguments: catalog?.arguments ?? args, ...(taskInput === undefined ? {} : { taskInput }) },
@@ -200,6 +201,7 @@ export function mutation<I extends Record<string, unknown>>(
         isRobotPublicEntry(operation)
       );
 
+      recovery?.record(response.middleware);
       if (operation === 'account.register' && response.success && response.branch === 'business' && (response.data as { code?: string }).code === 'OK') {
         invalidateEventBackendRobotIdentity(event);
         invalidateEventCommandEntry(event);

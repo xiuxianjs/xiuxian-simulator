@@ -1,8 +1,8 @@
 import { logger, Ok, useMember, type Events } from 'alemonjs';
 import type { GameEvent } from '@src/types/event';
 import type { NotificationTarget } from '@src/types/notification';
-import { queueCommunityNotification, recordCommunityJoinRequest } from '@src/api/bot/notification-cache';
 import { readNotificationBotRole, withNotificationTimeout } from './channel';
+import { platformObservationOutbox } from './platformObservationOutbox';
 
 export function communityTarget(event: Pick<GameEvent, 'Platform' | 'BotId' | 'Target'>): NotificationTarget {
   const target = event.Target;
@@ -57,15 +57,17 @@ export async function handleCommunityJoinRequest(event: Events['notice.create' |
   if (request.guildId !== target.targetId) {
     throw new Error('加群申请目标与事件群不一致');
   }
-  await recordCommunityJoinRequest(target, {
+  if (!request.id?.trim() || !request.userId?.trim()) {
+    throw new Error('加群申请或申请人标识无效');
+  }
+  const occurredAt = event.OccurredAt;
+
+  await platformObservationOutbox.recordJoinRequest(target, {
     id: request.id,
     userId: request.userId,
     userName: request.userName ?? '',
     appliedAt: request.appliedAt ?? '',
     autoApproved: Boolean(request.approvedByStrategyId),
-    observedAt: event.OccurredAt ?? Date.now()
+    observedAt: occurredAt !== undefined && Number.isSafeInteger(occurredAt) && occurredAt > 0 ? occurredAt : Date.now()
   });
-  if (!request.approvedByStrategyId) {
-    await queueCommunityNotification(target, 'request', request.id, event.OccurredAt ?? Date.now());
-  }
 }

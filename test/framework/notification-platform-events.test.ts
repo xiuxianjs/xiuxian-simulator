@@ -1,13 +1,31 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import { after, test, type TestContext } from 'node:test';
+import { after, before, test, type TestContext } from 'node:test';
 import axios from 'axios';
 import { ResultCode, Router, shutdownLogger, type Events } from 'alemonjs';
 import { createTestApp } from 'alemonjs/testing';
 import { register } from '../../node_modules/@alemonjs/qq-bot/lib/register.js';
-import router from '../../src/router';
 
-after(() => shutdownLogger());
+let router: typeof import('../../src/router').default;
+let suiteDirectory: string | undefined;
+
+before(async () => {
+  const cwd = process.cwd();
+  suiteDirectory = await mkdtemp(join(tmpdir(), 'notification-platform-outbox-'));
+  process.chdir(suiteDirectory);
+  try {
+    ({ default: router } = await import('../../src/router'));
+  } finally {
+    process.chdir(cwd);
+  }
+});
+after(async () => {
+  await shutdownLogger();
+  if (suiteDirectory) await rm(suiteDirectory, { recursive: true, force: true });
+});
 
 const cases = [
   ['GROUP_ADD_ROBOT', 'guild.join', '/availability/event', true],
@@ -26,6 +44,13 @@ const cases = [
 type PlatformEvent = Events['guild.join' | 'guild.exit' | 'private.friend.add' | 'private.friend.remove' | 'notice.create' | 'private.notice.create' | 'member.add' | 'member.remove'];
 
 async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = false, eventPolicy?: { allow?: string[]; deny?: string[] }, channelMode = false) {
+  const cwd = process.cwd();
+  const directory = await mkdtemp(join(tmpdir(), 'notification-event-'));
+  process.chdir(directory);
+  t.after(async () => {
+    process.chdir(cwd);
+    await rm(directory, { recursive: true, force: true });
+  });
   const requests: Array<{ path: string; body: Record<string, any> }> = [];
   t.mock.method(axios, 'create', () => ({
     async post(path: string, body: Record<string, any>) {
@@ -33,10 +58,14 @@ async function fixture(t: TestContext, repeatedUserTime = 1000, cacheFails = fal
       path = path.split('/cache')[1];
       requests.push({ path, body });
       let data: unknown = null;
-      if (path === '/availability/read') data = { available: true, updatedAt: 1 };
+      if (path === '/availability/read') {
+        const observation = requests.findLast(entry => entry.path === '/availability/event' && entry.body.memberId === body.memberId);
+        data = { available: true, updatedAt: observation?.body.occurredAt ?? 1 };
+      }
       if (path === '/permission/read') data = { state: { state: 'allowed', source: 'event', updatedAt: 1 }, raw: '' };
       if (path === '/receipt/lease/acquire') data = { acquired: true };
       if (path === '/community/requests/record') data = { inserted: true };
+      if (['/availability/event', '/permission/event', '/private-target/observe', '/community/queue'].includes(path)) data = { ok: true };
       return { data: { data } };
     }
   }));
@@ -117,6 +146,7 @@ for (const [tag, name, endpoint, replies] of cases) {
       assert.ok(queued);
       assert.equal(queued.body.itemId, 'actual-member');
       assert.equal(queued.body.occurredAt, event.OccurredAt);
+      assert.equal(queued.body.memberObservedAt, event.OccurredAt);
     }
     if (tag === 'GROUP_JOIN_REQUEST') assert.ok(requests.some(request => request.path === '/community/queue'));
     assert.equal(result.messages.length, replies ? 1 : 0);

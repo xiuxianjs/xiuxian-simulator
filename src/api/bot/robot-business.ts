@@ -6,7 +6,7 @@ import type { HomeOverviewData } from '../schemas/player-overview';
 import { BackendAPIError, requestBackend, writeContext } from './client';
 import { createBackendReadRequestContext, createBackendRequestContext } from './context';
 import type { BackendRequestContext } from './context';
-import { businessInputFromEvent, parseRobotMiddlewareResult, type RobotMiddlewareResult } from './middleware-entry';
+import { businessInputFromEvent, capturePrivateTargetRecovery, parseRobotMiddlewareResult, type RobotMiddlewareResult } from './middleware-entry';
 import { seedPresentationAccess } from './presentation-access-state';
 import { validateHomeOverview } from './player-overview';
 import { logger } from 'alemonjs';
@@ -651,6 +651,14 @@ export async function requestRobotBusiness<T>(
     )
   };
 
+  const originalRecovery = capturePrivateTargetRecovery(event, input);
+  const parse = (value: unknown, recovery: ReturnType<typeof capturePrivateTargetRecovery>) => {
+    const parsed = parseRobotBusinessEnvelope(value, event.UserId, decode, isRobotPublicEntry(operation));
+
+    recovery?.record(parsed.middleware);
+
+    return parsed;
+  };
   let result: unknown;
 
   try {
@@ -667,9 +675,10 @@ export async function requestRobotBusiness<T>(
         }
         await delay(inFlightRetryDelays[attempt]);
         try {
-          result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', parameters);
+          const recovery = capturePrivateTargetRecovery(event, input);
+          const result = await requestBackend(event.UserId, 'post_v2_robot_business_operation', parameters);
 
-          return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
+          return parse(result, recovery);
         } catch (retryError) {
           // Only keep waiting on the caller's own in-flight reservation. Any other
           // failure, including key reuse, keeps its original status.
@@ -690,9 +699,10 @@ export async function requestRobotBusiness<T>(
         await delay(wait);
       }
       try {
-        result = await requestBackend(event.UserId, 'post_v2_robot_business_receipt', { ...parameters, timeoutMs: 1500 });
+        const recovery = capturePrivateTargetRecovery(event, input);
+        const result = await requestBackend(event.UserId, 'post_v2_robot_business_receipt', { ...parameters, timeoutMs: 1500 });
 
-        return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
+        return parse(result, recovery?.scope === originalRecovery?.scope ? originalRecovery : undefined);
       } catch (lookupError) {
         if (!(lookupError instanceof BackendAPIError) || lookupError.code !== 'ROBOT_RECEIPT_NOT_READY') {
           break;
@@ -702,7 +712,7 @@ export async function requestRobotBusiness<T>(
     throw new BackendAPIError('暂未查到本次回执。', 'ROBOT_RECEIPT_UNAVAILABLE');
   }
 
-  return parseRobotBusinessEnvelope(result, event.UserId, decode, isRobotPublicEntry(operation));
+  return parse(result, originalRecovery);
 }
 
 // All combined business APIs share branch validation; each API still validates
@@ -794,9 +804,11 @@ export async function getRobotHomeOverview(event: GameEvent): Promise<RobotBusin
     event
   );
   const bid = event.UserId;
+  const recovery = capturePrivateTargetRecovery(event, input.body);
   const result = await requestBackend(bid, 'post_v2_robot_home_overview', input);
   const parsed = measureTransportStageSync('home.response.validate', () => parseRobotBusinessResult(result, bid), event);
 
+  recovery?.record(parsed.middleware);
   if (parsed.success && parsed.branch === 'business' && parsed.data.presentationAccess) {
     seedPresentationAccess(event, bid, parsed.data.presentationAccess.features);
   }

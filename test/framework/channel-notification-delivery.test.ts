@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { after, test } from 'node:test';
 import axios from 'axios';
 import { createResult, getConfig, logger, ResultCode, shutdownLogger } from 'alemonjs';
@@ -28,6 +31,13 @@ test('game API rejects another robot event before creating an authenticated requ
 });
 
 test('channel player notification uses native destination, real platform receipt, then ack without global claim', async t => {
+  const cwd = process.cwd();
+  const directory = mkdtempSync(join(tmpdir(), 'channel-notification-delivery-'));
+  process.chdir(directory);
+  t.after(() => {
+    process.chdir(cwd);
+    rmSync(directory, { recursive: true, force: true });
+  });
   t.mock.timers.enable({ apis: ['setTimeout'] });
   const app = createTestApp({ config, timeoutMs: 60_000 });
   t.after(() => app.dispose());
@@ -37,12 +47,16 @@ test('channel player notification uses native destination, real platform receipt
   let pending = true;
   let delivered = false;
   const acknowledgements: unknown[] = [];
+  const retryReasons: unknown[] = [];
   t.mock.method(axios, 'create', options => {
     assert.deepEqual(options?.headers, { Authorization: 'Bearer merchant-token' });
     return { post: async (path: string, body: Record<string, unknown>) => {
       let data: unknown = null;
       if (path.endsWith('/claim-next')) return { data: { claim: null, pending: false } };
-      if (path.endsWith('/retry')) throw new Error(String(body.error));
+      if (path.endsWith('/retry')) {
+        retryReasons.push(body.error);
+        return { data: { data: null } };
+      }
       if (path.endsWith('/claim')) {
         assert.equal(body.eventType, 'player.notification.dispatch');
         const event = body.lane === 'standard' && pending ? {
@@ -56,7 +70,10 @@ test('channel player notification uses native destination, real platform receipt
         assert.equal(body.botId, '100017');
         data = { ids: [] };
       } else if (path.endsWith('/player/categories')) data = { enabled: true };
-      else if (path.endsWith('/activity/candidates')) data = [];
+      else if (path.endsWith('/subscription')) {
+        assert.equal(body.playerId, 7);
+        data = null;
+      }
       else if (path.endsWith('/private-target/read')) {
         assert.equal(body.bid, 'native-recipient');
         data = { platform: 'qq-bot', scope: 'c2c', BotId: '100017', targetId: 'native-private' };
@@ -89,6 +106,7 @@ test('channel player notification uses native destination, real platform receipt
     await pendingTask;
   }, app.events.groupMessage({ platform: 'qq-bot' }));
   assert.deepEqual(result.errors, []);
+  assert.deepEqual(retryReasons, []);
   assert.equal(result.messages.length, 1);
   assert.equal(result.messages[0].target?.BotId, '100017');
   assert.equal(result.messages[0].target?.targetId, 'native-private');

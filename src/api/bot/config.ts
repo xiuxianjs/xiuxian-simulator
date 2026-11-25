@@ -60,12 +60,14 @@ export function getBackendConfig() {
   const fallbackUrl = primaryUrl && isBackendOrigin(legacyUrl) ? legacyUrl : '';
   const route = selectBackendRoute(configuredUrl, primaryBase, fallbackUrl, channelMode);
   const { url, apiBase } = route;
+  const channelBotId = getQQBotAppId();
   const config = {
     ...route,
     scope: apiBase === DEFAULT_API_BASE ? url : url + apiBase,
     robotAuthToken: String(value.robot_auth_token ?? '').trim(),
     channelMode,
-    channelBotId: getQQBotAppId(),
+    channelBotId,
+    notificationQueueScope: JSON.stringify([configuredUrl, primaryBase, fallbackUrl, channelMode, channelMode ? channelBotId : '']),
     timeoutMs: isValidTimeout(timeoutMs) ? timeoutMs : DEFAULT_TIMEOUT_MS,
     logTransportTimings: value.log_transport_timings === true,
     logApiTimings: value.log_api_timings === true,

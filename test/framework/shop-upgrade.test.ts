@@ -63,7 +63,7 @@ test('签到月额度售罄不生成购买按钮', async t => {
 for (const isPrivate of [false, true]) {
   test(`万宝楼劫车禁购时置顶提示并隐藏购买按钮 ${isPrivate}`, async t => {
     const { app } = await gameFixture(t, r => businessEnvelope(r.bid, catalog([
-      { ...artifact, productId: 2, shopCode: 'WANBAOLOU', name: '精力丹', category: 'item', itemId: 38, typeLabel: '丹药', priceAmount: 80, priceCurrencyCode: 'SPIRIT_CRYSTAL', priceCurrencyName: '灵晶', lockedRaidBan: true },
+      { ...artifact, productId: 2, shopCode: 'WANBAOLOU', name: '精力丹', category: 'item', itemId: 38, typeLabel: '丹药', priceAmount: 80, priceCurrencyCode: 'SPIRIT_CRYSTAL', priceCurrencyName: '灵晶', unlocked: false, lockReason: '昨日劫车禁购，11-20 00:00 恢复' },
       { ...artifact, productId: 3, shopCode: 'CHECKIN', name: '补签令', priceAmount: 40, priceCurrencyName: '签到币', priceCurrencyCode: 'CHECKIN_COIN' }
     ], { shopRaidBan: true, shopRaidBanUntil: '2026-11-20 00:00' })));
     const event = isPrivate ? app.events.privateMessage({ text: '/商店 万宝楼', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/商店 万宝楼', platform: 'qq-bot' });
@@ -71,7 +71,9 @@ for (const isPrivate of [false, true]) {
     const message = result.messages[0];
     assert.ok(message.text.includes('昨日参与劫车，2026-11-20 00:00 前无法在万宝楼购买。'), message.text);
     assert.ok(message.text.includes('精力丹'), message.text);
+    assert.ok(message.text.includes('昨日劫车禁购，11-20 00:00 恢复'), message.text);
     assert.ok(!message.commands.includes('/购买 2'), message.commands.join(' '));
+    assert.ok(message.commands.includes('/购买 3'), message.commands.join(' '));
     assert.equal(result.actions[message.actionIndex].results?.[0].code, ResultCode.Ok);
   });
 }

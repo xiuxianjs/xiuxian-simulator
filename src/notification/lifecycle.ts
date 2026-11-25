@@ -1,5 +1,5 @@
 import { logger, type Events } from 'alemonjs';
-import { recordPlatformAvailability } from '@src/api/bot/notification-cache';
+import { platformObservationOutbox } from './platformObservationOutbox';
 import { rememberNotificationTarget } from './channel';
 import type { NotificationTarget } from '@src/types/notification';
 
@@ -7,7 +7,7 @@ export const lifecycleEvents = ['private.friend.add', 'private.friend.remove', '
 export type LifecycleEvent = Events[(typeof lifecycleEvents)[number]];
 
 /** 平台生命周期仅改变对应通道，不触碰玩家存档或订阅意愿。 */
-export async function handleNotificationLifecycle(event: LifecycleEvent): Promise<boolean> {
+export async function handleNotificationLifecycle(event: LifecycleEvent, welcomeMember = false): Promise<boolean> {
   if (!lifecycleEvents.includes(event.name) || event.Platform !== 'qq-bot') {
     return false;
   }
@@ -44,8 +44,13 @@ export async function handleNotificationLifecycle(event: LifecycleEvent): Promis
   const available = event.name.endsWith('.add') || event.name === 'guild.join';
   const occurredAt = event.OccurredAt;
   const observedOnly = !Number.isSafeInteger(occurredAt) || (occurredAt ?? 0) <= 0;
+  const observedAt = observedOnly ? Date.now() : occurredAt!;
 
-  await recordPlatformAvailability(target, available, observedOnly ? Date.now() : occurredAt!, memberId ?? '', observedOnly);
+  if (welcomeMember && event.name === 'member.add') {
+    await platformObservationOutbox.recordMemberWelcome(target, memberId, observedAt, observedOnly);
+  } else {
+    await platformObservationOutbox.recordAvailability(target, available, observedAt, memberId, observedOnly);
+  }
   // 后续欢迎沿用已验证的真实目标；不推导跨范围标识。
   event.Target = target;
   event.BotId = botId;

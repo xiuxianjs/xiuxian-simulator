@@ -16,7 +16,9 @@ export default onResponse(selects, async e => {
       isPrivate: e.isPrivate,
       bid: e.UserId,
       bar: false,
-      content: Format.createMarkdown().addText('飞信已统一私聊投递，无需设置宗门或师门订阅群。私聊不可达时，仅在活跃群提醒查看。')
+      content: Format.createMarkdown().addText(
+        '飞信正文只发私聊，无需设置宗门或师门订阅群。私聊不可达时，仅在已开启通知订阅的群里发提醒。可发送 /飞信 查看站内记录。'
+      )
     })
   );
 });

@@ -1,11 +1,18 @@
 import axios from 'axios';
+import { randomUUID } from 'node:crypto';
 import { Format, MessageDirect, isMaster, logger } from 'alemonjs';
 import { assertChannelRobotEvent, getBackendConfig } from './config';
 import { getAppConfig } from '@src/utils/appConfig';
 import { assertNotificationReceipt, getNotificationPrivateTarget, rememberNotificationTarget } from '@src/notification/channel';
 import type { GameEvent } from '@src/types/event';
 
-type Result = { notice?: string; users?: string[]; deliveries?: { key: string; content: string }[] };
+type Result = {
+  notice?: string;
+  users?: string[];
+  prepareSupported?: boolean;
+  started?: boolean;
+  deliveries?: { key: string; content: string }[];
+};
 async function exchange(userId: string, action: string, extra: Record<string, unknown> = {}): Promise<Result> {
   const config = getBackendConfig();
 
@@ -36,6 +43,19 @@ async function exchange(userId: string, action: string, extra: Record<string, un
 
   return response.data.data;
 }
+
+async function exchangeRechargeClaim(user: string, action: 'start' | 'ack', request: Record<string, unknown>): Promise<Result> {
+  try {
+    return await exchange(user, action, request);
+  } catch (error) {
+    if (!axios.isAxiosError(error) || (error.response && ![500, 502, 503, 504].includes(error.response.status))) {
+      throw error;
+    }
+
+    // The server may have persisted the claim or acknowledgment before losing the response.
+    return await exchange(user, action, request);
+  }
+}
 export async function rechargeSubscriptionCommand(event: GameEvent, action: 'subscribe' | 'unsubscribe' | 'identity'): Promise<string> {
   assertChannelRobotEvent(event);
   if (!(event.IsPrivate || event.isPrivate || event.name.startsWith('private.'))) {
@@ -55,7 +75,7 @@ export async function pollRechargeSubscriptions(): Promise<void> {
   if (!config.channelMode || !getAppConfig().support_api_origin) {
     return;
   }
-  const { users = [] } = await exchange('recharge-poller', 'users');
+  const { users = [], prepareSupported } = await exchange('recharge-poller', 'users', { pendingOnly: true });
 
   for (const user of users) {
     const target = await getNotificationPrivateTarget('qq-bot', user, config.channelBotId);
@@ -63,9 +83,14 @@ export async function pollRechargeSubscriptions(): Promise<void> {
     if (!target) {
       continue;
     }
-    const result = await exchange(user, 'poll');
+    const result = await exchange(user, 'poll', prepareSupported ? { prepareOnly: true } : {});
 
     for (const delivery of result.deliveries ?? []) {
+      const claimId = prepareSupported ? randomUUID() : undefined;
+
+      if (claimId && (await exchangeRechargeClaim(user, 'start', { key: delivery.key, claimId })).started !== true) {
+        continue;
+      }
       let status = 'sent';
 
       try {
@@ -73,7 +98,7 @@ export async function pollRechargeSubscriptions(): Promise<void> {
       } catch {
         status = 'unknown';
       }
-      await exchange(user, 'ack', { key: delivery.key, status });
+      await exchangeRechargeClaim(user, 'ack', { key: delivery.key, status, ...(claimId ? { claimId } : {}) });
     }
   }
 }
