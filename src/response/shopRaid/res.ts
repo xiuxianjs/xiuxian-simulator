@@ -332,33 +332,38 @@ export default onResponse(selects, async event => {
       const teams = Array.isArray(reply.data.crews) ? reply.data.crews.map(record) : [];
       const list = crewView === '列表' || (!crewView && !mine) ? teams.slice(0, 10) : mine ? [mine] : [];
       const managing = crewView !== '列表' && mine;
+      // 长期打劫队与本车临时队是两套队伍，列表页必须先说明边界，避免玩家在本车招募期找错入口
+      const crewNotice = crewView === '列表' ? [{ lines: ['此处为全服长期打劫队，与本车临时队分开。', '本车临时队请从 /商运 车号 查看。'] }] : [];
 
       await message.send(
         listBubble({
           ...common,
           title: crewView === '列表' ? '打劫队列表' : crewView === '我的' ? '我的打劫队' : '打劫队',
-          items: list.length
-            ? list.map(team => {
-                const members = Array.isArray(team.members) ? team.members : [];
-                const captain = team.leaderId === reply.data.viewerId;
+          items: [
+            ...crewNotice,
+            ...(list.length
+              ? list.map(team => {
+                  const members = Array.isArray(team.members) ? team.members : [];
+                  const captain = team.leaderId === reply.data.viewerId;
 
-                return {
-                  lines: [`队伍 ${team.id} · 队长 UID ${team.leaderId} · ${members.length}/3 人`, `成员 UID ${members.join('、')}`],
-                  actions:
-                    managing && captain
-                      ? [
-                          ...members.slice(1).map(id => ({ label: `移除 UID ${id}`, command: `/打劫队 移除 ${team.id} ${id}` })),
-                          { label: '解散队伍', command: `/打劫队 解散 ${team.id}` },
-                          ...(!crewView && members.length < 3 ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }] : [])
-                        ]
-                      : managing
-                        ? [{ label: '退出队伍', command: `/打劫队 退出 ${team.id}` }]
-                        : !mine && members.length < 3
-                          ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }]
-                          : []
-                };
-              })
-            : [{ lines: [crewView === '我的' ? '你尚未加入打劫队。' : '当前没有打劫队。'] }],
+                  return {
+                    lines: [`队伍 ${team.id} · 队长 UID ${team.leaderId} · ${members.length}/3 人`, `成员 UID ${members.join('、')}`],
+                    actions:
+                      managing && captain
+                        ? [
+                            ...members.slice(1).map(id => ({ label: `移除 UID ${id}`, command: `/打劫队 移除 ${team.id} ${id}` })),
+                            { label: '解散队伍', command: `/打劫队 解散 ${team.id}` },
+                            ...(!crewView && members.length < 3 ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }] : [])
+                          ]
+                        : managing
+                          ? [{ label: '退出队伍', command: `/打劫队 退出 ${team.id}` }]
+                          : !mine && members.length < 3
+                            ? [{ label: '加入这支队', command: `/打劫队 加入 ${team.id}` }]
+                            : []
+                  };
+                })
+              : [{ lines: [crewView === '我的' ? '你尚未加入打劫队。' : '当前没有打劫队。'] }])
+          ],
           footer: [
             ...(!mine && crewView !== '列表' ? [{ label: '创队伍', command: '/打劫队 创建' }] : []),
             ...(crewView
@@ -1031,6 +1036,10 @@ export default onResponse(selects, async event => {
 
         if (card.phase === 'recruiting' && !card.noPaidGuard) {
           lines.push(`真人护卫 ${card.guardCount}/3${card.nextGuardWage ? ` · 下一席工钱 ${card.nextGuardWage} 灵晶` : ''}`);
+        }
+
+        if (card.phase === 'recruiting' && card.teamsEnabled) {
+          lines.push('招募期参与：先建长期打劫队，群友在【打劫队列表】点【加入这支队】；启程后由队长发起组队抢。');
         }
       }
 

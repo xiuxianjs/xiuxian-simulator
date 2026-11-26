@@ -11,3 +11,5 @@
 功法折扣符统一显示为「惜灵符」，升级报价、确认回执和「我的状态」共用这个名字。已发出的「节费」确认按钮仍走原指令。[改名前后气泡预览](/Users/lemonade/Documents/bubble-style-mockups/wanbaolou-xiling/comparison.png)
 
 「我的状态」按效果归组，显示同名总张数、当前及待续，逐张详情展示预计接续和到期。惜灵符报价每次最多选用一张。 [同名接续改前改后气泡](/Users/lemonade/Documents/bubble-style-mockups/wanbaolou-status-queue/comparison.png)
+
+招募期商队卡补一行参与指引：先建长期打劫队，群友在「打劫队列表」点「加入这支队」，启程后由队长发起组队抢。此前卡片只给「创队伍」，玩家反馈「找不到加入的选项」。长期打劫队列表页同步加边界说明，区分全服长期队与本车临时队，标题保持不变。两处均只补说明行，未增删按钮、未改玩法门槛。

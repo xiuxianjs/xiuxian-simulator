@@ -188,6 +188,10 @@ test('建队和入队使用独立指令，招募卡不发起组队抢', async t 
   assert.ok(card.commands.includes('/加入商运护卫 81 1'));
   assert.ok(card.commands.includes('/打劫队 创建'));
   assert.ok(!card.commands.includes('/组队抢商队 81 行动'));
+  // 招募期唯一可见的队伍入口是【创队伍】，必须说明群友从【打劫队列表】加入、启程后才组队抢
+  assert.match(card.text, /招募期参与：先建长期打劫队/);
+  assert.match(card.text, /群友在【打劫队列表】点【加入这支队】/);
+  assert.match(card.text, /启程后由队长发起组队抢/);
   const team = await send('/打劫队 创建');
   assert.match(team.text, /队长 UID 123 · 1\/3 人/);
   assert.ok(team.commands.includes('/打劫队 加入 9'));
@@ -672,6 +676,9 @@ test('个人活动的商运打开列表，即使当前没有发车', async t => 
   assert.doesNotMatch(emptyBoard.text, /查看商队列表|返回坊市交易/);
   const availableTeams = await send(publicEntry);
   assert.match(availableTeams.text, /打劫队列表/);
+  // 长期打劫队与本车临时队是两套队伍，列表页必须说明边界，否则招募期玩家会找错加入入口
+  assert.match(availableTeams.text, /此处为全服长期打劫队，与本车临时队分开/);
+  assert.match(availableTeams.text, /本车临时队请从 \/商运 车号 查看/);
   assert.ok(availableTeams.commands.includes('/打劫队 加入 10'));
   const noTeam = await send(ownEntry);
   assert.match(noTeam.text, /你尚未加入打劫队/);
