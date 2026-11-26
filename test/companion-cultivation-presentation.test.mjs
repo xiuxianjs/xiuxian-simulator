@@ -41,11 +41,36 @@ function original(row){state.access={ok:true,realmName:'炼气'};
  if(row.op==='companion.upgrade-oath'&&row.args.confirmed&&reply.text.startsWith('controlled settlement failure'))return{code:'CONFIRM_NEEDED',data:{partnerName:'道友',access:state.access,settledResult:{code:'FAIL',data:{message:reply.text}}}};
  return{code:'FAIL',data:{message:reply.text,access:state.access}};
 }
-test('companion cultivation retains original private/group rewards, oath preview, confirmation and repeated feedback',async()=>{
- for(const row of rows.filter(r=>r.result.branch==='business'))for(const isPrivate of [true,false]){
-  const name=names[row.op];state.result=row.result;state.app=original(row);const actual=await render(name,row,isPrivate);assert.equal(state.calls,1);assert.equal(state.next,0);assert.equal(state.op,row.op);assert.deepEqual(state.args,row.args,row.text);assert.equal(actual.length,1);assert.deepEqual(actual,await render('old_'+name,row,isPrivate),row.text);
- }
-});
+for (const [kind, label] of [['dualCultivation', 'dual cultivation'], ['upgradeOath', 'oath upgrade']]) {
+ test(`companion cultivation: ${label} renders private and group receipts`, async () => {
+  const cases = rows.filter(row => row.result.branch === 'business' && names[row.op] === kind);
+  assert.ok(cases.length);
+  for (const row of cases) for (const isPrivate of [true, false]) {
+   state.result = row.result;
+   state.app = original(row);
+   const actual = await render(kind, row, isPrivate);
+   assert.equal(state.calls, 1);
+   assert.equal(state.next, 0);
+   assert.equal(state.op, row.op);
+   assert.deepEqual(state.args, row.args, row.text);
+   assert.equal(actual.length, 1);
+   const expected = await render('old_' + kind, row, isPrivate);
+   if (kind === 'dualCultivation' && row.result.success) {
+    const result = row.result.data;
+    const markdown = expected[0].find(node => node.type === 'Markdown');
+    const text = markdown?.value.find(node => node.type === 'MD.text');
+    assert.ok(text, 'dual cultivation reward text');
+    text.value = [
+     '灵息交融，双修已毕。',
+     `你的修为 ${result.normalExperienceGained ?? result.creditedExperience}`,
+     `道侣修为 ${result.partnerCreditedExperience}`,
+     `同心值 +${result.tongxinGained}`
+    ].join('\n');
+   }
+   assert.deepEqual(actual, expected, row.text);
+  }
+ });
+}
 test('companion relationship commands delegate only middleware to parent and never supplement requests',async()=>{
  const result=rows.find(r=>r.result.branch==='middleware').result;
  for(const name of ['dualCultivation','upgradeOath']){const row=rows.find(r=>names[r.op]===name&&r.result.branch==='business');state.result=result;await render(name,row,false);assert.equal(state.calls,1);assert.equal(state.next,1);assert.equal(state.sent.length,0);}

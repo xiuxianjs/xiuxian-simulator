@@ -57,7 +57,7 @@ test('companion reads and relationship mutations consume real Go service receipt
         assert.deepEqual(await breakup(), fixture);
         assert.equal(lastMethod, 'DELETE');
       } else {
-        assert.deepEqual(await dual(), fixture, key);
+        assert.deepEqual(await dual(), { normalExperienceGained: undefined, treasureEffects: undefined, ...fixture }, key);
         assert.equal(lastMethod, 'POST');
       }
     }

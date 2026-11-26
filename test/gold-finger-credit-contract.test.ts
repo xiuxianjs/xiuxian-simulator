@@ -6,7 +6,7 @@ import { parseMeditationEnd } from '../src/api/bot/meditation';
 import { parseBackendCompanionDualCultivation } from '../src/api/bot/companion-relationship-actions';
 
 test('actual Go credit receipts preserve zero and different dual participant balances', () => {
-  const output = execFileSync('go', ['test', './internal/service', '-run', '^TestGoldFingerDualReceiptReportsActualBalancesAtCap$|^TestGoldFingerMeditationReceiptReportsActualCredit$', '-count=1', '-v'], {
+  const output = execFileSync('go', ['test', './internal/service', '-run', '^TestGoldFingerDualReceiptReportsActualBalancesAtCap$', '-count=1', '-v'], {
     cwd: new URL('../../xiuxian-game-server/', import.meta.url),
     encoding: 'utf8',
     maxBuffer: 4 * 1024 * 1024
@@ -15,11 +15,18 @@ test('actual Go credit receipts preserve zero and different dual participant bal
   assert.ok(dualRaw, 'actual dual credit receipt missing');
   const dual = JSON.parse(dualRaw);
   const parsed = parseBackendCompanionDualCultivation(dual);
-  assert.equal(parsed.experienceGained, 330, 'legacy theoretical amount remains compatible');
+  assert.equal(parsed.experienceGained, 49, 'preview includes the pass bonus on the new dual cultivation floor');
   assert.equal(parsed.creditedExperience, 1);
   assert.equal(parsed.partnerCreditedExperience, 0);
   assert.throws(() => parseBackendCompanionDualCultivation({ ...dual, partnerCreditedExperience: '0' }));
+});
 
+test('actual Go meditation credit receipts preserve capped balances', () => {
+  const output = execFileSync('go', ['test', './internal/service', '-run', '^TestGoldFingerMeditationReceiptReportsActualCredit$', '-count=1', '-v'], {
+    cwd: new URL('../../xiuxian-game-server/', import.meta.url),
+    encoding: 'utf8',
+    maxBuffer: 4 * 1024 * 1024
+  });
   const meditationRows = [...output.matchAll(/GOLD_FINGER_MEDITATION_CREDIT=(.+)/g)].map(match => JSON.parse(match[1]));
   assert.equal(meditationRows.length, 2);
   assert.deepEqual(meditationRows.map(row => parseMeditationEnd(row).creditedExperience), [1, 0]);
