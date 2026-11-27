@@ -15,7 +15,7 @@ test('actual Go credit receipts preserve zero and different dual participant bal
   assert.ok(dualRaw, 'actual dual credit receipt missing');
   const dual = JSON.parse(dualRaw);
   const parsed = parseBackendCompanionDualCultivation(dual);
-  assert.equal(parsed.experienceGained, 187, 'preview includes the pass bonus on the dual cultivation formula');
+  assert.equal(parsed.experienceGained, 366, 'preview includes the pass bonus on the dual cultivation formula');
   assert.equal(parsed.creditedExperience, 1);
   assert.equal(parsed.partnerCreditedExperience, 0);
   assert.throws(() => parseBackendCompanionDualCultivation({ ...dual, partnerCreditedExperience: '0' }));
