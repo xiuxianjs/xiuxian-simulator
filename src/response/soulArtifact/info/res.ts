@@ -4,7 +4,6 @@ import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice, sendMiddlewareReply } from '@src/response/middlewareReply';
 import { useMessage } from '@src/utils/useMessage';
-import { recoveryEffectsMarkdown } from '@src/utils/resourceRecoveryDisplay';
 /**
  * 本命物信息指令
  * 指令：/本命物信息
@@ -12,8 +11,9 @@ import { recoveryEffectsMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { parseRobotSoulInfo } from '@src/api/bot/soul-artifact-overview-queries';
 import { selects } from '@src/response/config';
+import { appendSoulArtifactOverview } from '@src/response/soulArtifact/attributes';
 import { soulArtifactActions, soulArtifactPageActions, soulArtifactBlockedAdvice } from '@src/response/soulArtifact/capabilities';
-import { addOptions, FormatGui } from '@src/utils/messageHelper';
+import { FormatGui } from '@src/utils/messageHelper';
 import { Format, onResponse, useEvent, logger } from 'alemonjs';
 export default onResponse(selects, async e => {
   const [message] = useMessage();
@@ -77,58 +77,10 @@ export default onResponse(selects, async e => {
 
   const contentMd = Format.createMarkdown();
 
+  const artifact = result.code === 'EQUIPPED' ? result.data.artifact : undefined;
+
   if (result.code === 'EQUIPPED') {
-    const equipped = result.data.artifact;
-    const maxLevel = result.data.maxLevel;
-
-    contentMd.addText(`当前炼化：${equipped.name}（${equipped.gradeName}）`);
-    contentMd.addNewline();
-    contentMd.addText(`定位：${equipped.category} · ${equipped.positioning}`);
-    contentMd.addNewline();
-    contentMd.addText(`品级：${equipped.gradeName}`);
-    contentMd.addNewline();
-    contentMd.addText(`等级：Lv.${equipped.level} / ${maxLevel}`);
-    contentMd.addNewline();
-    contentMd.addText(`洗涤：${equipped.washCount}次（${equipped.washQuality}）`);
-    contentMd.addNewline();
-
-    if (equipped.recoveryEffects?.length) {
-      contentMd.addBlockquote(recoveryEffectsMarkdown(equipped.recoveryEffects));
-      contentMd.addNewline();
-    }
-    // ── 基础面板 ────────────────────────────
-    contentMd.addText(equipped.combatPanels ? '当前境界战斗加成' : '基础面板');
-    contentMd.addNewline();
-
-    for (const p of equipped.combatPanels ?? equipped.basePanels) {
-      contentMd.addBlockquote(Format.createMarkdown().addText(` ${p.name}：${equipped.combatPanels ? '+' : ''}${p.value}`));
-    }
-
-    contentMd.addNewline();
-
-    // ── 词条 ────────────────────────────────
-
-    if (equipped.revealedAffixCount < equipped.maxAffixCount) {
-      contentMd.addText(`${equipped.combatPanels ? '洗炼记录 · ' : ''}显现词条：${equipped.revealedAffixCount} / ${equipped.maxAffixCount}`);
-      contentMd.addNewline();
-    } else {
-      contentMd.addText(equipped.combatPanels ? '洗炼记录' : '词条');
-      contentMd.addNewline();
-    }
-
-    for (const p of equipped.panels) {
-      const tag = p.affixTypeName;
-
-      if (p.isPercent) {
-        contentMd.addBlockquote(Format.createMarkdown().addText(` ${p.name}(${tag})：${+Number(p.washBonus).toFixed(2)}% / ${+Number(p.washCap).toFixed(2)}%`));
-      } else {
-        contentMd.addBlockquote(Format.createMarkdown().addText(` ${p.name}(${tag})：${p.washBonus} / ${p.washCap}`));
-      }
-
-      contentMd.addNewline();
-    }
-
-    addOptions(contentMd, soulArtifactActions(equipped.capabilities));
+    appendSoulArtifactOverview(contentMd, result.data.artifact);
   } else {
     contentMd.addText(result.data.message);
     contentMd.addNewline();
@@ -139,18 +91,16 @@ export default onResponse(selects, async e => {
     );
   }
 
-  appendMiddlewareAdvice(
-    contentMd,
-    soulArtifactBlockedAdvice([...(result.code === 'EQUIPPED' ? result.data.artifact.capabilities : []), ...result.capabilities])
-  );
+  appendMiddlewareAdvice(contentMd, soulArtifactBlockedAdvice([...(artifact?.capabilities ?? []), ...result.capabilities]));
   await message.send(
     FormatGui({
       isPrivate: e.isPrivate ?? e.name.startsWith('private.'),
       bid,
-      title: '本命物信息',
-      header: [{ label: '储物袋 · 本命', command: '/储物袋 本命' }],
+      title: artifact ? `${artifact.name}（${artifact.gradeName}）` : '本命物信息',
+      header: artifact ? [] : [{ label: '储物袋 · 本命', command: '/储物袋 本命' }],
+      bar: artifact ? false : undefined,
       content: contentMd,
-      footer: [...('capabilities' in result ? soulArtifactPageActions(result.capabilities) : []), { label: '我的主页', command: '/我' }]
+      footer: [...soulArtifactPageActions(result.capabilities), ...(artifact ? [] : [{ label: '我的主页', command: '/我' }])]
     })
   );
 });

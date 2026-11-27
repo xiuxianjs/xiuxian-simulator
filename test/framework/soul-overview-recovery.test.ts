@@ -21,7 +21,7 @@ for (const entry of entries) for (const isPrivate of [false, true]) for (const w
 });
 for (const entry of entries) for (const isPrivate of [false, true]) test(`soul overview unchanged facts ${entry.op} private=${isPrivate}`, async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: entry.handler === info ? 'equipped' : 'detail', overview })); const event = isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' }); const result = await app.runHandler(entry.handler, event); const view = inspectMessage(result.messages[0].nodes);
-  assert.equal(requests.length, 1); for (const text of ['原本命物', 'Lv.3 / 20', '物攻：-3', '1.25% / 3.5%', '2次']) assert.ok(view.text.includes(text), view.text); assert.ok(view.commands.includes('/分离')); assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
+  assert.equal(requests.length, 1); for (const text of ['原本命物', '等级：3', '物攻：-3', '1.25% / 3.5%', '2 次']) assert.ok(view.text.includes(text), view.text); assert.ok(view.commands.includes('/分离')); assert.equal(result.messages[0].target?.targetId, isPrivate ? event.UserId : event.ChannelId); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
 const blockers = [
   ['refine', 'realmTooLow', '/查看主线', '推进主线积累修为'], ['gradeUpgrade', 'listed', '/我的上架', '不会自动下架'], ['gradeUpgrade', 'alreadyUpgraded', '/储物袋 本命', '此实例已升品'], ['gradeUpgrade', 'maxGrade', '/储物袋 本命', '品级上限'], ['upgradeLevel', 'maxLevel', '/我的境界', '未开放更多可升等级'], ['gradeUpgrade', 'materialsInsufficient', '/储物袋 本命', '未装备未锁定且排除目标自身'], ['upgradeLevel', 'itemsInsufficient', '/储物袋 材料 其它', '筑灵石'], ['wash', 'itemsInsufficient', '/储物袋 材料 其它', '洗涤石'], ['wash', 'pendingConfirmation', '/本命物信息', '放弃不返还已用洗涤石'], ['wash', 'serviceUnavailable', '/本命物信息', '服务暂不可用'], ['wash', 'futureReason', '/本命物信息', '暂不可用']
@@ -43,15 +43,29 @@ for (const entry of entries) for (const isPrivate of [false, true]) for (const w
 for (const isPrivate of [false, true]) test(`soul detail wrong result instance private=${isPrivate}`, async t => {
   const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: 'detail', overview: { ...overview, items: [{ ...artifact, instanceId: 10, capabilities: [] }] } })); const result = await app.runHandler(detail, isPrivate ? app.events.privateMessage({ text: '/本命物详情 9', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/本命物详情 9', platform: 'qq-bot' })); assert.equal(requests.length, 1); assert.ok(result.messages[0].text.includes('未获完整确认')); assert.ok(!result.messages[0].text.includes('编号：10')); assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });
-for (const entry of entries) for (const isPrivate of [false, true]) test(`soul effective combat contribution ${entry.op} private=${isPrivate}`, async t => {
-  const effectiveArtifact = { ...artifact, name: '诛仙剑', category: '全能', positioning: '全能物理', gradeId: 5, gradeName: '仙器', level: 38, maxAffixCount: 8, combatPanels: [{ key: 'patk', name: '物攻', value: 3542309.27 }, { key: 'speed', name: '速度', value: 5014.33 }], panels: [{ key: 'patk', name: '物攻', washBonus: 900, washCap: 900, affixType: 'main', affixTypeName: '主', isPercent: false }, { key: 'speed', name: '速度', washBonus: 6, washCap: 6, affixType: 'main', affixTypeName: '主', isPercent: false }] };
-  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: entry.handler === info ? 'equipped' : 'detail', overview: { ...overview, realmLevel: 38, items: [effectiveArtifact] } }));
+for (const entry of entries) for (const isPrivate of [false, true]) test(`soul attributes split passive from wash ${entry.op} private=${isPrivate}`, async t => {
+  const effectiveArtifact = { ...artifact, name: '金刚铃', category: '防御', positioning: '极限肉盾', gradeId: 3, gradeName: '灵器', level: 19, maxAffixCount: 6, capabilities: [...artifact.capabilities, { kind: 'upgradeLevel', available: true, instanceId: 9, maxLevels: 1, requiredItemId: 70, requiredQuantity: 100, availableQuantity: 100 }, { kind: 'wash', available: true, instanceId: 9, maxLevels: 1, requiredItemId: 71, requiredQuantity: 1, availableQuantity: 1 }], basePanels: [{ key: 'patk', name: '物攻', value: 2329.86 }, { key: 'matk', name: '法攻', value: 2329.86 }, { key: 'pdef', name: '物防', value: 1148 }, { key: 'mdef', name: '法防', value: 1148 }, { key: 'hp', name: '生命', value: 9840 }, { key: 'speed', name: '速度', value: 65.6 }], combatPanels: [{ key: 'patk', name: '物攻', value: 2581.86 }, { key: 'speed', name: '速度', value: 80 }], panels: [{ key: 'patk', name: '物攻', washBonus: 21, washCap: 70, affixType: 'sub', affixTypeName: '副', isPercent: false }, { key: 'speed', name: '速度', washBonus: 1.5, washCap: 3.25, affixType: 'main', affixTypeName: '主', isPercent: false }, ...artifact.panels] };
+  const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, { mode: entry.handler === info ? 'equipped' : 'detail', overview: { ...overview, realmLevel: 20, items: [effectiveArtifact] } }));
   const event = isPrivate ? app.events.privateMessage({ text: entry.text, platform: 'qq-bot' }) : app.events.groupMessage({ text: entry.text, platform: 'qq-bot' });
   const result = await app.runHandler(entry.handler, event);
   assert.equal(result.messages.length, 1); assert.equal(requests.length, 1);
   const view = inspectMessage(result.messages[0].nodes);
-  if (entry.handler === detail && !isPrivate) t.diagnostic('ARTIFACT_VALUE_BUBBLE=' + JSON.stringify(view.text));
-  for (const text of ['当前境界战斗加成', '物攻：+3542309.27', '速度：+5014.33', '洗炼记录', '速度(主)：6 / 6']) assert.ok(view.text.includes(text), view.text);
-  assert.ok(!view.text.includes('物攻：-3')); assert.ok(view.commands.includes('/分离'));
+  if (!isPrivate) t.diagnostic('ARTIFACT_VALUE_BUBBLE=' + JSON.stringify({ operation: entry.op, text: view.text, commands: view.commands }));
+  const base = '基础属性';
+  const wash = '词条属性';
+  for (const text of [base, '物攻：+2329.86', '速度：+65.6', wash, '已洗值 / 上限', '物攻（副）：21 / 70', '速度（主）：1.5 / 3.25', '暴击率（主）：1.25% / 3.5%']) {
+    assert.ok(view.text.includes(text), view.text);
+  }
+  assert.ok(view.text.indexOf(base) < view.text.indexOf('物攻：+2329.86'));
+  assert.ok(view.text.indexOf('速度：+65.6') < view.text.indexOf(wash));
+  assert.ok(view.text.indexOf(wash) < view.text.indexOf('速度（主）：1.5 / 3.25'));
+  assert.ok(!view.text.includes('物攻：+2581.86'));
+  assert.ok(!view.text.includes('当前境界战斗加成'));
+  assert.ok(view.text.includes('金刚铃（灵器）'));
+  assert.match(view.text, /等级：19[^\\\n]*‹升级›/);
+  assert.match(view.text, /词条属性[^\\\n]*‹洗涤›/);
+  for (const command of ['/本命物升级', '/本命物洗涤', '/分离', '/储物袋 本命']) {
+    assert.equal(view.commands.filter(value => value === command).length, 1, view.text);
+  }
   assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
 });

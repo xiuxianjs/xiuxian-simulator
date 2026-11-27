@@ -1,10 +1,7 @@
-import { commandText } from '@src/utils/commandPrefix';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { detailRecoveryTips } from '@src/response/detailRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
-import { markdownButtonLabel } from '@src/utils/buttonLabel';
-import { recoveryEffectsMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { useMessage } from '@src/utils/useMessage';
 /**
  * 本命物详情指令
@@ -14,6 +11,7 @@ import type { RobotMiddlewareReply } from '@src/api/bot/middleware-entry';
 import { parseRobotSoulDetail } from '@src/api/bot/soul-artifact-overview-queries';
 import { selects } from '@src/response/config';
 import { runRobotBusiness } from '@src/response/robotBusiness';
+import { appendSoulArtifactOverview } from '@src/response/soulArtifact/attributes';
 import { soulArtifactActions, soulArtifactBlockedAdvice } from '@src/response/soulArtifact/capabilities';
 import { FormatGui } from '@src/utils/messageHelper';
 import { Format, logger, onResponse, useEvent } from 'alemonjs';
@@ -92,75 +90,17 @@ export default onResponse(selects, async e => {
     return;
   }
   const artifact = response.data;
-  const maxLevel = artifact.maxLevel;
-
   const contentMd = Format.createMarkdown();
 
-  contentMd.addText(`本命物：${artifact.name}（${artifact.gradeName}）`);
-  contentMd.addNewline();
-  contentMd.addText(`编号：${artifact.instanceId}`);
-  contentMd.addNewline();
-  contentMd.addText(`状态：${artifact.statusText}`);
-  contentMd.addNewline();
-  contentMd.addText(`定位：${artifact.category} · ${artifact.positioning}`);
-  contentMd.addNewline();
-  contentMd.addText(`等级：Lv.${artifact.level} / ${maxLevel}`);
-  contentMd.addNewline();
-  contentMd.addText(`洗涤：${artifact.washCount}次（${artifact.washQuality}）`);
-  contentMd.addNewline();
-  if (artifact.revealedAffixCount < artifact.maxAffixCount) {
-    contentMd.addText(`显现词条：${artifact.revealedAffixCount} / ${artifact.maxAffixCount}`);
-    contentMd.addNewline();
-  }
-  contentMd.addNewline();
-
-  if (artifact.recoveryEffects?.length) {
-    contentMd.addBlockquote(recoveryEffectsMarkdown(artifact.recoveryEffects));
-    contentMd.addNewline();
-  }
-  contentMd.addText(artifact.combatPanels ? '当前境界战斗加成' : '基础面板');
-  contentMd.addNewline();
-
-  for (const panel of artifact.combatPanels ?? artifact.basePanels) {
-    contentMd.addBlockquote(Format.createMarkdown().addText(` ${panel.name}：${artifact.combatPanels ? '+' : ''}${panel.value}`));
-  }
-
-  contentMd.addNewline();
-  contentMd.addText(artifact.combatPanels ? '洗炼记录' : '词条');
-  contentMd.addNewline();
-
-  for (const panel of artifact.panels) {
-    const tag = panel.affixTypeName;
-
-    if (panel.isPercent) {
-      contentMd.addBlockquote(
-        Format.createMarkdown().addText(` ${panel.name}(${tag})：${+Number(panel.washBonus).toFixed(2)}% / ${+Number(panel.washCap).toFixed(2)}%`)
-      );
-    } else {
-      contentMd.addBlockquote(Format.createMarkdown().addText(` ${panel.name}(${tag})：${panel.washBonus} / ${panel.washCap}`));
-    }
-
-    contentMd.addNewline();
-  }
-
-  const actionMd = Format.createMarkdown();
-
-  for (const action of soulArtifactActions(artifact.capabilities)) {
-    actionMd.addText(' ').addButton(markdownButtonLabel(action.label), { data: commandText(action.command) });
-  }
-  actionMd.addText(' ').addButton(markdownButtonLabel('储物袋 · 本命'), { data: commandText('储物袋 本命') });
-  contentMd.addBlockquote(actionMd);
+  appendSoulArtifactOverview(contentMd, artifact);
 
   appendMiddlewareAdvice(contentMd, soulArtifactBlockedAdvice(artifact.capabilities));
   await message.send(
     FormatGui({
       isPrivate,
       bid,
-      title: '本命物详情',
-      header: [
-        { label: '返回储物袋', command: '/储物袋 本命' },
-        { label: '本命物信息', command: '/本命物信息' }
-      ],
+      title: `${artifact.name}（${artifact.gradeName}）`,
+      bar: false,
       content: contentMd
     })
   );
