@@ -1,3 +1,4 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import { repeatPresentationHeaders } from './repeat-presentation';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
@@ -70,5 +71,14 @@ export function parseSkillBookSwitchResponse(data: unknown): SkillBookSwitchResp
     throw new Error('切换功法确认数据不完整');
   }
 
-  return { outcome: row.outcome, skillBook: book, oldSkillBook: old, targetMaximum, oldMaximum, comparisonLines, confirmationMessage };
+  return {
+    ...parseRecoveryChanges(row.recoveryChanges),
+    outcome: row.outcome,
+    skillBook: book,
+    oldSkillBook: old,
+    targetMaximum,
+    oldMaximum,
+    comparisonLines,
+    confirmationMessage
+  };
 }

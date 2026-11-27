@@ -1,3 +1,4 @@
+import { appendRecoveryChanges } from '@src/utils/resourceRecoveryDisplay';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { equipmentRecoveryTips } from '@src/response/equipmentRecovery';
@@ -82,6 +83,7 @@ export default onResponse(selects, async e => {
       md.addText(`⚔️ 当前战力✊${power}`);
     }
 
+    appendRecoveryChanges(md, result.data.recoveryChanges);
     void message.send(FormatGui({ isPrivate, bid, title: '一键装备结果', content: md }));
   } catch (_error) {
     logger.error('一键装备失败:', _error);

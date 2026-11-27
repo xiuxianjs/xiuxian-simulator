@@ -380,9 +380,20 @@ export function createGameRouter() {
           args: [{ name: 'target', rules: [{ type: 'rest' }] }],
           usage: '/查看信息 [UID|@道友]'
         },
-        description: '查看指定玩家的信息，支持直接输入 UID，或通过 @ 自动识别对方。'
+        description: '查看指定玩家公开的个人资料和战斗属性。'
       },
       () => import('@src/response/message/viewInfo/res')
+    );
+    xiuxian.use(
+      {
+        path: '查看配装',
+        schema: {
+          args: [{ name: 'target', rules: [{ type: 'rest' }] }],
+          usage: '/查看配装 [UID|@道友]'
+        },
+        description: '查看指定玩家当前装备、装配功法和出战本命物的详情。'
+      },
+      () => import('@src/response/message/viewLoadout/res')
     );
     xiuxian.use(
       '我的好友',

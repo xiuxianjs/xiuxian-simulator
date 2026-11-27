@@ -4,7 +4,7 @@ import App from '../../src/response-apps/attributes/update/app';
 import { selects } from '../../src/response/config';
 import { ImageCache } from '../../src/utils/imageCdn';
 import { addOptions, FormatGui } from '../../src/utils/messageHelper';
-import { recoverySummaryMarkdown } from '../../src/utils/resourceRecoveryDisplay';
+import { recoverySummaryMarkdown } from './resource-recovery-summary-before';
 import { measureTransportStage } from '../../src/utils/transportTiming';
 import { useMessage } from '../../src/utils/useMessage';
 import { Format, onResponse } from 'alemonjs';

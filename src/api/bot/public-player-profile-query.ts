@@ -1,9 +1,10 @@
+import { parseBattlePanelNumbers } from './battle-panel-numbers';
 import { parsePlayerTalents } from './talents';
 import { parseSpiritRoot } from './spirit-root';
 import type { PublicPlayerProfileQueryData } from '../schemas/public-player-profile-query';
 import { requestBackend } from './client';
 
-function record(value: unknown): Record<string, unknown> {
+export function readPublicPlayerQueryRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('查看信息接口数据不完整');
   }
@@ -15,11 +16,11 @@ function integer(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value);
 }
 
-function profile(value: unknown): PublicPlayerProfileQueryData['profile'] {
+export function parsePublicPlayerProfileBasic(value: unknown): PublicPlayerProfileQueryData['profile'] {
   if (value === null) {
     return null;
   }
-  const data = record(value);
+  const data = readPublicPlayerQueryRecord(value);
 
   if (!integer(data.uid) || data.uid <= 0 || typeof data.name !== 'string' || typeof data.activeTitle !== 'string' || typeof data.realmName !== 'string') {
     throw new Error('查看信息资料数据不完整');
@@ -35,7 +36,7 @@ function profile(value: unknown): PublicPlayerProfileQueryData['profile'] {
 }
 
 function cave(value: unknown): NonNullable<PublicPlayerProfileQueryData['cave']> {
-  const data = record(value);
+  const data = readPublicPlayerQueryRecord(value);
 
   if (
     typeof data.relation !== 'string' ||
@@ -66,12 +67,12 @@ function cave(value: unknown): NonNullable<PublicPlayerProfileQueryData['cave']>
 }
 
 function detail(value: unknown): NonNullable<PublicPlayerProfileQueryData['detail']> {
-  const data = record(value);
+  const data = readPublicPlayerQueryRecord(value);
 
   if (!['strength', 'intelligence', 'constitution', 'agility', 'luck'].every(key => integer(data[key]))) {
     throw new Error('查看信息五维数据不完整');
   }
-  const battle = record(data.battle);
+  const battle = readPublicPlayerQueryRecord(data.battle);
 
   if (!['physicalAttack', 'physicalDefense', 'magicAttack', 'magicDefense', 'hp', 'speed', 'critRate', 'critDamage'].every(key => integer(battle[key]))) {
     throw new Error('查看信息战斗属性不完整');
@@ -85,6 +86,7 @@ function detail(value: unknown): NonNullable<PublicPlayerProfileQueryData['detai
     constitution: data.constitution as number,
     agility: data.agility as number,
     luck: data.luck as number,
+    ...(data.combatPanel === undefined ? {} : { combatPanel: parseBattlePanelNumbers(readPublicPlayerQueryRecord(data.combatPanel)) }),
     battle: {
       physicalAttack: battle.physicalAttack as number,
       physicalDefense: battle.physicalDefense as number,
@@ -99,12 +101,12 @@ function detail(value: unknown): NonNullable<PublicPlayerProfileQueryData['detai
 }
 
 export function parseBackendPublicPlayerProfile(value: unknown): PublicPlayerProfileQueryData {
-  const data = record(value);
+  const data = readPublicPlayerQueryRecord(value);
 
   if (typeof data.found !== 'boolean' || typeof data.hideProfile !== 'boolean') {
     throw new Error('查看信息接口数据不完整');
   }
-  const parsedProfile = profile(data.profile);
+  const parsedProfile = parsePublicPlayerProfileBasic(data.profile);
 
   if (!data.found) {
     if (parsedProfile !== null || data.cave !== undefined || data.detail !== undefined) {

@@ -23,7 +23,24 @@ const image = 'https://offline.example.test/attribute-panel.png';
 for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] as const) {
   test(`属性面板图片与文字路由 ${mode}`, async t => {
     const render = t.mock.method(ImageCache.prototype, 'getOrCreate', async () => mode === 'render-failed' ? null : image);
-    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, panel));
+    const data = mode === 'text' ? {
+      ...panel,
+      mentalRecoveryEfficiency: 0,
+      resourceRecovery: {
+        ...panel.resourceRecovery, mental: 0, mentalTotal: 0, mpPerRound: 10.5, mentalPerRound: 0, mentalAvailable: false,
+        sources: [
+          {
+            source: 'soul_artifact', templateId: 1, name: '混合本命物', mp: 5, mental: 8, pieces: 0, currentPieces: 0,
+            active: true, status: 'active', statusText: '回灵已生效 · 回念元婴起生效', conditionText: '出战该本命物'
+          },
+          {
+            source: 'skill_book', templateId: 2, name: '回念功法', mp: 0, mental: 6, pieces: 0, currentPieces: 0,
+            active: false, status: 'mental_locked', statusText: '元婴起生效', conditionText: '装配到功法位'
+          }
+        ]
+      }
+    } : panel;
+    const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data), 200, {}, 30000);
     await app.mount({ responseRouter: router });
     if (mode === 'send-failed') {
       app.actions.on('message.send', request => [
@@ -46,14 +63,21 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] 
     const controls = inspectMessage(last.nodes);
     assert.equal(result.actions[last.actionIndex].results?.[0].code, ResultCode.Ok);
     assert.match(controls.text, mode === 'group' || mode === 'private' ? /属性面板操作/ : /战斗属性/);
-    assert.match(controls.text, /回灵效率：5%/);
-    assert.match(controls.text, /回念效率：8%/);
+    assert.doesNotMatch(controls.text, /每回合平均恢复|恢复效率说明|元婴起生效|混合本命物|回念功法/);
+    if (mode === 'group' || mode === 'private') {
+      assert.doesNotMatch(controls.text, /回灵效率|回念效率/);
+    } else {
+      const expectedMental = mode === 'text' ? '0%' : '1,234.56789%';
+      assert.ok(controls.text.includes(`| 回灵效率 | 5% | 回念效率 | ${expectedMental} |`));
+      assert.equal(controls.text.match(/回灵效率/g)?.length, 1);
+      assert.equal(controls.text.match(/回念效率/g)?.length, 1);
+    }
     if (mode !== 'group' && mode !== 'private') {
       for (const text of [
         'MID：100001', '战力：1,255', '自由属性 · 上限加成 +3%',
         '力量（28%）　1,480 / 5,350', '智慧（32%）　169 / 535', '体质（29%）　157 / 535',
         '敏捷（1%）　1 / 236', '气运（10%）　56 / 535',
-        '| 物理攻击 | 1,616 | 物理防御 | 844 |', '1,234.56789%'
+        '| 物理攻击 | 1,616 | 物理防御 | 844 |'
       ]) {
         assert.ok(controls.text.includes(text), text);
       }

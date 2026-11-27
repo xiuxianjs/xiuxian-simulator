@@ -1,3 +1,4 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import { repeatPresentationHeaders } from './repeat-presentation';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
@@ -38,6 +39,8 @@ export function parseBackendSkillBookUnequip(data: unknown): SkillBookUnequipRes
   ) {
     throw new Error('换下功法响应不完整');
   }
+
+  parseRecoveryChanges(value.recoveryChanges);
 
   return value;
 }

@@ -1,3 +1,4 @@
+import { appendRecoveryChanges } from '@src/utils/resourceRecoveryDisplay';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { skillSwitchRecoveryTips } from '@src/response/skillSwitchRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
@@ -134,7 +135,10 @@ const createSwitchHandler = (skillTypeName: string) => {
           return { code: 'NEED_CONFIRM' as const, data: { actualSkillBookId: result.skillBook.id, message: result.confirmationMessage! } };
         }
 
-        return { code: 'OK' as const, data: { result: { success: true, skillBook: result.skillBook, oldSkillBook: result.oldSkillBook } } };
+        return {
+          code: 'OK' as const,
+          data: { result: { success: true, skillBook: result.skillBook, oldSkillBook: result.oldSkillBook, recoveryChanges: result.recoveryChanges } }
+        };
       },
       parentNext,
       renderFailure
@@ -193,6 +197,7 @@ const createSwitchHandler = (skillTypeName: string) => {
         const md = Format.createMarkdown();
 
         md.addText(successMessage);
+        appendRecoveryChanges(md, switchResult.recoveryChanges);
 
         md.addNewline();
 

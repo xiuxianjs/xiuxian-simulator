@@ -84,7 +84,7 @@ export default onResponse(selects, async e => {
           [`【${m.userId}】${m.name}`, formatBattleSummary(m.power)],
           [
             { label: '选择', command: `/添加宗门大比成员 ${m.userId}` },
-            { label: '查看面板', command: `/查看信息 ${m.userId}` }
+            { label: '查看配装', command: `/查看配装 ${m.userId}` }
           ]
         )
       );

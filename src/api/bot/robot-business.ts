@@ -280,6 +280,7 @@ export type RobotBusinessOperation =
   | 'profile.gender'
   | 'profile.signature'
   | 'profile.view'
+  | 'profile.loadout'
   | 'profession.replace-tool'
   | 'profession.dashboard'
   | 'profession.lingzhi-guide'

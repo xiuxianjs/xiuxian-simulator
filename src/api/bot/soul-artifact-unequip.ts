@@ -1,3 +1,4 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 import type { SoulArtifactUnequipResult } from '../schemas/soul-artifact-unequip';
@@ -47,6 +48,7 @@ export function parseSoulArtifactUnequipResult(
   }
 
   return {
+    ...parseRecoveryChanges(response.recoveryChanges),
     outcome: response.outcome,
     artifact: { name: row.name, previousLevel: row.previousLevel, totalCost: row.totalCost, refundQuantity: row.refundQuantity }
   };

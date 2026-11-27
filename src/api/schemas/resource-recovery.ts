@@ -19,6 +19,9 @@ export type ResourceRecoverySummary = {
   mentalTotal: number;
   mp: number;
   mental: number;
+  mpPerRound?: number;
+  mentalPerRound?: number;
+  mentalAvailable?: boolean;
   sources: RecoveryEffect[];
   note: string;
 };
@@ -63,6 +66,8 @@ export function parseRecoverySummary(value: unknown): ResourceRecoverySummary | 
         Number.isFinite((item as unknown as Record<string, number>)[key]) &&
         (item as unknown as Record<string, number>)[key] >= 0
     ) ||
+    (item.mentalAvailable !== undefined && typeof item.mentalAvailable !== 'boolean') ||
+    [item.mpPerRound, item.mentalPerRound].some(value => value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) ||
     item.mp > item.cap ||
     item.mental > item.cap
   ) {
@@ -78,4 +83,15 @@ export function recoveryEffectText(effect: RecoveryEffect, formatNumber: (value:
   const pieces = effect.pieces > 0 && effect.status !== 'preview' ? `（${formatNumber(effect.currentPieces)}/${formatNumber(effect.pieces)}件）` : '';
 
   return `${effect.name}${pieces}：${stats} · ${effect.statusText}`;
+}
+
+export function parseRecoveryChanges(value: unknown): { recoveryChanges?: string[] } {
+  if (value === undefined) {
+    return {};
+  }
+  if (!Array.isArray(value) || value.some(line => typeof line !== 'string' || line.length === 0)) {
+    throw new Error('恢复效率变更数据无效');
+  }
+
+  return { recoveryChanges: value };
 }

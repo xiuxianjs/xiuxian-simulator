@@ -1,3 +1,4 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import type { SoulArtifactEquipPreview, SoulArtifactEquipResult } from '../schemas/soul-artifact-equip';
 
 function record(value: unknown, message: string): Record<string, unknown> {
@@ -127,6 +128,7 @@ export function parseSoulArtifactEquipResult(value: unknown): SoulArtifactEquipR
       isEquipped: artifact.isEquipped,
       isListed: artifact.isListed
     },
-    separated
+    separated,
+    ...parseRecoveryChanges(data.recoveryChanges)
   };
 }

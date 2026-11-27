@@ -77,10 +77,10 @@ test('attribute panel renders Markdown, five progress bars and gated actions; pr
   assert.equal(view.commands.includes('/道途印证'), d.access.canUseSoulPath);
   assert.equal(view.commands.includes('/经络'), d.access.canUseMeridian);
   assert.equal(view.commands.includes('/闭关'), !d.access.canUseMeridian);
-  if (d.resourceRecovery) {
-   assert.ok(view.text.includes(`回灵效率：${number(d.resourceRecovery.mp)}%`));
-   assert.ok(view.text.includes(`回念效率：${number(d.resourceRecovery.mental)}%`));
+  if (d.mpRecoveryEfficiency !== undefined && d.mentalRecoveryEfficiency !== undefined) {
+   assert.ok(view.text.includes(`| 回灵效率 | ${number(d.mpRecoveryEfficiency)}% | 回念效率 | ${number(d.mentalRecoveryEfficiency)}% |`));
   }
+  assert.doesNotMatch(view.text, /回灵效率：|回念效率：|每回合平均恢复/);
  }
 });
 test('attribute middleware calls parent next; transport or invalid receipt ends',async()=>{

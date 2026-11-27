@@ -25,6 +25,7 @@ export type SoulArtifactEquipPreview = {
 };
 
 export type SoulArtifactEquipResult = {
+  recoveryChanges?: string[];
   artifact: {
     id: number;
     artifactId: number;

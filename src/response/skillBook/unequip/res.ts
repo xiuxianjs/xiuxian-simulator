@@ -1,3 +1,4 @@
+import { appendRecoveryChanges } from '@src/utils/resourceRecoveryDisplay';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { sendMiddlewareReply } from '@src/response/middlewareReply';
@@ -64,6 +65,7 @@ const createUnequipHandler = (skillTypeName: string) => {
     const md = Format.createMarkdown();
 
     md.addText(successMessage);
+    appendRecoveryChanges(md, response.data.recoveryChanges);
     md.addNewline();
     void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '查看我的功法', command: '/我的功法' }] }));
   });

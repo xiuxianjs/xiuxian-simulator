@@ -1,4 +1,5 @@
 import { number as parseInteger } from '../schemas/ranking-values';
+import { parseRecoveryEffects } from '../schemas/resource-recovery';
 import { requestBackend } from './client';
 import { mapLearnedBookFacts } from './learned-books-queries';
 import type { SkillBookDetailDisplay, SkillBookEffectData } from '@src/types/skillBook';
@@ -172,6 +173,7 @@ export function mapBackendSkillDetail(value: unknown, bookId: number) {
       defenseIgnorePercent: nullableNumber(row.defenseIgnorePercent),
       buffNames: row.buffNames.map(text),
       skillEffects: row.skillEffects.map(effect),
+      ...(row.recoveryEffects === undefined || row.recoveryEffects === null ? {} : { recoveryEffects: parseRecoveryEffects(row.recoveryEffects) }),
       detailDisplay: detailDisplay(row.detailDisplay)
     }
   };

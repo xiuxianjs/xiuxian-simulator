@@ -1,3 +1,4 @@
+import { appendRecoveryChanges } from '@src/utils/resourceRecoveryDisplay';
 import { appendMiddlewareAdvice, appendMiddlewareBlocks } from '@src/response/middlewareReply';
 import { adviceRenderer } from '@src/response/feedbackRenderer';
 import { equipmentRecoveryTips } from '@src/response/equipmentRecovery';
@@ -63,6 +64,7 @@ export default onResponse(selects, async e => {
     const md = Format.createMarkdown();
 
     md.addText(`成功卸下${equipmentTypeName}`);
+    appendRecoveryChanges(md, result.data.recoveryChanges);
     md.addNewline();
 
     void message.send(FormatGui({ isPrivate, bid, title: '', content: md, footer: [{ label: '我的装备', command: '/我的装备' }] }));

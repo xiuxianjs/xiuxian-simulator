@@ -1,3 +1,4 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import { repeatPresentationHeaders } from './repeat-presentation';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
@@ -10,6 +11,7 @@ export type BackendAutoEquipRow = {
 };
 
 export type BackendAutoEquipResult = {
+  recoveryChanges?: string[];
   success: boolean;
   message: string;
   results: BackendAutoEquipRow[];
@@ -78,7 +80,13 @@ export function parseBackendEquipmentAutoEquip(value: unknown): BackendAutoEquip
     throw new Error('一键装备接口战力无效');
   }
 
-  return { success: data.success, message: data.message, results: data.results.map(row), ...(data.power === undefined ? {} : { power: data.power }) };
+  return {
+    ...parseRecoveryChanges(data.recoveryChanges),
+    success: data.success,
+    message: data.message,
+    results: data.results.map(row),
+    ...(data.power === undefined ? {} : { power: data.power })
+  };
 }
 
 export function parseRobotEquipmentAutoEquip(value: unknown): BackendAutoEquipResult {

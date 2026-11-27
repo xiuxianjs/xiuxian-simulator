@@ -106,6 +106,7 @@ export default async function App(params: {
         }
         const lines = [`成功炼化本命物「${equipResult.artifact.name}」`];
 
+        lines.push(...(equipResult.recoveryChanges ?? []));
         if (equipResult.separated?.name) {
           const refundInfo =
             equipResult.separated.refundQuantity > 0

@@ -8,6 +8,7 @@ import { runRobotBusiness } from '@src/response/robotBusiness';
 import { selects } from '@src/response/config';
 import { extractArgs } from '@src/utils/commandParser';
 import { FormatGui } from '@src/utils/messageHelper';
+import { recoveryEffectsMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { formatSkillBookDetail } from '@src/utils/skillBookHelper';
 import { Format, onResponse, useEvent } from 'alemonjs';
 
@@ -46,6 +47,10 @@ const response = onResponse(selects, async e => {
     }
     const result = { data: response.data };
     const md = formatSkillBookDetail(result.data.skillBook, result.data.skillBookId, result.data.proficiencyPoints);
+
+    if (result.data.skillBook.recoveryEffects?.length) {
+      md.addBlockquote(recoveryEffectsMarkdown(result.data.skillBook.recoveryEffects));
+    }
     const view = result.data.skillBook.detailDisplay;
     const visibilityCommands = { SHOW: '/显示功法', HIDE: '/隐藏功法' } as const;
     const footer = [

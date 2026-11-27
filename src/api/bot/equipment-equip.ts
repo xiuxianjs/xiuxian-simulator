@@ -1,8 +1,10 @@
+import { parseRecoveryChanges } from '../schemas/resource-recovery';
 import { repeatPresentationHeaders } from './repeat-presentation';
 import { requestBackend, writeContext } from './client';
 import type { BackendRequestContext } from './context';
 
 export type BackendEquipmentEquipResult = {
+  recoveryChanges?: string[];
   outcome: 'equipped' | 'not_found' | 'not_found_or_equipped' | 'life_equipment' | 'realm_insufficient';
   equipment?: BackendEquipmentView;
 };
@@ -108,7 +110,7 @@ export function parseBackendEquipmentEquip(value: unknown): BackendEquipmentEqui
     throw new Error('装备接口结果无效');
   }
   if (data.outcome === 'equipped') {
-    return { outcome: 'equipped', equipment: equipment(data.equipment) };
+    return { outcome: 'equipped', equipment: equipment(data.equipment), ...parseRecoveryChanges(data.recoveryChanges) };
   }
   if (data.equipment !== undefined) {
     throw new Error('装备失败响应不应包含装备');
@@ -125,6 +127,7 @@ export function parseEquipCommand(messageText: string): string | null {
 
 export function parseRobotEquipmentEquip(value: unknown): {
   message: string;
+  recoveryChanges?: string[];
   equipment: BackendEquipmentView & {
     equipment: { name: string; grade: { name: string }; equipmentType: { name: string } };
   };
@@ -137,6 +140,7 @@ export function parseRobotEquipmentEquip(value: unknown): {
   const item = result.equipment;
 
   return {
+    ...(result.recoveryChanges ? { recoveryChanges: result.recoveryChanges } : {}),
     message: `成功装备 ${item.name}`,
     equipment: {
       ...item,

@@ -1,5 +1,6 @@
 import { Format } from 'alemonjs';
-import { recoveryEffectText, type RecoveryEffect, type ResourceRecoverySummary } from '@src/api/schemas/resource-recovery';
+import { section } from '@src/response/presentation';
+import { recoveryEffectText, type RecoveryEffect } from '@src/api/schemas/resource-recovery';
 
 export function recoveryEffectsMarkdown(effects: RecoveryEffect[]) {
   const md = Format.createMarkdown();
@@ -14,26 +15,8 @@ export function recoveryEffectsMarkdown(effects: RecoveryEffect[]) {
 
   return md;
 }
-export function recoverySummaryMarkdown(summary: ResourceRecoverySummary, formatNumber: (value: number) => string = String) {
-  const md = Format.createMarkdown();
-
-  md.addText(`回灵效率：${formatNumber(summary.mp)}%（上限 ${formatNumber(summary.cap)}%）`);
-  md.addNewline();
-  md.addText(`回念效率：${formatNumber(summary.mental)}%（上限 ${formatNumber(summary.cap)}%）`);
-  if (!summary.configured || !summary.enabled) {
-    md.addNewline();
-    md.addText(summary.configured ? '效率配置已关闭' : '尚未配置效率来源');
+export function appendRecoveryChanges(md: ReturnType<typeof Format.createMarkdown>, lines?: string[]) {
+  if (lines?.length) {
+    md.addNewline().addBlockquote(section({ lines }));
   }
-  for (const source of summary.sources) {
-    md.addNewline();
-    md.addText(recoveryEffectText(source, formatNumber));
-  }
-  if (summary.mpTotal > summary.mp || summary.mentalTotal > summary.mental) {
-    md.addNewline();
-    md.addText(`来源合计：回灵 ${formatNumber(summary.mpTotal)}%、回念 ${formatNumber(summary.mentalTotal)}%；超出上限的部分不生效。`);
-  }
-  md.addNewline();
-  md.addText(summary.note);
-
-  return md;
 }

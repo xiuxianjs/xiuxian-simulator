@@ -1,3 +1,4 @@
+import { appendRecoveryChanges } from '@src/utils/resourceRecoveryDisplay';
 import { commandText } from '@src/utils/commandPrefix';
 import { markdownButtonLabel } from '@src/utils/buttonLabel';
 import { withBusinessRecovery } from '@src/response/businessRecovery';
@@ -65,7 +66,7 @@ export default onResponse(selects, async e => {
         throw new Error('分离本命物响应不完整');
       }
 
-      return { code: 'DONE' as const, data: { message: row.message } };
+      return { code: 'DONE' as const, data: { message: row.message, recoveryChanges: result.recoveryChanges } };
     },
     parentNext,
     renderFailure
@@ -117,6 +118,7 @@ export default onResponse(selects, async e => {
   const displayMsg = result.data.message;
 
   md.addText(displayMsg);
+  appendRecoveryChanges(md, result.data.recoveryChanges);
   md.addNewline();
   md.addButton(markdownButtonLabel('储物袋 · 本命'), { data: commandText('储物袋 本命') });
 

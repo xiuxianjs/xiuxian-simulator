@@ -1,3 +1,4 @@
+import { battlePanelTable, formatPanelNumber } from '../battlePanelTable';
 import { checkEncounterAfterPanel } from '@src/response/onlineEncounter/afterPanel';
 import { parseAttributePanel } from '@src/api/bot/attribute-panel';
 import AttributePanel from '@src/img/views/AttributePanel';
@@ -6,11 +7,8 @@ import { section } from '@src/response/presentation';
 import { runRobotBusiness } from '@src/response/robotBusiness';
 import { renderCachedImage } from '@src/utils/imageRender';
 import { addOptions, FormatGui } from '@src/utils/messageHelper';
-import { recoverySummaryMarkdown } from '@src/utils/resourceRecoveryDisplay';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, ResultCode, useEvent } from 'alemonjs';
-
-const formatPanelNumber = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 21 }).format;
 
 const pillActions = [
   { label: '✛1', command: '/服用 培元丹 1' },
@@ -100,9 +98,6 @@ const response = onResponse(selects, async e => {
     if (imageSent) {
       const content = Format.createMarkdown();
 
-      if (d.resourceRecovery) {
-        content.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery)).addNewline();
-      }
       content.addBlockquote(section({ lines: ['服用培元丹'], actions: pillActions }));
       await message.send(FormatGui({ isPrivate, bid, title: '属性面板操作', content, footer }));
 
@@ -136,26 +131,8 @@ const response = onResponse(selects, async e => {
 
   contentMd.addBlockquote(addOptions(attributeQuote, pillActions));
   contentMd.addNewline().addBold('战斗属性').addNewline().addNewline();
-  contentMd.addContent(
-    [
-      '| 属性 | 数值 | 属性 | 数值 |',
-      '| :--- | ---: | :--- | ---: |',
-      `| 物理攻击 | ${formatPanelNumber(d.physicalAttack)} | 物理防御 | ${formatPanelNumber(d.physicalDefense)} |`,
-      `| 法术攻击 | ${formatPanelNumber(d.magicAttack)} | 法术防御 | ${formatPanelNumber(d.magicDefense)} |`,
-      `| 生命上限 | ${formatPanelNumber(d.hp)} | 灵力上限 | ${formatPanelNumber(d.spiritualPower)} |`,
-      `| 速度 | ${formatPanelNumber(d.speed)} | 念力上限 | ${formatPanelNumber(d.mentalPower)} |`,
-      `| 暴击率 | ${formatPanelNumber(d.critRate)}% | 暴击伤害 | ${formatPanelNumber(d.critDamage)}% |`,
-      `| 抗暴率 | ${formatPanelNumber(d.antiCritRate)}% | 命中率 | ${formatPanelNumber(d.hitRate)}% |`,
-      ...(d.mpRecoveryEfficiency !== undefined && d.mentalRecoveryEfficiency !== undefined
-        ? [`| 回灵效率 | ${formatPanelNumber(d.mpRecoveryEfficiency)}% | 回念效率 | ${formatPanelNumber(d.mentalRecoveryEfficiency)}% |`]
-        : []),
-      `| 闪避率 | ${formatPanelNumber(d.dodgeRate)}% | | |`
-    ].join('\n')
-  );
+  contentMd.addContent(battlePanelTable(d));
   contentMd.addNewline().addNewline();
-  if (d.resourceRecovery) {
-    contentMd.addBlockquote(recoverySummaryMarkdown(d.resourceRecovery, formatPanelNumber));
-  }
   await checkEncounterAfterPanel(
     e,
     'attributes',

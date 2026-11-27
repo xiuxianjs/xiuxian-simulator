@@ -1,3 +1,4 @@
+import type { BattlePanelNumbers } from '../bot/battle-panel-numbers';
 import type { PlayerTalents } from '../bot/talents';
 import type { SpiritRootView } from '../bot/spirit-root';
 export interface PublicPlayerProfileQueryData {
@@ -23,6 +24,7 @@ export interface PublicPlayerProfileQueryData {
     constitution: number;
     agility: number;
     luck: number;
+    combatPanel?: BattlePanelNumbers;
     battle: {
       physicalAttack: number;
       physicalDefense: number;

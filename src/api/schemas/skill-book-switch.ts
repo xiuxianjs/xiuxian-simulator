@@ -21,6 +21,7 @@ export type SkillBookSwitchSummary = {
 };
 
 export type SkillBookSwitchResponse = {
+  recoveryChanges?: string[];
   outcome: 'switched' | 'confirmation_required';
   skillBook: SkillBookSwitchSummary;
   oldSkillBook?: SkillBookSwitchSummary;

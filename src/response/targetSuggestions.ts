@@ -1,5 +1,6 @@
 import { listBubble } from '@src/response/presentation';
 import type { GameEvent } from '@src/types/event';
+import type { GuiFooter } from '@src/utils/messageHelper';
 import { isPrivateEvent } from '@src/utils/privateEvent';
 
 export function parseTargetSuggestions<T>(value: unknown, parseResult: (value: unknown) => T) {
@@ -26,10 +27,24 @@ export function parseTargetSuggestions<T>(value: unknown, parseResult: (value: u
 export function targetSuggestionsBubble(
   event: GameEvent,
   command:
-    '打劫' | '比试' | '三连打劫' | '十连比试' | '查看信息' | '查看灵田' | '结交' | '删除好友' | '邀请入队' | '拜师' | '队伍踢出' | '转让队长' | '队伍位置设置',
+    | '打劫'
+    | '比试'
+    | '三连打劫'
+    | '十连比试'
+    | '查看信息'
+    | '查看配装'
+    | '查看灵田'
+    | '结交'
+    | '删除好友'
+    | '邀请入队'
+    | '拜师'
+    | '队伍踢出'
+    | '转让队长'
+    | '队伍位置设置',
   ids: number[],
   reason?: string,
-  position?: number
+  position?: number,
+  footer?: GuiFooter
 ) {
   const team = command === '队伍踢出' || command === '转让队长' || command === '队伍位置设置';
   const friend = command === '删除好友';
@@ -49,6 +64,7 @@ export function targetSuggestionsBubble(
 
   return listBubble({
     title,
+    footer,
     bid: event.UserId,
     isPrivate: isPrivateEvent(event),
     items: ids.length
