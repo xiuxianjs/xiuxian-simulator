@@ -223,18 +223,16 @@ export default function AttributePanel({ data }: Props) {
           <CombatRow l1='速度' v1={d.speed} l2='念力上限' v2={d.mentalPower} c1={T.amber} c2={T.green} themeTokens={themeTokens} />
           <CombatRow l1='暴击率' v1={d.critRate} l2='暴击伤害' v2={d.critDamage} suffix='%' c1='#b87030' c2='#b87030' themeTokens={themeTokens} />
           <CombatRow l1='抗暴率' v1={d.antiCritRate} l2='命中率' v2={d.hitRate} suffix='%' c1={T.janglan} c2={T.janglan} themeTokens={themeTokens} />
-          {d.mpRecoveryEfficiency !== undefined && d.mentalRecoveryEfficiency !== undefined && (
-            <CombatRow
-              l1='回灵效率'
-              v1={d.mpRecoveryEfficiency}
-              l2='回念效率'
-              v2={d.mentalRecoveryEfficiency}
-              suffix='%'
-              c1={T.cyan}
-              c2={T.green}
-              themeTokens={themeTokens}
-            />
-          )}
+          <CombatRow
+            l1='回灵效率'
+            v1={d.mpRecoveryEfficiency ?? 0}
+            l2='回念效率'
+            v2={d.mentalRecoveryEfficiency ?? 0}
+            suffix='%'
+            c1={T.cyan}
+            c2={T.green}
+            themeTokens={themeTokens}
+          />
           <CombatRow l1='闪避率' v1={d.dodgeRate} suffix='%' c1={T.janglan} themeTokens={themeTokens} />
         </div>
       </PanelCard>

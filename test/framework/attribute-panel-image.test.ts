@@ -20,7 +20,7 @@ const panel = {
 };
 const image = 'https://offline.example.test/attribute-panel.png';
 
-for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] as const) {
+for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 'missing-recovery'] as const) {
   test(`属性面板图片与文字路由 ${mode}`, async t => {
     const render = t.mock.method(ImageCache.prototype, 'getOrCreate', async () => mode === 'render-failed' ? null : image);
     const data = mode === 'text' ? {
@@ -39,6 +39,8 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] 
           }
         ]
       }
+    } : mode === 'missing-recovery' ? {
+      ...panel, mpRecoveryEfficiency: undefined, mentalRecoveryEfficiency: undefined, resourceRecovery: undefined
     } : panel;
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data), 200, {}, 30000);
     await app.mount({ responseRouter: router });
@@ -48,10 +50,11 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] 
       ]);
     }
 
-    const options = { text: mode === 'text' ? '/属性面板' : '/属性面板图', platform: 'qq-bot' };
+    const textOnly = mode === 'text' || mode === 'missing-recovery';
+    const options = { text: textOnly ? '/属性面板' : '/属性面板图', platform: 'qq-bot' };
     const result = await app.dispatch(mode === 'private' ? app.events.privateMessage(options) : app.events.groupMessage(options));
     assert.equal(requests.filter(request => request.path.endsWith('/attributes.panel')).length, 1);
-    assert.equal(render.mock.callCount(), mode === 'text' ? 0 : 1);
+    assert.equal(render.mock.callCount(), textOnly ? 0 : 1);
     const attemptsImage = mode === 'group' || mode === 'private' || mode === 'send-failed';
     assert.equal(result.messages.length, attemptsImage ? 2 : 1);
     if (attemptsImage) {
@@ -67,8 +70,9 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text'] 
     if (mode === 'group' || mode === 'private') {
       assert.doesNotMatch(controls.text, /回灵效率|回念效率/);
     } else {
-      const expectedMental = mode === 'text' ? '0%' : '1,234.56789%';
-      assert.ok(controls.text.includes(`| 回灵效率 | 5% | 回念效率 | ${expectedMental} |`));
+      const expectedMP = mode === 'missing-recovery' ? '0%' : '5%';
+      const expectedMental = textOnly ? '0%' : '1,234.56789%';
+      assert.ok(controls.text.includes(`| 回灵效率 | ${expectedMP} | 回念效率 | ${expectedMental} |`));
       assert.equal(controls.text.match(/回灵效率/g)?.length, 1);
       assert.equal(controls.text.match(/回念效率/g)?.length, 1);
     }

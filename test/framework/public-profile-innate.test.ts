@@ -30,9 +30,8 @@ for (const state of ['public', 'hidden', 'ungranted', 'legacy', 'self']) {
     } else {
       assert.match(view.text, /战斗属性/);
       assert.match(view.text, /物理攻击 \|/);
-      if (state !== 'legacy') {
-        assert.match(view.text, /回灵效率 \| 0% \| 回念效率 \| 12\.5%/);
-      }
+      const recoveryRow = state === 'legacy' ? '回灵效率 | 0% | 回念效率 | 0%' : '回灵效率 | 0% | 回念效率 | 12.5%';
+      assert.ok(view.text.includes(recoveryRow));
     }
     if (state === 'public' || state === 'self') {
       assert.match(view.text, /灵根：目标灵根 · 玄品/);
