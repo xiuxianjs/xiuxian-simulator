@@ -117,7 +117,7 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
           combatPower: facts.combatPower,
           realmName: facts.homeView.realmName,
           spiritRootTitle: facts.homeView.spiritRootTitle ?? '暂无',
-          experienceText: typeof experienceLimit === 'number' ? `${experience}/${formatGameAmount(experienceLimit)}` : experience,
+          experienceText: typeof experienceLimit === 'number' ? `${experience} / ${formatGameAmount(experienceLimit)}` : experience,
           qi: {
             current: facts.qi.current,
             cap: facts.qi.cap,

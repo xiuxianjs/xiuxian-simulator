@@ -47,13 +47,14 @@ for (const privateChat of [false, true]) {
         atmosphere: { text: null, kind: 'none' }
       });
     });
-    const event = () => privateChat ? app.events.privateMessage({ text: '/我的资料', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' });
-    const result = await app.runHandler(handler, event());
+    await app.mount({ responseRouter: router });
+    const event = () => privateChat ? app.events.privateMessage({ text: '/我的信息', platform: 'qq-bot' }) : app.events.groupMessage({ text: '/我的资料', platform: 'qq-bot' });
+    const result = await app.dispatch(event());
     assert.deepEqual(result.errors, []);
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(result.messages[0].nodes);
-    assert.match(view.text, /修为：119.96万\/236.8万/);
+    assert.match(view.text, /修为：119\.96万 \/ 236\.8万/);
     assert.ok(view.commands.includes('/服用 聚灵丹 1'));
     assert.match(view.text, /未读飞信 3/);
     assert.match(view.text, /未送达通知 2/);
