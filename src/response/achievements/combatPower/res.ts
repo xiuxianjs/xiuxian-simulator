@@ -81,7 +81,7 @@ export default onResponse(selects, async e => {
       return;
     }
 
-    md.addText(`战力：${currentPower.toLocaleString()} · 进度：${completedCount}/${totalCount} · 待领取：${claimableCount}`);
+    md.addText(`战力（成就口径）：${currentPower.toLocaleString()} · 进度：${completedCount}/${totalCount} · 待领取：${claimableCount}`);
     md.addNewline();
     md.addNewline();
 

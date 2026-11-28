@@ -77,6 +77,9 @@ for (const entry of frames) for (const isPrivate of [false, true]) {
     const view = inspectMessage(result.messages[0].nodes);
     assert.equal(requests.length, 1);
     assert.ok(view.text.includes(entry.text), view.text);
+    if (entry.text === '还差：50战力') {
+      assert.ok(view.text.includes('战力（成就口径）：150'), view.text);
+    }
     assert.ok(view.commands.includes(entry.expected));
     assert.ok(!view.commands.some(command => /^\/(?:一键领取成就|成就 战力 (?:一键)?领取)$/.test(command)));
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
