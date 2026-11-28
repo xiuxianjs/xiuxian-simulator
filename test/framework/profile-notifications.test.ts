@@ -37,7 +37,12 @@ for (const privateChat of [false, true]) {
       }
 
       return businessEnvelope(r.bid, {
-        profile,
+        profile: {
+          ...profile,
+          user: { ...profile.user, experience: 1199586 },
+          realm: { id: 1, name: '炼气', level: 1, stageLevel: 1, experienceLimit: 2368000 },
+          homeView: { ...profile.homeView, experienceText: '1.199586e+06/2.368e+06' }
+        },
         notifications: pending ? [{ type: 'UNREAD_EMAIL', count: 1 }, { type: 'UNREAD_FLYMAIL', count: 3 }, { type: 'UNDELIVERED_NOTIFICATION', count: 2 }] : [],
         atmosphere: { text: null, kind: 'none' }
       });
@@ -48,6 +53,8 @@ for (const privateChat of [false, true]) {
     assert.equal(result.messages.length, 1);
     assert.equal(result.actions[result.messages[0].actionIndex].results?.[0].code, ResultCode.Ok);
     const view = inspectMessage(result.messages[0].nodes);
+    assert.match(view.text, /修为：119.96万\/236.8万/);
+    assert.ok(view.commands.includes('/服用 聚灵丹 1'));
     assert.match(view.text, /未读飞信 3/);
     assert.match(view.text, /未送达通知 2/);
     assert.ok(view.commands.includes('/飞信'));

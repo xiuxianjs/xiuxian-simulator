@@ -2,6 +2,20 @@
  * 通用格式化工具
  */
 
+export const formatFullNumber = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 21 }).format;
+const formatLargeNumber = new Intl.NumberFormat('zh-CN', { notation: 'compact', maximumFractionDigits: 2 }).format;
+
+/** 面板数值满万时使用中文单位，小数值保留原有精度与千位分隔。 */
+export function formatGameAmount(value: number): string {
+  const magnitude = Math.abs(value);
+
+  if (magnitude < 10000) {
+    return formatFullNumber(value);
+  }
+
+  return magnitude <= Number.MAX_SAFE_INTEGER ? formatNumber(value) : formatLargeNumber(value);
+}
+
 /** 格式化大数字为中文可读形式（万 / 亿） */
 export function formatNumber(n: number | bigint): string {
   if (typeof n === 'number' && !Number.isInteger(n)) {

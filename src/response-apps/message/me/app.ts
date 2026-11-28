@@ -1,6 +1,7 @@
 import type { HomeOverviewData } from '@src/api/schemas/player-overview';
 import type { HomeNotificationItem } from '@src/api/schemas/home-notification-query';
 import type { CodeResult } from '@src/types/result';
+import { formatGameAmount } from '@src/utils/formatHelper';
 import { logger } from 'alemonjs';
 
 export type MeHomeResource = {
@@ -90,6 +91,8 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
     const notifications = overview.notifications;
 
     const access = facts.access;
+    const experience = formatGameAmount(user.experience);
+    const experienceLimit = facts.realm?.experienceLimit;
 
     return {
       code: 'OK',
@@ -114,7 +117,7 @@ export default function App(overview: HomeOverviewData): MeHomeResult {
           combatPower: facts.combatPower,
           realmName: facts.homeView.realmName,
           spiritRootTitle: facts.homeView.spiritRootTitle ?? '暂无',
-          experienceText: facts.homeView.experienceText,
+          experienceText: typeof experienceLimit === 'number' ? `${experience}/${formatGameAmount(experienceLimit)}` : experience,
           qi: {
             current: facts.qi.current,
             cap: facts.qi.cap,

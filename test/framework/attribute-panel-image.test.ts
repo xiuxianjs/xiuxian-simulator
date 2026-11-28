@@ -13,7 +13,7 @@ const panel = {
   maxAttributeBonus: 3, strength: 1480, maxStrength: 5350, intelligence: 169, maxIntelligence: 535,
   constitution: 157, maxConstitution: 535, agility: 1, maxAgility: 236, luck: 56, maxLuck: 535,
   combatPower: 1255, physicalAttack: 1616, physicalDefense: 844, magicAttack: 1679, magicDefense: 881,
-  spiritualPower: 920, mentalPower: 100, hp: 5630, speed: 177, critRate: 20, critDamage: 164,
+  spiritualPower: 920, mentalPower: 100, hp: 341323, speed: 177, critRate: 20, critDamage: 164,
   antiCritRate: 0, hitRate: 0, dodgeRate: 0, mpRecoveryEfficiency: 5, mentalRecoveryEfficiency: 1234.56789,
   access: { canUseMeridian: true, canUseSoulArtifact: false, canUseSoulPath: true },
   resourceRecovery: { configured: true, enabled: true, cap: 100, mpTotal: 5, mentalTotal: 8, mp: 5, mental: 8, sources: [], note: '恢复效率说明' }
@@ -81,7 +81,8 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 
         'MID：100001', '战力：1,255', '自由属性 · 上限加成 +3%',
         '力量（28%）　1,480 / 5,350', '智慧（32%）　169 / 535', '体质（29%）　157 / 535',
         '敏捷（1%）　1 / 236', '气运（10%）　56 / 535',
-        '| 物理攻击 | 1,616 | 物理防御 | 844 |'
+        '| 物理攻击 | 1,616 | 物理防御 | 844 |',
+        '| 生命上限 | 34.13万 | 灵力上限 | 920 |'
       ]) {
         assert.ok(controls.text.includes(text), text);
       }

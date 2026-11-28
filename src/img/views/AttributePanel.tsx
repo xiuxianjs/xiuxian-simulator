@@ -1,5 +1,6 @@
 import type { ResourceRecoverySummary } from '@src/api/schemas/resource-recovery';
 import type { ThemeConfig } from '@src/types/theme';
+import { formatGameAmount } from '@src/utils/formatHelper';
 import classNames from 'classnames';
 import * as React from 'react';
 import { buildTokens, PanelCard, PanelFailure, PanelFooterBar, PanelHeroHeader, PanelShell, type TTokens } from './_panelShared';
@@ -126,9 +127,9 @@ function CombatRow({
   themeTokens
 }: {
   l1: string;
-  v1: number | string;
+  v1: number;
   l2?: string;
-  v2?: number | string;
+  v2?: number;
   suffix?: string;
   c1?: string;
   c2?: string;
@@ -145,8 +146,7 @@ function CombatRow({
           {l1}
         </span>
         <span className={classNames('text-[18px] font-bold')} style={{ color: valColor1, fontFamily: 'tttgbnumber, monospace' }}>
-          {v1}
-          {suffix}
+          {suffix ? `${v1}${suffix}` : formatGameAmount(v1)}
         </span>
       </div>
       {l2 !== undefined && v2 !== undefined && (
@@ -157,8 +157,7 @@ function CombatRow({
               {l2}
             </span>
             <span className={classNames('text-[18px] font-bold')} style={{ color: valColor2, fontFamily: 'tttgbnumber, monospace' }}>
-              {v2}
-              {suffix}
+              {suffix ? `${v2}${suffix}` : formatGameAmount(v2)}
             </span>
           </div>
         </>
