@@ -20,7 +20,7 @@ const panel = {
 };
 const image = 'https://offline.example.test/attribute-panel.png';
 
-for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 'missing-recovery'] as const) {
+for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 'precise-text', 'missing-recovery'] as const) {
   test(`属性面板图片与文字路由 ${mode}`, async t => {
     const render = t.mock.method(ImageCache.prototype, 'getOrCreate', async () => mode === 'render-failed' ? null : image);
     const data = mode === 'text' ? {
@@ -41,6 +41,9 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 
       }
     } : mode === 'missing-recovery' ? {
       ...panel, mpRecoveryEfficiency: undefined, mentalRecoveryEfficiency: undefined, resourceRecovery: undefined
+    } : mode === 'precise-text' ? {
+      ...panel, critRate: 0, hitRate: 4, mpRecoveryEfficiency: 5.1, mentalRecoveryEfficiency: 12.34567,
+      criticalRates: { critRate: 0.29, critDamage: 164.5, antiCritRate: 0.006 }
     } : panel;
     const { app, requests } = await gameFixture(t, request => businessEnvelope(request.bid, data), 200, {}, 30000);
     await app.mount({ responseRouter: router });
@@ -50,7 +53,7 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 
       ]);
     }
 
-    const textOnly = mode === 'text' || mode === 'missing-recovery';
+    const textOnly = mode === 'text' || mode === 'precise-text' || mode === 'missing-recovery';
     const options = { text: textOnly ? '/属性面板' : '/属性面板图', platform: 'qq-bot' };
     const result = await app.dispatch(mode === 'private' ? app.events.privateMessage(options) : app.events.groupMessage(options));
     assert.equal(requests.filter(request => request.path.endsWith('/attributes.panel')).length, 1);
@@ -70,11 +73,16 @@ for (const mode of ['group', 'private', 'render-failed', 'send-failed', 'text', 
     if (mode === 'group' || mode === 'private') {
       assert.doesNotMatch(controls.text, /回灵效率|回念效率/);
     } else {
-      const expectedMP = mode === 'missing-recovery' ? '0%' : '5%';
-      const expectedMental = textOnly ? '0%' : '1,234.56789%';
+      const expectedMP = mode === 'missing-recovery' ? '0%' : mode === 'precise-text' ? '5.1%' : '5%';
+      const expectedMental = mode === 'text' || mode === 'missing-recovery' ? '0%' : mode === 'precise-text' ? '12.35%' : '1,234.57%';
       assert.ok(controls.text.includes(`| 回灵效率 | ${expectedMP} | 回念效率 | ${expectedMental} |`));
       assert.equal(controls.text.match(/回灵效率/g)?.length, 1);
       assert.equal(controls.text.match(/回念效率/g)?.length, 1);
+    }
+    if (mode === 'precise-text') {
+      assert.ok(controls.text.includes('| 暴击率 | 0.29% | 暴击伤害 | 164.5% |'));
+      assert.ok(controls.text.includes('| 抗暴率 | 0.01% | 命中率 | 4% |'));
+      assert.ok(controls.text.includes('| 闪避率 | 0% | | |'));
     }
     if (mode !== 'group' && mode !== 'private') {
       for (const text of [

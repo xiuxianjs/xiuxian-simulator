@@ -10,6 +10,8 @@ import { addOptions, FormatGui } from '@src/utils/messageHelper';
 import { useMessage } from '@src/utils/useMessage';
 import { Format, logger, onResponse, ResultCode, useEvent } from 'alemonjs';
 
+const formatBattlePercent = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format;
+
 const pillActions = [
   { label: '✛1', command: '/服用 培元丹 1' },
   { label: '✛3', command: '/服用 培元丹 3' },
@@ -83,7 +85,7 @@ const response = onResponse(selects, async e => {
     let imageSent = false;
 
     try {
-      const { access: _access, resourceRecovery: _recovery, ...stats } = d;
+      const { access: _access, resourceRecovery: _recovery, criticalRates: _criticalRates, ...stats } = d;
       const image = await renderCachedImage(AttributePanel, { ...stats, avatarURL: e.UserAvatar }, 'panel:attributes');
 
       if (image) {
@@ -131,7 +133,7 @@ const response = onResponse(selects, async e => {
 
   contentMd.addBlockquote(addOptions(attributeQuote, pillActions));
   contentMd.addNewline().addBold('战斗属性').addNewline().addNewline();
-  contentMd.addContent(battlePanelTable(d));
+  contentMd.addContent(battlePanelTable({ ...d, ...d.criticalRates }, formatBattlePercent));
   contentMd.addNewline().addNewline();
   await checkEncounterAfterPanel(
     e,

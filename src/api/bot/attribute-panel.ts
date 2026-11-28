@@ -34,6 +34,7 @@ export type BackendAttributePanel = {
   antiCritRate: number;
   hitRate: number;
   dodgeRate: number;
+  criticalRates?: { critRate: number; critDamage: number; antiCritRate: number };
   theme: Record<string, unknown> | null;
   access: { canUseMeridian: boolean; canUseSoulArtifact: boolean; canUseSoulPath: boolean };
 };
@@ -124,6 +125,15 @@ export function parseAttributePanel(value: unknown, uid: number): BackendAttribu
     dodgeRate: integerField(data, 'dodgeRate')
   };
 
+  if (data.criticalRates !== undefined) {
+    const rates = record(data.criticalRates);
+
+    output.criticalRates = {
+      critRate: numberField(rates, 'critRate'),
+      critDamage: numberField(rates, 'critDamage'),
+      antiCritRate: numberField(rates, 'antiCritRate')
+    };
+  }
   output.resourceRecovery = parseRecoverySummary(data.resourceRecovery);
   for (const key of ['mpRecoveryEfficiency', 'mentalRecoveryEfficiency'] as const) {
     if (data[key] !== undefined) {
